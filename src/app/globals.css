@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --line-green: #06C755;
+  --line-dark:  #05A847;
+}
+
+/* LINE ミニアプリ向け: スクロールバーを非表示 */
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* タップハイライトを無効化 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
