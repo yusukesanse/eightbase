@@ -18,8 +18,8 @@ export async function initLiff(): Promise<Liff> {
 }
 
 /**
- * LINE ユーザー ID を取得する。
- * 未ログインの場合、LINE アプリ内・外部ブラウザ両方で LINE ログインへリダイレクトする。
+ * LINE ユーザー ID を取得する（ログイン必須）。
+ * 未ログインの場合、LINE ログインへリダイレクトする。
  */
 export async function getLineUserId(): Promise<string> {
   const liff = await initLiff();
@@ -36,16 +36,41 @@ export async function getLineUserId(): Promise<string> {
 }
 
 /**
- * LINE プロフィールを取得する。
- * 未ログインの場合、LINE アプリ内・外部ブラウザ両方で LINE ログインへリダイレクトする。
+ * ログイン済みなら LINE ユーザー ID を返す。
+ * 未ログインの場合はリダイレクトせず null を返す。
+ * ページ初期読み込み時に使い、閲覧はログインなしでも可能にする。
+ */
+export async function tryGetLineUserId(): Promise<string | null> {
+  try {
+    const liff = await initLiff();
+    if (!liff.isLoggedIn()) return null;
+    const profile = await liff.getProfile();
+    return profile.userId;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * LINE ログインへリダイレクトする。
+ * グッドボタン押下時など、明示的にログインが必要な場面で呼ぶ。
+ */
+export async function loginWithLine(): Promise<void> {
+  const liff = await initLiff();
+  if (!liff.isLoggedIn()) {
+    liff.login({ redirectUri: window.location.href });
+  }
+}
+
+/**
+ * LINE プロフィールを取得する（ログイン必須）。
+ * 未ログインの場合、LINE ログインへリダイレクトする。
  */
 export async function getLineProfile() {
   const liff = await initLiff();
 
   if (!liff.isLoggedIn()) {
-    // LINE アプリ内・外部ブラウザ両方で LINE ログインへリダイレクト
     liff.login({ redirectUri: window.location.href });
-    // login() はリダイレクトするため、ここには到達しない
     throw new Error("Redirecting to LINE login");
   }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { TopBar } from "@/components/ui/TopBar";
-import { getLineUserId } from "@/lib/liff";
+import { tryGetLineUserId, loginWithLine } from "@/lib/liff";
 import type { NufEvent } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -32,13 +32,8 @@ export default function EventsPage() {
 
   useEffect(() => {
     (async () => {
-      let uid = "";
-      try {
-        uid = await getLineUserId();
-        setUserId(uid);
-      } catch {
-        // 未ログイン — グッドはできないが閲覧は可能
-      }
+      const uid = await tryGetLineUserId();
+      if (uid) setUserId(uid);
       const headers: Record<string, string> = {};
       if (uid) headers["x-line-user-id"] = uid;
 
@@ -51,7 +46,11 @@ export default function EventsPage() {
 
   const handleToggleGood = useCallback(
     async (eventId: string) => {
-      if (!userId) return;
+      if (!userId) {
+        // 未ログイン → LINE ログインへリダイレクト
+        await loginWithLine();
+        return;
+      }
 
       // 楽観的UI更新
       setEvents((prev) =>
@@ -109,7 +108,6 @@ export default function EventsPage() {
                 key={ev.eventId}
                 event={ev}
                 onToggleGood={handleToggleGood}
-                canGood={!!userId}
               />
             ))}
           </>
@@ -168,11 +166,9 @@ function GoodDisplay({ count }: { count: number }) {
 function EventCard({
   event: ev,
   onToggleGood,
-  canGood,
 }: {
   event: EventWithGood;
   onToggleGood: (eventId: string) => void;
-  canGood: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const style = getCategoryStyle(ev.category);
@@ -211,13 +207,11 @@ function EventCard({
         <div className="flex items-center gap-2 mt-2">
           <button
             onClick={() => onToggleGood(ev.eventId)}
-            disabled={!canGood}
             className={clsx(
               "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
               ev.liked
                 ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100",
-              !canGood && "opacity-50 cursor-default"
+                : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
             )}
           >
             <GoodIcon filled={ev.liked} size={14} />

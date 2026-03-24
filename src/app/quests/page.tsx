@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { TopBar } from "@/components/ui/TopBar";
-import { getLineUserId } from "@/lib/liff";
+import { tryGetLineUserId, loginWithLine } from "@/lib/liff";
 import type { Quest, UserQuestProgress } from "@/types";
 
 interface QuestWithProgress extends Quest {
@@ -20,16 +20,18 @@ export default function QuestsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const id = await getLineUserId();
-        setUserId(id);
-        const res = await fetch("/api/quests", {
-          headers: { "x-line-user-id": id },
-        });
+        const uid = await tryGetLineUserId();
+        if (uid) setUserId(uid);
+
+        const headers: Record<string, string> = {};
+        if (uid) headers["x-line-user-id"] = uid;
+
+        const res = await fetch("/api/quests", { headers });
         const d = await res.json();
         setQuests(d.quests ?? []);
         setPoints(d.totalPoints ?? 0);
       } catch {
-        // 未ログイン
+        // LIFF 初期化失敗時もクエスト一覧は表示
       } finally {
         setLoading(false);
       }
@@ -38,7 +40,11 @@ export default function QuestsPage() {
 
   const handleToggleGood = useCallback(
     async (questId: string) => {
-      if (!userId) return;
+      if (!userId) {
+        // 未ログイン → LINE ログインへリダイレクト
+        await loginWithLine();
+        return;
+      }
 
       // 楽観的UI更新
       setQuests((prev) =>
@@ -110,7 +116,6 @@ export default function QuestsPage() {
                     key={q.questId}
                     quest={q}
                     onToggleGood={handleToggleGood}
-                    canGood={!!userId}
                   />
                 ))}
               </>
@@ -124,7 +129,6 @@ export default function QuestsPage() {
                     quest={q}
                     completed
                     onToggleGood={handleToggleGood}
-                    canGood={!!userId}
                   />
                 ))}
               </>
@@ -186,12 +190,10 @@ function QuestCard({
   quest: q,
   completed = false,
   onToggleGood,
-  canGood,
 }: {
   quest: QuestWithProgress;
   completed?: boolean;
   onToggleGood: (questId: string) => void;
-  canGood: boolean;
 }) {
   const current = q.progress?.currentCount ?? 0;
   const pct = Math.min(100, Math.round((current / q.requiredCount) * 100));
@@ -233,12 +235,11 @@ function QuestCard({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onToggleGood(q.questId)}
-            disabled={!canGood}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
               q.liked
                 ? "bg-amber-50 text-amber-700 border border-amber-200"
                 : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
-            } ${!canGood ? "opacity-50 cursor-default" : ""}`}
+            }`}
           >
             <GoodIcon filled={q.liked} size={14} />
             <span>{q.goodCount}</span>
