@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TopBar } from "@/components/ui/TopBar";
+import { getLineUserId } from "@/lib/liff";
 import type { NufEvent } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
+
+interface EventWithGood extends NufEvent {
+  goodCount: number;
+  liked: boolean;
+}
 
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   networking: { bg: "bg-teal-50", text: "text-teal-800", label: "ネットワーキング" },
@@ -20,15 +26,69 @@ function getCategoryStyle(cat: string) {
 }
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<NufEvent[]>([]);
+  const [events, setEvents] = useState<EventWithGood[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
-    fetch("/api/events")
-      .then((r) => r.json())
-      .then((d) => setEvents(d.events ?? []))
-      .finally(() => setLoading(false));
+    (async () => {
+      let uid = "";
+      try {
+        uid = await getLineUserId();
+        setUserId(uid);
+      } catch {
+        // 未ログイン — グッドはできないが閲覧は可能
+      }
+      const headers: Record<string, string> = {};
+      if (uid) headers["x-line-user-id"] = uid;
+
+      const res = await fetch("/api/events", { headers });
+      const d = await res.json();
+      setEvents(d.events ?? []);
+      setLoading(false);
+    })();
   }, []);
+
+  const handleToggleGood = useCallback(
+    async (eventId: string) => {
+      if (!userId) return;
+
+      // 楽観的UI更新
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.eventId === eventId
+            ? {
+                ...ev,
+                liked: !ev.liked,
+                goodCount: ev.liked ? ev.goodCount - 1 : ev.goodCount + 1,
+              }
+            : ev
+        )
+      );
+
+      try {
+        const res = await fetch(`/api/events/${eventId}/good`, {
+          method: "POST",
+          headers: { "x-line-user-id": userId },
+        });
+        if (!res.ok) throw new Error();
+      } catch {
+        // 失敗時はロールバック
+        setEvents((prev) =>
+          prev.map((ev) =>
+            ev.eventId === eventId
+              ? {
+                  ...ev,
+                  liked: !ev.liked,
+                  goodCount: ev.liked ? ev.goodCount - 1 : ev.goodCount + 1,
+                }
+              : ev
+          )
+        );
+      }
+    },
+    [userId]
+  );
 
   return (
     <div>
@@ -45,7 +105,12 @@ export default function EventsPage() {
           <>
             <p className="text-xs font-medium text-gray-400">開催予定</p>
             {events.map((ev) => (
-              <EventCard key={ev.eventId} event={ev} />
+              <EventCard
+                key={ev.eventId}
+                event={ev}
+                onToggleGood={handleToggleGood}
+                canGood={!!userId}
+              />
             ))}
           </>
         )}
@@ -54,7 +119,61 @@ export default function EventsPage() {
   );
 }
 
-function EventCard({ event: ev }: { event: NufEvent }) {
+/* ───────── グッドアイコン表示 ───────── */
+
+function GoodIcon({ filled, size = 14 }: { filled?: boolean; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? "#06C755" : "none"}
+      stroke={filled ? "#06C755" : "currentColor"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 10v12" />
+      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+    </svg>
+  );
+}
+
+function GoodDisplay({ count }: { count: number }) {
+  if (count === 0) return null;
+
+  const displayCount = Math.min(count, 10);
+  const overflow = count > 10 ? count - 10 : 0;
+
+  return (
+    <div className="flex items-center gap-0.5 mt-1.5">
+      <div className="flex -space-x-1">
+        {Array.from({ length: displayCount }).map((_, i) => (
+          <span key={i} className="inline-block">
+            <GoodIcon filled size={12} />
+          </span>
+        ))}
+      </div>
+      {overflow > 0 && (
+        <span className="text-[10px] font-medium text-green-600 ml-1">
+          +{overflow}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ───────── イベントカード ───────── */
+
+function EventCard({
+  event: ev,
+  onToggleGood,
+  canGood,
+}: {
+  event: EventWithGood;
+  onToggleGood: (eventId: string) => void;
+  canGood: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const style = getCategoryStyle(ev.category);
   const start = dayjs(ev.startAt);
@@ -87,6 +206,27 @@ function EventCard({ event: ev }: { event: NufEvent }) {
           </svg>
           {ev.location}
         </div>
+
+        {/* グッドボタン + 表示 */}
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            onClick={() => onToggleGood(ev.eventId)}
+            disabled={!canGood}
+            className={clsx(
+              "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
+              ev.liked
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100",
+              !canGood && "opacity-50 cursor-default"
+            )}
+          >
+            <GoodIcon filled={ev.liked} size={14} />
+            <span>{ev.goodCount}</span>
+          </button>
+        </div>
+
+        {/* グッドアイコン並び表示 */}
+        <GoodDisplay count={ev.goodCount} />
 
         {/* 詳細展開 */}
         <button

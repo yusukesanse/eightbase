@@ -15,6 +15,7 @@ interface EventItem {
   published: boolean;
   scheduledAt?: string;
   createdAt?: string;
+  goodCount?: number;
 }
 
 const EMPTY_FORM: Omit<EventItem, "eventId" | "createdAt"> = {
@@ -244,6 +245,7 @@ export default function AdminEventsPage() {
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">タイトル</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">カテゴリ</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">開始日時</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">グッド</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">ステータス</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">予約時刻</th>
                 <th className="px-6 py-3" />
@@ -259,6 +261,15 @@ export default function AdminEventsPage() {
                   <td className="px-6 py-3 text-gray-500">{ev.category}</td>
                   <td className="px-6 py-3 text-gray-600 whitespace-nowrap">
                     {ev.startAt ? dayjs(ev.startAt).format("YYYY/M/D HH:mm") : "—"}
+                  </td>
+                  <td className="px-6 py-3">
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-700">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#06C755" stroke="#06C755" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 10v12" />
+                        <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+                      </svg>
+                      {ev.goodCount ?? 0}
+                    </span>
                   </td>
                   <td className="px-6 py-3">{statusBadge(ev)}</td>
                   <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">

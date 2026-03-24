@@ -21,7 +21,21 @@ export async function GET(req: NextRequest) {
       .orderBy("startAt", "desc")
       .get();
 
-    const events = snap.docs.map((doc) => ({ eventId: doc.id, ...doc.data() }));
+    // グッド数を並行取得
+    const events = await Promise.all(
+      snap.docs.map(async (doc) => {
+        const goodsSnap = await db
+          .collection("events")
+          .doc(doc.id)
+          .collection("goods")
+          .get();
+        return {
+          eventId: doc.id,
+          ...doc.data(),
+          goodCount: goodsSnap.size,
+        };
+      })
+    );
     return NextResponse.json({ events });
   } catch (error) {
     console.error("[admin/events] GET error:", error);
