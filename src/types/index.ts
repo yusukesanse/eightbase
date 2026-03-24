@@ -64,7 +64,9 @@ export interface NufEvent {
   startAt: string;  // ISO8601
   endAt: string;
   location: string;
+  imageUrl?: string;
   published: boolean;
+  scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }
 
 // ─── ニュース ─────────────────────────────────────────────────────────────────
@@ -76,7 +78,9 @@ export interface NewsItem {
   body: string;
   category: NewsCategory;
   publishedAt: string;
+  imageUrl?: string;
   published: boolean;
+  scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }
 
 // ─── クエスト ─────────────────────────────────────────────────────────────────
@@ -87,6 +91,9 @@ export interface Quest {
   requiredCount: number;
   rewardPoints: number;
   category: string;
+  imageUrl?: string;
+  published?: boolean;
+  scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }
 
 export interface UserQuestProgress {

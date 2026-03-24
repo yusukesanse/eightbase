@@ -1,17 +1,23 @@
 import { google } from "googleapis";
 import dayjs from "dayjs";
+import utcPlugin from "dayjs/plugin/utc";
+dayjs.extend(utcPlugin);
 
-// ─── 認証クライアント ──────────────────────────────────────────────────────────
-function getAuthClient() {
-  return new google.auth.JWT({
+// ─── 認証クライアント（シングルトン） ────────────────────────────────────────
+// サーバーレス環境でも同じコールドスタート内なら再利用される
+let _calendar: ReturnType<typeof google.calendar> | null = null;
+
+function getCalendar(): ReturnType<typeof google.calendar> {
+  if (_calendar) return _calendar;
+
+  const auth = new google.auth.JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     scopes: ["https://www.googleapis.com/auth/calendar"],
   });
-}
 
-function getCalendar() {
-  return google.calendar({ version: "v3", auth: getAuthClient() });
+  _calendar = google.calendar({ version: "v3", auth });
+  return _calendar;
 }
 
 // ─── 空きスロット取得 ─────────────────────────────────────────────────────────
@@ -25,8 +31,9 @@ export async function getBookedSlots(
 ): Promise<{ start: string; end: string }[]> {
   const calendar = getCalendar();
 
-  const timeMin = dayjs(`${date}T00:00:00`).toISOString();
-  const timeMax = dayjs(`${date}T23:59:59`).toISOString();
+  // JST（+09:00）で日付範囲を指定する
+  const timeMin = dayjs(`${date}T00:00:00+09:00`).toISOString();
+  const timeMax = dayjs(`${date}T23:59:59+09:00`).toISOString();
 
   const res = await calendar.events.list({
     calendarId,
@@ -41,8 +48,9 @@ export async function getBookedSlots(
   return events
     .filter((e: { status?: string | null }) => e.status !== "cancelled")
     .map((e: { start?: { dateTime?: string | null; date?: string | null } | null; end?: { dateTime?: string | null; date?: string | null } | null }) => ({
-      start: dayjs(e.start?.dateTime ?? e.start?.date).format("HH:mm"),
-      end:   dayjs(e.end?.dateTime   ?? e.end?.date  ).format("HH:mm"),
+      // UTC→JST（+9h）に変換してから HH:mm を取得する
+      start: dayjs(e.start?.dateTime ?? e.start?.date).utc().add(9, "hour").format("HH:mm"),
+      end:   dayjs(e.end?.dateTime   ?? e.end?.date  ).utc().add(9, "hour").format("HH:mm"),
     }));
 }
 
@@ -93,8 +101,9 @@ export async function createCalendarEvent(
 ): Promise<string> {
   const calendar = getCalendar();
 
-  const startDateTime = dayjs(`${date}T${startTime}:00`).toISOString();
-  const endDateTime   = dayjs(`${date}T${endTime}:00`).toISOString();
+  // +09:00 を付与して JST として Google Calendar に登録する
+  const startDateTime = `${date}T${startTime}:00+09:00`;
+  const endDateTime   = `${date}T${endTime}:00+09:00`;
 
   const res = await calendar.events.insert({
     calendarId,

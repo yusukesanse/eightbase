@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import type { Quest, UserQuestProgress } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-line-user-id");
   if (!userId) {

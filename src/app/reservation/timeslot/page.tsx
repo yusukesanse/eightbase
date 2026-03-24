@@ -28,42 +28,16 @@ function timeToMin(t: string) {
   return h * 60 + m;
 }
 
-type SlotState = "free" | "taken" | "sel-start" | "sel-range" | "sel-end";
+type CellState = "booked" | "free" | "sel-start" | "sel-range" | "sel-end";
 
-function getSlotState(
-  slot: string,
-  bookedSlots: { start: string; end: string }[],
-  selStart: string | null,
-  selEnd: string | null
-): SlotState {
-  const sm = timeToMin(slot);
-
-  // 予約済み判定
-  for (const b of bookedSlots) {
-    if (sm >= timeToMin(b.start) && sm < timeToMin(b.end)) return "taken";
-  }
-
-  if (!selStart) return "free";
-
-  if (slot === selStart) return "sel-start";
-  if (selEnd && slot === selEnd) return "sel-end";
-  if (
-    selEnd &&
-    sm > timeToMin(selStart) &&
-    sm < timeToMin(selEnd)
-  )
-    return "sel-range";
-
-  return "free";
-}
-
-function TimeSlotContent() {
+function TimeslotContent() {
   const router = useRouter();
   const params = useSearchParams();
   const facilityId = params.get("facilityId") ?? "";
   const date = params.get("date") ?? "";
 
   const facility = getFacilityById(facilityId);
+  const dateLabel = dayjs(date).format("M月D日（ddd）");
 
   const [bookedSlots, setBookedSlots] = useState<{ start: string; end: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,8 +45,6 @@ function TimeSlotContent() {
   const [selEnd, setSelEnd] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [checking, setChecking] = useState(false);
-
-  const dateLabel = dayjs(date).format("M月D日（ddd）");
 
   // 予約済みスロット取得
   useEffect(() => {
@@ -85,20 +57,38 @@ function TimeSlotContent() {
       .finally(() => setLoading(false));
   }, [facilityId, date]);
 
-  // 開始・終了スロット選択
-  function handleSlotClick(slot: string) {
-    const state = getSlotState(slot, bookedSlots, null, null);
-    if (state === "taken") return;
+  function isBooked(slot: string): boolean {
+    const sm = timeToMin(slot);
+    return bookedSlots.some(
+      (b) => sm >= timeToMin(b.start) && sm < timeToMin(b.end)
+    );
+  }
+
+  function getCellState(slot: string): CellState {
+    if (isBooked(slot)) return "booked";
+    if (selStart) {
+      if (slot === selStart) return "sel-start";
+      if (selEnd && slot === selEnd) return "sel-end";
+      if (
+        selEnd &&
+        timeToMin(slot) > timeToMin(selStart) &&
+        timeToMin(slot) < timeToMin(selEnd)
+      )
+        return "sel-range";
+    }
+    return "free";
+  }
+
+  function handleCellClick(slot: string) {
+    if (isBooked(slot)) return;
 
     if (!selStart || (selStart && selEnd)) {
-      // 新規選択開始
       setSelStart(slot);
       setSelEnd(null);
       setAvailability(null);
       return;
     }
 
-    // 終了スロット選択（selStart より後のスロット）
     if (timeToMin(slot) <= timeToMin(selStart)) {
       setSelStart(slot);
       setSelEnd(null);
@@ -106,17 +96,17 @@ function TimeSlotContent() {
       return;
     }
 
-    // 選択範囲内に予約済みスロットがないか確認
+    // 範囲内の衝突チェック
     const hasConflict = bookedSlots.some((b) => {
       const bs = timeToMin(b.start);
       const be = timeToMin(b.end);
       const ss = timeToMin(selStart);
-      const se = timeToMin(slot) + 15; // 終了の1スロット後
+      const se = timeToMin(slot);
       return bs < se && be > ss;
     });
 
     if (hasConflict) {
-      alert("選択範囲内に予約済みの時間が含まれています。");
+      alert("選択範囲に予約済みの時間が含まれています。");
       return;
     }
 
@@ -124,15 +114,8 @@ function TimeSlotContent() {
     setAvailability(null);
   }
 
-  // 終了時刻（selEnd の次の15分）
-  const endTime = selEnd
-    ? (() => {
-        const m = timeToMin(selEnd) + 15;
-        return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-      })()
-    : null;
+  const endTime = selEnd ?? null;
 
-  // 空き確認
   async function handleCheck() {
     if (!selStart || !endTime) return;
     setChecking(true);
@@ -147,7 +130,6 @@ function TimeSlotContent() {
     }
   }
 
-  // 予約確認画面へ
   function handleConfirm() {
     if (!selStart || !endTime || !availability?.available) return;
     router.push(
@@ -155,53 +137,102 @@ function TimeSlotContent() {
     );
   }
 
-  const morningSlots = ALL_SLOTS.filter((s) => timeToMin(s) < 13 * 60);
-  const afternoonSlots = ALL_SLOTS.filter((s) => timeToMin(s) >= 13 * 60);
-
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <TopBar
-        title="NUF 施設予約"
-        subtitle={`${facility?.name ?? ""} — ${dateLabel}`}
+        title="EIGHT CANAL BASE 施設予約"
+        subtitle={`${facility?.name ?? ""} ー ${dateLabel}`}
       />
 
-      <div className="p-3 space-y-3">
+      <div className="p-3 space-y-3 flex-1">
         {/* ステップ */}
         <StepIndicator step={3} total={4} />
 
-        <section className="bg-white rounded-xl border border-gray-100 p-3">
-          <p className="text-xs font-medium text-gray-400 mb-2">
-            時間帯を選択（15分単位）
+        <section className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <p className="text-xs font-medium text-gray-400 px-3 pt-3 pb-2">
+            開始時刻・終了時刻を順にタップ（15分単位）
           </p>
 
-          {loading ? (
-            <div className="text-center text-xs text-gray-400 py-6">読み込み中...</div>
-          ) : (
-            <>
-              <p className="text-xs text-gray-400 font-medium mb-1.5">午前</p>
-              <SlotGrid
-                slots={morningSlots}
-                bookedSlots={bookedSlots}
-                selStart={selStart}
-                selEnd={selEnd}
-                onSlotClick={handleSlotClick}
-              />
+          {/* 空き状況テーブル */}
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 280px)" }}>
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-[10px] font-medium text-gray-400 px-3 py-2 text-left w-20 border-r border-gray-100">
+                    受付時刻
+                  </th>
+                  <th className="text-[10px] font-medium text-gray-600 px-3 py-2 text-center">
+                    {loading ? "読み込み中..." : "空き状況"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {ALL_SLOTS.map((slot) => {
+                  const state = getCellState(slot);
+                  const isHourBoundary = slot.endsWith(":00");
+                  return (
+                    <tr
+                      key={slot}
+                      className={clsx(
+                        "border-b border-gray-50",
+                        isHourBoundary && "border-t border-gray-100"
+                      )}
+                    >
+                      {/* 時刻ラベル */}
+                      <td
+                        className={clsx(
+                          "text-[11px] px-3 py-1.5 border-r border-gray-100 w-20",
+                          isHourBoundary ? "font-semibold text-gray-600" : "text-gray-400"
+                        )}
+                      >
+                        {slot}
+                      </td>
 
-              <p className="text-xs text-gray-400 font-medium mt-3 mb-1.5">午後</p>
-              <SlotGrid
-                slots={afternoonSlots}
-                bookedSlots={bookedSlots}
-                selStart={selStart}
-                selEnd={selEnd}
-                onSlotClick={handleSlotClick}
-              />
-            </>
-          )}
+                      {/* ○/× セル */}
+                      <td
+                        onClick={() => !loading && handleCellClick(slot)}
+                        className={clsx(
+                          "text-center py-1.5 select-none transition-colors",
+                          !loading && state !== "booked" && "cursor-pointer",
+                          state === "free" && "hover:bg-green-50",
+                          state === "booked" && "cursor-not-allowed",
+                          state === "sel-start" && "bg-[#06C755]",
+                          state === "sel-range" && "bg-green-100",
+                          state === "sel-end" && "bg-[#05A847]"
+                        )}
+                      >
+                        {loading ? (
+                          <span className="text-gray-200 text-sm">…</span>
+                        ) : state === "booked" ? (
+                          <span className="text-gray-300 text-base font-medium">×</span>
+                        ) : state === "free" ? (
+                          <span className="text-[#06C755] text-base font-medium">○</span>
+                        ) : state === "sel-start" ? (
+                          <span className="text-white text-base font-bold">●</span>
+                        ) : state === "sel-range" ? (
+                          <span className="text-green-600 text-base font-medium">○</span>
+                        ) : (
+                          <span className="text-white text-base font-bold">●</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/* 凡例 */}
-          <div className="flex gap-3 mt-3">
-            <Legend color="bg-[#06C755]" label="選択中" />
-            <Legend color="bg-gray-100 border border-gray-200" label="予約済み" />
+          <div className="flex gap-5 px-3 py-2 border-t border-gray-100">
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+              <span className="text-[#06C755] font-medium">○</span> 空き
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+              <span className="text-gray-300 font-medium">×</span> 予約済み
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+              <span className="text-[#06C755] font-bold">●</span> 選択中
+            </span>
           </div>
         </section>
       </div>
@@ -244,7 +275,7 @@ function TimeSlotContent() {
             onClick={handleConfirm}
             className="w-full py-3 rounded-xl text-sm font-medium bg-[#06C755] text-white"
           >
-            予約を確定する
+            予約内容を確認する
           </button>
         )}
 
@@ -253,13 +284,19 @@ function TimeSlotContent() {
             onClick={() => { setSelStart(null); setSelEnd(null); setAvailability(null); }}
             className="w-full py-3 rounded-xl text-sm font-medium bg-gray-200 text-gray-600"
           >
-            別の時間帯を選択する
+            別の時間帯を選び直す
           </button>
         )}
 
         {!selStart && (
           <p className="text-center text-xs text-gray-400 py-2">
-            開始スロットをタップして選択してください
+            開始時刻をタップし、次に終了時刻をタップしてください
+          </p>
+        )}
+
+        {selStart && !endTime && (
+          <p className="text-center text-xs text-gray-400 py-2">
+            <span className="font-medium text-gray-600">{selStart}</span> を選択中 — 次に終了時刻をタップ
           </p>
         )}
       </div>
@@ -267,63 +304,15 @@ function TimeSlotContent() {
   );
 }
 
-export default function TimeSlotPage() {
+export default function TimeslotPage() {
   return (
     <Suspense fallback={<div className="p-4 text-center text-sm text-gray-400">読み込み中...</div>}>
-      <TimeSlotContent />
+      <TimeslotContent />
     </Suspense>
   );
 }
 
-// ─── サブコンポーネント ─────────────────────────────────────────────────────────
-
-function SlotGrid({
-  slots,
-  bookedSlots,
-  selStart,
-  selEnd,
-  onSlotClick,
-}: {
-  slots: string[];
-  bookedSlots: { start: string; end: string }[];
-  selStart: string | null;
-  selEnd: string | null;
-  onSlotClick: (s: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-4 gap-1">
-      {slots.map((slot) => {
-        const state = getSlotState(slot, bookedSlots, selStart, selEnd);
-        return (
-          <button
-            key={slot}
-            onClick={() => onSlotClick(slot)}
-            disabled={state === "taken"}
-            className={clsx(
-              "text-[10px] py-1.5 rounded-md border text-center transition-colors",
-              state === "free"      && "border-gray-200 text-gray-700 hover:border-gray-400",
-              state === "taken"     && "bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed",
-              state === "sel-start" && "bg-[#06C755] text-white border-[#06C755]",
-              state === "sel-range" && "bg-green-50 text-green-700 border-green-300",
-              state === "sel-end"   && "bg-[#05A847] text-white border-[#05A847]"
-            )}
-          >
-            {slot}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 text-[9px] text-gray-400">
-      <span className={clsx("w-2.5 h-2.5 rounded-sm", color)} />
-      {label}
-    </span>
-  );
-}
+// ─── サブコンポーネント ────────────────────────────────────────────────────────
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
   return (

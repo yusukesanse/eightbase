@@ -3,14 +3,17 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationCancelled } from "@/lib/line";
+import { getSessionUserId } from "@/lib/session";
 import type { Reservation } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 // ─── DELETE: 予約キャンセル ────────────────────────────────────────────────────
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const userId = req.headers.get("x-line-user-id");
+  const userId = await getSessionUserId(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

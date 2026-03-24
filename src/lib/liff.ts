@@ -19,15 +19,18 @@ export async function initLiff(): Promise<Liff> {
 
 /**
  * LINE ユーザー ID を取得する。
- * ログインしていない場合は login() にリダイレクトする。
+ * LINE アプリ内のみ login() にリダイレクトする。
+ * 外部ブラウザからのアクセス時はリダイレクトせずエラーを投げる。
  */
 export async function getLineUserId(): Promise<string> {
   const liff = await initLiff();
 
   if (!liff.isLoggedIn()) {
-    liff.login({ redirectUri: window.location.href });
-    // login() はリダイレクトするため、ここには到達しない
-    throw new Error("Redirecting to LINE login...");
+    if (liff.isInClient()) {
+      liff.login({ redirectUri: window.location.href });
+      // login() はリダイレクトするため、ここには到達しない
+    }
+    throw new Error("Not logged in to LINE");
   }
 
   const profile = await liff.getProfile();
@@ -38,8 +41,11 @@ export async function getLineProfile() {
   const liff = await initLiff();
 
   if (!liff.isLoggedIn()) {
-    liff.login({ redirectUri: window.location.href });
-    throw new Error("Redirecting to LINE login...");
+    if (liff.isInClient()) {
+      liff.login({ redirectUri: window.location.href });
+      // login() はリダイレクトするため、ここには到達しない
+    }
+    throw new Error("Not logged in to LINE");
   }
 
   return liff.getProfile();

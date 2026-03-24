@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
 import { getFacilityById } from "@/lib/facilities";
 import { getLineProfile } from "@/lib/liff";
+
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -24,36 +25,34 @@ function ConfirmContent() {
   const dateLabel = dayjs(date).format("M月D日（ddd）");
 
   const [step, setStep] = useState<Step>("confirm");
-  const [lineUserId, setLineUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>("");
   const [reservationId, setReservationId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   useEffect(() => {
+    // LINE プロフィールは表示名取得のみ使用（認証はセッションCookieで行う）
     getLineProfile()
       .then((p) => {
-        setLineUserId(p.userId);
         setDisplayName(p.displayName);
       })
       .catch(() => {
-        // LIFF 環境外（開発時）はモックデータを使用
-        setLineUserId("Udev_mock_user_id");
-        setDisplayName("開発者モード");
-      });
+        // LIFF 環境外では表示名を空のままにする（サーバー側でFirestoreから取得）
+        setDisplayName("");
+      })
+      .finally(() => setProfileLoaded(true));
   }, []);
 
   async function handleReserve() {
-    if (!lineUserId) return;
     setStep("loading");
 
     try {
+      // Cookie は自動送信されるため、x-line-user-id ヘッダーは不要
       const res = await fetch("/api/reservations", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-line-user-id": lineUserId,
-        },
-        body: JSON.stringify({ facilityId, date, startTime, endTime }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ facilityId, date, startTime, endTime, displayName }),
       });
 
       const data = await res.json();
@@ -153,10 +152,10 @@ function ConfirmContent() {
   // confirm ステップ
   return (
     <div>
-      <TopBar title="NUF 施設予約" subtitle="予約内容の確認" />
+      <TopBar title="EIGHT CANAL BASE 施設予約" subtitle="予約内容の確認" />
 
       <div className="p-3 space-y-3">
-        <StepIndicator step={4} total={4} />
+        <StepIndicator step={2} total={2} />
 
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
           <p className="text-xs font-medium text-gray-400 mb-1">予約内容</p>
@@ -172,10 +171,10 @@ function ConfirmContent() {
 
         <button
           onClick={handleReserve}
-          disabled={!lineUserId}
+          disabled={!profileLoaded}
           className={clsx(
             "w-full py-3 rounded-xl text-sm font-medium transition-colors",
-            lineUserId
+            profileLoaded
               ? "bg-[#06C755] text-white"
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           )}

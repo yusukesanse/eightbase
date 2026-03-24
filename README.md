@@ -1,6 +1,6 @@
 # NUF LINE ミニアプリ
 
-Eight Design 共有オフィス NUF 向け LINE ミニアプリ（LIFF）
+Eight Design 共有オフィス向け LINE ミニアプリ（LIFF）
 
 ## 技術スタック
 

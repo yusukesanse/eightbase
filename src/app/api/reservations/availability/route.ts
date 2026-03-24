@@ -3,6 +3,8 @@ import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, getBookedSlots } from "@/lib/googleCalendar";
 import type { AvailabilityResponse } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 // 営業時間（分）
 const OPEN_MINUTES  = 9 * 60;   // 9:00
 const CLOSE_MINUTES = 18 * 60;  // 18:00
@@ -14,9 +16,9 @@ export async function GET(req: NextRequest) {
   const startTime  = searchParams.get("startTime");
   const endTime    = searchParams.get("endTime");
 
-  if (!facilityId || !date || !startTime || !endTime) {
+  if (!facilityId || !date) {
     return NextResponse.json(
-      { error: "facilityId, date, startTime, endTime are required" },
+      { error: "facilityId, date are required" },
       { status: 400 }
     );
   }
@@ -24,6 +26,12 @@ export async function GET(req: NextRequest) {
   const facility = getFacilityById(facilityId);
   if (!facility) {
     return NextResponse.json({ error: "Facility not found" }, { status: 404 });
+  }
+
+  // startTime/endTime が省略された場合は予約済みスロット一覧だけ返す（タイムスロット画面の初期ロード用）
+  if (!startTime || !endTime) {
+    const bookedSlots = await getBookedSlots(facility.calendarId, date);
+    return NextResponse.json({ bookedSlots });
   }
 
   // 過去日チェック
