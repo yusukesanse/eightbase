@@ -24,11 +24,27 @@ export async function GET(req: NextRequest) {
     progressMap.set(doc.id, doc.data() as UserQuestProgress);
   });
 
-  const quests = questsSnap.docs.map((doc) => ({
-    questId: doc.id,
-    ...(doc.data() as Omit<Quest, "questId">),
-    progress: progressMap.get(doc.id),
-  }));
+  // クエストごとのグッド数とユーザーのグッド状態を並行取得
+  const quests = await Promise.all(
+    questsSnap.docs.map(async (doc) => {
+      const goodsSnap = await db
+        .collection("quests")
+        .doc(doc.id)
+        .collection("goods")
+        .get();
+
+      const goodCount = goodsSnap.size;
+      const liked = goodsSnap.docs.some((d) => d.id === userId);
+
+      return {
+        questId: doc.id,
+        ...(doc.data() as Omit<Quest, "questId">),
+        progress: progressMap.get(doc.id),
+        goodCount,
+        liked,
+      };
+    })
+  );
 
   const totalPoints = userDoc.exists ? (userDoc.data()?.points ?? 0) : 0;
 

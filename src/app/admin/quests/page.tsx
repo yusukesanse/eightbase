@@ -13,6 +13,7 @@ interface QuestItem {
   imageUrl?: string;
   published?: boolean;
   scheduledAt?: string;
+  goodCount?: number;
 }
 
 const EMPTY_FORM = {
@@ -246,6 +247,7 @@ export default function AdminQuestsPage() {
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">カテゴリ</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">達成条件</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">報酬Pt</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">グッド</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">ステータス</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">予約時刻</th>
                 <th className="px-6 py-3" />
@@ -261,6 +263,15 @@ export default function AdminQuestsPage() {
                   <td className="px-6 py-3 text-gray-500">{q.category}</td>
                   <td className="px-6 py-3 text-gray-600">{q.requiredCount} 回</td>
                   <td className="px-6 py-3 text-gray-600">{q.rewardPoints} pt</td>
+                  <td className="px-6 py-3">
+                    <span className="inline-flex items-center gap-1 text-sm text-gray-700">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#BA7517" stroke="#BA7517" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 10v12" />
+                        <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+                      </svg>
+                      {q.goodCount ?? 0}
+                    </span>
+                  </td>
                   <td className="px-6 py-3">{statusBadge(q)}</td>
                   <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
                     {q.scheduledAt ? dayjs(q.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
