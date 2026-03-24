@@ -1,6 +1,15 @@
-# NUF LINE ミニアプリ
+# EIGHT CANAL BASE — Web App
 
-Eight Design 共有オフィス向け LINE ミニアプリ（LIFF）
+Eight Design 共有オフィス「EIGHT CANAL BASE」向け LINE ミニアプリ（LIFF）＆管理ダッシュボード
+
+## リポジトリ情報
+
+| 項目 | 値 |
+|------|-----|
+| GitHub | `yusukesanse/eight-canal-base-webApp` |
+| 本番URL | https://nakagawa-share-office-app.vercel.app |
+| ホスティング | Vercel（Hobby プラン） |
+| LIFF ID | `2009443491-Hay21xuZ` |
 
 ## 技術スタック
 
@@ -12,13 +21,36 @@ Eight Design 共有オフィス向け LINE ミニアプリ（LIFF）
 | カレンダー | Google Calendar API v3（サービスアカウント認証） |
 | DB | Firebase Firestore |
 
+## ブランチ戦略・デプロイフロー
+
+| ブランチ | 用途 | Vercel 環境 | 自動デプロイ |
+|---------|------|------------|------------|
+| `main` | 本番リリース | Production（`nakagawa-share-office-app.vercel.app`） | ○ |
+| `develop` | 開発・テスト | Preview（一時URL が自動発行） | ○ |
+| `feature/*` | 機能ブランチ | Preview | ○ |
+
+### 開発の流れ
+
+1. `develop` から `feature/xxx` ブランチを切って開発
+2. `feature/xxx` → `develop` にマージ（PR 推奨）
+3. Preview URL で動作確認
+4. `develop` → `main` にマージで本番リリース
+
+### Git Graph の導入（Cursor / VS Code）
+
+エディタでブランチツリーを可視化するには：
+
+1. `Cmd + Shift + X`（拡張機能パネルを開く）
+2. 「Git Graph」を検索 → Install（作者: mhutchie）
+3. `Cmd + Shift + P` → `Git Graph: View Git Graph` で起動
+
 ## セットアップ手順
 
 ### 1. リポジトリクローンと依存関係インストール
 
 ```bash
-git clone https://github.com/your-org/nuf-line-miniapp.git
-cd nuf-line-miniapp
+git clone https://github.com/yusukesanse/eight-canal-base-webApp.git
+cd eight-canal-base-webApp
 npm install
 ```
 
@@ -147,3 +179,22 @@ src/
 | GET | `/api/quests` | クエスト一覧・進捗 |
 
 すべての API は `x-line-user-id` ヘッダーによる認証が必要（施設予約・クエスト系）。
+
+## 管理画面
+
+| パス | 機能 |
+|------|------|
+| `/admin/login` | 管理者ログイン（ADMIN_API_TOKEN で認証） |
+| `/admin` | ダッシュボード（統計概要） |
+| `/admin/users` | ユーザー管理（ソート・検索・フィルター対応） |
+| `/admin/events` | イベント管理 |
+| `/admin/news` | ニュース管理 |
+| `/admin/quests` | クエスト管理 |
+| `/admin/reservations` | 予約管理 |
+
+### 管理画面のセキュリティ
+
+- httpOnly Cookie + JWT によるセッション管理（`jose` ライブラリ）
+- CSRF 保護（Origin / Referer ヘッダー検証）
+- PUT API のフィールドホワイトリスト
+- 全入力のバリデーション（文字数制限・URL 形式・数値範囲）
