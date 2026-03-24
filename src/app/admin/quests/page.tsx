@@ -50,15 +50,12 @@ export default function AdminQuestsPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function getToken() {
-    return sessionStorage.getItem("admin_token") ?? "";
-  }
 
   async function fetchQuests() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/quests", {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
       });
       const data = await res.json();
       setQuests(data.quests ?? []);
@@ -119,7 +116,7 @@ export default function AdminQuestsPage() {
       fd.append("folder", "quests");
       const res = await fetch("/api/admin/upload", {
         method: "POST",
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
         body: fd,
       });
       const data = await res.json();
@@ -156,8 +153,8 @@ export default function AdminQuestsPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
       } else {
@@ -165,8 +162,8 @@ export default function AdminQuestsPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
       }
@@ -191,8 +188,8 @@ export default function AdminQuestsPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify({ questId }),
       });
       if (!res.ok) throw new Error("削除に失敗しました");

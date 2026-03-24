@@ -55,15 +55,12 @@ export default function AdminNewsPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function getToken() {
-    return sessionStorage.getItem("admin_token") ?? "";
-  }
 
   async function fetchNews() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/news", {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
       });
       const data = await res.json();
       setNewsList(data.news ?? []);
@@ -123,7 +120,7 @@ export default function AdminNewsPage() {
       fd.append("folder", "news");
       const res = await fetch("/api/admin/upload", {
         method: "POST",
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
         body: fd,
       });
       const data = await res.json();
@@ -159,8 +156,8 @@ export default function AdminNewsPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
       } else {
@@ -168,8 +165,8 @@ export default function AdminNewsPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
       }
@@ -194,8 +191,8 @@ export default function AdminNewsPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify({ newsId }),
       });
       if (!res.ok) throw new Error("削除に失敗しました");

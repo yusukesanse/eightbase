@@ -53,15 +53,12 @@ export default function AdminEventsPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function getToken() {
-    return sessionStorage.getItem("admin_token") ?? "";
-  }
 
   async function fetchEvents() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/events", {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
       });
       const data = await res.json();
       setEvents(data.events ?? []);
@@ -118,7 +115,7 @@ export default function AdminEventsPage() {
       fd.append("folder", "events");
       const res = await fetch("/api/admin/upload", {
         method: "POST",
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
         body: fd,
       });
       const data = await res.json();
@@ -155,8 +152,8 @@ export default function AdminEventsPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
       } else {
@@ -164,8 +161,8 @@ export default function AdminEventsPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
       }
@@ -190,8 +187,8 @@ export default function AdminEventsPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify({ eventId }),
       });
       if (!res.ok) throw new Error("削除に失敗しました");

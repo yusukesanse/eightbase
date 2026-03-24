@@ -56,19 +56,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false);
       return;
     }
-    const stored = sessionStorage.getItem("admin_token");
-    if (!stored) {
-      router.replace("/admin/login");
-      return;
-    }
-    fetch("/api/admin/users", {
-      headers: { Authorization: `Bearer ${stored}` },
-    })
+    // Cookie ベースの認証チェック
+    fetch("/api/admin/auth", { credentials: "same-origin" })
       .then((res) => {
         if (res.ok) {
           setChecking(false);
         } else {
-          sessionStorage.removeItem("admin_token");
           router.replace("/admin/login");
         }
       })
@@ -89,8 +82,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  function handleLogout() {
-    sessionStorage.removeItem("admin_token");
+  async function handleLogout() {
+    await fetch("/api/admin/auth", {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
     router.replace("/admin/login");
   }
 

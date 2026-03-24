@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { checkAdminAuth } from "@/lib/adminAuth";
+import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 
+/* ───────── バリデーションルール ───────── */
+
+const NEWS_VALIDATION = {
+  title:       { type: "string" as const, minLength: 1, maxLength: 200 },
+  body:        { type: "string" as const, minLength: 1, maxLength: 10000 },
+  category:    { type: "string" as const, minLength: 1, maxLength: 50 },
+  imageUrl:    { type: "url" as const, maxLength: 2000 },
+  published:   { type: "boolean" as const },
+  publishedAt: { type: "string" as const, maxLength: 50 },
+  scheduledAt: { type: "string" as const, maxLength: 50 },
+};
+
+const NEWS_UPDATE_FIELDS = [
+  "title", "body", "category", "imageUrl",
+  "published", "publishedAt", "scheduledAt",
+];
+
 /**
  * GET /api/admin/news
- * 管理者がニュース一覧を取得（未公開含む）
  */
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,11 +47,9 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/news
- * ニュースを作成する
- * Body: { title, body, category, publishedAt?, imageUrl?, published, scheduledAt? }
  */
 export async function POST(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -46,6 +60,11 @@ export async function POST(req: NextRequest) {
 
     if (!title || !body || !category) {
       return NextResponse.json({ error: "必須フィールドが不足しています" }, { status: 400 });
+    }
+
+    const validationError = validateFields(reqBody, NEWS_VALIDATION);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const db = getDb();
@@ -71,20 +90,25 @@ export async function POST(req: NextRequest) {
 
 /**
  * PUT /api/admin/news
- * ニュースを更新する
- * Body: { newsId, ...fields }
  */
 export async function PUT(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const { newsId, ...fields } = body;
+    const { newsId } = body;
 
-    if (!newsId) {
+    if (!newsId || typeof newsId !== "string") {
       return NextResponse.json({ error: "newsId は必須です" }, { status: 400 });
+    }
+
+    const fields = pickAllowedFields(body, NEWS_UPDATE_FIELDS);
+
+    const validationError = validateFields(fields, NEWS_VALIDATION);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const db = getDb();
@@ -108,17 +132,15 @@ export async function PUT(req: NextRequest) {
 
 /**
  * DELETE /api/admin/news
- * ニュースを削除する
- * Body: { newsId }
  */
 export async function DELETE(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const { newsId } = await req.json();
-    if (!newsId) {
+    if (!newsId || typeof newsId !== "string") {
       return NextResponse.json({ error: "newsId は必須です" }, { status: 400 });
     }
 

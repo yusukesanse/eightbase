@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { checkAdminAuth } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_TOKEN = process.env.ADMIN_API_TOKEN;
-
-function checkAdminAuth(req: NextRequest): boolean {
-  if (!ADMIN_TOKEN) return false;
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${ADMIN_TOKEN}`;
-}
 
 /**
  * GET /api/admin/reservations
@@ -17,7 +10,7 @@ function checkAdminAuth(req: NextRequest): boolean {
  * Query params: ?status=confirmed|cancelled|all (default: confirmed)
  */
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -68,7 +61,7 @@ export async function GET(req: NextRequest) {
         };
       })
       .sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date); // 新しい順
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
         return b.startTime.localeCompare(a.startTime);
       });
 

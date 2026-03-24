@@ -63,12 +63,9 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("admin_token");
-    if (!token) return;
-
     Promise.all([
-      fetch("/api/admin/stats", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch("/api/admin/reservations", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch("/api/admin/stats", { credentials: "same-origin" }).then((r) => r.json()),
+      fetch("/api/admin/reservations", { credentials: "same-origin" }).then((r) => r.json()),
     ])
       .then(([statsData, resData]) => {
         setStats(statsData);

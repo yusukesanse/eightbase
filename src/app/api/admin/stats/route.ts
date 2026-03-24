@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { checkAdminAuth } from "@/lib/adminAuth";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_TOKEN = process.env.ADMIN_API_TOKEN;
-
-function checkAdminAuth(req: NextRequest): boolean {
-  if (!ADMIN_TOKEN) return false;
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${ADMIN_TOKEN}`;
-}
 
 /**
  * GET /api/admin/stats
  * 管理者向け統計情報を返す。
  */
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * Field: folder (optional) e.g. "events", "news", "quests"
  */
 export async function POST(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

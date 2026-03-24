@@ -39,14 +39,11 @@ export default function AdminReservationsPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  function getToken() {
-    return sessionStorage.getItem("admin_token") ?? "";
-  }
 
   async function fetchReservations() {
     try {
       const res = await fetch("/api/admin/reservations", {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
       });
       const data = await res.json();
       setReservations(data.reservations ?? []);
@@ -75,7 +72,7 @@ export default function AdminReservationsPage() {
     try {
       const res = await fetch(`/api/admin/reservations/${cancelTarget.reservationId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
       });
       if (!res.ok) throw new Error();
       setActionMsg(`${cancelTarget.displayName} の予約をキャンセルしました`);
@@ -105,8 +102,8 @@ export default function AdminReservationsPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify(editForm),
       });
       if (!res.ok) throw new Error();

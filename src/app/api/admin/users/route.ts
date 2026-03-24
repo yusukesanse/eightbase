@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { checkAdminAuth } from "@/lib/adminAuth";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_TOKEN = process.env.ADMIN_API_TOKEN;
 
 const ITERATIONS = 100_000;
 
 function hashPassword(password: string, salt: string): string {
   return crypto.pbkdf2Sync(password, salt, ITERATIONS, 64, "sha256").toString("hex");
-}
-
-function checkAdminAuth(req: NextRequest): boolean {
-  if (!ADMIN_TOKEN) return false;
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${ADMIN_TOKEN}`;
 }
 
 /**
@@ -25,7 +18,7 @@ function checkAdminAuth(req: NextRequest): boolean {
  * Body: { email, password, displayName, tenantName? }
  */
 export async function POST(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -87,7 +80,7 @@ export async function POST(req: NextRequest) {
  * Headers: Authorization: Bearer {ADMIN_API_TOKEN}
  */
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -128,7 +121,7 @@ export async function GET(req: NextRequest) {
  * Body: { id, active?, newPassword? }
  */
 export async function PATCH(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

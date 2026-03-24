@@ -47,14 +47,11 @@ export default function AdminUsersPage() {
   // アクション確認
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  function getToken() {
-    return sessionStorage.getItem("admin_token") ?? "";
-  }
 
   async function fetchUsers() {
     try {
       const res = await fetch("/api/admin/users", {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "same-origin",
       });
       const data = await res.json();
       setUsers(data.users ?? []);
@@ -76,8 +73,8 @@ export default function AdminUsersPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify(addForm),
       });
       const data = await res.json();
@@ -99,8 +96,8 @@ export default function AdminUsersPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify({ id: user.id, active: !user.active }),
       });
       if (!res.ok) throw new Error();
@@ -121,8 +118,8 @@ export default function AdminUsersPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify({ id: resetTarget.id, newPassword: resetPassword }),
       });
       if (!res.ok) throw new Error();

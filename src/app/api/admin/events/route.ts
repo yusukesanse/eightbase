@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { checkAdminAuth } from "@/lib/adminAuth";
+import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 
+/* ───────── バリデーションルール ───────── */
+
+const EVENT_VALIDATION = {
+  title:       { type: "string" as const, minLength: 1, maxLength: 200 },
+  category:    { type: "string" as const, minLength: 1, maxLength: 50 },
+  description: { type: "string" as const, minLength: 1, maxLength: 5000 },
+  startAt:     { type: "string" as const, maxLength: 50 },
+  endAt:       { type: "string" as const, maxLength: 50 },
+  location:    { type: "string" as const, minLength: 1, maxLength: 200 },
+  imageUrl:    { type: "url" as const, maxLength: 2000 },
+  published:   { type: "boolean" as const },
+  scheduledAt: { type: "string" as const, maxLength: 50 },
+};
+
+const EVENT_UPDATE_FIELDS = [
+  "title", "category", "description", "startAt", "endAt",
+  "location", "imageUrl", "published", "scheduledAt",
+];
+
 /**
  * GET /api/admin/events
- * 管理者がイベント一覧を取得（未公開含む）
  */
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -35,11 +53,9 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/events
- * イベントを作成する
- * Body: { title, category, description, startAt, endAt, location, imageUrl?, published, scheduledAt? }
  */
 export async function POST(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,6 +67,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "必須フィールドが不足しています" }, { status: 400 });
     }
 
+    // バリデーション
+    const validationError = validateFields(body, EVENT_VALIDATION);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
     const db = getDb();
     const data: Record<string, unknown> = {
       title,
@@ -60,6 +82,7 @@ export async function POST(req: NextRequest) {
       endAt,
       location,
       published: published ?? false,
+      goodCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -76,20 +99,28 @@ export async function POST(req: NextRequest) {
 
 /**
  * PUT /api/admin/events
- * イベントを更新する
- * Body: { eventId, ...fields }
+ * ホワイトリストで許可されたフィールドのみ更新可能
  */
 export async function PUT(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const { eventId, ...fields } = body;
+    const { eventId } = body;
 
-    if (!eventId) {
+    if (!eventId || typeof eventId !== "string") {
       return NextResponse.json({ error: "eventId は必須です" }, { status: 400 });
+    }
+
+    // ホワイトリストフィルタ
+    const fields = pickAllowedFields(body, EVENT_UPDATE_FIELDS);
+
+    // バリデーション
+    const validationError = validateFields(fields, EVENT_VALIDATION);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const db = getDb();
@@ -114,17 +145,15 @@ export async function PUT(req: NextRequest) {
 
 /**
  * DELETE /api/admin/events
- * イベントを削除する
- * Body: { eventId }
  */
 export async function DELETE(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const { eventId } = await req.json();
-    if (!eventId) {
+    if (!eventId || typeof eventId !== "string") {
       return NextResponse.json({ error: "eventId は必須です" }, { status: 400 });
     }
 

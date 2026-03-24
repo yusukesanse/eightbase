@@ -10,15 +10,10 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // すでにログイン済みならダッシュボードへ
-    const stored = sessionStorage.getItem("admin_token");
-    if (stored) {
-      fetch("/api/admin/users", {
-        headers: { Authorization: `Bearer ${stored}` },
-      }).then((res) => {
-        if (res.ok) router.replace("/admin");
-      });
-    }
+    // すでにログイン済みなら（Cookie で）ダッシュボードへ
+    fetch("/api/admin/auth", { credentials: "same-origin" }).then((res) => {
+      if (res.ok) router.replace("/admin");
+    });
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,12 +22,14 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/admin/users", {
-        headers: { Authorization: `Bearer ${token.trim()}` },
+      const res = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ token: token.trim() }),
       });
 
       if (res.ok) {
-        sessionStorage.setItem("admin_token", token.trim());
         router.replace("/admin");
       } else {
         setError("トークンが正しくありません");

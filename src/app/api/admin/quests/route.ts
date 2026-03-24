@@ -1,16 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { checkAdminAuth } from "@/lib/adminAuth";
+import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 
+/* ───────── バリデーションルール ───────── */
+
+const QUEST_VALIDATION = {
+  title:         { type: "string" as const, minLength: 1, maxLength: 200 },
+  description:   { type: "string" as const, minLength: 1, maxLength: 5000 },
+  requiredCount: { type: "number" as const, min: 1, max: 100000 },
+  rewardPoints:  { type: "number" as const, min: 0, max: 1000000 },
+  category:      { type: "string" as const, minLength: 1, maxLength: 50 },
+  imageUrl:      { type: "url" as const, maxLength: 2000 },
+  published:     { type: "boolean" as const },
+  scheduledAt:   { type: "string" as const, maxLength: 50 },
+};
+
+const QUEST_UPDATE_FIELDS = [
+  "title", "description", "requiredCount", "rewardPoints",
+  "category", "imageUrl", "published", "scheduledAt",
+];
+
 /**
  * GET /api/admin/quests
- * 管理者がクエスト一覧を取得（未公開含む）
  */
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,11 +48,9 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/quests
- * クエストを作成する
- * Body: { title, description, requiredCount, rewardPoints, category, imageUrl?, published, scheduledAt? }
  */
 export async function POST(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -47,6 +62,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "必須フィールドが不足しています" }, { status: 400 });
     }
 
+    const validationError = validateFields(body, QUEST_VALIDATION);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
     const db = getDb();
     const data: Record<string, unknown> = {
       title,
@@ -55,6 +75,7 @@ export async function POST(req: NextRequest) {
       rewardPoints: Number(rewardPoints),
       category,
       published: published ?? false,
+      goodCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -71,20 +92,25 @@ export async function POST(req: NextRequest) {
 
 /**
  * PUT /api/admin/quests
- * クエストを更新する
- * Body: { questId, ...fields }
  */
 export async function PUT(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const { questId, ...fields } = body;
+    const { questId } = body;
 
-    if (!questId) {
+    if (!questId || typeof questId !== "string") {
       return NextResponse.json({ error: "questId は必須です" }, { status: 400 });
+    }
+
+    const fields = pickAllowedFields(body, QUEST_UPDATE_FIELDS);
+
+    const validationError = validateFields(fields, QUEST_VALIDATION);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const db = getDb();
@@ -110,17 +136,15 @@ export async function PUT(req: NextRequest) {
 
 /**
  * DELETE /api/admin/quests
- * クエストを削除する
- * Body: { questId }
  */
 export async function DELETE(req: NextRequest) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const { questId } = await req.json();
-    if (!questId) {
+    if (!questId || typeof questId !== "string") {
       return NextResponse.json({ error: "questId は必須です" }, { status: 400 });
     }
 
