@@ -1,4 +1,4 @@
-# NUF LINE ミニアプリ — 引き継ぎドキュメント
+# LINE ミニアプリ — 引き継ぎドキュメント
 
 Eight Design 共有オフィス予約システム。LINE LIFF（LINE Front-end Framework）上で動作する Next.js アプリ。
 
