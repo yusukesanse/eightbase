@@ -11,12 +11,13 @@ export async function getFacilities(): Promise<Facility[]> {
   const db = getDb();
   const snap = await db
     .collection(COLLECTION)
-    .where("active", "==", true)
-    .orderBy("order", "asc")
     .get();
 
   if (!snap.empty) {
-    return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Facility));
+    const all = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Facility));
+    return all
+      .filter((f) => f.active !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
 
   // Firestore にデータがない場合はフォールバック
@@ -30,11 +31,11 @@ export async function getAllFacilities(): Promise<Facility[]> {
   const db = getDb();
   const snap = await db
     .collection(COLLECTION)
-    .orderBy("order", "asc")
     .get();
 
   if (!snap.empty) {
-    return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Facility));
+    const all = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Facility));
+    return all.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
 
   return FALLBACK_FACILITIES;
