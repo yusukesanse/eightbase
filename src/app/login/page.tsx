@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getLineUserId } from "@/lib/liff";
+import { tryGetLineUserId } from "@/lib/liff";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,8 +15,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     // すでに認証済みならリダイレクト
-    getLineUserId()
+    // tryGetLineUserId を使い、未ログインでもLINEリダイレクトしない
+    tryGetLineUserId()
       .then(async (id) => {
+        if (!id) {
+          setCheckingAuth(false);
+          return;
+        }
         setLineUserId(id);
         const res = await fetch("/api/auth/check", {
           headers: { "x-line-user-id": id },
