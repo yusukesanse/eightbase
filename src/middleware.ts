@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * ドメインベースのルーティング Middleware
  *
- * - eightbase.net          → 顧客向けアプリ（/admin/* へのアクセスをブロック）
+ * - portal.eightbase.net   → 顧客向けアプリ（/admin/* へのアクセスをブロック）
  * - admin.eightbase.net    → 管理者向けアプリ（/admin/* のみ許可）
  * - *.vercel.app / localhost → 開発環境は制限なし
  */
 
-const CUSTOMER_DOMAIN = "eightbase.net";
+const CUSTOMER_DOMAIN = "portal.eightbase.net";
 const ADMIN_DOMAIN = "admin.eightbase.net";
 
 export function middleware(req: NextRequest) {
@@ -42,7 +42,7 @@ export function middleware(req: NextRequest) {
   }
 
   // 顧客ドメイン: /admin/* へのアクセスは 404
-  if (host === CUSTOMER_DOMAIN || host === `www.${CUSTOMER_DOMAIN}`) {
+  if (host === CUSTOMER_DOMAIN) {
     if (pathname.startsWith("/admin")) {
       return NextResponse.rewrite(new URL("/not-found", req.url));
     }

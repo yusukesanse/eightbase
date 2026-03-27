@@ -23,7 +23,7 @@ const ALLOWED_ORIGINS: string[] = (() => {
   return [
     "https://nakagawa-share-office-app.vercel.app",
     "https://admin.eightbase.net",
-    "https://eightbase.net",
+    "https://portal.eightbase.net",
   ];
 })();
 
