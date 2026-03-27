@@ -191,11 +191,14 @@ export default function AdminEventsPage() {
         credentials: "same-origin",
         body: JSON.stringify({ eventId }),
       });
-      if (!res.ok) throw new Error("削除に失敗しました");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? `削除に失敗しました (${res.status})`);
+      }
       setDeleteTarget(null);
       await fetchEvents();
     } catch (e) {
-      alert(`削除に失敗しました: ${e}`);
+      alert(`削除に失敗しました: ${e instanceof Error ? e.message : e}`);
     }
   }
 

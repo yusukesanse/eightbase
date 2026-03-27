@@ -19,9 +19,11 @@ const MAX_AGE = 60 * 60 * 24; // 1日
 const ALLOWED_ORIGINS: string[] = (() => {
   const envOrigins = process.env.ADMIN_ALLOWED_ORIGINS;
   if (envOrigins) return envOrigins.split(",").map((o) => o.trim());
-  // デフォルト: Vercel 本番 + プレビュー
+  // デフォルト: Vercel 本番 + プレビュー + カスタムドメイン
   return [
     "https://nakagawa-share-office-app.vercel.app",
+    "https://admin.eightbase.net",
+    "https://eightbase.net",
   ];
 })();
 
