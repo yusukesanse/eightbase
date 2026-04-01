@@ -5,16 +5,52 @@ import type { Liff } from "@line/liff";
 let liffInstance: Liff | null = null;
 
 /**
+ * LINE Mini App の3つの環境（開発用/審査用/本番用）の LIFF ID。
+ * 全環境が同じエンドポイントURL (portal.eightbase.net) を共有するため、
+ * 実行時に正しい LIFF ID を検出する必要がある。
+ */
+const LIFF_IDS: string[] = [
+  process.env.NEXT_PUBLIC_LIFF_ID || "2009443491-Hay21xuZ", // 開発用
+  process.env.NEXT_PUBLIC_LIFF_ID_REVIEW || "2009443492-9ntShQ6k", // 審査用
+  process.env.NEXT_PUBLIC_LIFF_ID_PROD || "2009443493-Pz9ZdqJ6", // 本番用
+];
+
+/**
  * LIFF SDK を初期化して返す。
  * 複数回呼ばれても 1 回だけ初期化する。
+ *
+ * LINE Mini App の3環境（開発用/審査用/本番用）が同一エンドポイントURLを
+ * 共有するため、各 LIFF ID を順に試して現在のコンテキストに一致するものを使用する。
  */
 export async function initLiff(): Promise<Liff> {
   if (liffInstance) return liffInstance;
 
   const liff = (await import("@line/liff")).default;
-  await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID! });
-  liffInstance = liff;
-  return liff;
+
+  // 重複を除去した LIFF ID リストを作成
+  const uniqueIds = LIFF_IDS.filter(Boolean).filter(
+    (id, i, arr) => arr.indexOf(id) === i
+  );
+
+  let lastError: unknown;
+  for (const liffId of uniqueIds) {
+    try {
+      await liff.init({ liffId });
+      liffInstance = liff;
+      console.log(`[LIFF] Initialized with LIFF ID: ${liffId}`);
+      return liff;
+    } catch (e) {
+      lastError = e;
+      console.warn(`[LIFF] Failed to init with ${liffId}:`, e);
+      // init 失敗後に再試行できるよう内部状態をリセット
+      // LIFF SDK v2 は init 失敗時に未初期化状態のままなので再試行可能
+      continue;
+    }
+  }
+
+  throw new Error(
+    `[LIFF] All LIFF IDs failed to initialize. Last error: ${lastError}`
+  );
 }
 
 /**
