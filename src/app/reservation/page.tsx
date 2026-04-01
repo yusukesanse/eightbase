@@ -184,7 +184,7 @@ export default function ReservationPage() {
   // ─── レンダリング ──────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <TopBar title="EIGHTBASE 施設予約" subtitle="Eight Design シェアオフィス" />
+      <TopBar title="EIGHT BASE UNGA 施設予約" subtitle="Eight Design シェアオフィス" />
 
       {/* ステップ & マイ予約リンク */}
       <div className="px-3 pt-3 flex items-center gap-2">

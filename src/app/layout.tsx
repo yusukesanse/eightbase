@@ -3,8 +3,8 @@ import "./globals.css";
 import { ClientLayout } from "@/components/ClientLayout";
 
 export const metadata: Metadata = {
-  title: "EIGHTBASE",
-  description: "EIGHTBASE - Eight Design シェアオフィス",
+  title: "EIGHT BASE UNGA",
+  description: "EIGHT BASE UNGA - Eight Design シェアオフィス",
 };
 
 export default function RootLayout({

@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
             </svg>
           </div>
           <h1 className="text-lg font-bold text-gray-900">管理者ログイン</h1>
-          <p className="text-xs text-gray-400 mt-1">EIGHTBASE 管理ダッシュボード</p>
+          <p className="text-xs text-gray-400 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

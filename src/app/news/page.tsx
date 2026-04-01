@@ -28,7 +28,7 @@ export default function NewsPage() {
 
   return (
     <div>
-      <TopBar title="ニュース" subtitle="EIGHTBASE からのお知らせ" color="bg-[#185FA5]" />
+      <TopBar title="ニュース" subtitle="EIGHT BASE UNGA からのお知らせ" color="bg-[#185FA5]" />
 
       <div className="p-3 space-y-3">
         {loading ? (

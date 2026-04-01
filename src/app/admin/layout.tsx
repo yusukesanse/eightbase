@@ -104,7 +104,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="hidden md:flex w-56 bg-gray-900 text-white flex-col shrink-0">
         {/* ロゴ */}
         <div className="px-5 py-5 border-b border-white/10">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">EIGHTBASE</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">EIGHT BASE UNGA</p>
           <h1 className="text-sm font-semibold text-white">管理ダッシュボード</h1>
         </div>
 

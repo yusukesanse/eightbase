@@ -87,7 +87,7 @@ export default function LoginPage() {
             <path d="M7 13h8M7 16h5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         </div>
-        <h1 className="text-xl font-bold tracking-wide">EIGHTBASE</h1>
+        <h1 className="text-xl font-bold tracking-wide">EIGHT BASE UNGA</h1>
         <p className="text-sm text-green-100 mt-1">シェアオフィス 施設予約システム</p>
       </div>
 

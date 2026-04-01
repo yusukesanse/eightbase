@@ -135,7 +135,7 @@ export default function EventsPage() {
 
   return (
     <div>
-      <TopBar title="イベント情報" subtitle="EIGHTBASE 開催予定のイベント" />
+      <TopBar title="イベント情報" subtitle="EIGHT BASE UNGA 開催予定のイベント" />
 
       <div className="p-3 space-y-3">
         {loading ? (

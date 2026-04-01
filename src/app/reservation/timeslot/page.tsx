@@ -156,7 +156,7 @@ function TimeslotContent() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <TopBar
-        title="EIGHTBASE 施設予約"
+        title="EIGHT BASE UNGA 施設予約"
         subtitle={`${facility?.name ?? ""} ー ${dateLabel}`}
       />
 
