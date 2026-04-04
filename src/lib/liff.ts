@@ -5,52 +5,71 @@ import type { Liff } from "@line/liff";
 let liffInstance: Liff | null = null;
 
 /**
- * LINE Mini App の3つの環境（開発用/審査用/本番用）の LIFF ID。
- * 全環境が同じエンドポイントURL (portal.eightbase.net) を共有するため、
- * 実行時に正しい LIFF ID を検出する必要がある。
+ * 環境ごとの LIFF ID マッピング。
+ * LINE Developers Console の各内部チャネル（開発用/審査用/本番用）の
+ * エンドポイント URL に ?env=dev / ?env=review / ?env=prod を付与し、
+ * そのクエリパラメータで正しい LIFF ID を判定する。
+ *
+ * ⚠️ LIFF SDK はグローバルシングルトンのため、liff.init() は
+ *   正しい LIFF ID で「1回だけ」呼ぶ必要がある。
+ *   間違った ID で init すると内部状態が壊れ、以降の API 呼び出しが
+ *   永久にハングする（ログイン後に読み込み中のまま止まる原因）。
  */
-const LIFF_IDS: string[] = [
-  process.env.NEXT_PUBLIC_LIFF_ID || "2009443491-Hay21xuZ", // 開発用
-  process.env.NEXT_PUBLIC_LIFF_ID_REVIEW || "2009443492-9ntShQ6k", // 審査用
-  process.env.NEXT_PUBLIC_LIFF_ID_PROD || "2009443493-Pz9ZdqJ6", // 本番用
-];
+const LIFF_ID_MAP: Record<string, string> = {
+  dev: process.env.NEXT_PUBLIC_LIFF_ID || "2009443491-Hay21xuZ",
+  review: process.env.NEXT_PUBLIC_LIFF_ID_REVIEW || "2009443492-9ntShQ6k",
+  prod: process.env.NEXT_PUBLIC_LIFF_ID_PROD || "2009443493-Pz9ZdqJ6",
+};
+
+/** env パラメータがない場合のデフォルト環境 */
+const DEFAULT_ENV = "dev";
+
+/**
+ * 現在の URL の ?env= クエリパラメータから環境を判定し、
+ * 対応する LIFF ID を返す。
+ *
+ * LINE Developers Console で各チャネルのエンドポイント URL を以下のように設定:
+ *   開発用: https://portal.eightbase.net?env=dev
+ *   審査用: https://portal.eightbase.net?env=review
+ *   本番用: https://portal.eightbase.net?env=prod
+ */
+function detectLiffId(): string {
+  if (typeof window === "undefined") {
+    return LIFF_ID_MAP[DEFAULT_ENV];
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const env = params.get("env") || DEFAULT_ENV;
+  const liffId = LIFF_ID_MAP[env];
+
+  if (!liffId) {
+    console.warn(
+      `[LIFF] Unknown env "${env}", falling back to "${DEFAULT_ENV}"`
+    );
+    return LIFF_ID_MAP[DEFAULT_ENV];
+  }
+
+  console.log(`[LIFF] Detected env="${env}", using LIFF ID: ${liffId}`);
+  return liffId;
+}
 
 /**
  * LIFF SDK を初期化して返す。
  * 複数回呼ばれても 1 回だけ初期化する。
  *
- * LINE Mini App の3環境（開発用/審査用/本番用）が同一エンドポイントURLを
- * 共有するため、各 LIFF ID を順に試して現在のコンテキストに一致するものを使用する。
+ * URL の ?env= パラメータで環境を判定し、対応する LIFF ID で
+ * liff.init() を 1 回だけ呼ぶ。
  */
 export async function initLiff(): Promise<Liff> {
   if (liffInstance) return liffInstance;
 
   const liff = (await import("@line/liff")).default;
+  const liffId = detectLiffId();
 
-  // 重複を除去した LIFF ID リストを作成
-  const uniqueIds = LIFF_IDS.filter(Boolean).filter(
-    (id, i, arr) => arr.indexOf(id) === i
-  );
-
-  let lastError: unknown;
-  for (const liffId of uniqueIds) {
-    try {
-      await liff.init({ liffId });
-      liffInstance = liff;
-      console.log(`[LIFF] Initialized with LIFF ID: ${liffId}`);
-      return liff;
-    } catch (e) {
-      lastError = e;
-      console.warn(`[LIFF] Failed to init with ${liffId}:`, e);
-      // init 失敗後に再試行できるよう内部状態をリセット
-      // LIFF SDK v2 は init 失敗時に未初期化状態のままなので再試行可能
-      continue;
-    }
-  }
-
-  throw new Error(
-    `[LIFF] All LIFF IDs failed to initialize. Last error: ${lastError}`
-  );
+  await liff.init({ liffId });
+  liffInstance = liff;
+  console.log(`[LIFF] Initialized successfully with LIFF ID: ${liffId}`);
+  return liff;
 }
 
 /**

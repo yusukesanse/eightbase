@@ -23,8 +23,9 @@ export default function LoginPage() {
           return;
         }
         setLineUserId(id);
+        // セッション Cookie で認証確認（旧 x-line-user-id ヘッダーは廃止済み）
         const res = await fetch("/api/auth/check", {
-          headers: { "x-line-user-id": id },
+          credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
