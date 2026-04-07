@@ -14,26 +14,26 @@ import {
 describe("adminAuth — JWT署名・検証", () => {
   // UT-AUTH-001: 正常なJWT生成と検証
   test("signAdminToken で生成したトークンを verifyAdminToken で検証できる", async () => {
-    const token = await signAdminToken();
+    const token = await signAdminToken("admin@example.com");
     expect(typeof token).toBe("string");
     expect(token.split(".")).toHaveLength(3); // JWT format
 
-    const valid = await verifyAdminToken(token);
-    expect(valid).toBe(true);
+    const result = await verifyAdminToken(token);
+    expect(result).toBe("admin@example.com");
   });
 
   // UT-AUTH-002: 不正なトークンは拒否
-  test("不正なトークンはfalseを返す", async () => {
-    expect(await verifyAdminToken("invalid-token")).toBe(false);
-    expect(await verifyAdminToken("")).toBe(false);
-    expect(await verifyAdminToken("a.b.c")).toBe(false);
+  test("不正なトークンはnullを返す", async () => {
+    expect(await verifyAdminToken("invalid-token")).toBeNull();
+    expect(await verifyAdminToken("")).toBeNull();
+    expect(await verifyAdminToken("a.b.c")).toBeNull();
   });
 
   // UT-AUTH-003: 改ざんされたトークンは拒否
-  test("改ざんされたトークンはfalseを返す", async () => {
-    const token = await signAdminToken();
+  test("改ざんされたトークンはnullを返す", async () => {
+    const token = await signAdminToken("admin@example.com");
     const tampered = token.slice(0, -5) + "XXXXX";
-    expect(await verifyAdminToken(tampered)).toBe(false);
+    expect(await verifyAdminToken(tampered)).toBeNull();
   });
 });
 

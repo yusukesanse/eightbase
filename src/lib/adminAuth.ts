@@ -2,8 +2,8 @@
  * 管理者認証モジュール
  *
  * - httpOnly Cookie（__admin_session）に JWT を格納
+ * - Google OAuth で認証されたメールアドレスを JWT に保存
  * - CSRF 保護: 状態変更リクエスト（POST/PUT/DELETE）で Origin ヘッダーを検証
- * - 後方互換: Bearer トークンも引き続きサポート
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -11,7 +11,6 @@ import { SignJWT, jwtVerify } from "jose";
 
 /* ───────── 定数 ───────── */
 
-const ADMIN_TOKEN = process.env.ADMIN_API_TOKEN ?? "";
 const COOKIE_NAME = "__admin_session";
 const MAX_AGE = 60 * 60 * 24; // 1日
 
@@ -27,29 +26,38 @@ const ALLOWED_ORIGINS: string[] = (() => {
   ];
 })();
 
-/* ───────── JWT 秘密鍵（SESSION_SECRET を流用） ───────── */
+/* ───────── JWT 秘密鍵（SESSION_SECRET を使用） ───────── */
 
 function getSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET ?? process.env.ADMIN_API_TOKEN ?? "";
+  const secret = process.env.SESSION_SECRET ?? "";
   return new TextEncoder().encode(secret);
 }
 
 /* ───────── JWT 生成・検証 ───────── */
 
-export async function signAdminToken(): Promise<string> {
-  return new SignJWT({ role: "admin" })
+/**
+ * 管理者 JWT を生成
+ * @param email 管理者のメールアドレス
+ */
+export async function signAdminToken(email: string): Promise<string> {
+  return new SignJWT({ role: "admin", email })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("1d")
     .sign(getSecret());
 }
 
-export async function verifyAdminToken(token: string): Promise<boolean> {
+/**
+ * 管理者 JWT を検証
+ * @returns メールアドレス（有効な場合）、null（無効な場合）
+ */
+export async function verifyAdminToken(token: string): Promise<string | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
-    return payload.role === "admin";
+    if (payload.role !== "admin") return null;
+    return (payload.email as string) || "admin";
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -84,11 +92,9 @@ function checkCsrf(req: NextRequest): boolean {
   const origin = req.headers.get("origin");
 
   // Origin ヘッダーがない場合（same-origin fetch は Origin を送る）
-  // サーバーサイドリクエストやツールからの場合はスキップ
   if (!origin) {
-    // Referer で補完
     const referer = req.headers.get("referer");
-    if (!referer) return true; // ブラウザ外リクエスト（curl など）は Bearer で認証されるため許可
+    if (!referer) return true;
     try {
       const refOrigin = new URL(referer).origin;
       return ALLOWED_ORIGINS.some((ao) => ao === refOrigin)
@@ -108,23 +114,20 @@ function checkCsrf(req: NextRequest): boolean {
  * 管理者認証チェック
  * 1. CSRF ヘッダー検証（POST/PUT/DELETE）
  * 2. httpOnly Cookie の JWT を検証
- * 3. フォールバック: Bearer トークンを検証
+ *
+ * @returns メールアドレス（認証済み）、null（未認証）
  */
-export async function checkAdminAuth(req: NextRequest): Promise<boolean> {
+export async function checkAdminAuth(req: NextRequest): Promise<string | null> {
   // CSRF チェック
-  if (!checkCsrf(req)) return false;
+  if (!checkCsrf(req)) return null;
 
-  // 1. httpOnly Cookie チェック
+  // httpOnly Cookie チェック
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   if (cookie) {
-    const valid = await verifyAdminToken(cookie);
-    if (valid) return true;
+    return await verifyAdminToken(cookie);
   }
 
-  // 2. Bearer トークンチェック（後方互換）
-  if (!ADMIN_TOKEN) return false;
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${ADMIN_TOKEN}`;
+  return null;
 }
 
 /* ───────── 入力バリデーション ───────── */

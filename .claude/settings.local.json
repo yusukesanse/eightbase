@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx next:*)",
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(find /Users/miseyuusuke/Desktop/nakagawa-share-office-app/.git -name \"*.lock\" -delete)"
+    ]
+  }
+}

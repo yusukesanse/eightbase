@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
+import { checkAdminAuth } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_TOKEN = process.env.ADMIN_API_TOKEN;
-
-function checkAdminAuth(req: NextRequest): boolean {
-  if (!ADMIN_TOKEN) return false;
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${ADMIN_TOKEN}`;
-}
 
 /**
  * DELETE /api/admin/reservations/[id]
@@ -20,7 +13,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -71,7 +64,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!checkAdminAuth(req)) {
+  if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

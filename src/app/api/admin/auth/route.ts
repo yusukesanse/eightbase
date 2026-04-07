@@ -1,33 +1,118 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   signAdminToken,
+  verifyAdminToken,
   setAdminCookie,
   clearAdminCookie,
 } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_TOKEN = process.env.ADMIN_API_TOKEN ?? "";
+/** 許可された管理者メールアドレスのリスト（カンマ区切り） */
+const ADMIN_EMAILS: string[] = (() => {
+  const envEmails = process.env.ADMIN_EMAILS;
+  if (envEmails) return envEmails.split(",").map((e) => e.trim().toLowerCase());
+  return [];
+})();
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "";
 
 /**
  * POST /api/admin/auth
- * 管理者ログイン: トークンを検証し、httpOnly Cookie に JWT を設定
- * Body: { token: string }
+ * Google OAuth ログイン: Google ID トークンを検証し、
+ * メールアドレスが許可リストに含まれていればセッション Cookie を発行
+ *
+ * Body: { idToken: string }
  */
 export async function POST(req: NextRequest) {
   try {
-    const { token } = await req.json();
+    const { idToken } = await req.json();
 
-    if (!token || !ADMIN_TOKEN || token !== ADMIN_TOKEN) {
-      return NextResponse.json({ error: "トークンが正しくありません" }, { status: 401 });
+    if (!idToken || typeof idToken !== "string") {
+      return NextResponse.json(
+        { error: "IDトークンがありません" },
+        { status: 400 }
+      );
     }
 
-    const jwt = await signAdminToken();
-    const res = NextResponse.json({ success: true });
+    if (!GOOGLE_CLIENT_ID) {
+      console.error("[admin/auth] NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID is not set");
+      return NextResponse.json(
+        { error: "サーバー設定エラー" },
+        { status: 500 }
+      );
+    }
+
+    // ── 1. Google ID トークンを検証 ──
+    // googleapis の OAuth2Client を使用
+    const { OAuth2Client } = await import("google-auth-library");
+    const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      console.error("[admin/auth] Google token verification failed:", err);
+      return NextResponse.json(
+        { error: "Googleトークンの検証に失敗しました" },
+        { status: 401 }
+      );
+    }
+
+    if (!payload || !payload.email) {
+      return NextResponse.json(
+        { error: "メールアドレスを取得できませんでした" },
+        { status: 401 }
+      );
+    }
+
+    if (!payload.email_verified) {
+      return NextResponse.json(
+        { error: "メールアドレスが未検証です" },
+        { status: 401 }
+      );
+    }
+
+    const email = payload.email.toLowerCase();
+
+    // ── 2. 管理者メールアドレスの検証 ──
+    if (ADMIN_EMAILS.length === 0) {
+      console.error("[admin/auth] ADMIN_EMAILS is not configured");
+      return NextResponse.json(
+        { error: "管理者メールアドレスが設定されていません" },
+        { status: 500 }
+      );
+    }
+
+    if (!ADMIN_EMAILS.includes(email)) {
+      console.warn(`[admin/auth] Unauthorized admin login attempt: ${email}`);
+      return NextResponse.json(
+        { error: "このアカウントには管理者権限がありません" },
+        { status: 403 }
+      );
+    }
+
+    console.log(`[admin/auth] Admin login: ${email} (${payload.name})`);
+
+    // ── 3. 管理者セッション Cookie を発行 ──
+    const jwt = await signAdminToken(email);
+    const res = NextResponse.json({
+      success: true,
+      email,
+      name: payload.name,
+    });
     setAdminCookie(res, jwt);
     return res;
-  } catch {
-    return NextResponse.json({ error: "ログインに失敗しました" }, { status: 500 });
+  } catch (error) {
+    console.error("[admin/auth] error:", error);
+    return NextResponse.json(
+      { error: "ログインに失敗しました" },
+      { status: 500 }
+    );
   }
 }
 
@@ -46,22 +131,16 @@ export async function DELETE() {
  * セッション確認: Cookie の JWT が有効かチェック
  */
 export async function GET(req: NextRequest) {
-  const { verifyAdminToken: verify } = await import("@/lib/adminAuth");
   const cookie = req.cookies.get("__admin_session")?.value;
 
   if (!cookie) {
-    // Bearer トークンフォールバック
-    const auth = req.headers.get("authorization");
-    if (auth === `Bearer ${ADMIN_TOKEN}`) {
-      return NextResponse.json({ authenticated: true });
-    }
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  const valid = await verify(cookie);
-  if (!valid) {
+  const result = await verifyAdminToken(cookie);
+  if (!result) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  return NextResponse.json({ authenticated: true });
+  return NextResponse.json({ authenticated: true, email: result });
 }
