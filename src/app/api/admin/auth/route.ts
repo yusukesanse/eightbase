@@ -36,9 +36,50 @@ async function isAuthorizedAdmin(email: string): Promise<boolean> {
     return !snapshot.empty;
   } catch (error) {
     console.error("[admin/auth] Firestore check failed:", error);
-    // Firestore がダウンしてもスーパー管理者はログイン可能
     return false;
   }
+}
+
+/* ───────── ログイン履歴記録 ───────── */
+
+type LoginAction = "login_success" | "login_denied" | "login_failed" | "logout";
+
+async function recordLoginLog(
+  action: LoginAction,
+  details: {
+    email?: string;
+    name?: string;
+    reason?: string;
+    ip?: string;
+    userAgent?: string;
+  }
+) {
+  try {
+    const db = getDb();
+    await db.collection("adminLoginLogs").add({
+      action,
+      email: details.email || "",
+      name: details.name || "",
+      reason: details.reason || "",
+      ip: details.ip || "",
+      userAgent: details.userAgent || "",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    // ログ記録の失敗でログイン処理を止めない
+    console.error("[admin/auth] Failed to record login log:", err);
+  }
+}
+
+/** リクエストからIP・UserAgentを取得 */
+function getRequestMeta(req: NextRequest) {
+  return {
+    ip:
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown",
+    userAgent: req.headers.get("user-agent") || "unknown",
+  };
 }
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "";
@@ -51,6 +92,8 @@ const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "";
  * Body: { idToken: string }
  */
 export async function POST(req: NextRequest) {
+  const meta = getRequestMeta(req);
+
   try {
     const { idToken } = await req.json();
 
@@ -70,7 +113,6 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 1. Google ID トークンを検証 ──
-    // googleapis の OAuth2Client を使用
     const { OAuth2Client } = await import("google-auth-library");
     const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
@@ -83,6 +125,10 @@ export async function POST(req: NextRequest) {
       payload = ticket.getPayload();
     } catch (err) {
       console.error("[admin/auth] Google token verification failed:", err);
+      await recordLoginLog("login_failed", {
+        reason: "Googleトークン検証失敗",
+        ...meta,
+      });
       return NextResponse.json(
         { error: "Googleトークンの検証に失敗しました" },
         { status: 401 }
@@ -90,6 +136,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!payload || !payload.email) {
+      await recordLoginLog("login_failed", {
+        reason: "メールアドレス取得不可",
+        ...meta,
+      });
       return NextResponse.json(
         { error: "メールアドレスを取得できませんでした" },
         { status: 401 }
@@ -97,6 +147,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (!payload.email_verified) {
+      await recordLoginLog("login_denied", {
+        email: payload.email,
+        name: payload.name,
+        reason: "メール未検証",
+        ...meta,
+      });
       return NextResponse.json(
         { error: "メールアドレスが未検証です" },
         { status: 401 }
@@ -109,6 +165,12 @@ export async function POST(req: NextRequest) {
     const authorized = await isAuthorizedAdmin(email);
     if (!authorized) {
       console.warn(`[admin/auth] Unauthorized admin login attempt: ${email}`);
+      await recordLoginLog("login_denied", {
+        email,
+        name: payload.name,
+        reason: "管理者権限なし",
+        ...meta,
+      });
       return NextResponse.json(
         { error: "このアカウントには管理者権限がありません" },
         { status: 403 }
@@ -117,7 +179,14 @@ export async function POST(req: NextRequest) {
 
     console.log(`[admin/auth] Admin login: ${email} (${payload.name})`);
 
-    // ── 3. 管理者セッション Cookie を発行 ──
+    // ── 3. ログイン成功を記録 ──
+    await recordLoginLog("login_success", {
+      email,
+      name: payload.name,
+      ...meta,
+    });
+
+    // ── 4. 管理者セッション Cookie を発行 ──
     const jwt = await signAdminToken(email);
     const res = NextResponse.json({
       success: true,
@@ -128,6 +197,10 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error("[admin/auth] error:", error);
+    await recordLoginLog("login_failed", {
+      reason: "サーバーエラー",
+      ...meta,
+    });
     return NextResponse.json(
       { error: "ログインに失敗しました" },
       { status: 500 }
@@ -139,7 +212,20 @@ export async function POST(req: NextRequest) {
  * DELETE /api/admin/auth
  * 管理者ログアウト: httpOnly Cookie をクリア
  */
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  const meta = getRequestMeta(req);
+
+  // ログアウトするユーザーのメールを取得
+  const cookie = req.cookies.get("__admin_session")?.value;
+  let email = "";
+  if (cookie) {
+    email = (await verifyAdminToken(cookie)) || "";
+  }
+
+  if (email) {
+    await recordLoginLog("logout", { email, ...meta });
+  }
+
   const res = NextResponse.json({ success: true });
   clearAdminCookie(res);
   return res;
