@@ -1,0 +1,295 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+
+interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: string;
+  createdBy: string;
+  isSuperAdmin: boolean;
+}
+
+export default function AdminUsersPage() {
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [currentEmail, setCurrentEmail] = useState("");
+  const [currentIsSuperAdmin, setCurrentIsSuperAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 追加フォーム
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // 削除中
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const fetchAdmins = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/admin-users", {
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error("取得に失敗しました");
+      const data = await res.json();
+      setAdmins(data.admins);
+      setCurrentEmail(data.currentEmail);
+      setCurrentIsSuperAdmin(data.currentIsSuperAdmin);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAdmins();
+  }, [fetchAdmins]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    setAddError(null);
+    setAdding(true);
+
+    try {
+      const res = await fetch("/api/admin/admin-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: newEmail.trim(), name: newName.trim() }),
+      });
+
+      if (res.ok) {
+        setNewEmail("");
+        setNewName("");
+        setShowAddForm(false);
+        await fetchAdmins();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setAddError(data.error || "追加に失敗しました");
+      }
+    } catch {
+      setAddError("接続エラーが発生しました");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleDelete(admin: AdminUser) {
+    if (!confirm(`${admin.email} を管理者から削除しますか？`)) return;
+
+    setDeletingId(admin.id);
+    try {
+      const res = await fetch("/api/admin/admin-users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ id: admin.id }),
+      });
+
+      if (res.ok) {
+        await fetchAdmins();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "削除に失敗しました");
+      }
+    } catch {
+      alert("接続エラーが発生しました");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-3xl">
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">管理者設定</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            ログイン中: {currentEmail}
+            {currentIsSuperAdmin && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                スーパー管理者
+              </span>
+            )}
+          </p>
+        </div>
+        {currentIsSuperAdmin && (
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            管理者を追加
+          </button>
+        )}
+      </div>
+
+      {/* 追加フォーム */}
+      {showAddForm && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">管理者を追加</h2>
+          <form onSubmit={handleAdd} className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Googleメールアドレス <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="example@gmail.com"
+                required
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-800 focus:ring-1 focus:ring-gray-800"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                名前（任意）
+              </label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="管理者の名前"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-800 focus:ring-1 focus:ring-gray-800"
+              />
+            </div>
+            {addError && (
+              <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                <p className="text-xs text-red-600">{addError}</p>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={adding}
+                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {adding ? "追加中..." : "追加する"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowAddForm(false); setAddError(null); }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                キャンセル
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 管理者一覧 */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">
+            管理者一覧（{admins.length}名）
+          </h2>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {admins.map((admin) => (
+            <div
+              key={admin.id}
+              className="px-5 py-4 flex items-center justify-between"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {admin.email}
+                  </p>
+                  {admin.isSuperAdmin && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 shrink-0">
+                      スーパー管理者
+                    </span>
+                  )}
+                  {admin.email.toLowerCase() === currentEmail.toLowerCase() && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 shrink-0">
+                      自分
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  {admin.name && (
+                    <p className="text-xs text-gray-500">{admin.name}</p>
+                  )}
+                  {admin.createdAt && (
+                    <p className="text-xs text-gray-400">
+                      追加日: {new Date(admin.createdAt).toLocaleDateString("ja-JP")}
+                    </p>
+                  )}
+                  {admin.createdBy && admin.createdBy !== "環境変数" && (
+                    <p className="text-xs text-gray-400">
+                      追加者: {admin.createdBy}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 削除ボタン（スーパー管理者のみ表示、スーパー管理者と自分は削除不可） */}
+              {currentIsSuperAdmin &&
+                !admin.isSuperAdmin &&
+                admin.email.toLowerCase() !== currentEmail.toLowerCase() && (
+                  <button
+                    onClick={() => handleDelete(admin)}
+                    disabled={deletingId === admin.id}
+                    className="ml-3 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="削除"
+                  >
+                    {deletingId === admin.id ? (
+                      <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 4h12M5.5 4V2.5a1 1 0 011-1h3a1 1 0 011 1V4M6.5 7v4.5M9.5 7v4.5M3.5 4l.5 9a1.5 1.5 0 001.5 1.5h5A1.5 1.5 0 0012 13l.5-9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </button>
+                )}
+            </div>
+          ))}
+
+          {admins.length === 0 && (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm text-gray-400">管理者が登録されていません</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 説明 */}
+      {currentIsSuperAdmin && (
+        <div className="mt-4 px-4 py-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-500 leading-relaxed">
+            スーパー管理者（環境変数で設定）は常にアクセス可能で、削除できません。
+            ここで追加した管理者は、Googleアカウントでログインできるようになります。
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

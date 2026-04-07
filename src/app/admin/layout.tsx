@@ -42,6 +42,14 @@ const NAV_LINKS = [
       <path d="M8 2l1.8 3.6L14 6.4l-3 2.9.7 4.1L8 11.4l-3.7 2 .7-4.1L2 6.4l4.2-.8L8 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
     </svg>
   )},
+  { href: "/admin/admin-users", label: "管理者設定", exact: false, icon: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M8 1.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M2.5 13c0-2.5 2.5-4.5 5.5-4.5s5.5 2 5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M12 3l1.5 1.5M13.5 4.5L12 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="13" cy="3.5" r="1.5" stroke="currentColor" strokeWidth="1"/>
+    </svg>
+  )},
   { href: "/admin/calendars", label: "カレンダー連携", exact: false, icon: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>

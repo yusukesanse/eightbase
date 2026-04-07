@@ -5,15 +5,41 @@ import {
   setAdminCookie,
   clearAdminCookie,
 } from "@/lib/adminAuth";
+import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
 
-/** 許可された管理者メールアドレスのリスト（カンマ区切り） */
-const ADMIN_EMAILS: string[] = (() => {
+/** 環境変数のスーパー管理者リスト（常にアクセス可能） */
+const SUPER_ADMIN_EMAILS: string[] = (() => {
   const envEmails = process.env.ADMIN_EMAILS;
   if (envEmails) return envEmails.split(",").map((e) => e.trim().toLowerCase());
   return [];
 })();
+
+/**
+ * メールアドレスが管理者として許可されているか検証
+ * 1. ADMIN_EMAILS 環境変数（スーパー管理者）
+ * 2. Firestore adminUsers コレクション
+ */
+async function isAuthorizedAdmin(email: string): Promise<boolean> {
+  // スーパー管理者チェック
+  if (SUPER_ADMIN_EMAILS.includes(email)) return true;
+
+  // Firestore チェック
+  try {
+    const db = getDb();
+    const snapshot = await db
+      .collection("adminUsers")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+    return !snapshot.empty;
+  } catch (error) {
+    console.error("[admin/auth] Firestore check failed:", error);
+    // Firestore がダウンしてもスーパー管理者はログイン可能
+    return false;
+  }
+}
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "";
 
@@ -79,16 +105,9 @@ export async function POST(req: NextRequest) {
 
     const email = payload.email.toLowerCase();
 
-    // ── 2. 管理者メールアドレスの検証 ──
-    if (ADMIN_EMAILS.length === 0) {
-      console.error("[admin/auth] ADMIN_EMAILS is not configured");
-      return NextResponse.json(
-        { error: "管理者メールアドレスが設定されていません" },
-        { status: 500 }
-      );
-    }
-
-    if (!ADMIN_EMAILS.includes(email)) {
+    // ── 2. 管理者メールアドレスの検証（環境変数 + Firestore） ──
+    const authorized = await isAuthorizedAdmin(email);
+    if (!authorized) {
       console.warn(`[admin/auth] Unauthorized admin login attempt: ${email}`);
       return NextResponse.json(
         { error: "このアカウントには管理者権限がありません" },
