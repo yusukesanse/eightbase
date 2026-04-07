@@ -1,63 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/firebaseAdmin";
 import { getSessionUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/auth/check
- * セッションCookieを検証し、ユーザーが authorizedUsers に存在するか確認する。
- * （旧: x-line-user-id ヘッダーを廃止 → JWT Cookie ベースに変更）
+ * セッション Cookie (JWT) を検証し、認証状態を返す。
+ *
+ * LINE ログインベースの認証に変更:
+ * - JWT の検証のみ行い、Firebase の authorizedUsers チェックは行わない
+ * - LIFF ログイン時に /api/auth/liff-login で発行された JWT を検証
  */
 export async function GET(req: NextRequest) {
-  // セッション Cookie からユーザーIDを取得
-  const lineUserId = await getSessionUserId(req);
-  if (!lineUserId) {
-    return NextResponse.json({ authorized: false });
-  }
-
   try {
-    const db = getDb();
+    const lineUserId = await getSessionUserId(req);
 
-    // email: プレフィックスはLIFF外ログイン（管理者テスト用など）
-    if (lineUserId.startsWith("email:")) {
-      const email = lineUserId.slice(6);
-      const snap = await db
-        .collection("authorizedUsers")
-        .where("email", "==", email)
-        .where("active", "==", true)
-        .limit(1)
-        .get();
-
-      if (!snap.empty) {
-        const data = snap.docs[0].data();
-        return NextResponse.json({
-          authorized: true,
-          displayName: data.displayName,
-          email: data.email,
-        });
-      }
+    if (!lineUserId) {
       return NextResponse.json({ authorized: false });
     }
 
-    // 通常の LINE ユーザーID による確認
-    const snap = await db
-      .collection("authorizedUsers")
-      .where("lineUserId", "==", lineUserId)
-      .where("active", "==", true)
-      .limit(1)
-      .get();
-
-    if (!snap.empty) {
-      const data = snap.docs[0].data();
-      return NextResponse.json({
-        authorized: true,
-        displayName: data.displayName,
-        email: data.email,
-      });
-    }
-
-    return NextResponse.json({ authorized: false });
+    return NextResponse.json({
+      authorized: true,
+      lineUserId,
+    });
   } catch (error) {
     console.error("[auth/check] error:", error);
     return NextResponse.json({ authorized: false }, { status: 500 });

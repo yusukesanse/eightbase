@@ -2,84 +2,96 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { tryGetLineUserId } from "@/lib/liff";
+import { initLiff } from "@/lib/liff";
 
+/**
+ * ログインページ。
+ *
+ * LIFF 内で開かれた場合:
+ *   - LIFF SDK を初期化 → LINE ログイン → セッション作成 → /reservation へ遷移
+ *   - メール/パスワードの入力は不要
+ *
+ * LIFF 外（通常ブラウザ）で開かれた場合:
+ *   - LIFF の初期化は行わず、アクセス不可のメッセージを表示
+ */
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [lineUserId, setLineUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [status, setStatus] = useState<"loading" | "liff-login" | "no-access">("loading");
+  const [message, setMessage] = useState("読み込み中...");
 
   useEffect(() => {
-    // すでに認証済みならリダイレクト
-    // tryGetLineUserId を使い、未ログインでもLINEリダイレクトしない
-    tryGetLineUserId()
-      .then(async (id) => {
-        if (!id) {
-          setCheckingAuth(false);
-          return;
-        }
-        setLineUserId(id);
-        // セッション Cookie で認証確認（旧 x-line-user-id ヘッダーは廃止済み）
-        const res = await fetch("/api/auth/check", {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.authorized) {
-            router.replace("/reservation");
+    let cancelled = false;
+
+    async function tryLiffLogin() {
+      try {
+        const liff = await initLiff();
+        if (cancelled) return;
+
+        // LIFF ブラウザ内かどうか判定
+        const isInClient = liff.isInClient();
+
+        if (!liff.isLoggedIn()) {
+          if (isInClient) {
+            // LIFF ブラウザ内で未ログイン → 通常あり得ないが、念のためリダイレクト
+            setMessage("LINEログイン中...");
+            liff.login({ redirectUri: window.location.origin });
             return;
           }
+          // 外部ブラウザで未ログイン
+          setStatus("no-access");
+          return;
         }
-        setCheckingAuth(false);
-      })
-      .catch(() => {
-        // LIFF 外のアクセスや未ログインの場合はそのままログイン画面を表示
-        setCheckingAuth(false);
-      });
+
+        // LINE ログイン済み → セッション作成
+        setStatus("liff-login");
+        setMessage("認証中...");
+
+        const accessToken = liff.getAccessToken();
+        if (!accessToken) {
+          setStatus("no-access");
+          return;
+        }
+
+        const res = await fetch("/api/auth/liff-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessToken }),
+          credentials: "include",
+        });
+
+        if (cancelled) return;
+
+        if (res.ok) {
+          router.replace("/reservation");
+        } else {
+          setStatus("no-access");
+        }
+      } catch (err) {
+        console.error("[LoginPage] LIFF error:", err);
+        if (!cancelled) {
+          setStatus("no-access");
+        }
+      }
+    }
+
+    tryLiffLogin();
+    return () => { cancelled = true; };
   }, [router]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, lineUserId }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? "ログインに失敗しました");
-        return;
-      }
-
-      router.replace("/reservation");
-    } catch {
-      setError("通信エラーが発生しました。もう一度お試しください");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (checkingAuth) {
+  if (status === "loading" || status === "liff-login") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-10 h-10 border-2 border-[#06C755] border-t-transparent rounded-full animate-spin" />
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-[#06C755] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-500">{message}</p>
+        </div>
       </div>
     );
   }
 
+  // アクセス不可
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* ヘッダー */}
       <div className="bg-[#06C755] px-5 pt-12 pb-8 text-white">
         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -94,69 +106,12 @@ export default function LoginPage() {
 
       <div className="flex-1 px-4 pt-6 pb-8">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800 mb-1">ログイン</h2>
-          <p className="text-xs text-gray-400 mb-5 leading-relaxed">
-            管理者から発行されたメールアドレスとパスワードを入力してください。
-            一度ログインすると、次回以降は自動的にログインされます。
+          <h2 className="text-base font-semibold text-gray-800 mb-3">LINEミニアプリからアクセスしてください</h2>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            このアプリはLINEミニアプリとしてご利用いただけます。
+            LINEアプリ内からアクセスすると、自動的にログインされます。
           </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                メールアドレス
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@email.com"
-                required
-                autoComplete="email"
-                className="w-full px-3.5 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#06C755] focus:ring-1 focus:ring-[#06C755] transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                パスワード
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="パスワードを入力"
-                required
-                autoComplete="current-password"
-                className="w-full px-3.5 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#06C755] focus:ring-1 focus:ring-[#06C755] transition-colors"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-                <p className="text-xs text-red-600">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl text-sm font-semibold bg-[#06C755] text-white disabled:opacity-50 transition-opacity mt-2"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ログイン中...
-                </span>
-              ) : (
-                "ログイン"
-              )}
-            </button>
-          </form>
         </div>
-
-        <p className="text-[11px] text-gray-400 text-center mt-5 leading-relaxed">
-          ログインできない場合は管理者にお問い合わせください
-        </p>
       </div>
     </div>
   );

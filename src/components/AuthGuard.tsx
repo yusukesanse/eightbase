@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-/** ログイン不要のパス */
-const PUBLIC_PATHS = ["/login"];
+/** ログイン不要のパス（/ は LIFF エンドポイントURL で初期化に必要） */
+const PUBLIC_PATHS = ["/login", "/"];
 /** ログイン不要のプレフィックス（/admin は独自の認証を持つ） */
 const PUBLIC_PREFIXES = ["/admin"];
 
