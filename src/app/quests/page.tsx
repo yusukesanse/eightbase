@@ -1,35 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
 import type { Quest, UserQuestProgress } from "@/types";
+import clsx from "clsx";
 
-/* ───────── localStorage ヘルパー ───────── */
-
+/* ─── localStorage ─── */
 const GOOD_KEY = "quest_goods";
-
 function getGoodSet(): Set<string> {
-  try {
-    const raw = localStorage.getItem(GOOD_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
+  try { return new Set(JSON.parse(localStorage.getItem(GOOD_KEY) ?? "[]")); } catch { return new Set(); }
 }
+function saveGoodSet(s: Set<string>) { localStorage.setItem(GOOD_KEY, JSON.stringify(Array.from(s))); }
 
-function saveGoodSet(s: Set<string>) {
-  localStorage.setItem(GOOD_KEY, JSON.stringify(Array.from(s)));
-}
-
-/* ───────── 型 ───────── */
-
-interface QuestWithProgress extends Quest {
-  progress?: UserQuestProgress;
-  goodCount: number;
-  liked: boolean;
-}
+interface QuestWithProgress extends Quest { progress?: UserQuestProgress; goodCount: number; liked: boolean }
 
 export default function QuestsPage() {
+  const router = useRouter();
   const [quests, setQuests] = useState<QuestWithProgress[]>([]);
   const [points, setPoints] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -40,254 +27,181 @@ export default function QuestsPage() {
         const res = await fetch("/api/quests");
         const d = await res.json();
         const goodSet = getGoodSet();
-
         const list: QuestWithProgress[] = (d.quests ?? []).map(
           (q: Quest & { goodCount?: number; progress?: UserQuestProgress }) => ({
-            ...q,
-            goodCount: q.goodCount ?? 0,
-            liked: goodSet.has(q.questId),
+            ...q, goodCount: q.goodCount ?? 0, liked: goodSet.has(q.questId),
           })
         );
         setQuests(list);
         setPoints(d.totalPoints ?? 0);
-      } catch {
-        // API エラー時もUI表示
-      } finally {
-        setLoading(false);
-      }
+      } catch { /* */ } finally { setLoading(false); }
     })();
   }, []);
 
-  const handleToggleGood = useCallback(async (questId: string) => {
+  const handleToggleGood = useCallback(async (e: React.MouseEvent, questId: string) => {
+    e.stopPropagation();
     const goodSet = getGoodSet();
     const wasLiked = goodSet.has(questId);
     const action = wasLiked ? "remove" : "add";
 
-    // 楽観的UI更新
-    setQuests((prev) =>
-      prev.map((q) =>
-        q.questId === questId
-          ? {
-              ...q,
-              liked: !wasLiked,
-              goodCount: wasLiked
-                ? Math.max(0, q.goodCount - 1)
-                : q.goodCount + 1,
-            }
-          : q
-      )
-    );
-
-    // localStorage を更新
-    if (wasLiked) {
-      goodSet.delete(questId);
-    } else {
-      goodSet.add(questId);
-    }
+    setQuests(prev => prev.map(q =>
+      q.questId === questId
+        ? { ...q, liked: !wasLiked, goodCount: wasLiked ? Math.max(0, q.goodCount - 1) : q.goodCount + 1 }
+        : q
+    ));
+    if (wasLiked) goodSet.delete(questId); else goodSet.add(questId);
     saveGoodSet(goodSet);
 
     try {
       const res = await fetch(`/api/quests/${questId}/good`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      if (!res.ok) throw new Error();
-
-      const data = await res.json();
-      setQuests((prev) =>
-        prev.map((q) =>
-          q.questId === questId ? { ...q, goodCount: data.goodCount } : q
-        )
-      );
-    } catch {
-      // 失敗時はロールバック
-      if (wasLiked) {
-        goodSet.add(questId);
-      } else {
-        goodSet.delete(questId);
+      if (res.ok) {
+        const data = await res.json();
+        setQuests(prev => prev.map(q => q.questId === questId ? { ...q, goodCount: data.goodCount } : q));
       }
+    } catch {
+      if (wasLiked) goodSet.add(questId); else goodSet.delete(questId);
       saveGoodSet(goodSet);
-
-      setQuests((prev) =>
-        prev.map((q) =>
-          q.questId === questId
-            ? {
-                ...q,
-                liked: wasLiked,
-                goodCount: wasLiked
-                  ? q.goodCount + 1
-                  : Math.max(0, q.goodCount - 1),
-              }
-            : q
-        )
-      );
+      setQuests(prev => prev.map(q =>
+        q.questId === questId
+          ? { ...q, liked: wasLiked, goodCount: wasLiked ? q.goodCount + 1 : Math.max(0, q.goodCount - 1) }
+          : q
+      ));
     }
   }, []);
 
-  const active    = quests.filter((q) => !q.progress?.completed);
-  const completed = quests.filter((q) => q.progress?.completed);
+  const active    = quests.filter(q => !q.progress?.completed);
+  const completed = quests.filter(q => q.progress?.completed);
 
   return (
-    <div>
-      <TopBar title="クエスト情報" subtitle="ミッションをクリアしてポイントを獲得" color="bg-[#BA7517]" />
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <TopBar title="クエスト" subtitle="ミッションをクリアしてポイントを獲得" color="bg-[#BA7517]" />
 
-      <div className="p-3 space-y-3">
-        {/* ポイントバッジ */}
-        <div className="bg-white rounded-xl border border-gray-100 p-3 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2l1.8 5h5.2l-4.2 3.1 1.6 5L10 12l-4.4 3.1 1.6-5L3 7h5.2L10 2z" fill="#EF9F27"/>
+      <div className="p-4">
+        {/* ポイントバナー */}
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 flex items-center gap-4 shadow-sm mb-5">
+          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2l1.8 5h5.2l-4.2 3.1 1.6 5L10 12l-4.4 3.1 1.6-5L3 7h5.2L10 2z" fill="white"/>
             </svg>
           </div>
           <div>
-            <p className="text-[10px] text-gray-400">現在のポイント</p>
-            <p className="text-xl font-medium text-amber-700">{points.toLocaleString()} pt</p>
+            <p className="text-xs text-white/70 font-medium">現在のポイント</p>
+            <p className="text-2xl font-bold text-white">{points.toLocaleString()} <span className="text-sm font-medium">pt</span></p>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-sm text-gray-400">読み込み中...</div>
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-amber-500 rounded-full animate-spin" />
+          </div>
         ) : (
-          <>
+          <div className="space-y-5">
             {active.length > 0 && (
-              <>
-                <p className="text-xs font-medium text-gray-400">進行中のクエスト</p>
-                {active.map((q) => (
-                  <QuestCard
-                    key={q.questId}
-                    quest={q}
-                    onToggleGood={handleToggleGood}
-                  />
-                ))}
-              </>
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">進行中</p>
+                <div className="space-y-3">
+                  {active.map(q => (
+                    <QuestCard key={q.questId} quest={q} onToggleGood={handleToggleGood} onClick={() => router.push(`/quests/${q.questId}`)} />
+                  ))}
+                </div>
+              </div>
             )}
             {completed.length > 0 && (
-              <>
-                <p className="text-xs font-medium text-gray-400 pt-1">達成済み</p>
-                {completed.map((q) => (
-                  <QuestCard
-                    key={q.questId}
-                    quest={q}
-                    completed
-                    onToggleGood={handleToggleGood}
-                  />
-                ))}
-              </>
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">達成済み</p>
+                <div className="space-y-3">
+                  {completed.map(q => (
+                    <QuestCard key={q.questId} quest={q} completed onToggleGood={handleToggleGood} onClick={() => router.push(`/quests/${q.questId}`)} />
+                  ))}
+                </div>
+              </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-/* ───────── グッドアイコン表示 ───────── */
-
-function GoodIcon({ filled, size = 14 }: { filled?: boolean; size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={filled ? "#BA7517" : "none"}
-      stroke={filled ? "#BA7517" : "currentColor"}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M7 10v12" />
-      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-    </svg>
-  );
-}
-
-function GoodDisplay({ count }: { count: number }) {
-  if (count === 0) return null;
-
-  const displayCount = Math.min(count, 10);
-  const overflow = count > 10 ? count - 10 : 0;
-
-  return (
-    <div className="flex items-center gap-0.5 mt-1.5">
-      <div className="flex -space-x-1">
-        {Array.from({ length: displayCount }).map((_, i) => (
-          <span key={i} className="inline-block">
-            <GoodIcon filled size={12} />
-          </span>
-        ))}
-      </div>
-      {overflow > 0 && (
-        <span className="text-[10px] font-medium text-amber-700 ml-1">
-          +{overflow}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/* ───────── クエストカード ───────── */
-
-function QuestCard({
-  quest: q,
-  completed = false,
-  onToggleGood,
-}: {
+/* ─── クエストカード ─── */
+function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
   quest: QuestWithProgress;
   completed?: boolean;
-  onToggleGood: (questId: string) => void;
+  onToggleGood: (e: React.MouseEvent, id: string) => void;
+  onClick: () => void;
 }) {
   const current = q.progress?.currentCount ?? 0;
   const pct = Math.min(100, Math.round((current / q.requiredCount) * 100));
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-100 p-3 ${completed ? "opacity-60" : ""}`}>
-      <div className="flex gap-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${completed ? "bg-green-50" : "bg-amber-50"}`}>
-          {completed ? (
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M4 9l3.5 3.5L14 6" stroke="#3B6D11" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <rect x="3" y="3" width="12" height="12" rx="2" stroke="#854F0B" strokeWidth="1.3"/>
-              <path d="M6 9h6M9 6v6" stroke="#854F0B" strokeWidth="1.3" strokeLinecap="round"/>
-            </svg>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">{q.title}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{q.description}</p>
-          <div className="mt-2 h-1.5 bg-gray-100 rounded-full">
-            <div
-              className={`h-1.5 rounded-full transition-all ${completed ? "bg-green-400" : "bg-amber-400"}`}
-              style={{ width: `${pct}%` }}
-            />
+    <div
+      onClick={onClick}
+      className={clsx(
+        "bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer",
+        completed && "opacity-60"
+      )}
+    >
+      <div className="flex">
+        {/* サムネイル */}
+        {q.imageUrl ? (
+          <div className="w-24 flex-shrink-0 overflow-hidden bg-gray-100">
+            <img src={q.imageUrl} alt={q.title} className="w-full h-full object-cover" />
           </div>
-          <p className={`text-[10px] mt-1 ${completed ? "text-green-600" : "text-amber-700"}`}>
-            {completed
-              ? `達成済み +${q.rewardPoints}pt`
-              : `${current}/${q.requiredCount} 達成 — 完了で +${q.rewardPoints}pt`}
-          </p>
-        </div>
-      </div>
+        ) : (
+          <div className={`w-24 flex-shrink-0 flex items-center justify-center ${completed ? "bg-green-50" : "bg-gradient-to-br from-amber-400 to-orange-500"}`}>
+            {completed ? (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4 12 14.01l-3-3" />
+              </svg>
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2l1.8 5h5.2l-4.2 3.1 1.6 5L10 12l-4.4 3.1 1.6-5L3 7h5.2L10 2z" fill="white" opacity="0.8"/>
+              </svg>
+            )}
+          </div>
+        )}
 
-      {/* グッドボタン + 表示 */}
-      <div className="mt-2 pl-12">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onToggleGood(q.questId)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-              q.liked
-                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
-            }`}
-          >
-            <GoodIcon filled={q.liked} size={14} />
-            <span>{q.goodCount}</span>
-          </button>
+        <div className="flex-1 p-3 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700">
+              {q.category}
+            </span>
+            <span className="text-[10px] text-gray-400">+{q.rewardPoints}pt</span>
+          </div>
+          <h3 className="text-sm font-bold text-gray-900 mt-1 leading-snug line-clamp-2">
+            {q.title}
+          </h3>
+
+          {/* プログレスバー */}
+          <div className="mt-2">
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-1.5 rounded-full transition-all ${completed ? "bg-green-400" : "bg-amber-400"}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className={`text-[10px] font-medium ${completed ? "text-green-600" : "text-amber-600"}`}>
+                {current}/{q.requiredCount}
+              </span>
+              <button
+                onClick={(e) => onToggleGood(e, q.questId)}
+                className={clsx(
+                  "flex items-center gap-1 text-[11px] font-medium",
+                  q.liked ? "text-amber-700" : "text-gray-400"
+                )}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill={q.liked ? "#BA7517" : "none"} stroke={q.liked ? "#BA7517" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+                </svg>
+                {q.goodCount}
+              </button>
+            </div>
+          </div>
         </div>
-        <GoodDisplay count={q.goodCount} />
       </div>
     </div>
   );
