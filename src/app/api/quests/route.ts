@@ -8,8 +8,11 @@ export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-line-user-id") ?? "";
   const db = getDb();
 
-  // クエスト一覧取得（全ユーザーに公開）
-  const questsSnap = await db.collection("quests").get();
+  // 公開済みクエストのみ取得
+  const questsSnap = await db
+    .collection("quests")
+    .where("published", "==", true)
+    .get();
 
   // ログインユーザーの場合のみ進捗を取得
   let progressMap = new Map<string, UserQuestProgress>();
