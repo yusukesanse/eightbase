@@ -107,49 +107,53 @@ export default function AdminLoginPage() {
 
   if (checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-gray-800 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400">読み込み中...</p>
+          <div className="w-10 h-10 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-slate-400">読み込み中...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/80 to-indigo-100/60 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* 背景デコレーション */}
+      <div className="absolute -top-32 -right-32 w-80 h-80 bg-gradient-to-br from-blue-200/40 to-indigo-200/30 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 -left-20 w-72 h-72 bg-gradient-to-br from-emerald-200/30 to-cyan-200/20 rounded-full blur-3xl" />
+
+      <div className="relative bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/60 p-8 w-full max-w-sm">
         {/* ロゴ */}
         <div className="mb-7 text-center">
-          <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-indigo-200">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
               <rect x="2" y="3" width="18" height="16" rx="3" stroke="white" strokeWidth="1.5"/>
               <path d="M7 2v2M15 2v2M2 9h18" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
               <path d="M7 13h8M7 16h5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
-          <h1 className="text-lg font-bold text-gray-900">管理者ログイン</h1>
-          <p className="text-xs text-gray-400 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
+          <h1 className="text-lg font-bold text-slate-800">管理者ログイン</h1>
+          <p className="text-xs text-slate-400 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
         </div>
 
         {/* Google ログインボタン */}
         <div className="flex flex-col items-center space-y-4">
           {loading ? (
             <div className="flex items-center space-x-2 py-3">
-              <div className="w-5 h-5 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-gray-500">認証中...</span>
+              <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-slate-500">認証中...</span>
             </div>
           ) : (
             <div ref={googleBtnRef} className="flex justify-center" />
           )}
 
           {error && (
-            <div className="w-full bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <div className="w-full bg-red-50/60 backdrop-blur-sm border border-red-200/40 rounded-xl px-4 py-3">
               <p className="text-xs text-red-600">{error}</p>
             </div>
           )}
 
-          <p className="text-xs text-gray-400 text-center leading-relaxed">
+          <p className="text-xs text-slate-400 text-center leading-relaxed">
             管理者として登録されたGoogleアカウントで<br />ログインしてください
           </p>
         </div>
