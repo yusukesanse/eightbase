@@ -16,9 +16,9 @@ let liffInstance: Liff | null = null;
  *   永久にハングする（ログイン後に読み込み中のまま止まる原因）。
  */
 const LIFF_ID_MAP: Record<string, string> = {
-  dev: process.env.NEXT_PUBLIC_LIFF_ID || "2009443491-Hay21xuZ",
-  review: process.env.NEXT_PUBLIC_LIFF_ID_REVIEW || "2009443492-9ntShQ6k",
-  prod: process.env.NEXT_PUBLIC_LIFF_ID_PROD || "2009443493-Pz9ZdqJ6",
+  dev: process.env.NEXT_PUBLIC_LIFF_ID || "2009714042-VitViwTt",
+  review: process.env.NEXT_PUBLIC_LIFF_ID_REVIEW || "2009714043-9sBS1htt",
+  prod: process.env.NEXT_PUBLIC_LIFF_ID_PROD || "2009714044-VBoRUBp8",
 };
 
 /** env パラメータがない場合のデフォルト環境 */
