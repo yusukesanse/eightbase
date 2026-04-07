@@ -129,6 +129,37 @@ export default function EventsPage() {
   );
 }
 
+/* ─── グッドアイコン横並び表示 ─── */
+function GoodIcons({ count, liked, color }: { count: number; liked: boolean; color: string }) {
+  const display = Math.min(count, 10);
+  const overflow = count > 10 ? count - 10 : 0;
+  const fillColor = liked ? color : "none";
+  const strokeColor = liked ? color : "#9CA3AF";
+
+  if (count === 0) {
+    return (
+      <span className="flex items-center gap-0.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center">
+      {Array.from({ length: display }).map((_, i) => (
+        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: i === 0 ? 0 : -3 }}>
+          <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+        </svg>
+      ))}
+      {overflow > 0 && (
+        <span className="text-[10px] font-bold ml-0.5" style={{ color: liked ? color : "#9CA3AF" }}>+{overflow}</span>
+      )}
+    </span>
+  );
+}
+
 /* ─── Featured (大) カード ─── */
 function FeaturedCard({ event: ev, onToggleGood, onClick }: {
   event: EventWithGood;
@@ -174,15 +205,9 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
           </div>
           <button
             onClick={(e) => onToggleGood(e, ev.eventId)}
-            className={clsx(
-              "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
-              ev.liked ? "bg-green-50 text-green-700" : "bg-gray-50 text-gray-400"
-            )}
+            className="flex items-center gap-0.5 flex-shrink-0"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={ev.liked ? "#06C755" : "none"} stroke={ev.liked ? "#06C755" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-            </svg>
-            {ev.goodCount}
+            <GoodIcons count={ev.goodCount} liked={ev.liked} color="#06C755" />
           </button>
         </div>
       </div>
@@ -226,15 +251,9 @@ function CompactCard({ event: ev, onToggleGood, onClick }: {
           <span className="text-[11px] text-gray-400 truncate">{ev.location}</span>
           <button
             onClick={(e) => onToggleGood(e, ev.eventId)}
-            className={clsx(
-              "flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium flex-shrink-0",
-              ev.liked ? "text-green-700" : "text-gray-400"
-            )}
+            className="flex items-center gap-0.5 flex-shrink-0"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill={ev.liked ? "#06C755" : "none"} stroke={ev.liked ? "#06C755" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-            </svg>
-            {ev.goodCount}
+            <GoodIcons count={ev.goodCount} liked={ev.liked} color="#06C755" />
           </button>
         </div>
       </div>

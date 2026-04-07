@@ -18,7 +18,6 @@ interface QuestWithProgress extends Quest { progress?: UserQuestProgress; goodCo
 export default function QuestsPage() {
   const router = useRouter();
   const [quests, setQuests] = useState<QuestWithProgress[]>([]);
-  const [points, setPoints] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,7 +32,6 @@ export default function QuestsPage() {
           })
         );
         setQuests(list);
-        setPoints(d.totalPoints ?? 0);
       } catch { /* */ } finally { setLoading(false); }
     })();
   }, []);
@@ -77,22 +75,9 @@ export default function QuestsPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
-      <TopBar title="クエスト" subtitle="ミッションをクリアしてポイントを獲得" color="bg-[#BA7517]" />
+      <TopBar title="クエスト" subtitle="ミッションをクリアしよう" color="bg-[#BA7517]" />
 
       <div className="p-4">
-        {/* ポイントバナー */}
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 flex items-center gap-4 shadow-sm mb-5">
-          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-            <svg width="24" height="24" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2l1.8 5h5.2l-4.2 3.1 1.6 5L10 12l-4.4 3.1 1.6-5L3 7h5.2L10 2z" fill="white"/>
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-white/70 font-medium">現在のポイント</p>
-            <p className="text-2xl font-bold text-white">{points.toLocaleString()} <span className="text-sm font-medium">pt</span></p>
-          </div>
-        </div>
-
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-2 border-gray-200 border-t-amber-500 rounded-full animate-spin" />
@@ -123,6 +108,37 @@ export default function QuestsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/* ─── グッドアイコン横並び表示 ─── */
+function GoodIcons({ count, liked, color }: { count: number; liked: boolean; color: string }) {
+  const display = Math.min(count, 10);
+  const overflow = count > 10 ? count - 10 : 0;
+  const fillColor = liked ? color : "none";
+  const strokeColor = liked ? color : "#9CA3AF";
+
+  if (count === 0) {
+    return (
+      <span className="flex items-center gap-0.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center">
+      {Array.from({ length: display }).map((_, i) => (
+        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={fillColor} stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: i === 0 ? 0 : -3 }}>
+          <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+        </svg>
+      ))}
+      {overflow > 0 && (
+        <span className="text-[10px] font-bold ml-0.5" style={{ color: liked ? color : "#9CA3AF" }}>+{overflow}</span>
+      )}
+    </span>
   );
 }
 
@@ -169,7 +185,6 @@ function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
             <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700">
               {q.category}
             </span>
-            <span className="text-[10px] text-gray-400">+{q.rewardPoints}pt</span>
           </div>
           <h3 className="text-sm font-bold text-gray-900 mt-1 leading-snug line-clamp-2">
             {q.title}
@@ -189,15 +204,9 @@ function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
               </span>
               <button
                 onClick={(e) => onToggleGood(e, q.questId)}
-                className={clsx(
-                  "flex items-center gap-1 text-[11px] font-medium",
-                  q.liked ? "text-amber-700" : "text-gray-400"
-                )}
+                className="flex items-center gap-0.5 flex-shrink-0"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill={q.liked ? "#BA7517" : "none"} stroke={q.liked ? "#BA7517" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-                </svg>
-                {q.goodCount}
+                <GoodIcons count={q.goodCount} liked={q.liked} color="#BA7517" />
               </button>
             </div>
           </div>

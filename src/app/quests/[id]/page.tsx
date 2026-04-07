@@ -134,17 +134,6 @@ export default function QuestDetailPage() {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2l1.8 5h5.2l-4.2 3.1 1.6 5L10 12l-4.4 3.1 1.6-5L3 7h5.2L10 2z" fill={isCompleted ? "#3B6D11" : "#EF9F27"}/>
-            </svg>
-            <span className={`text-sm font-bold ${isCompleted ? "text-green-700" : "text-amber-700"}`}>
-              +{quest.rewardPoints} pt
-            </span>
-            <span className="text-xs text-gray-400">
-              {isCompleted ? "獲得済み" : "達成時に獲得"}
-            </span>
-          </div>
         </div>
 
         {/* 区切り */}
