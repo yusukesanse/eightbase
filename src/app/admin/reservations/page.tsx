@@ -10,6 +10,7 @@ interface Reservation {
   displayName: string;
   tenantName: string;
   email: string;
+  pictureUrl: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -309,7 +310,23 @@ export default function AdminReservationsPage() {
                         )}
                       </td>
                       <td className="px-6 py-3 text-gray-600">{r.facilityName}</td>
-                      <td className="px-6 py-3 font-medium text-gray-900">{r.displayName}</td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2">
+                          {r.pictureUrl ? (
+                            <img
+                              src={r.pictureUrl}
+                              alt={r.displayName}
+                              className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {r.displayName.charAt(0)}
+                            </div>
+                          )}
+                          <span className="font-medium text-gray-900">{r.displayName}</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-3 text-gray-500">{r.tenantName || "—"}</td>
                       <td className="px-6 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${

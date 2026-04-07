@@ -26,16 +26,32 @@ export async function GET(req: NextRequest) {
 
     const snap = await query.get();
 
-    // ユーザー情報を取得するため authorizedUsers も参照
-    const usersSnap = await db.collection("authorizedUsers").get();
-    const userMap: Record<string, { displayName: string; tenantName: string; email: string }> = {};
-    usersSnap.docs.forEach((d) => {
+    // ユーザー情報を取得するため users（LINE）+ authorizedUsers の両方を参照
+    const userMap: Record<string, { displayName: string; tenantName: string; email: string; pictureUrl: string }> = {};
+
+    // 1) LINE ユーザー（users コレクション）を先に読む
+    const lineUsersSnap = await db.collection("users").get();
+    lineUsersSnap.docs.forEach((d) => {
+      const data = d.data();
+      const uid = data.lineUserId ?? d.id;
+      userMap[uid] = {
+        displayName: data.displayName ?? "",
+        tenantName: data.tenantName ?? "",
+        email: data.email ?? "",
+        pictureUrl: data.pictureUrl ?? "",
+      };
+    });
+
+    // 2) authorizedUsers で上書き（lineUserId が紐付いている場合のみ）
+    const authUsersSnap = await db.collection("authorizedUsers").get();
+    authUsersSnap.docs.forEach((d) => {
       const data = d.data();
       if (data.lineUserId) {
         userMap[data.lineUserId] = {
-          displayName: data.displayName,
-          tenantName: data.tenantName ?? "",
-          email: data.email,
+          displayName: data.displayName ?? userMap[data.lineUserId]?.displayName ?? "",
+          tenantName: data.tenantName ?? userMap[data.lineUserId]?.tenantName ?? "",
+          email: data.email ?? "",
+          pictureUrl: userMap[data.lineUserId]?.pictureUrl ?? "",
         };
       }
     });
@@ -49,9 +65,10 @@ export async function GET(req: NextRequest) {
           facilityId: d.facilityId,
           facilityName: d.facilityName,
           lineUserId: d.lineUserId,
-          displayName: userInfo?.displayName ?? d.displayName ?? d.lineUserId,
-          tenantName: userInfo?.tenantName ?? "",
-          email: userInfo?.email ?? "",
+          displayName: userInfo?.displayName || d.displayName || d.lineUserId,
+          tenantName: userInfo?.tenantName || "",
+          email: userInfo?.email || "",
+          pictureUrl: userInfo?.pictureUrl || "",
           date: d.date,
           startTime: d.startTime,
           endTime: d.endTime,
