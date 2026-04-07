@@ -10,16 +10,23 @@ interface NewsItem {
   category: string;
   publishedAt: string;
   imageUrl?: string;
+  priority?: string;
   published: boolean;
   scheduledAt?: string;
 }
 
-const NEWS_CATEGORIES = ["important", "info", "facility", "community"] as const;
+const NEWS_CATEGORIES = ["info", "facility", "community"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
-  important: "重要",
   info: "お知らせ",
   facility: "施設",
   community: "コミュニティ",
+};
+
+const PRIORITY_OPTIONS = ["high", "medium", "normal"] as const;
+const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
+  high:   { label: "高（Breaking News）", color: "bg-red-100 text-red-700" },
+  medium: { label: "中（Top Stories）",   color: "bg-amber-100 text-amber-700" },
+  normal: { label: "通常（Recent）",      color: "bg-gray-100 text-gray-500" },
 };
 
 const EMPTY_FORM = {
@@ -28,6 +35,7 @@ const EMPTY_FORM = {
   category: "info",
   publishedAt: "",
   imageUrl: "",
+  priority: "normal",
   published: false,
   scheduledAt: "",
 };
@@ -90,12 +98,14 @@ export default function AdminNewsPage() {
       category: item.category,
       publishedAt: item.publishedAt ? dayjs(item.publishedAt).format("YYYY-MM-DDTHH:mm") : "",
       imageUrl: item.imageUrl ?? "",
+      priority: item.priority ?? "normal",
       published: item.published,
       scheduledAt: item.scheduledAt ? dayjs(item.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
     });
     setPublishMode(getPublishMode({
       ...item,
       imageUrl: item.imageUrl ?? "",
+      priority: item.priority ?? "normal",
       scheduledAt: item.scheduledAt ?? "",
       publishedAt: item.publishedAt,
     }));
@@ -143,6 +153,7 @@ export default function AdminNewsPage() {
         ...form,
         publishedAt: form.publishedAt ? new Date(form.publishedAt).toISOString() : new Date().toISOString(),
         imageUrl: imageUrl ?? "",
+        priority: form.priority || "normal",
         published: publishMode === "immediate",
         scheduledAt: publishMode === "scheduled" && form.scheduledAt
           ? new Date(form.scheduledAt).toISOString()
@@ -245,6 +256,7 @@ export default function AdminNewsPage() {
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">タイトル</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">カテゴリ</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">重要度</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">投稿日時</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">ステータス</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">予約時刻</th>
@@ -259,6 +271,12 @@ export default function AdminNewsPage() {
                 >
                   <td className="px-6 py-3 font-medium text-gray-800">{item.title}</td>
                   <td className="px-6 py-3 text-gray-500">{CATEGORY_LABELS[item.category] ?? item.category}</td>
+                  <td className="px-6 py-3">
+                    {(() => {
+                      const p = PRIORITY_LABELS[item.priority ?? "normal"] ?? PRIORITY_LABELS.normal;
+                      return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.color}`}>{p.label.split("（")[0]}</span>;
+                    })()}
+                  </td>
                   <td className="px-6 py-3 text-gray-600 whitespace-nowrap">
                     {item.publishedAt ? dayjs(item.publishedAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
@@ -344,6 +362,34 @@ export default function AdminNewsPage() {
                     <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">重要度 *</label>
+                <div className="flex gap-2">
+                  {PRIORITY_OPTIONS.map((p) => {
+                    const info = PRIORITY_LABELS[p];
+                    const isSelected = form.priority === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setForm({ ...form, priority: p })}
+                        className={`flex-1 px-3 py-2.5 rounded-lg border text-xs font-medium text-center transition-all ${
+                          isSelected
+                            ? p === "high"
+                              ? "bg-red-50 border-red-300 text-red-700 ring-2 ring-red-200"
+                              : p === "medium"
+                              ? "bg-amber-50 border-amber-300 text-amber-700 ring-2 ring-amber-200"
+                              : "bg-gray-100 border-gray-300 text-gray-700 ring-2 ring-gray-200"
+                            : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                        }`}
+                      >
+                        {info.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>

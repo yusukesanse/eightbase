@@ -9,7 +9,6 @@ import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; label: string }> = {
-  important: { bg: "bg-red-50",   text: "text-red-700",  label: "重要" },
   info:      { bg: "bg-blue-50",  text: "text-blue-700", label: "お知らせ" },
   facility:  { bg: "bg-teal-50",  text: "text-teal-700", label: "施設" },
   community: { bg: "bg-gray-100", text: "text-gray-600", label: "コミュニティ" },

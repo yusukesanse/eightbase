@@ -77,7 +77,8 @@ export interface NufEvent {
 }
 
 // ─── ニュース ─────────────────────────────────────────────────────────────────
-export type NewsCategory = "important" | "info" | "facility" | "community";
+export type NewsCategory = "info" | "facility" | "community";
+export type NewsPriority = "high" | "medium" | "normal";
 
 export interface NewsItem {
   newsId: string;
@@ -86,6 +87,7 @@ export interface NewsItem {
   category: NewsCategory;
   publishedAt: string;
   imageUrl?: string;
+  priority: NewsPriority;
   published: boolean;
   scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }

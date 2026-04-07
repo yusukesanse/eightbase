@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
-import type { NewsItem, NewsCategory } from "@/types";
+import type { NewsItem, NewsCategory, NewsPriority } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; dot: string; label: string }> = {
-  important: { bg: "bg-red-50",   text: "text-red-700",  dot: "bg-red-500",    label: "重要" },
   info:      { bg: "bg-blue-50",  text: "text-blue-700", dot: "bg-blue-500",   label: "お知らせ" },
   facility:  { bg: "bg-teal-50",  text: "text-teal-700", dot: "bg-teal-500",   label: "施設" },
   community: { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400",   label: "コミュニティ" },
@@ -29,9 +28,22 @@ export default function NewsPage() {
   }, []);
 
   const today = dayjs().format("M月D日（ddd）");
-  const featured = news[0];
-  const topStories = news.slice(1, 3);
-  const rest = news.slice(3);
+
+  // priority に基づいてセクション分け
+  const newsWithPriority = news.map(n => ({
+    ...n,
+    priority: ((n as unknown as Record<string, unknown>).priority as NewsPriority) ?? "normal",
+  }));
+  const highItems   = newsWithPriority.filter(n => n.priority === "high");
+  const mediumItems = newsWithPriority.filter(n => n.priority === "medium");
+  const normalItems = newsWithPriority.filter(n => n.priority === "normal");
+
+  // Breaking News: high の最新1件
+  const featured = highItems[0] ?? null;
+  // Top Stories: high の残り + medium 全件
+  const topStories = [...highItems.slice(1), ...mediumItems];
+  // Recent: normal 全件
+  const rest = normalItems;
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">

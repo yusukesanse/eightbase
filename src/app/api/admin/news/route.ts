@@ -12,13 +12,14 @@ const NEWS_VALIDATION = {
   body:        { type: "string" as const, minLength: 1, maxLength: 10000 },
   category:    { type: "string" as const, minLength: 1, maxLength: 50 },
   imageUrl:    { type: "url" as const, maxLength: 2000 },
+  priority:    { type: "string" as const, minLength: 1, maxLength: 10 },
   published:   { type: "boolean" as const },
   publishedAt: { type: "string" as const, maxLength: 50 },
   scheduledAt: { type: "string" as const, maxLength: 50 },
 };
 
 const NEWS_UPDATE_FIELDS = [
-  "title", "body", "category", "imageUrl",
+  "title", "body", "category", "imageUrl", "priority",
   "published", "publishedAt", "scheduledAt",
 ];
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const reqBody = await req.json();
-    const { title, body, category, imageUrl, published, scheduledAt } = reqBody;
+    const { title, body, category, imageUrl, published, scheduledAt, priority } = reqBody;
     const publishedAt = reqBody.publishedAt || new Date().toISOString();
 
     if (!title || !body || !category) {
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       body,
       category,
       publishedAt,
+      priority: priority ?? "normal",
       published: published ?? false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
