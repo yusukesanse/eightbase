@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 /** ログイン不要のパス（/ は LIFF エンドポイントURL で初期化に必要） */
-const PUBLIC_PATHS = ["/login", "/"];
+const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
 /** ログイン不要のプレフィックス（/admin は独自の認証を持つ） */
 const PUBLIC_PREFIXES = ["/admin"];
 
 /**
- * 認証ガード。
- * - セッション Cookie を /api/auth/check に送り認証状態を確認する
- *   （旧: x-line-user-id ヘッダーを廃止 → httpOnly Cookie ベースに変更）
+ * 認証ガード（ハイブリッド認証対応）
+ * - セッション Cookie を /api/auth/check に送り認証状態を確認
  * - 未認証の場合 /login にリダイレクト
- * - /login などのパブリックパスはチェックをスキップ
+ * - 認証済みだがプロフィール未登録の場合 /setup-profile にリダイレクト
+ * - /login, /setup-profile, /admin はチェックをスキップ
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,13 +32,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
 
-    // Cookie は自動送信されるため、ヘッダー追加不要
     fetch("/api/auth/check", { credentials: "include" })
       .then(async (res) => {
         if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
           if (data.authorized) {
+            // プロフィール未登録チェック
+            if (!data.profileComplete && pathname !== "/setup-profile") {
+              router.replace("/setup-profile");
+              return;
+            }
             setStatus("authorized");
           } else {
             setStatus("unauthorized");
@@ -59,14 +63,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isPublicPath, router]);
+  }, [isPublicPath, pathname, router]);
 
   // ロード中
   if (status === "loading" && !isPublicPath) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#06C755] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-400">読み込み中...</p>
         </div>
       </div>

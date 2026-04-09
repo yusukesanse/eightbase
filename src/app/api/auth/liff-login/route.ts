@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signSession, setSessionCookie } from "@/lib/session";
+import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/auth/liff-login
  *
- * LIFF アクセストークンを LINE API で検証し、
- * ユーザーの LINE プロフィールを取得してセッション Cookie を発行する。
- *
- * Firebase の authorizedUsers チェックを行わず、
- * LINE ログインのみでアクセスを許可する。
- * （将来的にアクセス制御が必要な場合は、ここに追加）
+ * ハイブリッド認証フロー:
+ * 1. LIFF アクセストークンを LINE API で検証
+ * 2. LINE プロフィールを取得
+ * 3. authorizedUsers コレクションで lineUserId を照合
+ *    - 連携済み → セッション発行 (profileComplete フラグ付き)
+ *    - 未連携 → needsLinking: true を返す
  */
 export async function POST(req: NextRequest) {
   try {
@@ -61,16 +62,55 @@ export async function POST(req: NextRequest) {
     const profile = await profileRes.json();
     const lineUserId: string = profile.userId;
     const displayName: string = profile.displayName;
+    const pictureUrl: string = profile.pictureUrl ?? "";
 
-    console.log(`[liff-login] Authenticated: ${displayName} (${lineUserId})`);
+    console.log(`[liff-login] LINE user: ${displayName} (${lineUserId})`);
 
-    // ── 3. JWT セッション Cookie を発行 ──
+    // ── 3. authorizedUsers で lineUserId を照合 ──
+    const db = getDb();
+    const snap = await db
+      .collection("authorizedUsers")
+      .where("lineUserId", "==", lineUserId)
+      .where("active", "==", true)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      // lineUserId が未連携 → アカウント連携が必要
+      console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
+      return NextResponse.json({
+        success: false,
+        needsLinking: true,
+        lineUserId,
+        displayName,
+        pictureUrl,
+      });
+    }
+
+    // ── 4. 連携済み → プロフィール完了チェック & セッション発行 ──
+    const userData = snap.docs[0].data();
+    const profileComplete = !!userData.profileComplete;
+
+    // users コレクションに LINE 表示名を同期
+    const userRef = db.collection("users").doc(lineUserId);
+    await userRef.set(
+      {
+        displayName: userData.displayName || displayName,
+        lineDisplayName: displayName,
+        pictureUrl,
+        lineUserId,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
     const token = await signSession(lineUserId);
 
     const res = NextResponse.json({
       success: true,
-      displayName,
+      displayName: userData.displayName || displayName,
       lineUserId,
+      profileComplete,
     });
 
     setSessionCookie(res, token);

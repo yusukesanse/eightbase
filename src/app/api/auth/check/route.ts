@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
+import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/auth/check
- * セッション Cookie (JWT) を検証し、認証状態を返す。
- *
- * LINE ログインベースの認証に変更:
- * - JWT の検証のみ行い、Firebase の authorizedUsers チェックは行わない
- * - LIFF ログイン時に /api/auth/liff-login で発行された JWT を検証
+ * セッション Cookie (JWT) を検証し、認証状態とプロフィール完了状態を返す。
  */
 export async function GET(req: NextRequest) {
   try {
@@ -19,9 +16,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ authorized: false });
     }
 
+    // authorizedUsers で有効ユーザーか確認
+    const db = getDb();
+    const snap = await db
+      .collection("authorizedUsers")
+      .where("lineUserId", "==", lineUserId)
+      .where("active", "==", true)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      // セッションはあるが authorizedUsers に存在しない → 無効
+      return NextResponse.json({ authorized: false });
+    }
+
+    const userData = snap.docs[0].data();
+
     return NextResponse.json({
       authorized: true,
       lineUserId,
+      profileComplete: !!userData.profileComplete,
     });
   } catch (error) {
     console.error("[auth/check] error:", error);

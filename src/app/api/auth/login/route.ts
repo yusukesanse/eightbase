@@ -22,8 +22,10 @@ function hashPassword(
 
 /**
  * POST /api/auth/login
- * メールアドレスとパスワードで認証し、セッションCookieを発行する。
- * Body: { email, password, lineUserId? }
+ * ハイブリッド認証: メールアドレス+パスワードで認証し、
+ * lineUserId を紐づけてセッション Cookie を発行する。
+ *
+ * Body: { email, password, lineUserId, lineDisplayName?, linePictureUrl? }
  */
 export async function POST(req: NextRequest) {
   // ─── レートリミット（1IP あたり 10回/5分） ────────────────────────────
@@ -37,15 +39,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { email, password, lineUserId } = body as {
+    const {
+      email,
+      password,
+      lineUserId,
+      lineDisplayName,
+      linePictureUrl,
+    } = body as {
       email: string;
       password: string;
-      lineUserId?: string | null;
+      lineUserId: string;
+      lineDisplayName?: string;
+      linePictureUrl?: string;
     };
 
     if (!email || !password) {
       return NextResponse.json(
         { error: "メールアドレスとパスワードを入力してください" },
+        { status: 400 }
+      );
+    }
+
+    if (!lineUserId) {
+      return NextResponse.json(
+        { error: "LINE アカウント情報がありません。LINEミニアプリからアクセスしてください" },
         { status: 400 }
       );
     }
@@ -74,6 +91,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 既に別の LINE アカウントで連携済みの場合
+    if (userData.lineUserId && userData.lineUserId !== lineUserId) {
+      return NextResponse.json(
+        { error: "このメールアドレスは既に別のLINEアカウントで連携されています" },
+        { status: 409 }
+      );
+    }
+
     // 旧レコードは iterations フィールドなし（= 1000回）
     const storedIterations: number = userData.iterations ?? 1_000;
     const hash = hashPassword(password, userData.salt, storedIterations);
@@ -85,10 +110,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ─── パスワードハッシュのマイグレーション ──────────────────────────────
-    // 旧レコード（iterations < 100000）はログイン成功時に自動アップグレード
+    // ─── パスワードハッシュのマイグレーション & LINE ID 連携 ───────────
     const updates: Record<string, unknown> = {
       lastLoginAt: new Date().toISOString(),
+      lineUserId,
     };
 
     if (storedIterations < ITERATIONS_TARGET) {
@@ -98,34 +123,31 @@ export async function POST(req: NextRequest) {
       updates.iterations = ITERATIONS_TARGET;
     }
 
-    if (lineUserId) {
-      updates.lineUserId = lineUserId;
-    }
-
     await doc.ref.update(updates);
 
-    // users コレクションにも同期（予約表示名に使用）
-    if (lineUserId) {
-      const userRef = db.collection("users").doc(lineUserId);
-      await userRef.set(
-        {
-          displayName: userData.displayName,
-          tenantName: userData.tenantName ?? "",
-          lineUserId,
-          email: userData.email,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    }
+    // users コレクションにも同期
+    const userRef = db.collection("users").doc(lineUserId);
+    await userRef.set(
+      {
+        displayName: userData.displayName,
+        lineDisplayName: lineDisplayName || "",
+        pictureUrl: linePictureUrl || "",
+        tenantName: userData.tenantName ?? "",
+        lineUserId,
+        email: userData.email,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
 
     // ─── JWT セッション Cookie 発行 ────────────────────────────────────────
-    const sessionUserId = lineUserId ?? `email:${userData.email}`;
-    const token = await signSession(sessionUserId);
+    const token = await signSession(lineUserId);
+    const profileComplete = !!userData.profileComplete;
 
     const res = NextResponse.json({
       success: true,
       displayName: userData.displayName,
+      profileComplete,
     });
     setSessionCookie(res, token);
     return res;

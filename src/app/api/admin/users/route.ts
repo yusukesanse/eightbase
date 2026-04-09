@@ -100,6 +100,7 @@ export async function GET(req: NextRequest) {
         tenantName: d.tenantName,
         lineUserId: d.lineUserId ?? null,
         active: d.active,
+        profileComplete: !!d.profileComplete,
         createdAt: d.createdAt,
         lastLoginAt: d.lastLoginAt ?? null,
       };
