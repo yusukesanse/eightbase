@@ -8,8 +8,6 @@ interface QuestItem {
   questId: string;
   title: string;
   description: string;
-  requiredCount: number;
-  rewardPoints: number;
   category: string;
   imageUrl?: string;
   published?: boolean;
@@ -20,8 +18,6 @@ interface QuestItem {
 const EMPTY_FORM = {
   title: "",
   description: "",
-  requiredCount: 1,
-  rewardPoints: 100,
   category: "",
   imageUrl: "",
   published: false,
@@ -83,16 +79,13 @@ export default function AdminQuestsPage() {
     setForm({
       title: q.title,
       description: q.description,
-      requiredCount: q.requiredCount,
-      rewardPoints: q.rewardPoints,
       category: q.category,
       imageUrl: q.imageUrl ?? "",
       published: q.published ?? false,
       scheduledAt: q.scheduledAt ? dayjs(q.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
     });
     setPublishMode(getPublishMode({
-      ...q,
-      imageUrl: q.imageUrl ?? "",
+      ...EMPTY_FORM,
       published: q.published ?? false,
       scheduledAt: q.scheduledAt ?? "",
     }));
@@ -138,8 +131,6 @@ export default function AdminQuestsPage() {
 
       const payload: Record<string, unknown> = {
         ...form,
-        requiredCount: Number(form.requiredCount),
-        rewardPoints: Number(form.rewardPoints),
         imageUrl: imageUrl ?? "",
         published: publishMode === "immediate",
         scheduledAt: publishMode === "scheduled" && form.scheduledAt
@@ -243,8 +234,6 @@ export default function AdminQuestsPage() {
               <tr className="bg-[#414141]/5 border-b border-[#414141]/5">
                 <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">タイトル</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">カテゴリ</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">達成条件</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">報酬Pt</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">グッド</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">ステータス</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">予約時刻</th>
@@ -259,8 +248,6 @@ export default function AdminQuestsPage() {
                 >
                   <td className="px-6 py-3 font-medium text-[#414141]">{q.title}</td>
                   <td className="px-6 py-3 text-[#414141]/60">{q.category}</td>
-                  <td className="px-6 py-3 text-[#414141]/60">{q.requiredCount} 回</td>
-                  <td className="px-6 py-3 text-[#414141]/60">{q.rewardPoints} pt</td>
                   <td className="px-6 py-3">
                     <span className="inline-flex items-center gap-1 text-sm text-[#414141]">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="#BA7517" stroke="#BA7517" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -361,29 +348,6 @@ export default function AdminQuestsPage() {
                   className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141] resize-none"
                   placeholder="クエストの説明"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">達成条件（回数） *</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={form.requiredCount}
-                    onChange={(e) => setForm({ ...form, requiredCount: Number(e.target.value) })}
-                    className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">報酬ポイント *</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.rewardPoints}
-                    onChange={(e) => setForm({ ...form, rewardPoints: Number(e.target.value) })}
-                    className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
-                  />
-                </div>
               </div>
 
               {/* 画像アップロード */}
