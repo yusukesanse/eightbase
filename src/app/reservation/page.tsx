@@ -266,26 +266,27 @@ export default function ReservationPage() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* ── ヘッダー ── */}
       <header className="bg-[#A5C1C8] px-5 pt-4 pb-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-bold text-white tracking-wide">施設予約</h1>
-            <p className="text-[11px] text-white/70 mt-0.5">EIGHT BASE UNGA</p>
-          </div>
-          <Link
-            href="/my-reservations"
-            className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 text-[11px] text-white font-medium"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="4" width="18" height="17" rx="3" />
-              <path d="M8 3v2M16 3v2M3 9h18" strokeLinecap="round" />
-            </svg>
-            マイ予約
-          </Link>
+        <div>
+          <h1 className="text-base font-bold text-[#414141] tracking-wide">施設予約</h1>
+          <p className="text-[11px] text-[#414141]/50 mt-0.5">EIGHT BASE UNGA</p>
         </div>
       </header>
 
+      {/* ── マイ予約リンク ── */}
+      <div className="px-5 pt-3">
+        <Link
+          href="/my-reservations"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-[#414141]/70"
+        >
+          マイ予約
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </Link>
+      </div>
+
       {/* ── 施設選択 ── */}
-      <section className="px-5 pt-5 pb-2">
+      <section className="px-5 pt-4 pb-2">
         <p className="text-[11px] font-bold text-[#414141]/40 uppercase tracking-widest mb-3">施設を選択</p>
 
         {meetingRooms.length > 0 && (
