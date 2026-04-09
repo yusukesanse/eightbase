@@ -1,5 +1,6 @@
 "use client";
 
+import DatePicker from "./DatePicker";
 import TimePicker from "./TimePicker";
 
 interface DateTimePickerProps {
@@ -16,7 +17,6 @@ export default function DateTimePicker({
   required,
   className = "",
 }: DateTimePickerProps) {
-  // Split "2025-04-09T14:00" → date="2025-04-09", time="14:00"
   const [datePart, timePart] = (value || "").split("T");
   const date = datePart || "";
   const time = timePart || "";
@@ -31,15 +31,13 @@ export default function DateTimePicker({
 
   return (
     <div className={`flex gap-2 ${className}`}>
-      {/* Date — native input (calendar UI is fine) */}
-      <input
-        type="date"
+      <DatePicker
         value={date}
-        onChange={(e) => handleDateChange(e.target.value)}
+        onChange={handleDateChange}
         required={required}
-        className="flex-1 min-w-0 px-3 py-2.5 border border-[#414141]/15 rounded-xl text-sm text-[#414141] bg-white focus:outline-none focus:border-[#A5C1C8] focus:ring-2 focus:ring-[#A5C1C8]/20"
+        placeholder="日付"
+        className="flex-1 min-w-0"
       />
-      {/* Time — custom picker */}
       <TimePicker
         value={time}
         onChange={handleTimeChange}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import TimePicker from "@/components/ui/TimePicker";
+import DatePicker from "@/components/ui/DatePicker";
 
 interface Reservation {
   reservationId: string;
@@ -176,12 +177,10 @@ export default function AdminReservationsPage() {
             <form onSubmit={handleEdit} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[#414141]/60 mb-1">日付</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={editForm.date}
-                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  onChange={(v) => setEditForm({ ...editForm, date: v })}
                   required
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141]"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -236,11 +235,11 @@ export default function AdminReservationsPage() {
       <div className="bg-white rounded-xl border border-[#414141]/10 p-4 mb-4 flex flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-[#414141]/60 whitespace-nowrap">日付</label>
-          <input
-            type="date"
+          <DatePicker
             value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="px-3 py-2 text-sm border border-[#414141]/10 rounded-lg focus:outline-none focus:border-[#414141]"
+            onChange={(v) => setFilterDate(v)}
+            placeholder="日付で絞込"
+            className="w-[180px]"
           />
         </div>
         <div className="flex items-center gap-2">
