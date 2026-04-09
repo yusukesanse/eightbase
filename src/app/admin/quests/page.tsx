@@ -42,6 +42,7 @@ export default function AdminQuestsPage() {
   const [publishMode, setPublishMode] = useState<PublishMode>("draft");
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [statusTab, setStatusTab] = useState<"all" | "published" | "draft" | "scheduled">("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
@@ -202,9 +203,23 @@ export default function AdminQuestsPage() {
     return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#414141]/60">下書き</span>;
   }
 
+  const Q_TABS = [
+    { key: "all" as const, label: "すべて", count: quests.length },
+    { key: "published" as const, label: "公開済み", count: quests.filter(q => q.published).length },
+    { key: "draft" as const, label: "下書き", count: quests.filter(q => !q.published && !q.scheduledAt).length },
+    { key: "scheduled" as const, label: "タイマー設定", count: quests.filter(q => !q.published && !!q.scheduledAt).length },
+  ];
+
+  const filteredQuests = quests.filter((q) => {
+    if (statusTab === "published") return q.published;
+    if (statusTab === "draft") return !q.published && !q.scheduledAt;
+    if (statusTab === "scheduled") return !q.published && !!q.scheduledAt;
+    return true;
+  });
+
   return (
     <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#414141]">クエスト管理</h2>
           <p className="text-sm text-[#414141]/40 mt-1">クエストの作成・編集・削除</p>
@@ -217,15 +232,37 @@ export default function AdminQuestsPage() {
         </button>
       </div>
 
+      {/* ステータスタブ */}
+      <div className="flex gap-1 mb-5 bg-[#414141]/5 rounded-xl p-1">
+        {Q_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusTab(tab.key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+              statusTab === tab.key
+                ? "bg-white text-[#414141] shadow-sm"
+                : "text-[#414141]/40 hover:text-[#414141]/60"
+            }`}
+          >
+            {tab.label}
+            <span className={`min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold ${
+              statusTab === tab.key ? "bg-[#414141] text-white" : "bg-[#414141]/10 text-[#414141]/40"
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-48">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
-      ) : quests.length === 0 ? (
+      ) : filteredQuests.length === 0 ? (
         <div className="bg-white rounded-xl border border-[#414141]/10 p-10 text-center text-sm text-[#414141]/40">
-          クエストがありません
+          {statusTab === "all" ? "クエストがありません" : "該当するクエストがありません"}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-[#414141]/10 overflow-hidden">
@@ -241,7 +278,7 @@ export default function AdminQuestsPage() {
               </tr>
             </thead>
             <tbody>
-              {quests.map((q, i) => (
+              {filteredQuests.map((q, i) => (
                 <tr
                   key={q.questId}
                   className={`border-b border-[#414141]/5 hover:bg-[#414141]/5 transition-colors ${i % 2 === 0 ? "" : "bg-[#414141]/5"}`}
