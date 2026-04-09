@@ -313,13 +313,62 @@ export default function SetupProfilePage() {
 
               <div className="mt-3">
                 <label className="block text-[11px] text-[#414141]/40 mb-1">生年月日</label>
-                <input
-                  type="date"
-                  value={form.birthday}
-                  onChange={(e) => updateForm("birthday", e.target.value)}
-                  max={new Date().toISOString().split("T")[0]}
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <select
+                      value={form.birthday ? form.birthday.split("-")[0] : ""}
+                      onChange={(e) => {
+                        const parts = (form.birthday || "--").split("-");
+                        parts[0] = e.target.value;
+                        updateForm("birthday", parts.join("-"));
+                      }}
+                      className={`w-full px-2 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] bg-white ${
+                        !form.birthday?.split("-")[0] ? "text-[#414141]/30" : "text-[#414141]"
+                      }`}
+                    >
+                      <option value="">年</option>
+                      {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                        <option key={y} value={String(y)}>{y}年</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      value={form.birthday ? form.birthday.split("-")[1] : ""}
+                      onChange={(e) => {
+                        const parts = (form.birthday || "--").split("-");
+                        parts[1] = e.target.value;
+                        updateForm("birthday", parts.join("-"));
+                      }}
+                      className={`w-full px-2 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] bg-white ${
+                        !form.birthday?.split("-")[1] ? "text-[#414141]/30" : "text-[#414141]"
+                      }`}
+                    >
+                      <option value="">月</option>
+                      {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => (
+                        <option key={m} value={m}>{Number(m)}月</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      value={form.birthday ? form.birthday.split("-")[2] : ""}
+                      onChange={(e) => {
+                        const parts = (form.birthday || "--").split("-");
+                        parts[2] = e.target.value;
+                        updateForm("birthday", parts.join("-"));
+                      }}
+                      className={`w-full px-2 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] bg-white ${
+                        !form.birthday?.split("-")[2] ? "text-[#414141]/30" : "text-[#414141]"
+                      }`}
+                    >
+                      <option value="">日</option>
+                      {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
+                        <option key={d} value={d}>{Number(d)}日</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-3">
