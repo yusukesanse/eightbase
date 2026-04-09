@@ -37,6 +37,7 @@ export default function TimePicker({
   required,
   className = "",
 }: TimePickerProps) {
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,9 @@ export default function TimePicker({
     left: 0,
     width: 0,
   });
+
+  // SSR guard — createPortal needs document.body
+  useEffect(() => { setMounted(true); }, []);
 
   // Generate time options
   const options: string[] = [];
@@ -130,6 +134,7 @@ export default function TimePicker({
   );
 
   const dropdown =
+    mounted &&
     open &&
     createPortal(
       <div

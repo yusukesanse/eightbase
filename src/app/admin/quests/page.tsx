@@ -207,19 +207,19 @@ export default function AdminQuestsPage() {
     if (q.scheduledAt) {
       return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">予約投稿</span>;
     }
-    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">下書き</span>;
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#414141]/60">下書き</span>;
   }
 
   return (
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">クエスト管理</h2>
-          <p className="text-sm text-gray-400 mt-1">クエストの作成・編集・削除</p>
+          <h2 className="text-2xl font-bold text-[#414141]">クエスト管理</h2>
+          <p className="text-sm text-[#414141]/40 mt-1">クエストの作成・編集・削除</p>
         </div>
         <button
           onClick={openCreate}
-          className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+          className="px-4 py-2 bg-[#414141] text-white text-sm font-medium rounded-lg hover:bg-[#414141]/80 transition-colors"
         >
           ＋ 新規作成
         </button>
@@ -232,21 +232,21 @@ export default function AdminQuestsPage() {
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
       ) : quests.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-sm text-gray-400">
+        <div className="bg-white rounded-xl border border-[#414141]/10 p-10 text-center text-sm text-[#414141]/40">
           クエストがありません
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-[#414141]/10 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">タイトル</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">カテゴリ</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">達成条件</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">報酬Pt</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">グッド</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">ステータス</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500">予約時刻</th>
+              <tr className="bg-[#414141]/5 border-b border-[#414141]/5">
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">タイトル</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">カテゴリ</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">達成条件</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">報酬Pt</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">グッド</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">ステータス</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">予約時刻</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -254,14 +254,14 @@ export default function AdminQuestsPage() {
               {quests.map((q, i) => (
                 <tr
                   key={q.questId}
-                  className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}
+                  className={`border-b border-[#414141]/5 hover:bg-[#414141]/5 transition-colors ${i % 2 === 0 ? "" : "bg-[#414141]/5"}`}
                 >
-                  <td className="px-6 py-3 font-medium text-gray-800">{q.title}</td>
-                  <td className="px-6 py-3 text-gray-500">{q.category}</td>
-                  <td className="px-6 py-3 text-gray-600">{q.requiredCount} 回</td>
-                  <td className="px-6 py-3 text-gray-600">{q.rewardPoints} pt</td>
+                  <td className="px-6 py-3 font-medium text-[#414141]">{q.title}</td>
+                  <td className="px-6 py-3 text-[#414141]/60">{q.category}</td>
+                  <td className="px-6 py-3 text-[#414141]/60">{q.requiredCount} 回</td>
+                  <td className="px-6 py-3 text-[#414141]/60">{q.rewardPoints} pt</td>
                   <td className="px-6 py-3">
-                    <span className="inline-flex items-center gap-1 text-sm text-gray-700">
+                    <span className="inline-flex items-center gap-1 text-sm text-[#414141]">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="#BA7517" stroke="#BA7517" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M7 10v12" />
                         <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
@@ -270,13 +270,13 @@ export default function AdminQuestsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-3">{statusBadge(q)}</td>
-                  <td className="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
+                  <td className="px-6 py-3 text-[#414141]/40 text-xs whitespace-nowrap">
                     {q.scheduledAt ? dayjs(q.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => openEdit(q)}
-                      className="text-xs text-blue-600 hover:underline mr-3"
+                      className="text-xs text-[#A5C1C8] hover:underline mr-3"
                     >
                       編集
                     </button>
@@ -298,12 +298,12 @@ export default function AdminQuestsPage() {
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">削除の確認</h3>
-            <p className="text-sm text-gray-500 mb-5">このクエストを削除しますか？この操作は取り消せません。</p>
+            <h3 className="text-base font-semibold text-[#414141] mb-2">削除の確認</h3>
+            <p className="text-sm text-[#414141]/60 mb-5">このクエストを削除しますか？この操作は取り消せません。</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-[#414141]/10 rounded-lg hover:bg-gray-50"
               >
                 キャンセル
               </button>
@@ -323,79 +323,79 @@ export default function AdminQuestsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-8">
             <div className="px-6 py-5 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-[#414141]">
                 {editing ? "クエストを編集" : "新規クエスト作成"}
               </h3>
             </div>
 
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">タイトル *</label>
+                <label className="block text-xs font-medium text-[#414141]/60 mb-1">タイトル *</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
                   placeholder="クエストタイトル"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">カテゴリ *</label>
+                <label className="block text-xs font-medium text-[#414141]/60 mb-1">カテゴリ *</label>
                 <input
                   type="text"
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
                   placeholder="例：予約 / 交流 / 利用"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">説明 *</label>
+                <label className="block text-xs font-medium text-[#414141]/60 mb-1">説明 *</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={3}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                  className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141] resize-none"
                   placeholder="クエストの説明"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">達成条件（回数） *</label>
+                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">達成条件（回数） *</label>
                   <input
                     type="number"
                     min={1}
                     value={form.requiredCount}
                     onChange={(e) => setForm({ ...form, requiredCount: Number(e.target.value) })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">報酬ポイント *</label>
+                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">報酬ポイント *</label>
                   <input
                     type="number"
                     min={0}
                     value={form.rewardPoints}
                     onChange={(e) => setForm({ ...form, rewardPoints: Number(e.target.value) })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
                   />
                 </div>
               </div>
 
               {/* 画像アップロード */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">画像</label>
+                <label className="block text-xs font-medium text-[#414141]/60 mb-1">画像</label>
                 <div
-                  className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
+                  className="border-2 border-dashed border-[#414141]/10 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {imagePreview ? (
                     <img src={imagePreview} alt="preview" className="mx-auto max-h-40 object-contain rounded" />
                   ) : (
-                    <div className="text-gray-400 text-sm py-4">
+                    <div className="text-[#414141]/40 text-sm py-4">
                       クリックして画像を選択（5MB以下）
                     </div>
                   )}
@@ -420,7 +420,7 @@ export default function AdminQuestsPage() {
 
               {/* 公開設定 */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">公開設定</label>
+                <label className="block text-xs font-medium text-[#414141]/60 mb-2">公開設定</label>
                 <div className="flex gap-3">
                   {(["immediate", "draft", "scheduled"] as PublishMode[]).map((mode) => (
                     <label key={mode} className="flex items-center gap-1.5 cursor-pointer">
@@ -430,9 +430,9 @@ export default function AdminQuestsPage() {
                         value={mode}
                         checked={publishMode === mode}
                         onChange={() => setPublishMode(mode)}
-                        className="accent-gray-900"
+                        className="accent-[#414141]"
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-[#414141]">
                         {mode === "immediate" ? "即時公開" : mode === "draft" ? "下書き" : "タイマー投稿"}
                       </span>
                     </label>
@@ -441,14 +441,14 @@ export default function AdminQuestsPage() {
 
                 {publishMode === "scheduled" && (
                   <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">公開予約日時</label>
+                    <label className="block text-xs font-medium text-[#414141]/60 mb-1">公開予約日時</label>
                     <input
                       type="datetime-local"
                       value={form.scheduledAt ?? ""}
                       onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
                     />
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-[#414141]/40 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）
                     </p>
                   </div>
@@ -459,14 +459,14 @@ export default function AdminQuestsPage() {
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-[#414141]/10 rounded-lg hover:bg-gray-50"
               >
                 キャンセル
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving || uploading}
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-[#414141] text-white rounded-lg hover:bg-[#414141]/80 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving || uploading ? "保存中…" : "保存する"}
               </button>

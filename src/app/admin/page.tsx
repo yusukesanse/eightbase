@@ -54,10 +54,10 @@ interface Stats {
 /* ── カラーパレット ── */
 
 const FACILITY_COLORS = [
-  "#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6",
+  "#A5C1C8", "#8BA8AF", "#B0E401", "#C5D94A", "#ef4444", "#7BA8B0", "#A5C1C8", "#8BA8AF",
 ];
 const PIE_COLORS = [
-  "#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#A5C1C8", "#8BA8AF", "#B0E401", "#C5D94A", "#ef4444", "#7BA8B0",
 ];
 
 /* ── 共通コンポーネント ── */
@@ -71,7 +71,7 @@ function GlassCard({
 }) {
   return (
     <div
-      className={`rounded-2xl bg-white/50 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/[0.04] ${className}`}
+      className={`rounded-2xl bg-white/50 backdrop-blur-xl border border-white/60 shadow-sm shadow-[#A5C1C8]/8 ${className}`}
     >
       {children}
     </div>
@@ -91,12 +91,12 @@ function MiniKPI({
 }) {
   return (
     <div className="px-4 py-3 rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] min-w-0">
-      <p className="text-[11px] text-slate-400 font-medium mb-1 truncate">{label}</p>
+      <p className="text-[11px] text-[#414141]/40 font-medium mb-1 truncate">{label}</p>
       <div className="flex items-baseline gap-1">
-        <span className={`text-lg sm:text-xl font-bold ${accent || "text-slate-800"}`}>
+        <span className={`text-lg sm:text-xl font-bold ${accent || "text-[#414141]"}`}>
           {value}
         </span>
-        {unit && <span className="text-[11px] text-slate-400">{unit}</span>}
+        {unit && <span className="text-[11px] text-[#414141]/40">{unit}</span>}
       </div>
     </div>
   );
@@ -111,9 +111,9 @@ function ChartHeader({
 }) {
   return (
     <div className="mb-4 px-1">
-      <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+      <h3 className="text-sm font-semibold text-[#414141]">{title}</h3>
       {subtitle && (
-        <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
+        <p className="text-[11px] text-[#414141]/40 mt-0.5">{subtitle}</p>
       )}
     </div>
   );
@@ -143,7 +143,7 @@ function GlassTooltip({
 
   return (
     <div className="rounded-xl bg-white/85 backdrop-blur-xl border border-white/70 shadow-lg shadow-black/10 px-4 py-3 min-w-[130px]">
-      <p className="text-[11px] font-semibold text-slate-600 mb-1.5">
+      <p className="text-[11px] font-semibold text-[#414141]/60 mb-1.5">
         {labelFormatter ? labelFormatter(label || "") : label}
       </p>
       {payload.map((p, i) => (
@@ -153,9 +153,9 @@ function GlassTooltip({
               className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: p.color }}
             />
-            <span className="text-[11px] text-slate-500 truncate">{p.name}</span>
+            <span className="text-[11px] text-[#414141]/60 truncate">{p.name}</span>
           </div>
-          <span className="text-[11px] font-semibold text-slate-800 shrink-0">
+          <span className="text-[11px] font-semibold text-[#414141] shrink-0">
             {valueFormatter ? valueFormatter(p.value, p.name) : `${p.value}`}
           </span>
         </div>
@@ -202,13 +202,13 @@ export default function AdminDashboardPage() {
     <div className="p-4 sm:p-6 md:p-8">
       {/* ヘッダー */}
       <div className="mb-5">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-800">ダッシュボード</h2>
-        <p className="text-[11px] text-slate-400 mt-0.5">{today}</p>
+        <h2 className="text-lg sm:text-xl font-bold text-[#414141]">ダッシュボード</h2>
+        <p className="text-[11px] text-[#414141]/40 mt-0.5">{today}</p>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="w-8 h-8 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#A5C1C8]/40 border-t-[#A5C1C8] rounded-full animate-spin" />
         </div>
       ) : error ? (
         <div className="rounded-xl bg-red-50/60 backdrop-blur-sm border border-red-200/40 p-5 text-sm text-red-600">
@@ -219,9 +219,9 @@ export default function AdminDashboardPage() {
           {/* ミニKPI */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
             <MiniKPI label="登録ユーザー" value={stats?.totalUsers ?? 0} unit="名" />
-            <MiniKPI label="今日の予約" value={stats?.todayReservations ?? 0} unit="件" accent="text-indigo-600" />
-            <MiniKPI label="今後の予約" value={stats?.upcomingReservations ?? 0} unit="件" accent="text-emerald-600" />
-            <MiniKPI label="今月の予約" value={stats?.reservationsThisMonth ?? 0} unit="件" accent="text-amber-600" />
+            <MiniKPI label="今日の予約" value={stats?.todayReservations ?? 0} unit="件" accent="text-[#A5C1C8]" />
+            <MiniKPI label="今後の予約" value={stats?.upcomingReservations ?? 0} unit="件" accent="text-[#B0E401]" />
+            <MiniKPI label="今月の予約" value={stats?.reservationsThisMonth ?? 0} unit="件" accent="text-[#C5D94A]" />
             <MiniKPI label="累計予約" value={stats?.totalReservations ?? 0} unit="件" />
           </div>
 
@@ -247,9 +247,9 @@ export default function AdminDashboardPage() {
                         ))}
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false}
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false}
                         tickFormatter={(v) => dayjs(v).format("M/D")} interval="preserveStartEnd" minTickGap={40} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip
                         content={
                           <GlassTooltip
@@ -257,7 +257,7 @@ export default function AdminDashboardPage() {
                             valueFormatter={(v) => `${v}件`}
                           />
                         }
-                        cursor={{ fill: "rgba(99,102,241,0.06)" }}
+                        cursor={{ fill: "rgba(165,193,200,0.06)" }}
                       />
                       <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                         formatter={(value: string) => stats!.facilityNames[value] || value} />
@@ -266,8 +266,8 @@ export default function AdminDashboardPage() {
                           fill={`url(#grad_${fid})`} barSize={16}
                           radius={i === stats!.facilityIds.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
                       ))}
-                      <Line dataKey="total" name="合計" type="monotone" stroke="#334155" strokeWidth={2}
-                        dot={false} activeDot={{ r: 4, fill: "#334155", stroke: "#fff", strokeWidth: 2 }} />
+                      <Line dataKey="total" name="合計" type="monotone" stroke="#414141" strokeWidth={2}
+                        dot={false} activeDot={{ r: 4, fill: "#414141", stroke: "#fff", strokeWidth: 2 }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
@@ -285,14 +285,14 @@ export default function AdminDashboardPage() {
                     <AreaChart data={stats.userGrowth} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gradUser" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
+                          <stop offset="0%" stopColor="#A5C1C8" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#A5C1C8" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false}
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false}
                         tickFormatter={(v) => dayjs(v).format("M/D")} interval="preserveStartEnd" minTickGap={40} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip
                         content={
                           <GlassTooltip
@@ -301,9 +301,9 @@ export default function AdminDashboardPage() {
                           />
                         }
                       />
-                      <Area dataKey="total" name="累計" type="monotone" stroke="#6366f1" strokeWidth={2}
-                        fill="url(#gradUser)" dot={false} activeDot={{ r: 3, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} />
-                      <Bar dataKey="newUsers" name="新規" fill="#6366f1" opacity={0.6} barSize={6} radius={[2, 2, 0, 0]} />
+                      <Area dataKey="total" name="累計" type="monotone" stroke="#A5C1C8" strokeWidth={2}
+                        fill="url(#gradUser)" dot={false} activeDot={{ r: 3, fill: "#A5C1C8", stroke: "#fff", strokeWidth: 2 }} />
+                      <Bar dataKey="newUsers" name="新規" fill="#A5C1C8" opacity={0.6} barSize={6} radius={[2, 2, 0, 0]} />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -321,13 +321,13 @@ export default function AdminDashboardPage() {
                     <BarChart data={stats.hourlyDistribution} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gradHourly" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.8} />
-                          <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.3} />
+                          <stop offset="0%" stopColor="#8BA8AF" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#8BA8AF" stopOpacity={0.3} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip
                         content={
                           <GlassTooltip
@@ -335,7 +335,7 @@ export default function AdminDashboardPage() {
                             valueFormatter={(v) => `${v}件`}
                           />
                         }
-                        cursor={{ fill: "rgba(6,182,212,0.06)" }}
+                        cursor={{ fill: "rgba(139,168,175,0.06)" }}
                       />
                       <Bar dataKey="count" name="予約数" fill="url(#gradHourly)" radius={[4, 4, 0, 0]} barSize={20} />
                     </BarChart>
@@ -401,40 +401,40 @@ export default function AdminDashboardPage() {
                       const pct = maxGood > 0 ? (item.goodCount / maxGood) * 100 : 0;
                       return (
                         <div key={item.id} className="flex items-center gap-3">
-                          <span className="text-[11px] font-bold text-slate-300 w-4 text-right shrink-0">
+                          <span className="text-[11px] font-bold text-[#414141]/40 w-4 text-right shrink-0">
                             {i + 1}
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
                                 item.type === "quest"
-                                  ? "bg-indigo-100/60 text-indigo-600"
-                                  : "bg-emerald-100/60 text-emerald-600"
+                                  ? "bg-[#A5C1C8]/20 text-[#414141]"
+                                  : "bg-[#B0E401]/20 text-[#414141]"
                               }`}>
                                 {item.type === "quest" ? "クエスト" : "イベント"}
                               </span>
-                              <span className="text-[12px] text-slate-700 truncate">{item.title}</span>
+                              <span className="text-[12px] text-[#414141] truncate">{item.title}</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-1.5 rounded-full bg-[#414141]/10 overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all duration-500"
                                 style={{
                                   width: `${pct}%`,
                                   background: item.type === "quest"
-                                    ? "linear-gradient(90deg, #6366f1, #818cf8)"
-                                    : "linear-gradient(90deg, #10b981, #34d399)",
+                                    ? "linear-gradient(90deg, #A5C1C8, #7BA8B0)"
+                                    : "linear-gradient(90deg, #B0E401, #C5D94A)",
                                 }}
                               />
                             </div>
                           </div>
-                          <span className="text-[12px] font-bold text-slate-600 shrink-0">
+                          <span className="text-[12px] font-bold text-[#414141]/60 shrink-0">
                             {item.goodCount}
                           </span>
                         </div>
                       );
                     })
                 ) : (
-                  <div className="flex items-center justify-center py-8 text-sm text-slate-400">
+                  <div className="flex items-center justify-center py-8 text-sm text-[#414141]/40">
                     データがありません
                   </div>
                 )}
@@ -444,11 +444,11 @@ export default function AdminDashboardPage() {
 
           {/* コンテンツKPI + クイックアクション */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-            <MiniKPI label="クエスト" value={`${stats?.publishedQuests ?? 0}/${stats?.totalQuests ?? 0}`} unit="公開中" accent="text-indigo-600" />
-            <MiniKPI label="イベント" value={`${stats?.publishedEvents ?? 0}/${stats?.totalEvents ?? 0}`} unit="公開中" accent="text-emerald-600" />
+            <MiniKPI label="クエスト" value={`${stats?.publishedQuests ?? 0}/${stats?.totalQuests ?? 0}`} unit="公開中" accent="text-[#A5C1C8]" />
+            <MiniKPI label="イベント" value={`${stats?.publishedEvents ?? 0}/${stats?.totalEvents ?? 0}`} unit="公開中" accent="text-[#B0E401]" />
             <Link
               href="/admin/users"
-              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-slate-600 hover:bg-white/60 hover:shadow-md transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-[#414141]/60 hover:bg-white/60 hover:shadow-md transition-all duration-200"
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.3"/>
@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
             </Link>
             <Link
               href="/admin/reservations"
-              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-slate-600 hover:bg-white/60 hover:shadow-md transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-[#414141]/60 hover:bg-white/60 hover:shadow-md transition-all duration-200"
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.3"/>
