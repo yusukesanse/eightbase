@@ -65,7 +65,7 @@ export default function QuestDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-amber-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function QuestDetailPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
         <p className="text-gray-400 text-sm">クエストが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-amber-600">戻る</button>
+        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
       </div>
     );
   }
@@ -92,7 +92,7 @@ export default function QuestDetailPage() {
             <img src={quest.imageUrl} alt={quest.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="aspect-[16/9] w-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
@@ -110,27 +110,27 @@ export default function QuestDetailPage() {
       {/* コンテンツ */}
       <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-amber-50 text-amber-700">
+        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#414141]">
           {quest.category}
         </span>
 
-        <h1 className="text-xl font-bold text-gray-900 mt-3 leading-tight">
+        <h1 className="text-xl font-bold text-[#414141] mt-3 leading-tight">
           {quest.title}
         </h1>
 
         {/* 進捗カード */}
-        <div className={`mt-4 rounded-2xl p-4 ${isCompleted ? "bg-green-50 border border-green-100" : "bg-amber-50 border border-amber-100"}`}>
+        <div className={`mt-4 rounded-2xl p-4 ${isCompleted ? "bg-[#B0E401]/10 border border-[#B0E401]/20" : "bg-[#A5C1C8]/10 border border-[#A5C1C8]/20"}`}>
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-xs font-bold ${isCompleted ? "text-green-700" : "text-amber-700"}`}>
+            <span className={`text-xs font-bold ${isCompleted ? "text-[#7BA801]" : "text-[#414141]"}`}>
               {isCompleted ? "達成済み!" : "進行中"}
             </span>
-            <span className={`text-xs font-medium ${isCompleted ? "text-green-600" : "text-amber-600"}`}>
+            <span className={`text-xs font-medium ${isCompleted ? "text-[#7BA801]" : "text-[#414141]/70"}`}>
               {current} / {quest.requiredCount}
             </span>
           </div>
           <div className="h-2.5 bg-white rounded-full overflow-hidden">
             <div
-              className={`h-2.5 rounded-full transition-all ${isCompleted ? "bg-green-400" : "bg-amber-400"}`}
+              className={`h-2.5 rounded-full transition-all ${isCompleted ? "bg-[#B0E401]" : "bg-[#A5C1C8]"}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -152,11 +152,11 @@ export default function QuestDetailPage() {
             onClick={handleToggleGood}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
               liked
-                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                ? "bg-[#B0E401]/10 text-[#414141] border border-[#B0E401]/30"
                 : "bg-gray-50 text-gray-500 border border-gray-200"
             }`}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "#BA7517" : "none"} stroke={liked ? "#BA7517" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
             </svg>
             いいね {quest.goodCount}

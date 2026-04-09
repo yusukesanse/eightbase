@@ -68,7 +68,7 @@ export default function EventDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#06C755] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
       </div>
     );
   }
@@ -77,7 +77,7 @@ export default function EventDetailPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
         <p className="text-gray-400 text-sm">イベントが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#06C755]">戻る</button>
+        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function EventDetailPage() {
             <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#06C755] to-emerald-600 flex items-center justify-center">
+          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M16 2v4M8 2v4M3 10h18" />
@@ -114,25 +114,25 @@ export default function EventDetailPage() {
       {/* コンテンツ */}
       <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-emerald-50 text-emerald-700">
+        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#414141]">
           {event.category}
         </span>
 
         {/* タイトル */}
-        <h1 className="text-xl font-bold text-gray-900 mt-3 leading-tight">
+        <h1 className="text-xl font-bold text-[#414141] mt-3 leading-tight">
           {event.title}
         </h1>
 
         {/* メタ情報 */}
         <div className="mt-4 space-y-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06C755" strokeWidth="2">
+            <div className="w-10 h-10 rounded-xl bg-[#A5C1C8]/10 flex items-center justify-center flex-shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-[#414141]">
                 {start.format("YYYY年M月D日（ddd）")}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -142,14 +142,14 @@ export default function EventDetailPage() {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06C755" strokeWidth="2">
+            <div className="w-10 h-10 rounded-xl bg-[#A5C1C8]/10 flex items-center justify-center flex-shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                 <circle cx="12" cy="9" r="2.5" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">{event.location}</p>
+              <p className="text-sm font-medium text-[#414141]">{event.location}</p>
             </div>
           </div>
         </div>
@@ -170,11 +170,11 @@ export default function EventDetailPage() {
             onClick={handleToggleGood}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
               liked
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                ? "bg-[#B0E401]/10 text-[#414141] border border-[#B0E401]/30"
                 : "bg-gray-50 text-gray-500 border border-gray-200"
             }`}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "#06C755" : "none"} stroke={liked ? "#06C755" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
             </svg>
             いいね {event.goodCount}

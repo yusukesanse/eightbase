@@ -27,7 +27,7 @@ export function RichText({
               href={part}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline underline-offset-2 break-all"
+              className="text-[#7BA801] underline underline-offset-2 break-all"
               onClick={(e) => e.stopPropagation()}
             >
               {part}

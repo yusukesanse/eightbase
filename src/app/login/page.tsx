@@ -82,7 +82,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#06C755] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500">{message}</p>
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function LoginPage() {
   // アクセス不可
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-[#06C755] px-5 pt-12 pb-8 text-white">
+      <div className="bg-[#A5C1C8] px-5 pt-12 pb-8 text-white">
         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
             <rect x="2" y="3" width="18" height="16" rx="3" stroke="white" strokeWidth="1.5"/>
@@ -101,7 +101,7 @@ export default function LoginPage() {
           </svg>
         </div>
         <h1 className="text-xl font-bold tracking-wide">EIGHT BASE UNGA</h1>
-        <p className="text-sm text-green-100 mt-1">シェアオフィス 施設予約システム</p>
+        <p className="text-sm text-white/70 mt-1">シェアオフィス 施設予約システム</p>
       </div>
 
       <div className="flex-1 px-4 pt-6 pb-8">

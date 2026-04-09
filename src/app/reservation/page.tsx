@@ -193,7 +193,7 @@ export default function ReservationPage() {
         </div>
         <Link
           href="/my-reservations"
-          className="flex items-center gap-1 text-xs text-[#06C755] font-medium whitespace-nowrap"
+          className="flex items-center gap-1 text-xs text-[#A5C1C8] font-medium whitespace-nowrap"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
             <rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -300,7 +300,7 @@ export default function ReservationPage() {
                             disabled
                               ? "text-gray-200"
                               : isToday
-                              ? "text-[#06C755] font-bold"
+                              ? "text-[#A5C1C8] font-bold"
                               : "text-gray-500"
                           )}
                         >
@@ -361,11 +361,11 @@ export default function ReservationPage() {
                               "select-none transition-colors",
                               loading && "opacity-30",
                               !loading && state !== "booked" && "cursor-pointer",
-                              state === "free" && "hover:bg-green-50",
+                              state === "free" && "hover:bg-[#A5C1C8]/10",
                               state === "booked" && "cursor-not-allowed",
-                              state === "sel-start" && "bg-[#06C755]",
-                              state === "sel-range" && "bg-green-100",
-                              state === "sel-end" && "bg-[#05A847]"
+                              state === "sel-start" && "bg-[#A5C1C8]",
+                              state === "sel-range" && "bg-[#A5C1C8]/15",
+                              state === "sel-end" && "bg-[#8BA8AF]"
                             )}
                           >
                             {loading ? (
@@ -373,7 +373,7 @@ export default function ReservationPage() {
                             ) : state === "booked" ? (
                               <span className="text-gray-300 text-xs font-medium">×</span>
                             ) : state === "free" ? (
-                              <span className="text-[#06C755] text-xs font-medium">○</span>
+                              <span className="text-[#A5C1C8] text-xs font-medium">○</span>
                             ) : (
                               <span className="text-white text-xs font-bold">●</span>
                             )}
@@ -389,13 +389,13 @@ export default function ReservationPage() {
             {/* 凡例 */}
             <div className="flex gap-4 px-3 py-2 border-t border-gray-100 bg-gray-50">
               <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                <span className="text-[#06C755] font-medium text-xs">○</span> 空き
+                <span className="text-[#A5C1C8] font-medium text-xs">○</span> 空き
               </span>
               <span className="flex items-center gap-1 text-[10px] text-gray-400">
                 <span className="text-gray-300 font-medium text-xs">×</span> 予約済み
               </span>
               <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                <span className="text-[#06C755] font-bold text-xs">●</span> 選択中
+                <span className="text-[#A5C1C8] font-bold text-xs">●</span> 選択中
               </span>
             </div>
           </div>
@@ -419,7 +419,7 @@ export default function ReservationPage() {
             </div>
             <button
               onClick={handleReserve}
-              className="w-full py-3 rounded-xl text-sm font-medium bg-[#06C755] text-white"
+              className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#414141]"
             >
               予約する →
             </button>
@@ -455,12 +455,12 @@ function FacilityChip({
       className={clsx(
         "flex-shrink-0 px-3 py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap",
         selected
-          ? "border-[#06C755] bg-[#06C755] text-white"
+          ? "border-[#A5C1C8] bg-[#A5C1C8] text-white"
           : "border-gray-200 text-gray-600 bg-white hover:border-gray-300"
       )}
     >
       {facility.name}
-      <span className={clsx("ml-1 text-[9px]", selected ? "text-green-100" : "text-gray-400")}>
+      <span className={clsx("ml-1 text-[9px]", selected ? "text-white/70" : "text-gray-400")}>
         {facility.capacity}名
       </span>
     </button>
@@ -475,7 +475,7 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
           key={i}
           className={clsx(
             "h-1 w-6 rounded-full transition-colors",
-            i < step ? "bg-[#06C755]" : "bg-gray-200"
+            i < step ? "bg-[#A5C1C8]" : "bg-gray-200"
           )}
         />
       ))}
