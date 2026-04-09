@@ -200,14 +200,18 @@ export default function ReservationPage() {
     if (isSlotBooked(slot) || isPastSlot(slot)) return;
 
     if (!selStart || selEnd) {
-      // 1回目または再選択 → 開始時刻
+      // 1回目または再選択 → 開始時刻をセット
       setSelStart(slot);
       setSelEnd(null);
       return;
     }
 
-    // 2回目 → 終了時刻
-    if (timeToMin(slot) <= timeToMin(selStart)) {
+    // 2回目 → 終了時刻（選択スロットがそのまま終了時刻）
+    const slotMin = timeToMin(slot);
+    const startMin = timeToMin(selStart);
+
+    // 開始以前なら開始を再設定
+    if (slotMin <= startMin) {
       setSelStart(slot);
       setSelEnd(null);
       return;
@@ -217,9 +221,7 @@ export default function ReservationPage() {
     const hasConflict = daySlots.some((b) => {
       const bs = timeToMin(b.start);
       const be = timeToMin(b.end);
-      const ss = timeToMin(selStart);
-      const se = timeToMin(slot) + 30; // スロット末尾
-      return bs < se && be > ss;
+      return bs < slotMin && be > startMin;
     });
 
     if (hasConflict) {
@@ -228,23 +230,24 @@ export default function ReservationPage() {
       return;
     }
 
-    // 終了時刻 = 選択スロット + 30分
-    const endMin = timeToMin(slot) + 30;
-    const eh = Math.floor(endMin / 60);
-    const em = endMin % 60;
-    setSelEnd(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+    // 終了時刻 = 選択したスロットそのまま
+    setSelEnd(slot);
   }
 
   function getSlotState(slot: string) {
     if (isSlotBooked(slot)) return "booked" as const;
     if (isPastSlot(slot)) return "past" as const;
     if (!selStart) return "free" as const;
+
+    const sm = timeToMin(slot);
+    const ss = timeToMin(selStart);
+
     if (slot === selStart) return "selected-start" as const;
+
     if (selEnd) {
-      const sm = timeToMin(slot);
-      const ss = timeToMin(selStart);
       const se = timeToMin(selEnd);
-      if (sm >= ss && sm < se) return "selected-range" as const;
+      if (sm > ss && sm < se) return "selected-range" as const;
+      if (slot === selEnd) return "selected-end" as const;
     }
     return "free" as const;
   }
@@ -473,7 +476,7 @@ export default function ReservationPage() {
             ) : (
               <>
                 <p className="text-[10px] text-[#414141]/40 mb-2">
-                  {!selStart ? "開始時刻をタップ" : !selEnd ? "終了時刻をタップ" : "選択完了"}
+                  {!selStart ? "開始時間をタップしてください" : !selEnd ? "終了時間をタップしてください" : `${selStart}〜${selEnd} を選択中`}
                 </p>
                 <div className="grid grid-cols-4 gap-1.5">
                   {timeSlots.map((slot) => {
@@ -489,7 +492,8 @@ export default function ReservationPage() {
                           state === "past" && "bg-gray-50 text-gray-200 cursor-not-allowed",
                           state === "free" && "bg-[#FAFAFA] text-[#414141] hover:bg-[#A5C1C8]/10 active:scale-95 border border-gray-100",
                           state === "selected-start" && "bg-[#B0E401] text-[#414141] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]",
-                          state === "selected-range" && "bg-[#B0E401]/15 text-[#414141] border border-[#B0E401]/20"
+                          state === "selected-range" && "bg-[#B0E401]/15 text-[#414141] border border-[#B0E401]/20",
+                          state === "selected-end" && "bg-[#B0E401] text-[#414141] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]"
                         )}
                       >
                         {slot}
@@ -538,8 +542,8 @@ export default function ReservationPage() {
               : !selectedDate
               ? "カレンダーから日付を選択してください"
               : !selStart
-              ? "開始時刻をタップしてください"
-              : "終了時刻をタップしてください"}
+              ? "開始時間をタップしてください"
+              : "終了時間をタップしてください"}
           </p>
         )}
       </div>
