@@ -249,13 +249,13 @@ await fetch('https://api.line.me/v2/bot/message/push', {
 
 ### Vercel のビルドログ・デプロイログ
 
-https://vercel.com/nakagawa-share-office/nakagawa-share-office-app/deployments
+Vercel ダッシュボード → Deployments タブで確認
 
 デプロイのたびにビルドログが記録される。エラー発生時はここから確認。
 
 ### Vercel のランタイムログ（関数ログ）
 
-https://vercel.com/nakagawa-share-office/nakagawa-share-office-app/logs
+Vercel ダッシュボード → Logs タブで確認
 
 リアルタイムで API の実行ログ・エラーを確認できる。`console.error()` で出力した内容もここに表示される。
 
