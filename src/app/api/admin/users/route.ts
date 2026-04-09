@@ -91,8 +91,20 @@ export async function GET(req: NextRequest) {
       .orderBy("createdAt", "desc")
       .get();
 
+    // users コレクションから LINE プロフィール画像を取得
+    const usersSnap = await db.collection("users").get();
+    const usersMap: Record<string, { pictureUrl?: string; lineDisplayName?: string }> = {};
+    usersSnap.docs.forEach((doc) => {
+      const d = doc.data();
+      usersMap[doc.id] = {
+        pictureUrl: d.pictureUrl ?? null,
+        lineDisplayName: d.lineDisplayName ?? d.displayName ?? null,
+      };
+    });
+
     const users = snap.docs.map((doc) => {
       const d = doc.data();
+      const lineData = d.lineUserId ? usersMap[d.lineUserId] : null;
       return {
         id: doc.id,
         email: d.email,
@@ -101,8 +113,12 @@ export async function GET(req: NextRequest) {
         lineUserId: d.lineUserId ?? null,
         active: d.active,
         profileComplete: !!d.profileComplete,
+        profile: d.profile ?? null,
+        pictureUrl: lineData?.pictureUrl ?? null,
+        lineDisplayName: lineData?.lineDisplayName ?? null,
         createdAt: d.createdAt,
         lastLoginAt: d.lastLoginAt ?? null,
+        profileUpdatedAt: d.profileUpdatedAt ?? null,
       };
     });
 

@@ -3,6 +3,26 @@
 import { useEffect, useState, useMemo } from "react";
 import dayjs from "dayjs";
 
+/* ─── 型定義 ─── */
+
+interface UserProfile {
+  lastName: string;
+  firstName: string;
+  lastNameKana: string;
+  firstNameKana: string;
+  phone: string;
+  birthday: string;
+  gender: string;
+  occupation: string;
+  purpose: string;
+  postalCode: string;
+  prefecture: string;
+  city: string;
+  address: string;
+  building: string;
+  addressType: string;
+}
+
 interface User {
   id: string;
   email: string;
@@ -10,15 +30,33 @@ interface User {
   tenantName: string;
   lineUserId: string | null;
   active: boolean;
+  profileComplete: boolean;
+  profile: UserProfile | null;
+  pictureUrl: string | null;
+  lineDisplayName: string | null;
   createdAt: string;
   lastLoginAt: string | null;
+  profileUpdatedAt: string | null;
 }
 
 type SortKey = "displayName" | "email" | "tenantName" | "lineUserId" | "lastLoginAt" | "active" | "createdAt";
 type SortDir = "asc" | "desc";
-
 type StatusFilter = "all" | "active" | "inactive";
 type LineFilter = "all" | "linked" | "unlinked";
+
+const GENDER_LABELS: Record<string, string> = {
+  male: "男性",
+  female: "女性",
+  other: "その他",
+  prefer_not_to_say: "回答しない",
+};
+
+const ADDRESS_TYPE_LABELS: Record<string, string> = {
+  home: "自宅住所",
+  office: "会社住所",
+};
+
+/* ─── サブコンポーネント ─── */
 
 function Badge({ active }: { active: boolean }) {
   return (
@@ -53,6 +91,203 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   );
 }
 
+/** プロフィール情報の1行 */
+function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex items-start py-2.5 border-b border-[#414141]/5 last:border-b-0">
+      <span className="text-xs text-[#414141]/40 w-28 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-[#414141] flex-1">{value || "—"}</span>
+    </div>
+  );
+}
+
+/* ─── 顧客詳細パネル ─── */
+
+function UserDetailPanel({
+  user,
+  onClose,
+  onToggleActive,
+  onResetPassword,
+}: {
+  user: User;
+  onClose: () => void;
+  onToggleActive: (user: User) => void;
+  onResetPassword: (user: User) => void;
+}) {
+  const p = user.profile;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-start justify-end z-50">
+      {/* 背景クリックで閉じる */}
+      <div className="absolute inset-0" onClick={onClose} />
+
+      {/* パネル本体 */}
+      <div className="relative bg-white h-full w-full max-w-xl overflow-y-auto shadow-2xl animate-slideIn">
+        {/* ヘッダー: プロフィール画像 + 基本情報 */}
+        <div className="bg-gradient-to-br from-[#A5C1C8]/20 to-[#A5C1C8]/5 px-6 pt-6 pb-5">
+          {/* 閉じるボタン */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center transition-colors shadow-sm"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="#414141" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          <div className="flex items-start gap-4">
+            {/* プロフィール画像 */}
+            {user.pictureUrl ? (
+              <img
+                src={user.pictureUrl}
+                alt={user.displayName}
+                className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-[#A5C1C8]/30 border-2 border-white shadow-md flex items-center justify-center">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                  <path d="M16 4a6 6 0 016 6v0a6 6 0 01-12 0v0a6 6 0 016-6z" stroke="#A5C1C8" strokeWidth="2" />
+                  <path d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#A5C1C8" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+            )}
+
+            <div className="flex-1 pt-1">
+              <h2 className="text-xl font-bold text-[#414141]">{user.displayName}</h2>
+              {p && (
+                <p className="text-xs text-[#414141]/40 mt-0.5">
+                  {p.lastNameKana} {p.firstNameKana}
+                </p>
+              )}
+              <p className="text-sm text-[#414141]/60 mt-1">{p?.occupation || user.tenantName || "—"}</p>
+
+              <div className="flex items-center gap-2 mt-3">
+                <Badge active={user.active} />
+                {user.lineUserId ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#06C755]/10 text-[#06C755] text-xs rounded-full font-medium">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M8.5 1.5l-5 5L1 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    LINE連携済み
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#414141]/5 text-[#414141]/40 text-xs rounded-full">
+                    LINE未連携
+                  </span>
+                )}
+                {user.profileComplete ? (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#A5C1C8]/15 text-[#414141]/60 text-xs rounded-full">
+                    プロフィール登録済み
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-orange-50 text-orange-500 text-xs rounded-full">
+                    プロフィール未登録
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* コンテンツ */}
+        <div className="px-6 py-5 space-y-5">
+          {/* 連絡先情報 */}
+          <section>
+            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
+                <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              連絡先情報
+            </h3>
+            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+              <InfoRow label="メールアドレス" value={user.email} />
+              <InfoRow label="電話番号" value={p?.phone ? p.phone.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3") : null} />
+              {user.lineDisplayName && (
+                <InfoRow label="LINE表示名" value={user.lineDisplayName} />
+              )}
+            </div>
+          </section>
+
+          {/* 基本情報 */}
+          <section>
+            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="2" y="3" width="10" height="9" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
+                <path d="M4 3V2M10 3V2M2 6h10" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              基本情報
+            </h3>
+            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+              <InfoRow label="生年月日" value={p?.birthday ? dayjs(p.birthday).format("YYYY年M月D日") : null} />
+              <InfoRow label="性別" value={p?.gender ? GENDER_LABELS[p.gender] || p.gender : null} />
+              <InfoRow label="職業・会社名" value={p?.occupation} />
+              <InfoRow label="利用目的" value={p?.purpose} />
+            </div>
+          </section>
+
+          {/* 住所情報 */}
+          <section>
+            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1.5l5 4v6.5a1 1 0 01-1 1H3a1 1 0 01-1-1V5.5l5-4z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
+                <path d="M5.5 13V9.5h3V13" stroke="#A5C1C8" strokeWidth="1.2" />
+              </svg>
+              住所情報
+            </h3>
+            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+              <InfoRow label="住所種別" value={p?.addressType ? ADDRESS_TYPE_LABELS[p.addressType] || p.addressType : null} />
+              <InfoRow label="郵便番号" value={p?.postalCode ? `〒${p.postalCode.replace(/(\d{3})(\d{4})/, "$1-$2")}` : null} />
+              <InfoRow
+                label="住所"
+                value={p ? [p.prefecture, p.city, p.address, p.building].filter(Boolean).join(" ") || null : null}
+              />
+            </div>
+          </section>
+
+          {/* アカウント情報 */}
+          <section>
+            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
+                <path d="M5 5V3.5a2 2 0 014 0V5" stroke="#A5C1C8" strokeWidth="1.2" />
+              </svg>
+              アカウント情報
+            </h3>
+            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+              <InfoRow label="登録日" value={user.createdAt ? dayjs(user.createdAt).format("YYYY年M月D日") : null} />
+              <InfoRow label="最終ログイン" value={user.lastLoginAt ? dayjs(user.lastLoginAt).format("YYYY年M月D日 HH:mm") : null} />
+              <InfoRow label="プロフィール更新" value={user.profileUpdatedAt ? dayjs(user.profileUpdatedAt).format("YYYY年M月D日 HH:mm") : null} />
+            </div>
+          </section>
+
+          {/* アクションボタン */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => onToggleActive(user)}
+              className={`flex-1 py-2.5 text-sm rounded-xl border transition-colors ${
+                user.active
+                  ? "border-red-200 text-red-600 hover:bg-red-50"
+                  : "border-[#B0E401]/40 text-[#414141] hover:bg-[#B0E401]/10"
+              }`}
+            >
+              {user.active ? "アカウントを無効化" : "アカウントを有効化"}
+            </button>
+            <button
+              onClick={() => onResetPassword(user)}
+              className="flex-1 py-2.5 text-sm border border-[#A5C1C8]/40 text-[#414141] rounded-xl hover:bg-[#A5C1C8]/10 transition-colors"
+            >
+              パスワードリセット
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── メインページ ─── */
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +319,9 @@ export default function AdminUsersPage() {
   // アクション確認
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
+  // 顧客詳細
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
   // ソート切替
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -98,32 +336,30 @@ export default function AdminUsersPage() {
   const filteredUsers = useMemo(() => {
     let result = [...users];
 
-    // 検索（氏名、メール、テナント名で部分一致）
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter(
         (u) =>
           u.displayName.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
-          (u.tenantName && u.tenantName.toLowerCase().includes(q))
+          (u.tenantName && u.tenantName.toLowerCase().includes(q)) ||
+          (u.profile?.phone && u.profile.phone.includes(q)) ||
+          (u.profile?.occupation && u.profile.occupation.toLowerCase().includes(q))
       );
     }
 
-    // ステータスフィルター
     if (statusFilter === "active") {
       result = result.filter((u) => u.active);
     } else if (statusFilter === "inactive") {
       result = result.filter((u) => !u.active);
     }
 
-    // LINE連携フィルター
     if (lineFilter === "linked") {
       result = result.filter((u) => u.lineUserId);
     } else if (lineFilter === "unlinked") {
       result = result.filter((u) => !u.lineUserId);
     }
 
-    // ソート
     result.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -161,14 +397,11 @@ export default function AdminUsersPage() {
     return result;
   }, [users, searchQuery, statusFilter, lineFilter, sortKey, sortDir]);
 
-  // フィルターがアクティブかどうか
   const hasActiveFilter = statusFilter !== "all" || lineFilter !== "all" || searchQuery.trim() !== "";
 
   async function fetchUsers() {
     try {
-      const res = await fetch("/api/admin/users", {
-        credentials: "same-origin",
-      });
+      const res = await fetch("/api/admin/users", { credentials: "same-origin" });
       const data = await res.json();
       setUsers(data.users ?? []);
     } catch {
@@ -187,9 +420,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch("/api/admin/users", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify(addForm),
       });
@@ -210,14 +441,13 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({ id: user.id, active: !user.active }),
       });
       if (!res.ok) throw new Error();
       setActionMsg(user.active ? `${user.displayName} を無効にしました` : `${user.displayName} を有効にしました`);
+      setSelectedUser(null);
       await fetchUsers();
     } catch {
       setActionMsg("更新に失敗しました");
@@ -232,15 +462,14 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({ id: resetTarget.id, newPassword: resetPassword }),
       });
       if (!res.ok) throw new Error();
       setResetTarget(null);
       setResetPassword("");
+      setSelectedUser(null);
       setActionMsg(`${resetTarget.displayName} のパスワードをリセットしました`);
       await fetchUsers();
     } catch {
@@ -250,7 +479,6 @@ export default function AdminUsersPage() {
     }
   }
 
-  // ソート可能なヘッダーセル
   function SortableHeader({ label, sortKeyName, className }: { label: string; sortKeyName: SortKey; className?: string }) {
     return (
       <th
@@ -265,6 +493,17 @@ export default function AdminUsersPage() {
 
   return (
     <div className="p-8">
+      {/* スライドインアニメーション */}
+      <style jsx global>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.25s ease-out;
+        }
+      `}</style>
+
       {/* ヘッダー */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -284,15 +523,8 @@ export default function AdminUsersPage() {
 
       {/* 検索・フィルターバー */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        {/* 検索 */}
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -300,7 +532,7 @@ export default function AdminUsersPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="氏名・メール・テナント名で検索..."
+            placeholder="氏名・メール・テナント名・電話番号で検索..."
             className="w-full pl-9 pr-8 py-2.5 text-sm border border-[#414141]/10 rounded-xl bg-white focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] transition-colors"
           />
           {searchQuery && (
@@ -315,7 +547,6 @@ export default function AdminUsersPage() {
           )}
         </div>
 
-        {/* ステータスフィルター */}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
@@ -328,7 +559,6 @@ export default function AdminUsersPage() {
           <option value="inactive">無効のみ</option>
         </select>
 
-        {/* LINE連携フィルター */}
         <select
           value={lineFilter}
           onChange={(e) => setLineFilter(e.target.value as LineFilter)}
@@ -341,14 +571,9 @@ export default function AdminUsersPage() {
           <option value="unlinked">未連携のみ</option>
         </select>
 
-        {/* フィルターリセット */}
         {hasActiveFilter && (
           <button
-            onClick={() => {
-              setSearchQuery("");
-              setStatusFilter("all");
-              setLineFilter("all");
-            }}
+            onClick={() => { setSearchQuery(""); setStatusFilter("all"); setLineFilter("all"); }}
             className="px-3 py-2.5 text-xs text-[#414141]/60 border border-[#414141]/10 rounded-xl hover:bg-[#414141]/5 transition-colors flex items-center gap-1"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -391,13 +616,11 @@ export default function AdminUsersPage() {
                   />
                 </div>
               ))}
-
               {addError && (
                 <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
                   <p className="text-xs text-red-600">{addError}</p>
                 </div>
               )}
-
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -421,7 +644,7 @@ export default function AdminUsersPage() {
 
       {/* パスワードリセットモーダル */}
       {resetTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-base font-semibold text-[#414141] mb-1">パスワードをリセット</h3>
             <p className="text-sm text-[#414141]/60 mb-4">{resetTarget.displayName}（{resetTarget.email}）</p>
@@ -439,9 +662,7 @@ export default function AdminUsersPage() {
                 />
               </div>
               <p className="text-xs text-[#414141]/40">※ リセット後、LINE ID 連携も解除されます</p>
-              {resetError && (
-                <p className="text-xs text-red-600">{resetError}</p>
-              )}
+              {resetError && <p className="text-xs text-red-600">{resetError}</p>}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
@@ -461,6 +682,16 @@ export default function AdminUsersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* 顧客詳細パネル */}
+      {selectedUser && (
+        <UserDetailPanel
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onToggleActive={handleToggleActive}
+          onResetPassword={(u) => { setResetTarget(u); }}
+        />
       )}
 
       {/* ユーザーテーブル */}
@@ -483,6 +714,7 @@ export default function AdminUsersPage() {
                 <>全 {users.length} 名</>
               )}
             </p>
+            <p className="text-xs text-[#414141]/30">行をクリックで詳細表示</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -493,22 +725,43 @@ export default function AdminUsersPage() {
                   <SortableHeader label="LINE連携" sortKeyName="lineUserId" />
                   <SortableHeader label="最終ログイン" sortKeyName="lastLoginAt" />
                   <SortableHeader label="ステータス" sortKeyName="active" />
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#414141]/60">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-[#414141]/5 hover:bg-[#414141]/5 transition-colors">
+                  <tr
+                    key={user.id}
+                    onClick={() => setSelectedUser(user)}
+                    className="border-b border-[#414141]/5 hover:bg-[#A5C1C8]/5 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-4">
-                      <p className="font-medium text-[#414141]">{user.displayName}</p>
-                      <p className="text-xs text-[#414141]/40">{user.tenantName || "—"}</p>
+                      <div className="flex items-center gap-3">
+                        {user.pictureUrl ? (
+                          <img
+                            src={user.pictureUrl}
+                            alt=""
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                              <path d="M7 2a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
+                              <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+                            </svg>
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-[#414141]">{user.displayName}</p>
+                          <p className="text-xs text-[#414141]/40">{user.profile?.occupation || user.tenantName || "—"}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-[#414141]/60">{user.email}</td>
                     <td className="px-6 py-4">
                       {user.lineUserId ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#B0E401]/20 text-[#414141] text-xs rounded-full font-medium">
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                            <path d="M8.5 1.5l-5 5L1 4"/>
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                            <path d="M8.5 1.5l-5 5L1 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           連携済み
                         </span>
@@ -521,26 +774,6 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <Badge active={user.active} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleToggleActive(user)}
-                          className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${
-                            user.active
-                              ? "border-red-200 text-red-600 hover:bg-red-50"
-                              : "border-[#B0E401]/40 text-[#414141] hover:bg-[#B0E401]/10"
-                          }`}
-                        >
-                          {user.active ? "無効化" : "有効化"}
-                        </button>
-                        <button
-                          onClick={() => setResetTarget(user)}
-                          className="px-2.5 py-1.5 text-xs rounded-lg border border-[#C5D94A]/40 text-[#414141] hover:bg-[#C5D94A]/10 transition-colors"
-                        >
-                          PW リセット
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
