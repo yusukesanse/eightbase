@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
+import DateTimePicker from "@/components/ui/DateTimePicker";
 
 interface EventItem {
   eventId: string;
@@ -356,20 +357,18 @@ export default function AdminEventsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-[#414141]/60 mb-1">開始日時 *</label>
-                  <input
-                    type="datetime-local"
+                  <DateTimePicker
                     value={form.startAt}
-                    onChange={(e) => setForm({ ...form, startAt: e.target.value })}
-                    className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
+                    onChange={(v) => setForm({ ...form, startAt: v })}
+                    required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[#414141]/60 mb-1">終了日時 *</label>
-                  <input
-                    type="datetime-local"
+                  <DateTimePicker
                     value={form.endAt}
-                    onChange={(e) => setForm({ ...form, endAt: e.target.value })}
-                    className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
+                    onChange={(v) => setForm({ ...form, endAt: v })}
+                    required
                   />
                 </div>
               </div>
@@ -453,11 +452,9 @@ export default function AdminEventsPage() {
                 {publishMode === "scheduled" && (
                   <div className="mt-3">
                     <label className="block text-xs font-medium text-[#414141]/60 mb-1">公開予約日時</label>
-                    <input
-                      type="datetime-local"
+                    <DateTimePicker
                       value={form.scheduledAt ?? ""}
-                      onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                      className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
+                      onChange={(v) => setForm({ ...form, scheduledAt: v })}
                     />
                     <p className="text-xs text-[#414141]/40 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）

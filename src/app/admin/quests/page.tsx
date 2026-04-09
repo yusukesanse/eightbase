@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
+import DateTimePicker from "@/components/ui/DateTimePicker";
 
 interface QuestItem {
   questId: string;
@@ -442,11 +443,9 @@ export default function AdminQuestsPage() {
                 {publishMode === "scheduled" && (
                   <div className="mt-3">
                     <label className="block text-xs font-medium text-[#414141]/60 mb-1">公開予約日時</label>
-                    <input
-                      type="datetime-local"
+                    <DateTimePicker
                       value={form.scheduledAt ?? ""}
-                      onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                      className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
+                      onChange={(v) => setForm({ ...form, scheduledAt: v })}
                     />
                     <p className="text-xs text-[#414141]/40 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）

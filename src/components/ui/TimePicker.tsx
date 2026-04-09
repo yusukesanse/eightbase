@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 
 interface TimePickerProps {
   value: string;
@@ -37,20 +36,10 @@ export default function TimePicker({
   required,
   className = "",
 }: TimePickerProps) {
-  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number }>({
-    top: 0,
-    left: 0,
-    width: 0,
-  });
 
-  // SSR guard — createPortal needs document.body
-  useEffect(() => { setMounted(true); }, []);
-
-  // Generate time options
   const options: string[] = [];
   const minM = toMin(minTime);
   const maxM = toMin(maxTime);
@@ -58,33 +47,11 @@ export default function TimePicker({
     options.push(fromMin(m));
   }
 
-  // Calculate position when opened
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const dropdownH = Math.min(options.length * 36 + 8, 260);
-
-      // Show above if not enough space below
-      if (spaceBelow < dropdownH && rect.top > spaceBelow) {
-        setPos({ top: rect.top - dropdownH - 4, left: rect.left, width: rect.width });
-      } else {
-        setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-      }
-    }
-  }, [open, options.length]);
-
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        triggerRef.current &&
-        !triggerRef.current.contains(target) &&
-        listRef.current &&
-        !listRef.current.contains(target)
-      ) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -92,28 +59,13 @@ export default function TimePicker({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Close on scroll / resize (reposition would be janky)
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener("resize", close);
-    // Capture phase so we catch modal scroll too
-    document.addEventListener("scroll", close, true);
-    return () => {
-      window.removeEventListener("resize", close);
-      document.removeEventListener("scroll", close, true);
-    };
-  }, [open]);
-
-  // Scroll list to selected value
+  // Scroll to selected
   useEffect(() => {
     if (open && listRef.current && value) {
       const idx = options.indexOf(value);
       if (idx >= 0) {
         const el = listRef.current.children[idx] as HTMLElement;
-        if (el) {
-          el.scrollIntoView({ block: "center", behavior: "instant" });
-        }
+        if (el) el.scrollIntoView({ block: "center", behavior: "instant" });
       }
     }
   }, [open]);
@@ -133,102 +85,57 @@ export default function TimePicker({
     [onChange]
   );
 
-  const dropdown =
-    mounted &&
-    open &&
-    createPortal(
-      <div
-        ref={listRef}
-        style={{
-          position: "fixed",
-          top: pos.top,
-          left: pos.left,
-          width: pos.width,
-          zIndex: 99999,
-        }}
-        className="
-          max-h-[260px] overflow-y-auto
-          bg-white border border-gray-200 rounded-xl
-          shadow-xl shadow-black/12
-          py-1
-        "
-      >
-        {options.map((t) => {
-          const isSelected = t === value;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => handleSelect(t)}
-              className={`
-                w-full text-left px-3 py-2 text-sm transition-colors
-                ${
-                  isSelected
-                    ? "bg-gray-900 text-white font-medium"
-                    : "text-gray-700 hover:bg-gray-50"
-                }
-              `}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </div>,
-      document.body
-    );
-
   return (
-    <div className={className}>
-      {/* Trigger button */}
+    <div ref={wrapRef} className={`relative ${className}`} style={{ zIndex: open ? 9999 : "auto" }}>
+      {/* Trigger */}
       <button
-        ref={triggerRef}
         type="button"
         onClick={() => setOpen((p) => !p)}
         className={`
           w-full flex items-center justify-between gap-2
           px-3 py-2.5 border rounded-xl text-sm transition-all
-          ${
-            open
-              ? "border-gray-800 ring-2 ring-gray-800/10"
-              : "border-gray-200 hover:border-gray-400"
-          }
-          ${!value ? "text-gray-400" : "text-gray-900"}
+          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/20" : "border-[#414141]/15 hover:border-[#414141]/30"}
+          ${!value ? "text-[#414141]/40" : "text-[#414141]"}
           bg-white cursor-pointer
         `}
       >
         <div className="flex items-center gap-2">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-gray-400 shrink-0"
-          >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#A5C1C8] shrink-0">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
           <span>{displayValue || placeholder}</span>
         </div>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
-        >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#414141]/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
-      {dropdown}
+      {/* Dropdown — inline, not portal */}
+      {open && (
+        <div
+          ref={listRef}
+          className="absolute left-0 right-0 mt-1 max-h-[240px] overflow-y-auto bg-white border border-[#414141]/10 rounded-xl shadow-lg shadow-black/10 py-1"
+          style={{ zIndex: 99999 }}
+        >
+          {options.map((t) => {
+            const isSelected = t === value;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => handleSelect(t)}
+                className={`
+                  w-full text-left px-3 py-2 text-sm transition-colors
+                  ${isSelected ? "bg-[#414141] text-white font-medium" : "text-[#414141] hover:bg-[#A5C1C8]/10"}
+                `}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
+import DateTimePicker from "@/components/ui/DateTimePicker";
 
 interface NewsItem {
   newsId: string;
@@ -394,11 +395,9 @@ export default function AdminNewsPage() {
 
               <div>
                 <label className="block text-xs font-medium text-[#414141]/60 mb-1">投稿日時</label>
-                <input
-                  type="datetime-local"
+                <DateTimePicker
                   value={form.publishedAt}
-                  onChange={(e) => setForm({ ...form, publishedAt: e.target.value })}
-                  className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
+                  onChange={(v) => setForm({ ...form, publishedAt: v })}
                 />
                 <p className="text-xs text-[#414141]/40 mt-1">空欄の場合は保存時の日時が使用されます</p>
               </div>
@@ -471,11 +470,9 @@ export default function AdminNewsPage() {
                 {publishMode === "scheduled" && (
                   <div className="mt-3">
                     <label className="block text-xs font-medium text-[#414141]/60 mb-1">公開予約日時</label>
-                    <input
-                      type="datetime-local"
+                    <DateTimePicker
                       value={form.scheduledAt ?? ""}
-                      onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                      className="w-full border border-[#414141]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#414141]"
+                      onChange={(v) => setForm({ ...form, scheduledAt: v })}
                     />
                     <p className="text-xs text-[#414141]/40 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）

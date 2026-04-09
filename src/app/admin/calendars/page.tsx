@@ -364,7 +364,7 @@ export default function CalendarsPage() {
       {/* ───────── 追加/編集モーダル ───────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-visible">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-[#414141]">
                 {editingId ? "施設を編集" : "カレンダーを追加"}
