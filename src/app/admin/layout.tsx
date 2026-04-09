@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── サイドバー (アイコン中心) ── */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen z-50 md:z-auto shrink-0 transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed md:sticky top-0 left-0 h-screen z-50 shrink-0 transition-transform duration-300 md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -157,7 +157,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </Link>
                   {/* ツールチップ */}
                   {isHover && (
-                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#414141] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[60] shadow-lg pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#414141] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[99999] shadow-lg pointer-events-none">
                       {link.label}
                       <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#414141]" />
                     </div>
@@ -180,7 +180,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </svg>
             </button>
             {hovered === "logout" && (
-              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#414141] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[60] shadow-lg pointer-events-none">
+              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#414141] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[99999] shadow-lg pointer-events-none">
                 ログアウト
                 <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#414141]" />
               </div>
