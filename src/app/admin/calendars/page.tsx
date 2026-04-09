@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Facility, FacilityType } from "@/types";
+import TimePicker from "@/components/ui/TimePicker";
 
 /* ───────── 型定義 ───────── */
 
@@ -445,20 +446,26 @@ export default function CalendarsPage() {
                   利用可能時間 <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="time"
+                  <TimePicker
                     value={form.openTime}
-                    onChange={(e) => setForm({ ...form, openTime: e.target.value })}
-                    className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    onChange={(v) => setForm({ ...form, openTime: v })}
+                    minTime="06:00"
+                    maxTime="23:00"
+                    step={30}
+                    placeholder="開始"
                     required
+                    className="flex-1"
                   />
-                  <span className="text-sm text-gray-500 shrink-0">〜</span>
-                  <input
-                    type="time"
+                  <span className="text-sm text-gray-400 shrink-0">〜</span>
+                  <TimePicker
                     value={form.closeTime}
-                    onChange={(e) => setForm({ ...form, closeTime: e.target.value })}
-                    className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    onChange={(v) => setForm({ ...form, closeTime: v })}
+                    minTime="06:00"
+                    maxTime="23:30"
+                    step={30}
+                    placeholder="終了"
                     required
+                    className="flex-1"
                   />
                 </div>
               </div>

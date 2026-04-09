@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import TimePicker from "@/components/ui/TimePicker";
 
 interface Reservation {
   reservationId: string;
@@ -186,22 +187,26 @@ export default function AdminReservationsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">開始時刻</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={editForm.startTime}
-                    onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                    onChange={(v) => setEditForm({ ...editForm, startTime: v })}
+                    minTime="06:00"
+                    maxTime="23:00"
+                    step={30}
+                    placeholder="開始"
                     required
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-800"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">終了時刻</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={editForm.endTime}
-                    onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
+                    onChange={(v) => setEditForm({ ...editForm, endTime: v })}
+                    minTime="06:00"
+                    maxTime="23:30"
+                    step={30}
+                    placeholder="終了"
                     required
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-800"
                   />
                 </div>
               </div>
