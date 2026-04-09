@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface TimePickerProps {
-  value: string;            // "HH:MM"
+  value: string;
   onChange: (v: string) => void;
-  minTime?: string;         // optional lower bound
-  maxTime?: string;         // optional upper bound
-  step?: number;            // minutes interval (default 30)
+  minTime?: string;
+  maxTime?: string;
+  step?: number;
   placeholder?: string;
   required?: boolean;
   className?: string;
@@ -37,8 +38,13 @@ export default function TimePicker({
   className = "",
 }: TimePickerProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
 
   // Generate time options
   const options: string[] = [];
@@ -48,20 +54,54 @@ export default function TimePicker({
     options.push(fromMin(m));
   }
 
+  // Calculate position when opened
+  useEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const dropdownH = Math.min(options.length * 36 + 8, 260);
+
+      // Show above if not enough space below
+      if (spaceBelow < dropdownH && rect.top > spaceBelow) {
+        setPos({ top: rect.top - dropdownH - 4, left: rect.left, width: rect.width });
+      } else {
+        setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      }
+    }
+  }, [open, options.length]);
+
   // Close on outside click
   useEffect(() => {
+    if (!open) return;
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(target) &&
+        listRef.current &&
+        !listRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     }
-    if (open) {
-      document.addEventListener("mousedown", handler);
-      return () => document.removeEventListener("mousedown", handler);
-    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Scroll to selected value when opened
+  // Close on scroll / resize (reposition would be janky)
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("resize", close);
+    // Capture phase so we catch modal scroll too
+    document.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
+    };
+  }, [open]);
+
+  // Scroll list to selected value
   useEffect(() => {
     if (open && listRef.current && value) {
       const idx = options.indexOf(value);
@@ -89,25 +129,69 @@ export default function TimePicker({
     [onChange]
   );
 
+  const dropdown =
+    open &&
+    createPortal(
+      <div
+        ref={listRef}
+        style={{
+          position: "fixed",
+          top: pos.top,
+          left: pos.left,
+          width: pos.width,
+          zIndex: 99999,
+        }}
+        className="
+          max-h-[260px] overflow-y-auto
+          bg-white border border-gray-200 rounded-xl
+          shadow-xl shadow-black/12
+          py-1
+        "
+      >
+        {options.map((t) => {
+          const isSelected = t === value;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => handleSelect(t)}
+              className={`
+                w-full text-left px-3 py-2 text-sm transition-colors
+                ${
+                  isSelected
+                    ? "bg-gray-900 text-white font-medium"
+                    : "text-gray-700 hover:bg-gray-50"
+                }
+              `}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>,
+      document.body
+    );
+
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={className}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((p) => !p)}
         className={`
           w-full flex items-center justify-between gap-2
           px-3 py-2.5 border rounded-xl text-sm transition-all
-          ${open
-            ? "border-gray-800 ring-2 ring-gray-800/10"
-            : "border-gray-200 hover:border-gray-400"
+          ${
+            open
+              ? "border-gray-800 ring-2 ring-gray-800/10"
+              : "border-gray-200 hover:border-gray-400"
           }
           ${!value ? "text-gray-400" : "text-gray-900"}
           bg-white cursor-pointer
         `}
       >
         <div className="flex items-center gap-2">
-          {/* Clock icon */}
           <svg
             width="16"
             height="16"
@@ -124,7 +208,6 @@ export default function TimePicker({
           </svg>
           <span>{displayValue || placeholder}</span>
         </div>
-        {/* Chevron */}
         <svg
           width="14"
           height="14"
@@ -140,41 +223,7 @@ export default function TimePicker({
         </svg>
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div
-          ref={listRef}
-          className="
-            absolute z-50 left-0 right-0 mt-1
-            max-h-[220px] overflow-y-auto
-            bg-white border border-gray-200 rounded-xl
-            shadow-lg shadow-black/8
-            py-1
-            scrollbar-thin
-          "
-          style={{ scrollbarWidth: "thin" }}
-        >
-          {options.map((t) => {
-            const isSelected = t === value;
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => handleSelect(t)}
-                className={`
-                  w-full text-left px-3 py-2 text-sm transition-colors
-                  ${isSelected
-                    ? "bg-gray-900 text-white font-medium"
-                    : "text-gray-700 hover:bg-gray-50"
-                  }
-                `}
-              >
-                {t}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
