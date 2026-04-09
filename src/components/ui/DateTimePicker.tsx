@@ -36,7 +36,7 @@ export default function DateTimePicker({
         onChange={handleDateChange}
         required={required}
         placeholder="日付"
-        className="flex-1 min-w-0"
+        className="flex-[1.2] min-w-[120px]"
       />
       <TimePicker
         value={time}
@@ -45,7 +45,7 @@ export default function DateTimePicker({
         maxTime="23:30"
         step={30}
         placeholder="時刻"
-        className="w-[130px] shrink-0"
+        className="flex-1 min-w-[100px]"
       />
     </div>
   );
