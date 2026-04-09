@@ -150,15 +150,22 @@ export default function AdminNewsPage() {
     try {
       const imageUrl = await uploadImage();
 
+      // publishedAt: 即時公開→現在日時、タイマー→scheduledAt、下書き→空
+      const scheduledIso = publishMode === "scheduled" && form.scheduledAt
+        ? new Date(form.scheduledAt).toISOString()
+        : null;
+
       const payload: Record<string, unknown> = {
         ...form,
-        publishedAt: form.publishedAt ? new Date(form.publishedAt).toISOString() : new Date().toISOString(),
+        publishedAt: publishMode === "immediate"
+          ? new Date().toISOString()
+          : publishMode === "scheduled" && scheduledIso
+            ? scheduledIso
+            : null,
         imageUrl: imageUrl ?? "",
         priority: form.priority || "normal",
         published: publishMode === "immediate",
-        scheduledAt: publishMode === "scheduled" && form.scheduledAt
-          ? new Date(form.scheduledAt).toISOString()
-          : null,
+        scheduledAt: scheduledIso,
       };
 
       let res: Response;
@@ -391,15 +398,6 @@ export default function AdminNewsPage() {
                     );
                   })}
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[#414141]/60 mb-1">投稿日時</label>
-                <DateTimePicker
-                  value={form.publishedAt}
-                  onChange={(v) => setForm({ ...form, publishedAt: v })}
-                />
-                <p className="text-xs text-[#414141]/40 mt-1">空欄の場合は保存時の日時が使用されます</p>
               </div>
 
               <div>
