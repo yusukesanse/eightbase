@@ -94,13 +94,13 @@ export default function TimePicker({
         className={`
           w-full flex items-center justify-between gap-2
           px-3 py-2.5 border rounded-xl text-sm transition-all
-          ${open ? "border-[#8BB5BF] ring-2 ring-[#8BB5BF]/20" : "border-[#231714]/15 hover:border-[#231714]/30"}
+          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/30" : "border-[#231714]/15 hover:border-[#231714]/30"}
           ${!value ? "text-[#231714]/40" : "text-[#231714]"}
           bg-white cursor-pointer
         `}
       >
         <div className="flex items-center gap-2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#8BB5BF] shrink-0">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#A5C1C8] shrink-0">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
@@ -127,7 +127,7 @@ export default function TimePicker({
                 onClick={() => handleSelect(t)}
                 className={`
                   w-full text-left px-3 py-2 text-sm transition-colors
-                  ${isSelected ? "bg-[#231714] text-white font-medium" : "text-[#231714] hover:bg-[#8BB5BF]/10"}
+                  ${isSelected ? "bg-[#231714] text-white font-medium" : "text-[#231714] hover:bg-[#A5C1C8]/20"}
                 `}
               >
                 {t}

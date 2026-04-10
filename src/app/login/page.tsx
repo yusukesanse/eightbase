@@ -151,7 +151,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500">
             {status === "linking" ? "アカウント連携中..." : message}
           </p>
@@ -165,7 +165,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* ヘッダー */}
-        <div className="bg-[#8BB5BF] px-5 pt-12 pb-8">
+        <div className="bg-[#A5C1C8] px-5 pt-12 pb-8">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
               <path d="M11 2a5 5 0 015 5v0a5 5 0 01-10 0v0a5 5 0 015-5z" stroke="#231714" strokeWidth="1.5" />
@@ -186,10 +186,10 @@ export default function LoginPage() {
                 className="w-12 h-12 rounded-full object-cover"
               />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-[#8BB5BF]/20 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-[#A5C1C8]/30 flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2a4 4 0 014 4v0a4 4 0 01-8 0v0a4 4 0 014-4z" stroke="#8BB5BF" strokeWidth="1.5" />
-                  <path d="M2 18c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#8BB5BF" strokeWidth="1.5" />
+                  <path d="M10 2a4 4 0 014 4v0a4 4 0 01-8 0v0a4 4 0 014-4z" stroke="#A5C1C8" strokeWidth="1.5" />
+                  <path d="M2 18c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#A5C1C8" strokeWidth="1.5" />
                 </svg>
               </div>
             )}
@@ -291,7 +291,7 @@ export default function LoginPage() {
   // ── アクセス不可 ──
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-[#8BB5BF] px-5 pt-12 pb-8">
+      <div className="bg-[#A5C1C8] px-5 pt-12 pb-8">
         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
             <rect x="2" y="3" width="18" height="16" rx="3" stroke="#231714" strokeWidth="1.5" />

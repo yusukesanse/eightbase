@@ -188,7 +188,7 @@ export default function SetupProfilePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500">読み込み中...</p>
         </div>
       </div>
@@ -198,7 +198,7 @@ export default function SetupProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ヘッダー */}
-      <div className="bg-[#8BB5BF] px-5 pt-12 pb-6">
+      <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
         <h1 className="text-xl font-bold tracking-wide text-[#231714]">プロフィール登録</h1>
         <p className="text-sm text-[#231714]/60 mt-1">
           ご利用にあたり、お客様情報をご入力ください
@@ -236,8 +236,8 @@ export default function SetupProfilePage() {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#8BB5BF" strokeWidth="1.3" />
-                  <path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#8BB5BF" strokeWidth="1.3" strokeLinecap="round" />
+                  <path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" />
+                  <path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" />
                 </svg>
                 氏名
                 <span className="text-[10px] text-red-400 font-normal">必須</span>
@@ -292,8 +292,8 @@ export default function SetupProfilePage() {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#8BB5BF" strokeWidth="1.3" />
-                  <rect x="5" y="1" width="6" height="3" rx="1" stroke="#8BB5BF" strokeWidth="1.3" />
+                  <path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" />
+                  <rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" />
                 </svg>
                 連絡先・基本情報
                 <span className="text-[10px] text-red-400 font-normal">必須</span>
@@ -396,8 +396,8 @@ export default function SetupProfilePage() {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="2" y="4" width="12" height="10" rx="2" stroke="#8BB5BF" strokeWidth="1.3" />
-                  <path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#8BB5BF" strokeWidth="1.3" />
+                  <rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" />
+                  <path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" />
                 </svg>
                 ご利用について
                 <span className="text-[10px] text-red-400 font-normal">必須</span>
@@ -455,8 +455,8 @@ export default function SetupProfilePage() {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#8BB5BF" strokeWidth="1.3" strokeLinejoin="round" />
-                  <path d="M6 15v-4h4v4" stroke="#8BB5BF" strokeWidth="1.3" />
+                  <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" />
+                  <path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" />
                 </svg>
                 住所
                 <span className="text-[10px] text-red-400 font-normal">必須</span>
@@ -506,7 +506,7 @@ export default function SetupProfilePage() {
                   <button
                     type="button"
                     onClick={lookupPostalCode}
-                    className="px-4 py-2.5 text-xs bg-[#8BB5BF]/20 text-[#231714] rounded-xl hover:bg-[#8BB5BF]/30 transition-colors whitespace-nowrap"
+                    className="px-4 py-2.5 text-xs bg-[#A5C1C8]/30 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap"
                   >
                     住所検索
                   </button>

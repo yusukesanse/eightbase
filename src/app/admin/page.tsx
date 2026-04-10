@@ -54,10 +54,10 @@ interface Stats {
 /* ── カラーパレット ── */
 
 const FACILITY_COLORS = [
-  "#8BB5BF", "#8BA8AF", "#B0E401", "#C5D94A", "#ef4444", "#7BA8B0", "#8BB5BF", "#8BA8AF",
+  "#A5C1C8", "#8BA8AF", "#B0E401", "#C5D94A", "#ef4444", "#7BA8B0", "#A5C1C8", "#8BA8AF",
 ];
 const PIE_COLORS = [
-  "#8BB5BF", "#8BA8AF", "#B0E401", "#C5D94A", "#ef4444", "#7BA8B0",
+  "#A5C1C8", "#8BA8AF", "#B0E401", "#C5D94A", "#ef4444", "#7BA8B0",
 ];
 
 /* ── 共通コンポーネント ── */
@@ -71,7 +71,7 @@ function GlassCard({
 }) {
   return (
     <div
-      className={`rounded-2xl bg-white/50 backdrop-blur-xl border border-white/60 shadow-sm shadow-[#8BB5BF]/8 ${className}`}
+      className={`rounded-2xl bg-white/50 backdrop-blur-xl border border-white/60 shadow-sm shadow-[#A5C1C8]/15 ${className}`}
     >
       {children}
     </div>
@@ -208,7 +208,7 @@ export default function AdminDashboardPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="w-8 h-8 border-2 border-[#8BB5BF]/40 border-t-[#8BB5BF] rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#A5C1C8]/40 border-t-[#A5C1C8] rounded-full animate-spin" />
         </div>
       ) : error ? (
         <div className="rounded-xl bg-red-50/60 backdrop-blur-sm border border-red-200/40 p-5 text-sm text-red-600">
@@ -219,7 +219,7 @@ export default function AdminDashboardPage() {
           {/* ミニKPI */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
             <MiniKPI label="登録ユーザー" value={stats?.totalUsers ?? 0} unit="名" />
-            <MiniKPI label="今日の予約" value={stats?.todayReservations ?? 0} unit="件" accent="text-[#8BB5BF]" />
+            <MiniKPI label="今日の予約" value={stats?.todayReservations ?? 0} unit="件" accent="text-[#A5C1C8]" />
             <MiniKPI label="今後の予約" value={stats?.upcomingReservations ?? 0} unit="件" accent="text-[#B0E401]" />
             <MiniKPI label="今月の予約" value={stats?.reservationsThisMonth ?? 0} unit="件" accent="text-[#C5D94A]" />
             <MiniKPI label="累計予約" value={stats?.totalReservations ?? 0} unit="件" />
@@ -247,9 +247,9 @@ export default function AdminDashboardPage() {
                         ))}
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#8BB5BF" }} tickLine={false} axisLine={false}
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false}
                         tickFormatter={(v) => dayjs(v).format("M/D")} interval="preserveStartEnd" minTickGap={40} />
-                      <YAxis tick={{ fontSize: 10, fill: "#8BB5BF" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip
                         content={
                           <GlassTooltip
@@ -285,14 +285,14 @@ export default function AdminDashboardPage() {
                     <AreaChart data={stats.userGrowth} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gradUser" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8BB5BF" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#8BB5BF" stopOpacity={0.02} />
+                          <stop offset="0%" stopColor="#A5C1C8" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#A5C1C8" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#8BB5BF" }} tickLine={false} axisLine={false}
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false}
                         tickFormatter={(v) => dayjs(v).format("M/D")} interval="preserveStartEnd" minTickGap={40} />
-                      <YAxis tick={{ fontSize: 10, fill: "#8BB5BF" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip
                         content={
                           <GlassTooltip
@@ -301,9 +301,9 @@ export default function AdminDashboardPage() {
                           />
                         }
                       />
-                      <Area dataKey="total" name="累計" type="monotone" stroke="#8BB5BF" strokeWidth={2}
-                        fill="url(#gradUser)" dot={false} activeDot={{ r: 3, fill: "#8BB5BF", stroke: "#fff", strokeWidth: 2 }} />
-                      <Bar dataKey="newUsers" name="新規" fill="#8BB5BF" opacity={0.6} barSize={6} radius={[2, 2, 0, 0]} />
+                      <Area dataKey="total" name="累計" type="monotone" stroke="#A5C1C8" strokeWidth={2}
+                        fill="url(#gradUser)" dot={false} activeDot={{ r: 3, fill: "#A5C1C8", stroke: "#fff", strokeWidth: 2 }} />
+                      <Bar dataKey="newUsers" name="新規" fill="#A5C1C8" opacity={0.6} barSize={6} radius={[2, 2, 0, 0]} />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -326,8 +326,8 @@ export default function AdminDashboardPage() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#8BB5BF" }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: "#8BB5BF" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#A5C1C8" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip
                         content={
                           <GlassTooltip
@@ -408,7 +408,7 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
                                 item.type === "quest"
-                                  ? "bg-[#8BB5BF]/20 text-[#231714]"
+                                  ? "bg-[#A5C1C8]/30 text-[#231714]"
                                   : "bg-[#B0E401]/20 text-[#231714]"
                               }`}>
                                 {item.type === "quest" ? "クエスト" : "イベント"}
@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
                                 style={{
                                   width: `${pct}%`,
                                   background: item.type === "quest"
-                                    ? "linear-gradient(90deg, #8BB5BF, #7BA8B0)"
+                                    ? "linear-gradient(90deg, #A5C1C8, #7BA8B0)"
                                     : "linear-gradient(90deg, #B0E401, #C5D94A)",
                                 }}
                               />
@@ -444,7 +444,7 @@ export default function AdminDashboardPage() {
 
           {/* コンテンツKPI + クイックアクション */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-            <MiniKPI label="クエスト" value={`${stats?.publishedQuests ?? 0}/${stats?.totalQuests ?? 0}`} unit="公開中" accent="text-[#8BB5BF]" />
+            <MiniKPI label="クエスト" value={`${stats?.publishedQuests ?? 0}/${stats?.totalQuests ?? 0}`} unit="公開中" accent="text-[#A5C1C8]" />
             <MiniKPI label="イベント" value={`${stats?.publishedEvents ?? 0}/${stats?.totalEvents ?? 0}`} unit="公開中" accent="text-[#B0E401]" />
             <Link
               href="/admin/users"

@@ -9,7 +9,7 @@ import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; label: string }> = {
-  info:      { bg: "bg-[#8BB5BF]/10", text: "text-[#231714]", label: "お知らせ" },
+  info:      { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]", label: "お知らせ" },
   facility:  { bg: "bg-[#B0E401]/10", text: "text-[#231714]", label: "施設" },
   community: { bg: "bg-gray-100",     text: "text-[#231714]", label: "コミュニティ" },
 };
@@ -34,7 +34,7 @@ export default function NewsDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
       </div>
     );
   }
@@ -43,7 +43,7 @@ export default function NewsDetailPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
         <p className="text-gray-400 text-sm">ニュースが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#8BB5BF]">戻る</button>
+        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function NewsDetailPage() {
             <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF] flex items-center justify-center">
+          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
               <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
               <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z" />

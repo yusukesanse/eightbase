@@ -332,7 +332,7 @@ export default function AdminNewsPage() {
                   <td className="px-6 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => openEdit(item)}
-                      className="text-xs text-[#8BB5BF] hover:underline mr-3"
+                      className="text-xs text-[#A5C1C8] hover:underline mr-3"
                     >
                       編集
                     </button>

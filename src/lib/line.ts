@@ -75,7 +75,7 @@ export async function sendReservationConfirmed(
         header: {
           type: "box",
           layout: "vertical",
-          backgroundColor: "#8BB5BF",
+          backgroundColor: "#A5C1C8",
           paddingAll: "14px",
           contents: [
             {
@@ -122,7 +122,7 @@ export async function sendReservationConfirmed(
                 uri: `${PORTAL_URL}/my-reservations`,
               },
               style: "primary",
-              color: "#8BB5BF",
+              color: "#A5C1C8",
             },
           ],
         },
@@ -224,9 +224,9 @@ export async function sendReservationReminder(
 type ContentType = "event" | "quest" | "news";
 
 const CONTENT_CONFIG: Record<ContentType, { label: string; path: string; color: string }> = {
-  event: { label: "イベント", path: "/events", color: "#8BB5BF" },
-  quest: { label: "クエスト", path: "/quests", color: "#8BB5BF" },
-  news:  { label: "ニュース", path: "/news",   color: "#8BB5BF" },
+  event: { label: "イベント", path: "/events", color: "#A5C1C8" },
+  quest: { label: "クエスト", path: "/quests", color: "#A5C1C8" },
+  news:  { label: "ニュース", path: "/news",   color: "#A5C1C8" },
 };
 
 export async function broadcastContentPublished(
@@ -295,7 +295,7 @@ export async function broadcastContentPublished(
                 uri: url,
               },
               style: "primary",
-              color: "#8BB5BF",
+              color: "#A5C1C8",
             },
           ],
         },

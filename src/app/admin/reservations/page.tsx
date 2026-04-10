@@ -305,12 +305,12 @@ export default function AdminReservationsPage() {
                   return (
                     <tr key={r.reservationId} className={`border-b border-[#231714]/5 hover:bg-[#231714]/5 transition-colors ${isPast ? "opacity-60" : ""}`}>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className={`font-medium ${r.date === today ? "text-[#8BB5BF]" : "text-[#231714]"}`}>
+                        <span className={`font-medium ${r.date === today ? "text-[#A5C1C8]" : "text-[#231714]"}`}>
                           {dayjs(r.date).format("M/D (ddd)")}
                         </span>
                         <span className="text-[#231714]/40 text-xs ml-2">{r.startTime}〜{r.endTime}</span>
                         {r.date === today && (
-                          <span className="ml-2 px-1.5 py-0.5 bg-[#8BB5BF]/20 text-[#8BB5BF] text-xs rounded-full font-medium">今日</span>
+                          <span className="ml-2 px-1.5 py-0.5 bg-[#A5C1C8]/30 text-[#A5C1C8] text-xs rounded-full font-medium">今日</span>
                         )}
                       </td>
                       <td className="px-6 py-3 text-[#231714]/60">{r.facilityName}</td>
@@ -324,7 +324,7 @@ export default function AdminReservationsPage() {
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                             />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#8BB5BF]/20 text-[#8BB5BF] flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/30 text-[#A5C1C8] flex items-center justify-center text-xs font-bold flex-shrink-0">
                               {r.displayName.charAt(0)}
                             </div>
                           )}
@@ -344,7 +344,7 @@ export default function AdminReservationsPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => openEdit(r)}
-                              className="px-2.5 py-1.5 text-xs rounded-lg border border-[#8BB5BF]/40 text-[#8BB5BF] hover:bg-[#8BB5BF]/10 transition-colors"
+                              className="px-2.5 py-1.5 text-xs rounded-lg border border-[#A5C1C8]/40 text-[#A5C1C8] hover:bg-[#A5C1C8]/20 transition-colors"
                             >
                               編集
                             </button>

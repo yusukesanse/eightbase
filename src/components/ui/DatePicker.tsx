@@ -130,13 +130,13 @@ export default function DatePicker({
         className={`
           w-full flex items-center justify-between gap-2
           px-3 py-2.5 border rounded-xl text-sm transition-all
-          ${open ? "border-[#8BB5BF] ring-2 ring-[#8BB5BF]/20" : "border-[#231714]/15 hover:border-[#231714]/30"}
+          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/30" : "border-[#231714]/15 hover:border-[#231714]/30"}
           ${!value ? "text-[#231714]/40" : "text-[#231714]"}
           bg-white cursor-pointer
         `}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#8BB5BF] shrink-0">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#A5C1C8] shrink-0">
             <rect x="3" y="4" width="18" height="18" rx="3" />
             <path d="M8 2v4M16 2v4M3 10h18" />
           </svg>
@@ -155,13 +155,13 @@ export default function DatePicker({
         >
           {/* Header: month nav */}
           <div className="flex items-center justify-between mb-2">
-            <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#8BB5BF]/10 text-[#231714]/50 transition-colors">
+            <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/20 text-[#231714]/50 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <span className="text-sm font-semibold text-[#231714]">
               {viewYear}年{viewMonth + 1}月
             </span>
-            <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#8BB5BF]/10 text-[#231714]/50 transition-colors">
+            <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/20 text-[#231714]/50 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
@@ -169,7 +169,7 @@ export default function DatePicker({
           {/* Weekday header */}
           <div className="grid grid-cols-7 mb-1">
             {WEEK.map((w, i) => (
-              <div key={w} className={`text-center text-[10px] font-medium py-1 ${i >= 5 ? "text-[#8BB5BF]" : "text-[#231714]/35"}`}>
+              <div key={w} className={`text-center text-[10px] font-medium py-1 ${i >= 5 ? "text-[#A5C1C8]" : "text-[#231714]/35"}`}>
                 {w}
               </div>
             ))}
@@ -197,10 +197,10 @@ export default function DatePicker({
                     ${isSelected
                       ? "bg-[#231714] text-white font-semibold"
                       : isToday
-                        ? "bg-[#8BB5BF]/15 text-[#231714] font-semibold"
+                        ? "bg-[#A5C1C8]/25 text-[#231714] font-semibold"
                         : isWeekend
-                          ? "text-[#8BB5BF] hover:bg-[#8BB5BF]/8"
-                          : "text-[#231714] hover:bg-[#8BB5BF]/8"
+                          ? "text-[#A5C1C8] hover:bg-[#A5C1C8]/15"
+                          : "text-[#231714] hover:bg-[#A5C1C8]/15"
                     }
                   `}
                 >
@@ -215,7 +215,7 @@ export default function DatePicker({
             <button
               type="button"
               onClick={goToday}
-              className="text-xs text-[#8BB5BF] hover:text-[#231714] font-medium transition-colors"
+              className="text-xs text-[#A5C1C8] hover:text-[#231714] font-medium transition-colors"
             >
               今日
             </button>

@@ -65,7 +65,7 @@ export default function QuestDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function QuestDetailPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
         <p className="text-gray-400 text-sm">クエストが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#8BB5BF]">戻る</button>
+        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
       </div>
     );
   }
@@ -92,7 +92,7 @@ export default function QuestDetailPage() {
             <img src={quest.imageUrl} alt={quest.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF] flex items-center justify-center">
+          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
@@ -110,7 +110,7 @@ export default function QuestDetailPage() {
       {/* コンテンツ */}
       <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#8BB5BF]/15 text-[#231714]">
+        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/25 text-[#231714]">
           {quest.category}
         </span>
 
@@ -119,7 +119,7 @@ export default function QuestDetailPage() {
         </h1>
 
         {/* 進捗カード */}
-        <div className={`mt-4 rounded-2xl p-4 ${isCompleted ? "bg-[#B0E401]/10 border border-[#B0E401]/20" : "bg-[#8BB5BF]/10 border border-[#8BB5BF]/20"}`}>
+        <div className={`mt-4 rounded-2xl p-4 ${isCompleted ? "bg-[#B0E401]/10 border border-[#B0E401]/20" : "bg-[#A5C1C8]/20 border border-[#A5C1C8]/30"}`}>
           <div className="flex items-center justify-between mb-2">
             <span className={`text-xs font-bold ${isCompleted ? "text-[#7BA801]" : "text-[#231714]"}`}>
               {isCompleted ? "達成済み!" : "進行中"}
@@ -130,7 +130,7 @@ export default function QuestDetailPage() {
           </div>
           <div className="h-2.5 bg-white rounded-full overflow-hidden">
             <div
-              className={`h-2.5 rounded-full transition-all ${isCompleted ? "bg-[#B0E401]" : "bg-[#8BB5BF]"}`}
+              className={`h-2.5 rounded-full transition-all ${isCompleted ? "bg-[#B0E401]" : "bg-[#A5C1C8]"}`}
               style={{ width: `${pct}%` }}
             />
           </div>
