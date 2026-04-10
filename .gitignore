@@ -32,6 +32,10 @@ yarn-error.log*
 # claude
 .claude/
 
+# handoff docs (local only)
+HANDOFF.md
+docs/HANDOVER.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
