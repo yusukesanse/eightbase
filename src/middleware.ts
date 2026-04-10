@@ -3,13 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * ドメインベースのルーティング Middleware
  *
- * - portal.eightbase.net   → 顧客向けアプリ（/admin/* へのアクセスをブロック）
- * - admin.eightbase.net    → 管理者向けアプリ（/admin/* のみ許可）
+ * 環境変数 CUSTOMER_DOMAIN / ADMIN_DOMAIN でドメインを設定。
+ * - 顧客ドメイン → /admin/* へのアクセスをブロック
+ * - 管理ドメイン → /admin/* のみ許可
  * - *.vercel.app / localhost → 開発環境は制限なし
  */
 
-const CUSTOMER_DOMAIN = "portal.eightbase.net";
-const ADMIN_DOMAIN = "admin.eightbase.net";
+const CUSTOMER_DOMAIN = process.env.CUSTOMER_DOMAIN || "";
+const ADMIN_DOMAIN = process.env.ADMIN_DOMAIN || "";
 
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
@@ -33,8 +34,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // ドメインが未設定の場合は制限なし
+  if (!CUSTOMER_DOMAIN && !ADMIN_DOMAIN) {
+    return NextResponse.next();
+  }
+
   // 管理者ドメイン: /admin/* 以外へのアクセスは /admin にリダイレクト
-  if (host === ADMIN_DOMAIN) {
+  if (ADMIN_DOMAIN && host === ADMIN_DOMAIN) {
     if (!pathname.startsWith("/admin")) {
       return NextResponse.redirect(new URL("/admin", req.url));
     }
@@ -42,7 +48,7 @@ export function middleware(req: NextRequest) {
   }
 
   // 顧客ドメイン: /admin/* へのアクセスは 404
-  if (host === CUSTOMER_DOMAIN) {
+  if (CUSTOMER_DOMAIN && host === CUSTOMER_DOMAIN) {
     if (pathname.startsWith("/admin")) {
       return NextResponse.rewrite(new URL("/not-found", req.url));
     }

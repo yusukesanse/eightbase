@@ -5,7 +5,7 @@
 
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || "https://portal.eightbase.net";
+const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || "";
 
 async function pushMessage(userId: string, messages: object[]) {
   const res = await fetch(`${LINE_API_BASE}/message/push`, {
