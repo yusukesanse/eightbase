@@ -19,10 +19,10 @@ function saveGoodSet(s: Set<string>) { localStorage.setItem(GOOD_KEY, JSON.strin
 interface EventWithGood extends NufEvent { goodCount: number; liked: boolean }
 
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  networking: { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", label: "ネットワーキング" },
-  workshop:   { bg: "bg-[#A5C1C8]/15", text: "text-[#231714]", label: "ワークショップ" },
+  networking: { bg: "bg-[#8BB5BF]/10", text: "text-[#231714]", label: "ネットワーキング" },
+  workshop:   { bg: "bg-[#8BB5BF]/15", text: "text-[#231714]", label: "ワークショップ" },
   social:     { bg: "bg-[#B0E401]/10", text: "text-[#231714]", label: "交流" },
-  info:       { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", label: "お知らせ" },
+  info:       { bg: "bg-[#8BB5BF]/10", text: "text-[#231714]", label: "お知らせ" },
 };
 function getCategoryStyle(cat: string) {
   return CATEGORY_STYLES[cat] ?? { bg: "bg-gray-100", text: "text-gray-600", label: cat };
@@ -95,7 +95,7 @@ export default function EventsPage() {
       <div className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-16 text-sm text-gray-400">
@@ -159,7 +159,7 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
           <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="aspect-[2/1] bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-end p-5">
+        <div className="aspect-[2/1] bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF] flex items-end p-5">
           <span className="text-white/60 text-xs font-medium">EIGHT BASE UNGA</span>
         </div>
       )}
@@ -214,7 +214,7 @@ function CompactCard({ event: ev, onToggleGood, onClick }: {
           <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="w-28 flex-shrink-0 bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF]" />
+        <div className="w-28 flex-shrink-0 bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF]" />
       )}
       <div className="flex-1 p-3 min-w-0">
         <div className="flex items-center gap-2">

@@ -249,7 +249,7 @@ export default function CalendarsPage() {
             <path d="M5 1v2M11 1v2M1 7h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
           <p className="text-sm">連携中のカレンダーはありません</p>
-          <button onClick={openAddModal} className="mt-3 text-sm text-[#A5C1C8] hover:underline">
+          <button onClick={openAddModal} className="mt-3 text-sm text-[#8BB5BF] hover:underline">
             最初のカレンダーを追加する
           </button>
         </div>
@@ -269,7 +269,7 @@ export default function CalendarsPage() {
                   {/* タイプアイコン */}
                   <div
                     className={`w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 ${
-                      f.type === "meeting_room" ? "bg-[#A5C1C8]" : "bg-[#B0E401]"
+                      f.type === "meeting_room" ? "bg-[#8BB5BF]" : "bg-[#B0E401]"
                     }`}
                   >
                     {f.type === "meeting_room" ? (
@@ -291,7 +291,7 @@ export default function CalendarsPage() {
                       <span
                         className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
                           f.type === "meeting_room"
-                            ? "bg-[#A5C1C8]/20 text-[#A5C1C8]"
+                            ? "bg-[#8BB5BF]/20 text-[#8BB5BF]"
                             : "bg-[#B0E401]/20 text-[#231714]"
                         }`}
                       >

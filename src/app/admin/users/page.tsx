@@ -124,7 +124,7 @@ function UserDetailPanel({
       {/* パネル本体 */}
       <div className="relative bg-white h-full w-full max-w-xl overflow-y-auto shadow-2xl animate-slideIn">
         {/* ヘッダー: プロフィール画像 + 基本情報 */}
-        <div className="bg-gradient-to-br from-[#A5C1C8]/20 to-[#A5C1C8]/5 px-6 pt-6 pb-5">
+        <div className="bg-gradient-to-br from-[#8BB5BF]/20 to-[#8BB5BF]/5 px-6 pt-6 pb-5">
           {/* 閉じるボタン */}
           <button
             onClick={onClose}
@@ -144,10 +144,10 @@ function UserDetailPanel({
                 className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"
               />
             ) : (
-              <div className="w-20 h-20 rounded-2xl bg-[#A5C1C8]/30 border-2 border-white shadow-md flex items-center justify-center">
+              <div className="w-20 h-20 rounded-2xl bg-[#8BB5BF]/30 border-2 border-white shadow-md flex items-center justify-center">
                 <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <path d="M16 4a6 6 0 016 6v0a6 6 0 01-12 0v0a6 6 0 016-6z" stroke="#A5C1C8" strokeWidth="2" />
-                  <path d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#A5C1C8" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M16 4a6 6 0 016 6v0a6 6 0 01-12 0v0a6 6 0 016-6z" stroke="#8BB5BF" strokeWidth="2" />
+                  <path d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#8BB5BF" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
             )}
@@ -176,7 +176,7 @@ function UserDetailPanel({
                   </span>
                 )}
                 {user.profileComplete ? (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-[#A5C1C8]/15 text-[#231714]/60 text-xs rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#8BB5BF]/15 text-[#231714]/60 text-xs rounded-full">
                     プロフィール登録済み
                   </span>
                 ) : (
@@ -195,8 +195,8 @@ function UserDetailPanel({
           <section>
             <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
-                <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M7 1a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#8BB5BF" strokeWidth="1.2" />
+                <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#8BB5BF" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
               連絡先情報
             </h3>
@@ -213,8 +213,8 @@ function UserDetailPanel({
           <section>
             <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="2" y="3" width="10" height="9" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
-                <path d="M4 3V2M10 3V2M2 6h10" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+                <rect x="2" y="3" width="10" height="9" rx="1.5" stroke="#8BB5BF" strokeWidth="1.2" />
+                <path d="M4 3V2M10 3V2M2 6h10" stroke="#8BB5BF" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
               基本情報
             </h3>
@@ -230,8 +230,8 @@ function UserDetailPanel({
           <section>
             <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1.5l5 4v6.5a1 1 0 01-1 1H3a1 1 0 01-1-1V5.5l5-4z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
-                <path d="M5.5 13V9.5h3V13" stroke="#A5C1C8" strokeWidth="1.2" />
+                <path d="M7 1.5l5 4v6.5a1 1 0 01-1 1H3a1 1 0 01-1-1V5.5l5-4z" stroke="#8BB5BF" strokeWidth="1.2" strokeLinejoin="round" />
+                <path d="M5.5 13V9.5h3V13" stroke="#8BB5BF" strokeWidth="1.2" />
               </svg>
               住所情報
             </h3>
@@ -249,8 +249,8 @@ function UserDetailPanel({
           <section>
             <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
-                <path d="M5 5V3.5a2 2 0 014 0V5" stroke="#A5C1C8" strokeWidth="1.2" />
+                <rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#8BB5BF" strokeWidth="1.2" />
+                <path d="M5 5V3.5a2 2 0 014 0V5" stroke="#8BB5BF" strokeWidth="1.2" />
               </svg>
               アカウント情報
             </h3>
@@ -275,7 +275,7 @@ function UserDetailPanel({
             </button>
             <button
               onClick={() => onResetPassword(user)}
-              className="flex-1 py-2.5 text-sm border border-[#A5C1C8]/40 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/10 transition-colors"
+              className="flex-1 py-2.5 text-sm border border-[#8BB5BF]/40 text-[#231714] rounded-xl hover:bg-[#8BB5BF]/10 transition-colors"
             >
               パスワードリセット
             </button>
@@ -753,7 +753,7 @@ export default function AdminUsersPage() {
                   <button
                     type="button"
                     onClick={generatePassword}
-                    className="px-3 py-2.5 text-xs font-medium bg-[#A5C1C8]/20 text-[#231714] border border-[#A5C1C8]/40 rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap"
+                    className="px-3 py-2.5 text-xs font-medium bg-[#8BB5BF]/20 text-[#231714] border border-[#8BB5BF]/40 rounded-xl hover:bg-[#8BB5BF]/30 transition-colors whitespace-nowrap"
                     title="パスワードを自動生成"
                   >
                     生成
@@ -885,7 +885,7 @@ export default function AdminUsersPage() {
                   <tr
                     key={user.id}
                     onClick={() => setSelectedUser(user)}
-                    className="border-b border-[#231714]/5 hover:bg-[#A5C1C8]/5 transition-colors cursor-pointer"
+                    className="border-b border-[#231714]/5 hover:bg-[#8BB5BF]/5 transition-colors cursor-pointer"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -896,10 +896,10 @@ export default function AdminUsersPage() {
                             className="w-8 h-8 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-[#8BB5BF]/20 flex items-center justify-center">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                              <path d="M7 2a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
-                              <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+                              <path d="M7 2a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#8BB5BF" strokeWidth="1.2" />
+                              <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#8BB5BF" strokeWidth="1.2" strokeLinecap="round" />
                             </svg>
                           </div>
                         )}

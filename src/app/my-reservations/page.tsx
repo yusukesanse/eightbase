@@ -89,7 +89,7 @@ export default function MyReservationsPage() {
 
         {loading ? (
           <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-sm text-gray-400 mt-2">読み込み中...</p>
           </div>
         ) : error ? (
@@ -103,7 +103,7 @@ export default function MyReservationsPage() {
             <p className="text-sm text-red-500">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-3 text-xs text-[#A5C1C8] underline"
+              className="mt-3 text-xs text-[#8BB5BF] underline"
             >
               再読み込み
             </button>
@@ -180,7 +180,7 @@ function ReservationCard({
       <div
         className={clsx(
           "w-2 h-2 rounded-full flex-shrink-0",
-          isPast ? "bg-gray-300" : "bg-[#A5C1C8]"
+          isPast ? "bg-gray-300" : "bg-[#8BB5BF]"
         )}
       />
       <div className="flex-1 min-w-0">
@@ -216,7 +216,7 @@ function EmptyState() {
       <p className="text-xs text-gray-300 mt-1">施設予約から予約を作成できます</p>
       <Link
         href="/reservation"
-        className="mt-4 inline-block text-xs text-[#A5C1C8] border border-[#A5C1C8] rounded-xl px-4 py-2"
+        className="mt-4 inline-block text-xs text-[#8BB5BF] border border-[#8BB5BF] rounded-xl px-4 py-2"
       >
         施設を予約する
       </Link>

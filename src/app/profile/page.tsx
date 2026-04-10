@@ -166,7 +166,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500">読み込み中...</p>
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       {/* ヘッダー */}
-      <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
+      <header className="bg-[#8BB5BF] px-4 pt-3 pb-4">
         <h1 className="text-[15px] font-medium leading-tight text-[#231714]">マイプロフィール</h1>
         <p className="text-[11px] text-[#231714]/50 mt-0.5">登録情報の確認・編集</p>
       </header>
@@ -207,8 +207,8 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" />
-                <path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" />
+                <path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#8BB5BF" strokeWidth="1.3" />
+                <path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#8BB5BF" strokeWidth="1.3" strokeLinecap="round" />
               </svg>
               氏名
             </h3>
@@ -221,24 +221,24 @@ export default function ProfilePage() {
                 <div>
                   <label className="block text-[11px] text-[#231714]/40 mb-1">姓</label>
                   <input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                    className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
                 </div>
                 <div>
                   <label className="block text-[11px] text-[#231714]/40 mb-1">名</label>
                   <input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                    className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div>
                   <label className="block text-[11px] text-[#231714]/40 mb-1">セイ</label>
                   <input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                    className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
                 </div>
                 <div>
                   <label className="block text-[11px] text-[#231714]/40 mb-1">メイ</label>
                   <input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                    className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
                 </div>
               </div>
               <div className="flex gap-2 mt-3">
@@ -259,8 +259,8 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" />
-                <rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" />
+                <path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#8BB5BF" strokeWidth="1.3" />
+                <rect x="5" y="1" width="6" height="3" rx="1" stroke="#8BB5BF" strokeWidth="1.3" />
               </svg>
               連絡先・基本情報
             </h3>
@@ -272,26 +272,26 @@ export default function ProfilePage() {
               <div>
                 <label className="block text-[11px] text-[#231714]/40 mb-1">電話番号</label>
                 <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                  className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
               </div>
               <div className="mt-3">
                 <label className="block text-[11px] text-[#231714]/40 mb-1">生年月日</label>
                 <div className="grid grid-cols-3 gap-2">
                   <select value={form.birthday ? form.birthday.split("-")[0] : ""}
                     onChange={(e) => { const p = (form.birthday || "--").split("-"); p[0] = e.target.value; updateForm("birthday", p.join("-")); }}
-                    className="w-full px-2 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5">
+                    className="w-full px-2 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5">
                     <option value="">年</option>
                     {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}年</option>)}
                   </select>
                   <select value={form.birthday ? form.birthday.split("-")[1] : ""}
                     onChange={(e) => { const p = (form.birthday || "--").split("-"); p[1] = e.target.value; updateForm("birthday", p.join("-")); }}
-                    className="w-full px-2 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5">
+                    className="w-full px-2 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5">
                     <option value="">月</option>
                     {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}月</option>)}
                   </select>
                   <select value={form.birthday ? form.birthday.split("-")[2] : ""}
                     onChange={(e) => { const p = (form.birthday || "--").split("-"); p[2] = e.target.value; updateForm("birthday", p.join("-")); }}
-                    className="w-full px-2 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5">
+                    className="w-full px-2 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5">
                     <option value="">日</option>
                     {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => <option key={d} value={d}>{Number(d)}日</option>)}
                   </select>
@@ -327,8 +327,8 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" />
-                <path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" />
+                <rect x="2" y="4" width="12" height="10" rx="2" stroke="#8BB5BF" strokeWidth="1.3" />
+                <path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#8BB5BF" strokeWidth="1.3" />
               </svg>
               ご利用について
             </h3>
@@ -340,7 +340,7 @@ export default function ProfilePage() {
               <div>
                 <label className="block text-[11px] text-[#231714]/40 mb-1">職業・会社名</label>
                 <input type="text" value={form.occupation} onChange={(e) => updateForm("occupation", e.target.value)} placeholder="例: フリーランスエンジニア"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                  className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
               </div>
               <div className="mt-3">
                 <label className="block text-[11px] text-[#231714]/40 mb-1">利用目的</label>
@@ -371,8 +371,8 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" />
-                <path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" />
+                <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#8BB5BF" strokeWidth="1.3" strokeLinejoin="round" />
+                <path d="M6 15v-4h4v4" stroke="#8BB5BF" strokeWidth="1.3" />
               </svg>
               住所
             </h3>
@@ -394,15 +394,15 @@ export default function ProfilePage() {
                 <label className="block text-[11px] text-[#231714]/40 mb-1">郵便番号</label>
                 <div className="flex gap-2">
                   <input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8}
-                    className="flex-1 px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                    className="flex-1 px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
                   <button type="button" onClick={lookupPostalCode}
-                    className="px-4 py-2.5 text-xs bg-[#A5C1C8]/20 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap">住所検索</button>
+                    className="px-4 py-2.5 text-xs bg-[#8BB5BF]/20 text-[#231714] rounded-xl hover:bg-[#8BB5BF]/30 transition-colors whitespace-nowrap">住所検索</button>
                 </div>
               </div>
               <div className="mb-3">
                 <label className="block text-[11px] text-[#231714]/40 mb-1">都道府県</label>
                 <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)}
-                  className={`w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5 ${!form.prefecture ? "text-[#231714]/30" : "text-[#231714]"}`}>
+                  className={`w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5 ${!form.prefecture ? "text-[#231714]/30" : "text-[#231714]"}`}>
                   <option value="">選択してください</option>
                   {PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
@@ -410,17 +410,17 @@ export default function ProfilePage() {
               <div className="mb-3">
                 <label className="block text-[11px] text-[#231714]/40 mb-1">市区町村</label>
                 <input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                  className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
               </div>
               <div className="mb-3">
                 <label className="block text-[11px] text-[#231714]/40 mb-1">番地</label>
                 <input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                  className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
               </div>
               <div>
                 <label className="block text-[11px] text-[#231714]/40 mb-1">建物名・部屋番号 <span className="text-[#231714]/20">任意</span></label>
                 <input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/5" />
+                  className="w-full px-3 py-2.5 text-sm border border-[#8BB5BF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#8BB5BF] bg-[#8BB5BF]/5" />
               </div>
               <div className="flex gap-2 mt-3">
                 <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">キャンセル</button>

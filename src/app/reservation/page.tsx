@@ -311,7 +311,7 @@ export default function ReservationPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* ── ヘッダー ── */}
-      <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
+      <header className="bg-[#8BB5BF] px-4 pt-3 pb-4">
         <h1 className="text-[15px] font-medium leading-tight text-[#231714]">施設予約</h1>
         <p className="text-[11px] text-[#231714]/50 mt-0.5">EIGHT BASE UNGA</p>
       </header>
@@ -455,7 +455,7 @@ export default function ReservationPage() {
                         : state === "available"
                         ? "bg-[#B0E401]"
                         : state === "partial"
-                        ? "bg-[#A5C1C8]"
+                        ? "bg-[#8BB5BF]"
                         : "bg-transparent"
                     )}
                   />
@@ -466,7 +466,7 @@ export default function ReservationPage() {
 
           {loadingWeek && (
             <div className="flex justify-center py-2">
-              <div className="w-4 h-4 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
             </div>
           )}
 
@@ -476,15 +476,15 @@ export default function ReservationPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-[#B0E401]" /> 空きあり
             </span>
             <span className="flex items-center gap-1 text-[9px] text-[#231714]/40">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#A5C1C8]" /> 一部予約
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8BB5BF]" /> 一部予約
             </span>
           </div>
         </section>
       ) : (
         <div className="flex-1 flex items-center justify-center px-8">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#A5C1C8]/10 flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="1.5">
+            <div className="w-16 h-16 rounded-2xl bg-[#8BB5BF]/10 flex items-center justify-center mx-auto mb-4">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8BB5BF" strokeWidth="1.5">
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
               </svg>
@@ -512,7 +512,7 @@ export default function ReservationPage() {
 
             {loadingDay ? (
               <div className="flex justify-center py-8">
-                <div className="w-6 h-6 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
               </div>
             ) : (
               <>
@@ -531,7 +531,7 @@ export default function ReservationPage() {
                           "py-2.5 rounded-xl text-xs font-medium transition-all",
                           state === "booked" && "bg-gray-50 text-gray-200 line-through cursor-not-allowed",
                           state === "past" && "bg-gray-50 text-gray-200 cursor-not-allowed",
-                          state === "free" && "bg-[#FAFAFA] text-[#231714] hover:bg-[#A5C1C8]/10 active:scale-95 border border-gray-100",
+                          state === "free" && "bg-[#FAFAFA] text-[#231714] hover:bg-[#8BB5BF]/10 active:scale-95 border border-gray-100",
                           state === "selected-start" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]",
                           state === "selected-range" && "bg-[#B0E401]/15 text-[#231714] border border-[#B0E401]/20",
                           state === "selected-end" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]"
@@ -555,8 +555,8 @@ export default function ReservationPage() {
             {/* 選択サマリー */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#A5C1C8]/10 flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
+                <div className="w-7 h-7 rounded-lg bg-[#8BB5BF]/10 flex items-center justify-center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8BB5BF" strokeWidth="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
                   </svg>
@@ -610,7 +610,7 @@ function FacilityPill({
         "px-4 py-2 rounded-xl text-xs font-medium transition-all active:scale-95",
         selected
           ? "bg-[#231714] text-white shadow-sm"
-          : "bg-[#FAFAFA] text-[#231714] border border-gray-100 hover:border-[#A5C1C8]/30"
+          : "bg-[#FAFAFA] text-[#231714] border border-gray-100 hover:border-[#8BB5BF]/30"
       )}
     >
       {facility.name}

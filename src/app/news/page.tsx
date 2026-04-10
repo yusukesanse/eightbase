@@ -10,7 +10,7 @@ import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; dot: string; label: string }> = {
-  info:      { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", dot: "bg-[#A5C1C8]",   label: "お知らせ" },
+  info:      { bg: "bg-[#8BB5BF]/10", text: "text-[#231714]", dot: "bg-[#8BB5BF]",   label: "お知らせ" },
   facility:  { bg: "bg-[#B0E401]/10", text: "text-[#231714]", dot: "bg-[#B0E401]",   label: "施設" },
   community: { bg: "bg-gray-100",     text: "text-[#231714]", dot: "bg-gray-400",     label: "コミュニティ" },
 };
@@ -52,7 +52,7 @@ export default function NewsPage() {
       <div className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
           </div>
         ) : news.length === 0 ? (
           <div className="text-center py-16 text-sm text-gray-400">お知らせはありません</div>
@@ -110,7 +110,7 @@ function FeaturedNewsCard({ item, onClick }: { item: NewsItem; onClick: () => vo
           <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="aspect-[16/9] bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-end p-5">
+        <div className="aspect-[16/9] bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF] flex items-end p-5">
           <span className="text-white/60 text-xs font-medium">EIGHT BASE UNGA</span>
         </div>
       )}
@@ -141,7 +141,7 @@ function TopStoryCard({ item, onClick }: { item: NewsItem; onClick: () => void }
           <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="aspect-[4/3] bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF]" />
+        <div className="aspect-[4/3] bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF]" />
       )}
       <div className="p-2.5">
         <span className={clsx("text-[9px] px-1.5 py-0.5 rounded font-bold", cfg.bg, cfg.text)}>
@@ -169,7 +169,7 @@ function CompactNewsCard({ item, onClick }: { item: NewsItem; onClick: () => voi
           <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="w-24 flex-shrink-0 bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
+        <div className="w-24 flex-shrink-0 bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF] flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
             <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
             <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z" />

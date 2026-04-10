@@ -210,10 +210,10 @@ function TimeslotContent() {
                         className={clsx(
                           "text-center py-1.5 select-none transition-colors",
                           !loading && state !== "booked" && "cursor-pointer",
-                          state === "free" && "hover:bg-[#A5C1C8]/10",
+                          state === "free" && "hover:bg-[#8BB5BF]/10",
                           state === "booked" && "cursor-not-allowed",
-                          state === "sel-start" && "bg-[#A5C1C8]",
-                          state === "sel-range" && "bg-[#A5C1C8]/15",
+                          state === "sel-start" && "bg-[#8BB5BF]",
+                          state === "sel-range" && "bg-[#8BB5BF]/15",
                           state === "sel-end" && "bg-[#8BA8AF]"
                         )}
                       >
@@ -222,11 +222,11 @@ function TimeslotContent() {
                         ) : state === "booked" ? (
                           <span className="text-gray-300 text-base font-medium">×</span>
                         ) : state === "free" ? (
-                          <span className="text-[#A5C1C8] text-base font-medium">○</span>
+                          <span className="text-[#8BB5BF] text-base font-medium">○</span>
                         ) : state === "sel-start" ? (
                           <span className="text-white text-base font-bold">●</span>
                         ) : state === "sel-range" ? (
-                          <span className="text-[#A5C1C8] text-base font-medium">○</span>
+                          <span className="text-[#8BB5BF] text-base font-medium">○</span>
                         ) : (
                           <span className="text-white text-base font-bold">●</span>
                         )}
@@ -241,13 +241,13 @@ function TimeslotContent() {
           {/* 凡例 */}
           <div className="flex gap-5 px-3 py-2 border-t border-gray-100">
             <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-              <span className="text-[#A5C1C8] font-medium">○</span> 空き
+              <span className="text-[#8BB5BF] font-medium">○</span> 空き
             </span>
             <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
               <span className="text-gray-300 font-medium">×</span> 予約済み
             </span>
             <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-              <span className="text-[#A5C1C8] font-bold">●</span> 選択中
+              <span className="text-[#8BB5BF] font-bold">●</span> 選択中
             </span>
           </div>
         </section>
@@ -338,7 +338,7 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
           key={i}
           className={clsx(
             "h-1 w-5 rounded-full",
-            i < step ? "bg-[#A5C1C8]" : "bg-gray-200"
+            i < step ? "bg-[#8BB5BF]" : "bg-gray-200"
           )}
         />
       ))}

@@ -109,7 +109,7 @@ export default function AdminLoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8]/40 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#8BB5BF]/40 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[#231714]/40">読み込み中...</p>
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function AdminLoginPage() {
       <div className="relative bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/60 p-8 w-full max-w-sm">
         {/* ロゴ */}
         <div className="mb-7 text-center">
-          <div className="w-12 h-12 bg-gradient-to-br from-[#A5C1C8] to-[#7BA8B0] rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-[#A5C1C8]/20">
+          <div className="w-12 h-12 bg-gradient-to-br from-[#8BB5BF] to-[#7BA8B0] rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-[#8BB5BF]/20">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
               <rect x="2" y="3" width="18" height="16" rx="3" stroke="white" strokeWidth="1.5"/>
               <path d="M7 2v2M15 2v2M2 9h18" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
@@ -140,7 +140,7 @@ export default function AdminLoginPage() {
         <div className="flex flex-col items-center space-y-4">
           {loading ? (
             <div className="flex items-center space-x-2 py-3">
-              <div className="w-5 h-5 border-2 border-[#A5C1C8]/40 border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#8BB5BF]/40 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm text-[#231714]/60">認証中...</span>
             </div>
           ) : (

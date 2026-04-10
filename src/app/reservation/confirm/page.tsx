@@ -86,7 +86,7 @@ function ConfirmContent() {
   if (step === "loading") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin" />
         <p className="text-sm text-gray-400">予約処理中...</p>
       </div>
     );
@@ -96,7 +96,7 @@ function ConfirmContent() {
     return (
       <div>
         {/* 完了ヘッダー */}
-        <div className="bg-[#A5C1C8] px-4 py-6 text-center">
+        <div className="bg-[#8BB5BF] px-4 py-6 text-center">
           <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
               <path d="M4 13l6 6L22 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -112,7 +112,7 @@ function ConfirmContent() {
           {/* 通知済みバッジ */}
           <div className="bg-[#B0E401]/10 border border-[#B0E401]/20 rounded-xl p-3 flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
-              <path d="M8 2C5.24 2 3 4.02 3 6.5c0 1.7.97 3.18 2.4 4.02L4.5 13l2.5-1.2c.33.07.66.1 1 .1 2.76 0 5-2.02 5-4.5S10.76 2 8 2z" fill="#A5C1C8"/>
+              <path d="M8 2C5.24 2 3 4.02 3 6.5c0 1.7.97 3.18 2.4 4.02L4.5 13l2.5-1.2c.33.07.66.1 1 .1 2.76 0 5-2.02 5-4.5S10.76 2 8 2z" fill="#8BB5BF"/>
             </svg>
             <p className="text-xs text-[#7BA801]">LINE にて予約完了通知を送信しました</p>
           </div>
@@ -229,7 +229,7 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
           key={i}
           className={clsx(
             "h-1 w-5 rounded-full",
-            i < step ? "bg-[#A5C1C8]" : "bg-gray-200"
+            i < step ? "bg-[#8BB5BF]" : "bg-gray-200"
           )}
         />
       ))}

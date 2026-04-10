@@ -80,7 +80,7 @@ export default function QuestsPage() {
       <div className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
           </div>
         ) : (
           <div className="space-y-5">
@@ -148,7 +148,7 @@ function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
             <img src={q.imageUrl} alt={q.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className={`w-24 flex-shrink-0 flex items-center justify-center ${completed ? "bg-[#B0E401]/10" : "bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF]"}`}>
+          <div className={`w-24 flex-shrink-0 flex items-center justify-center ${completed ? "bg-[#B0E401]/10" : "bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF]"}`}>
             {completed ? (
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7BA801" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4 12 14.01l-3-3" />
@@ -163,7 +163,7 @@ function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
 
         <div className="flex-1 p-3 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#A5C1C8]/15 text-[#231714]">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#8BB5BF]/15 text-[#231714]">
               {q.category}
             </span>
           </div>
@@ -175,12 +175,12 @@ function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
           <div className="mt-2">
             <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className={`h-1.5 rounded-full transition-all ${completed ? "bg-[#B0E401]" : "bg-[#A5C1C8]"}`}
+                className={`h-1.5 rounded-full transition-all ${completed ? "bg-[#B0E401]" : "bg-[#8BB5BF]"}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
             <div className="flex items-center justify-between mt-1">
-              <span className={`text-[10px] font-medium ${completed ? "text-[#7BA801]" : "text-[#A5C1C8]"}`}>
+              <span className={`text-[10px] font-medium ${completed ? "text-[#7BA801]" : "text-[#8BB5BF]"}`}>
                 {current}/{q.requiredCount}
               </span>
               <button

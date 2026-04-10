@@ -68,7 +68,7 @@ export default function EventDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#8BB5BF] rounded-full animate-spin" />
       </div>
     );
   }
@@ -77,7 +77,7 @@ export default function EventDetailPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
         <p className="text-gray-400 text-sm">イベントが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
+        <button onClick={() => router.back()} className="text-sm text-[#8BB5BF]">戻る</button>
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function EventDetailPage() {
             <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
+          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#8BB5BF] to-[#8BA8AF] flex items-center justify-center">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M16 2v4M8 2v4M3 10h18" />
@@ -114,7 +114,7 @@ export default function EventDetailPage() {
       {/* コンテンツ */}
       <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#231714]">
+        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#8BB5BF]/15 text-[#231714]">
           {event.category}
         </span>
 
@@ -126,8 +126,8 @@ export default function EventDetailPage() {
         {/* メタ情報 */}
         <div className="mt-4 space-y-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#A5C1C8]/10 flex items-center justify-center flex-shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
+            <div className="w-10 h-10 rounded-xl bg-[#8BB5BF]/10 flex items-center justify-center flex-shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8BB5BF" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
             </div>
@@ -142,8 +142,8 @@ export default function EventDetailPage() {
           </div>
 
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#A5C1C8]/10 flex items-center justify-center flex-shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
+            <div className="w-10 h-10 rounded-xl bg-[#8BB5BF]/10 flex items-center justify-center flex-shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8BB5BF" strokeWidth="2">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                 <circle cx="12" cy="9" r="2.5" />
               </svg>

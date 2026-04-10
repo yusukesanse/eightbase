@@ -91,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f0f4f5]">
-        <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -120,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex flex-col items-center h-full w-[72px] py-4 bg-white/80 backdrop-blur-xl border-r border-[#A5C1C8]/15">
+        <div className="flex flex-col items-center h-full w-[72px] py-4 bg-white/80 backdrop-blur-xl border-r border-[#8BB5BF]/15">
           {/* ロゴ */}
           <div className="w-10 h-10 rounded-xl bg-[#231714] flex items-center justify-center mb-6">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -148,8 +148,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     className={`
                       flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-200
                       ${isActive
-                        ? "bg-[#A5C1C8] text-white shadow-md shadow-[#A5C1C8]/30"
-                        : "text-[#231714]/40 hover:text-[#231714] hover:bg-[#A5C1C8]/10"
+                        ? "bg-[#8BB5BF] text-white shadow-md shadow-[#8BB5BF]/30"
+                        : "text-[#231714]/40 hover:text-[#231714] hover:bg-[#8BB5BF]/10"
                       }
                     `}
                   >
@@ -192,11 +192,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ── メインコンテンツ ── */}
       <main className="flex-1 overflow-auto min-h-screen">
         {/* モバイルヘッダー */}
-        <div className="md:hidden sticky top-0 z-30 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-[#A5C1C8]/15">
+        <div className="md:hidden sticky top-0 z-30 px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-[#8BB5BF]/15">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-xl hover:bg-[#A5C1C8]/10 transition-colors text-[#231714]"
+              className="p-2 rounded-xl hover:bg-[#8BB5BF]/10 transition-colors text-[#231714]"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>

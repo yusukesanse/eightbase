@@ -70,7 +70,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[#8BB5BF] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-400">読み込み中...</p>
         </div>
       </div>
