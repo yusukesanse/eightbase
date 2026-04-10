@@ -309,6 +309,47 @@ export default function AdminUsersPage() {
   const [addForm, setAddForm] = useState({ email: "", displayName: "", tenantName: "", password: "" });
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+
+  const generatePassword = () => {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lower = "abcdefghjkmnpqrstuvwxyz";
+    const digits = "23456789";
+    const symbols = "!@#$%&*";
+    const all = upper + lower + digits + symbols;
+    let pw = "";
+    pw += upper[Math.floor(Math.random() * upper.length)];
+    pw += lower[Math.floor(Math.random() * lower.length)];
+    pw += digits[Math.floor(Math.random() * digits.length)];
+    pw += symbols[Math.floor(Math.random() * symbols.length)];
+    for (let i = 4; i < 12; i++) {
+      pw += all[Math.floor(Math.random() * all.length)];
+    }
+    pw = pw.split("").sort(() => Math.random() - 0.5).join("");
+    setAddForm((prev) => ({ ...prev, password: pw }));
+    setShowPassword(true);
+    setCopiedPassword(false);
+  };
+
+  const copyPassword = async () => {
+    if (!addForm.password) return;
+    try {
+      await navigator.clipboard.writeText(addForm.password);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 2000);
+    } catch {
+      // fallback
+      const el = document.createElement("textarea");
+      el.value = addForm.password;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 2000);
+    }
+  };
 
   // パスワードリセット
   const [resetTarget, setResetTarget] = useState<User | null>(null);
@@ -481,6 +522,8 @@ export default function AdminUsersPage() {
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
       setAddForm({ email: "", displayName: "", tenantName: "", password: "" });
       setShowAddForm(false);
+      setShowPassword(false);
+      setCopiedPassword(false);
       setActionMsg("ユーザーを追加しました");
       await fetchUsers();
     } catch (err) {
@@ -668,7 +711,6 @@ export default function AdminUsersPage() {
                 { field: "email", label: "メールアドレス", type: "email", placeholder: "user@example.com", required: true },
                 { field: "displayName", label: "氏名", type: "text", placeholder: "山田 太郎", required: true },
                 { field: "tenantName", label: "テナント名", type: "text", placeholder: "株式会社〇〇", required: false },
-                { field: "password", label: "初期パスワード", type: "password", placeholder: "8文字以上推奨", required: true },
               ].map(({ field, label, type, placeholder, required }) => (
                 <div key={field}>
                   <label className="block text-xs font-medium text-[#414141]/60 mb-1">{label}</label>
@@ -682,6 +724,51 @@ export default function AdminUsersPage() {
                   />
                 </div>
               ))}
+              {/* 初期パスワード（生成・コピー・表示切替付き） */}
+              <div>
+                <label className="block text-xs font-medium text-[#414141]/60 mb-1">初期パスワード</label>
+                <div className="flex gap-1.5">
+                  <div className="relative flex-1">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={addForm.password}
+                      onChange={(e) => { setAddForm({ ...addForm, password: e.target.value }); setCopiedPassword(false); }}
+                      placeholder="8文字以上推奨"
+                      required
+                      className="w-full px-3 py-2.5 pr-9 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#414141]/40 hover:text-[#414141] transition-colors"
+                      title={showPassword ? "パスワードを隠す" : "パスワードを表示"}
+                    >
+                      {showPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      )}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generatePassword}
+                    className="px-3 py-2.5 text-xs font-medium bg-[#A5C1C8]/20 text-[#414141] border border-[#A5C1C8]/40 rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap"
+                    title="パスワードを自動生成"
+                  >
+                    生成
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyPassword}
+                    disabled={!addForm.password}
+                    className="px-3 py-2.5 text-xs font-medium bg-[#414141]/5 text-[#414141]/60 border border-[#414141]/10 rounded-xl hover:bg-[#414141]/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+                    title="パスワードをコピー"
+                  >
+                    {copiedPassword ? "✓" : "コピー"}
+                  </button>
+                </div>
+              </div>
               {addError && (
                 <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
                   <p className="text-xs text-red-600">{addError}</p>
@@ -690,7 +777,7 @@ export default function AdminUsersPage() {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setShowAddForm(false); setAddError(null); }}
+                  onClick={() => { setShowAddForm(false); setAddError(null); setShowPassword(false); setCopiedPassword(false); }}
                   className="flex-1 py-2.5 text-sm border border-[#414141]/10 rounded-xl text-[#414141]/60 hover:bg-[#414141]/5 transition-colors"
                 >
                   キャンセル
