@@ -268,11 +268,9 @@ export default function ReservationPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* ── ヘッダー ── */}
-      <header className="bg-[#A5C1C8] px-5 pt-4 pb-5">
-        <div>
-          <h1 className="text-base font-bold text-[#231714] tracking-wide">施設予約</h1>
-          <p className="text-[11px] text-[#231714]/50 mt-0.5">EIGHT BASE UNGA</p>
-        </div>
+      <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
+        <h1 className="text-[15px] font-medium leading-tight text-[#231714]">施設予約</h1>
+        <p className="text-[11px] text-[#231714]/50 mt-0.5">EIGHT BASE UNGA</p>
       </header>
 
       {/* ── マイ予約リンク ── */}

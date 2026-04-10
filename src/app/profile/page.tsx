@@ -184,10 +184,10 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       {/* ヘッダー */}
-      <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-        <h1 className="text-xl font-bold tracking-wide text-[#231714]">マイプロフィール</h1>
-        <p className="text-sm text-[#231714]/60 mt-1">登録情報の確認・編集</p>
-      </div>
+      <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
+        <h1 className="text-[15px] font-medium leading-tight text-[#231714]">マイプロフィール</h1>
+        <p className="text-[11px] text-[#231714]/50 mt-0.5">登録情報の確認・編集</p>
+      </header>
 
       <div className="flex-1 px-4 pt-5 pb-4 space-y-4">
         {/* メッセージ */}
