@@ -34,6 +34,20 @@ export function getDb(): Firestore {
   return db;
 }
 
+/**
+ * 全アクティブユーザーの lineUserId を取得
+ */
+export async function getAllActiveLineUserIds(): Promise<string[]> {
+  const snap = await getDb()
+    .collection("authorizedUsers")
+    .where("active", "==", true)
+    .get();
+
+  return snap.docs
+    .map((doc) => doc.data().lineUserId as string | undefined)
+    .filter((id): id is string => !!id);
+}
+
 export function getBucket() {
   if (!storage) {
     getAdminApp();

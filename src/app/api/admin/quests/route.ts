@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/firebaseAdmin";
+import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
+import { broadcastContentPublished } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +84,16 @@ export async function POST(req: NextRequest) {
     if (scheduledAt) data.scheduledAt = scheduledAt;
 
     const docRef = await db.collection("quests").add(data);
+
+    if (data.published === true) {
+      try {
+        const userIds = await getAllActiveLineUserIds();
+        await broadcastContentPublished(userIds, "quest", title);
+      } catch (err) {
+        console.error("[admin/quests] broadcast failed:", err);
+      }
+    }
+
     return NextResponse.json({ success: true, questId: docRef.id });
   } catch (error) {
     console.error("[admin/quests] POST error:", error);
@@ -126,7 +137,19 @@ export async function PUT(req: NextRequest) {
     if (fields.requiredCount !== undefined) fields.requiredCount = Number(fields.requiredCount);
     if (fields.rewardPoints !== undefined) fields.rewardPoints = Number(fields.rewardPoints);
 
+    const wasPublished = doc.data()?.published === true;
     await docRef.update({ ...fields, updatedAt: new Date().toISOString() });
+
+    if (!wasPublished && fields.published === true) {
+      try {
+        const title = fields.title || doc.data()?.title || "新しいクエスト";
+        const userIds = await getAllActiveLineUserIds();
+        await broadcastContentPublished(userIds, "quest", title);
+      } catch (err) {
+        console.error("[admin/quests] broadcast failed:", err);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[admin/quests] PUT error:", error);

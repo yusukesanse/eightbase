@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/firebaseAdmin";
+import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
+import { broadcastContentPublished } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +91,17 @@ export async function POST(req: NextRequest) {
     if (scheduledAt) data.scheduledAt = scheduledAt;
 
     const docRef = await db.collection("events").add(data);
+
+    // 公開時は全ユーザーに LINE 通知
+    if (data.published === true) {
+      try {
+        const userIds = await getAllActiveLineUserIds();
+        await broadcastContentPublished(userIds, "event", title);
+      } catch (err) {
+        console.error("[admin/events] broadcast failed:", err);
+      }
+    }
+
     return NextResponse.json({ success: true, eventId: docRef.id });
   } catch (error) {
     console.error("[admin/events] POST error:", error);
@@ -135,7 +147,20 @@ export async function PUT(req: NextRequest) {
       fields.scheduledAt = FieldValue.delete();
     }
 
+    const wasPublished = doc.data()?.published === true;
     await docRef.update({ ...fields, updatedAt: new Date().toISOString() });
+
+    // 下書き→公開への変更時に LINE 通知
+    if (!wasPublished && fields.published === true) {
+      try {
+        const title = fields.title || doc.data()?.title || "新しいイベント";
+        const userIds = await getAllActiveLineUserIds();
+        await broadcastContentPublished(userIds, "event", title);
+      } catch (err) {
+        console.error("[admin/events] broadcast failed:", err);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[admin/events] PUT error:", error);
