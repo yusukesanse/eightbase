@@ -67,8 +67,10 @@ npm run dev
 
 ### 4. デプロイ
 
-Vercel に接続済み。`main` ブランチへの push で自動デプロイされます。
-Vercel ダッシュボードの Environment Variables に `.env.local` と同じ変数を設定してください。
+現在は Vercel を使用しており、`main` ブランチへの push で自動デプロイされます。
+ホスティング先の環境変数設定に `.env.local` と同じ変数を登録してください。
+
+> Next.js アプリのため、Vercel 以外（Cloudflare Pages、AWS Amplify 等）にも対応可能です。
 
 ## 外部サービスの準備
 
