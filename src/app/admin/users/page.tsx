@@ -322,6 +322,59 @@ export default function AdminUsersPage() {
   // 顧客詳細
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
+  // CSV エクスポート
+  function handleExportCsv() {
+    const target = filteredUsers.length > 0 ? filteredUsers : users;
+    if (target.length === 0) return;
+
+    const headers = [
+      "姓", "名", "セイ", "メイ", "メールアドレス", "電話番号",
+      "生年月日", "性別", "職業・会社名", "利用目的",
+      "住所種別", "郵便番号", "都道府県", "市区町村", "番地", "建物名",
+      "LINE連携", "LINE表示名", "ステータス", "登録日", "最終ログイン",
+    ];
+
+    const rows = target.map((u) => {
+      const p = u.profile;
+      return [
+        p?.lastName ?? "",
+        p?.firstName ?? "",
+        p?.lastNameKana ?? "",
+        p?.firstNameKana ?? "",
+        u.email,
+        p?.phone ?? "",
+        p?.birthday ?? "",
+        p?.gender ? (GENDER_LABELS[p.gender] || p.gender) : "",
+        p?.occupation ?? u.tenantName ?? "",
+        p?.purpose ?? "",
+        p?.addressType ? (ADDRESS_TYPE_LABELS[p.addressType] || p.addressType) : "",
+        p?.postalCode ?? "",
+        p?.prefecture ?? "",
+        p?.city ?? "",
+        p?.address ?? "",
+        p?.building ?? "",
+        u.lineUserId ? "連携済み" : "未連携",
+        u.lineDisplayName ?? "",
+        u.active ? "有効" : "無効",
+        u.createdAt ? dayjs(u.createdAt).format("YYYY/MM/DD") : "",
+        u.lastLoginAt ? dayjs(u.lastLoginAt).format("YYYY/MM/DD HH:mm") : "",
+      ];
+    });
+
+    // BOM + CSV
+    const csvContent = "\uFEFF" + [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ユーザー一覧_${dayjs().format("YYYYMMDD_HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // ソート切替
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -510,15 +563,28 @@ export default function AdminUsersPage() {
           <h2 className="text-2xl font-bold text-[#414141]">ユーザー管理</h2>
           <p className="text-sm text-[#414141]/40 mt-1">登録ユーザーの管理・追加</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-4 py-2.5 bg-[#414141] text-white text-sm font-medium rounded-xl hover:bg-[#414141]/80 transition-colors flex items-center gap-2"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          ユーザーを追加
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            disabled={users.length === 0}
+            className="px-4 py-2.5 text-sm font-medium border border-[#414141]/10 text-[#414141]/60 rounded-xl hover:bg-[#414141]/5 disabled:opacity-30 transition-colors flex items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v8M4 6l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            CSV出力
+          </button>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-4 py-2.5 bg-[#414141] text-white text-sm font-medium rounded-xl hover:bg-[#414141]/80 transition-colors flex items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+            ユーザーを追加
+          </button>
+        </div>
       </div>
 
       {/* 検索・フィルターバー */}
