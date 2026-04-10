@@ -114,12 +114,12 @@ export default function EventDetailPage() {
       {/* コンテンツ */}
       <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#414141]">
+        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#231714]">
           {event.category}
         </span>
 
         {/* タイトル */}
-        <h1 className="text-xl font-bold text-[#414141] mt-3 leading-tight">
+        <h1 className="text-xl font-bold text-[#231714] mt-3 leading-tight">
           {event.title}
         </h1>
 
@@ -132,7 +132,7 @@ export default function EventDetailPage() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-[#414141]">
+              <p className="text-sm font-medium text-[#231714]">
                 {start.format("YYYY年M月D日（ddd）")}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -149,7 +149,7 @@ export default function EventDetailPage() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-[#414141]">{event.location}</p>
+              <p className="text-sm font-medium text-[#231714]">{event.location}</p>
             </div>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function EventDetailPage() {
             onClick={handleToggleGood}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
               liked
-                ? "bg-[#B0E401]/10 text-[#414141] border border-[#B0E401]/30"
+                ? "bg-[#B0E401]/10 text-[#231714] border border-[#B0E401]/30"
                 : "bg-gray-50 text-gray-500 border border-gray-200"
             }`}
           >

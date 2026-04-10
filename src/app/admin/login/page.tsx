@@ -110,7 +110,7 @@ export default function AdminLoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-50">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-[#A5C1C8]/40 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-[#414141]/40">読み込み中...</p>
+          <p className="text-sm text-[#231714]/40">読み込み中...</p>
         </div>
       </div>
     );
@@ -132,8 +132,8 @@ export default function AdminLoginPage() {
               <path d="M7 13h8M7 16h5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
-          <h1 className="text-lg font-bold text-[#414141]">管理者ログイン</h1>
-          <p className="text-xs text-[#414141]/40 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
+          <h1 className="text-lg font-bold text-[#231714]">管理者ログイン</h1>
+          <p className="text-xs text-[#231714]/40 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
         </div>
 
         {/* Google ログインボタン */}
@@ -141,7 +141,7 @@ export default function AdminLoginPage() {
           {loading ? (
             <div className="flex items-center space-x-2 py-3">
               <div className="w-5 h-5 border-2 border-[#A5C1C8]/40 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-[#414141]/60">認証中...</span>
+              <span className="text-sm text-[#231714]/60">認証中...</span>
             </div>
           ) : (
             <div ref={googleBtnRef} className="flex justify-center" />
@@ -153,7 +153,7 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          <p className="text-xs text-[#414141]/40 text-center leading-relaxed">
+          <p className="text-xs text-[#231714]/40 text-center leading-relaxed">
             管理者として登録されたGoogleアカウントで<br />ログインしてください
           </p>
         </div>

@@ -168,12 +168,12 @@ export default function LoginPage() {
         <div className="bg-[#A5C1C8] px-5 pt-12 pb-8">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <path d="M11 2a5 5 0 015 5v0a5 5 0 01-10 0v0a5 5 0 015-5z" stroke="#414141" strokeWidth="1.5" />
-              <path d="M3 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#414141" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M11 2a5 5 0 015 5v0a5 5 0 01-10 0v0a5 5 0 015-5z" stroke="#231714" strokeWidth="1.5" />
+              <path d="M3 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#231714" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold tracking-wide text-[#414141]">アカウント連携</h1>
-          <p className="text-sm text-[#414141]/60 mt-1">初回ログイン — LINEアカウントと紐づけます</p>
+          <h1 className="text-xl font-bold tracking-wide text-[#231714]">アカウント連携</h1>
+          <p className="text-sm text-[#231714]/60 mt-1">初回ログイン — LINEアカウントと紐づけます</p>
         </div>
 
         <div className="flex-1 px-4 pt-6 pb-8">
@@ -194,8 +194,8 @@ export default function LoginPage() {
               </div>
             )}
             <div>
-              <p className="text-sm font-medium text-[#414141]">{lineInfo.displayName}</p>
-              <p className="text-xs text-[#414141]/40">LINE アカウント</p>
+              <p className="text-sm font-medium text-[#231714]">{lineInfo.displayName}</p>
+              <p className="text-xs text-[#231714]/40">LINE アカウント</p>
             </div>
             <div className="ml-auto">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#06C755]/10 text-[#06C755] text-xs font-medium rounded-full">
@@ -209,15 +209,15 @@ export default function LoginPage() {
 
           {/* メール+パスワードフォーム */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h2 className="text-base font-semibold text-[#414141] mb-1">本人確認</h2>
-            <p className="text-xs text-[#414141]/50 mb-4 leading-relaxed">
+            <h2 className="text-base font-semibold text-[#231714] mb-1">本人確認</h2>
+            <p className="text-xs text-[#231714]/50 mb-4 leading-relaxed">
               管理者から通知されたメールアドレスとパスワードを入力してください。
               初回のみの操作です。
             </p>
 
             <form onSubmit={handleLinkSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-[#414141]/60 mb-1">
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">
                   メールアドレス
                 </label>
                 <input
@@ -227,12 +227,12 @@ export default function LoginPage() {
                   placeholder="example@email.com"
                   required
                   autoComplete="email"
-                  className="w-full px-3 py-3 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] transition-colors"
+                  className="w-full px-3 py-3 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#414141]/60 mb-1">
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">
                   パスワード
                 </label>
                 <div className="relative">
@@ -243,12 +243,12 @@ export default function LoginPage() {
                     placeholder="パスワードを入力"
                     required
                     autoComplete="current-password"
-                    className="w-full px-3 py-3 pr-10 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] transition-colors"
+                    className="w-full px-3 py-3 pr-10 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#414141]/30 hover:text-[#414141]/60"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#231714]/30 hover:text-[#231714]/60"
                   >
                     {showPassword ? (
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -273,14 +273,14 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 text-sm font-medium bg-[#414141] text-white rounded-xl hover:bg-[#414141]/80 transition-colors mt-2"
+                className="w-full py-3 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors mt-2"
               >
                 アカウントを連携する
               </button>
             </form>
           </div>
 
-          <p className="text-xs text-[#414141]/30 text-center mt-4 leading-relaxed">
+          <p className="text-xs text-[#231714]/30 text-center mt-4 leading-relaxed">
             メールアドレスとパスワードがわからない場合は<br />管理者にお問い合わせください
           </p>
         </div>
@@ -294,13 +294,13 @@ export default function LoginPage() {
       <div className="bg-[#A5C1C8] px-5 pt-12 pb-8">
         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <rect x="2" y="3" width="18" height="16" rx="3" stroke="#414141" strokeWidth="1.5" />
-            <path d="M7 2v2M15 2v2M2 9h18" stroke="#414141" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M7 13h8M7 16h5" stroke="#414141" strokeWidth="1.5" strokeLinecap="round" />
+            <rect x="2" y="3" width="18" height="16" rx="3" stroke="#231714" strokeWidth="1.5" />
+            <path d="M7 2v2M15 2v2M2 9h18" stroke="#231714" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M7 13h8M7 16h5" stroke="#231714" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold tracking-wide text-[#414141]">EIGHT BASE UNGA</h1>
-        <p className="text-sm text-[#414141]/60 mt-1">シェアオフィス 施設予約システム</p>
+        <h1 className="text-xl font-bold tracking-wide text-[#231714]">EIGHT BASE UNGA</h1>
+        <p className="text-sm text-[#231714]/60 mt-1">シェアオフィス 施設予約システム</p>
       </div>
 
       <div className="flex-1 px-4 pt-6 pb-8">

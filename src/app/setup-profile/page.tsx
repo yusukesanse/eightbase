@@ -199,21 +199,21 @@ export default function SetupProfilePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ヘッダー */}
       <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-        <h1 className="text-xl font-bold tracking-wide text-[#414141]">プロフィール登録</h1>
-        <p className="text-sm text-[#414141]/60 mt-1">
+        <h1 className="text-xl font-bold tracking-wide text-[#231714]">プロフィール登録</h1>
+        <p className="text-sm text-[#231714]/60 mt-1">
           ご利用にあたり、お客様情報をご入力ください
         </p>
         {/* ステップインジケーター */}
         <div className="flex items-center gap-2 mt-4">
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-            step === 1 ? "bg-[#414141] text-white" : "bg-white/40 text-[#414141]/60"
+            step === 1 ? "bg-[#231714] text-white" : "bg-white/40 text-[#231714]/60"
           }`}>
             <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
             基本情報
           </div>
-          <div className="w-4 h-px bg-[#414141]/20" />
+          <div className="w-4 h-px bg-[#231714]/20" />
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-            step === 2 ? "bg-[#414141] text-white" : "bg-white/40 text-[#414141]/60"
+            step === 2 ? "bg-[#231714] text-white" : "bg-white/40 text-[#231714]/60"
           }`}>
             <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
             住所情報
@@ -234,7 +234,7 @@ export default function SetupProfilePage() {
           <div className="space-y-4">
             {/* 氏名 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-semibold text-[#414141] mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" />
                   <path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" />
@@ -244,45 +244,45 @@ export default function SetupProfilePage() {
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] text-[#414141]/40 mb-1">姓</label>
+                  <label className="block text-[11px] text-[#231714]/40 mb-1">姓</label>
                   <input
                     type="text"
                     value={form.lastName}
                     onChange={(e) => updateForm("lastName", e.target.value)}
                     placeholder="山田"
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-[#414141]/40 mb-1">名</label>
+                  <label className="block text-[11px] text-[#231714]/40 mb-1">名</label>
                   <input
                     type="text"
                     value={form.firstName}
                     onChange={(e) => updateForm("firstName", e.target.value)}
                     placeholder="太郎"
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div>
-                  <label className="block text-[11px] text-[#414141]/40 mb-1">セイ</label>
+                  <label className="block text-[11px] text-[#231714]/40 mb-1">セイ</label>
                   <input
                     type="text"
                     value={form.lastNameKana}
                     onChange={(e) => updateForm("lastNameKana", e.target.value)}
                     placeholder="ヤマダ"
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-[#414141]/40 mb-1">メイ</label>
+                  <label className="block text-[11px] text-[#231714]/40 mb-1">メイ</label>
                   <input
                     type="text"
                     value={form.firstNameKana}
                     onChange={(e) => updateForm("firstNameKana", e.target.value)}
                     placeholder="タロウ"
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                   />
                 </div>
               </div>
@@ -290,7 +290,7 @@ export default function SetupProfilePage() {
 
             {/* 電話番号 & 生年月日 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-semibold text-[#414141] mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" />
                   <rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" />
@@ -300,19 +300,19 @@ export default function SetupProfilePage() {
               </h3>
 
               <div>
-                <label className="block text-[11px] text-[#414141]/40 mb-1">電話番号</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">電話番号</label>
                 <input
                   type="tel"
                   value={form.phone}
                   onChange={(e) => updateForm("phone", e.target.value)}
                   placeholder="090-1234-5678"
                   autoComplete="tel"
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>
 
               <div className="mt-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">生年月日</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">生年月日</label>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <select
@@ -322,8 +322,8 @@ export default function SetupProfilePage() {
                         parts[0] = e.target.value;
                         updateForm("birthday", parts.join("-"));
                       }}
-                      className={`w-full px-2 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] bg-white ${
-                        !form.birthday?.split("-")[0] ? "text-[#414141]/30" : "text-[#414141]"
+                      className={`w-full px-2 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] bg-white ${
+                        !form.birthday?.split("-")[0] ? "text-[#231714]/30" : "text-[#231714]"
                       }`}
                     >
                       <option value="">年</option>
@@ -340,8 +340,8 @@ export default function SetupProfilePage() {
                         parts[1] = e.target.value;
                         updateForm("birthday", parts.join("-"));
                       }}
-                      className={`w-full px-2 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] bg-white ${
-                        !form.birthday?.split("-")[1] ? "text-[#414141]/30" : "text-[#414141]"
+                      className={`w-full px-2 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] bg-white ${
+                        !form.birthday?.split("-")[1] ? "text-[#231714]/30" : "text-[#231714]"
                       }`}
                     >
                       <option value="">月</option>
@@ -358,8 +358,8 @@ export default function SetupProfilePage() {
                         parts[2] = e.target.value;
                         updateForm("birthday", parts.join("-"));
                       }}
-                      className={`w-full px-2 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] bg-white ${
-                        !form.birthday?.split("-")[2] ? "text-[#414141]/30" : "text-[#414141]"
+                      className={`w-full px-2 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] bg-white ${
+                        !form.birthday?.split("-")[2] ? "text-[#231714]/30" : "text-[#231714]"
                       }`}
                     >
                       <option value="">日</option>
@@ -372,7 +372,7 @@ export default function SetupProfilePage() {
               </div>
 
               <div className="mt-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">性別</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">性別</label>
                 <div className="grid grid-cols-4 gap-2">
                   {GENDER_OPTIONS.map((opt) => (
                     <button
@@ -381,8 +381,8 @@ export default function SetupProfilePage() {
                       onClick={() => updateForm("gender", opt.value)}
                       className={`py-2 text-xs rounded-xl border transition-colors ${
                         form.gender === opt.value
-                          ? "bg-[#414141] text-white border-[#414141]"
-                          : "bg-white text-[#414141]/60 border-[#414141]/10 hover:border-[#414141]/30"
+                          ? "bg-[#231714] text-white border-[#231714]"
+                          : "bg-white text-[#231714]/60 border-[#231714]/10 hover:border-[#231714]/30"
                       }`}
                     >
                       {opt.label}
@@ -394,7 +394,7 @@ export default function SetupProfilePage() {
 
             {/* 職業 & 利用目的 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-semibold text-[#414141] mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" />
                   <path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" />
@@ -404,18 +404,18 @@ export default function SetupProfilePage() {
               </h3>
 
               <div>
-                <label className="block text-[11px] text-[#414141]/40 mb-1">職業・会社名</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">職業・会社名</label>
                 <input
                   type="text"
                   value={form.occupation}
                   onChange={(e) => updateForm("occupation", e.target.value)}
                   placeholder="例: フリーランスエンジニア / 株式会社〇〇"
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>
 
               <div className="mt-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">利用目的</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">利用目的</label>
                 <div className="flex flex-wrap gap-2">
                   {PURPOSE_OPTIONS.map((opt) => (
                     <button
@@ -424,8 +424,8 @@ export default function SetupProfilePage() {
                       onClick={() => updateForm("purpose", opt)}
                       className={`px-3 py-2 text-xs rounded-xl border transition-colors ${
                         form.purpose === opt
-                          ? "bg-[#414141] text-white border-[#414141]"
-                          : "bg-white text-[#414141]/60 border-[#414141]/10 hover:border-[#414141]/30"
+                          ? "bg-[#231714] text-white border-[#231714]"
+                          : "bg-white text-[#231714]/60 border-[#231714]/10 hover:border-[#231714]/30"
                       }`}
                     >
                       {opt}
@@ -439,7 +439,7 @@ export default function SetupProfilePage() {
             <button
               type="button"
               onClick={handleNext}
-              className="w-full py-3.5 text-sm font-medium bg-[#414141] text-white rounded-xl hover:bg-[#414141]/80 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors flex items-center justify-center gap-2"
             >
               次へ — 住所情報
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -453,7 +453,7 @@ export default function SetupProfilePage() {
         {step === 2 && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-semibold text-[#414141] mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" />
                   <path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" />
@@ -464,15 +464,15 @@ export default function SetupProfilePage() {
 
               {/* 住所種別 */}
               <div className="mb-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">住所種別</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">住所種別</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => updateForm("addressType", "home")}
                     className={`py-2.5 text-xs rounded-xl border transition-colors ${
                       form.addressType === "home"
-                        ? "bg-[#414141] text-white border-[#414141]"
-                        : "bg-white text-[#414141]/60 border-[#414141]/10 hover:border-[#414141]/30"
+                        ? "bg-[#231714] text-white border-[#231714]"
+                        : "bg-white text-[#231714]/60 border-[#231714]/10 hover:border-[#231714]/30"
                     }`}
                   >
                     自宅住所
@@ -482,8 +482,8 @@ export default function SetupProfilePage() {
                     onClick={() => updateForm("addressType", "office")}
                     className={`py-2.5 text-xs rounded-xl border transition-colors ${
                       form.addressType === "office"
-                        ? "bg-[#414141] text-white border-[#414141]"
-                        : "bg-white text-[#414141]/60 border-[#414141]/10 hover:border-[#414141]/30"
+                        ? "bg-[#231714] text-white border-[#231714]"
+                        : "bg-white text-[#231714]/60 border-[#231714]/10 hover:border-[#231714]/30"
                     }`}
                   >
                     会社住所
@@ -493,7 +493,7 @@ export default function SetupProfilePage() {
 
               {/* 郵便番号 */}
               <div className="mb-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">郵便番号</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">郵便番号</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -501,12 +501,12 @@ export default function SetupProfilePage() {
                     onChange={(e) => updateForm("postalCode", e.target.value)}
                     placeholder="123-4567"
                     maxLength={8}
-                    className="flex-1 px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                    className="flex-1 px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                   />
                   <button
                     type="button"
                     onClick={lookupPostalCode}
-                    className="px-4 py-2.5 text-xs bg-[#A5C1C8]/20 text-[#414141] rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap"
+                    className="px-4 py-2.5 text-xs bg-[#A5C1C8]/20 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap"
                   >
                     住所検索
                   </button>
@@ -515,12 +515,12 @@ export default function SetupProfilePage() {
 
               {/* 都道府県 */}
               <div className="mb-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">都道府県</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">都道府県</label>
                 <select
                   value={form.prefecture}
                   onChange={(e) => updateForm("prefecture", e.target.value)}
-                  className={`w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] ${
-                    !form.prefecture ? "text-[#414141]/30" : "text-[#414141]"
+                  className={`w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] ${
+                    !form.prefecture ? "text-[#231714]/30" : "text-[#231714]"
                   }`}
                 >
                   <option value="">選択してください</option>
@@ -532,40 +532,40 @@ export default function SetupProfilePage() {
 
               {/* 市区町村 */}
               <div className="mb-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">市区町村</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">市区町村</label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={(e) => updateForm("city", e.target.value)}
                   placeholder="渋谷区神宮前"
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>
 
               {/* 番地 */}
               <div className="mb-3">
-                <label className="block text-[11px] text-[#414141]/40 mb-1">番地</label>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">番地</label>
                 <input
                   type="text"
                   value={form.address}
                   onChange={(e) => updateForm("address", e.target.value)}
                   placeholder="1-2-3"
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>
 
               {/* 建物名 */}
               <div>
-                <label className="block text-[11px] text-[#414141]/40 mb-1">
+                <label className="block text-[11px] text-[#231714]/40 mb-1">
                   建物名・部屋番号
-                  <span className="text-[#414141]/20 ml-1">任意</span>
+                  <span className="text-[#231714]/20 ml-1">任意</span>
                 </label>
                 <input
                   type="text"
                   value={form.building}
                   onChange={(e) => updateForm("building", e.target.value)}
                   placeholder="〇〇マンション 101号室"
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>
             </div>
@@ -575,7 +575,7 @@ export default function SetupProfilePage() {
               <button
                 type="button"
                 onClick={() => { setStep(1); setError(null); window.scrollTo(0, 0); }}
-                className="flex-1 py-3.5 text-sm border border-[#414141]/10 rounded-xl text-[#414141]/60 hover:bg-[#414141]/5 transition-colors flex items-center justify-center gap-1"
+                className="flex-1 py-3.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors flex items-center justify-center gap-1"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M9 3l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -585,7 +585,7 @@ export default function SetupProfilePage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-[2] py-3.5 text-sm font-medium bg-[#414141] text-white rounded-xl hover:bg-[#414141]/80 disabled:opacity-50 transition-colors"
+                className="flex-[2] py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors"
               >
                 {submitting ? "登録中..." : "登録して利用開始"}
               </button>

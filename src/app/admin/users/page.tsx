@@ -62,10 +62,10 @@ function Badge({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-        active ? "bg-[#B0E401]/20 text-[#414141]" : "bg-[#414141]/10 text-[#414141]/60"
+        active ? "bg-[#B0E401]/20 text-[#231714]" : "bg-[#231714]/10 text-[#231714]/60"
       }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-[#B0E401]" : "bg-[#414141]/40"}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-[#B0E401]" : "bg-[#231714]/40"}`} />
       {active ? "有効" : "無効"}
     </span>
   );
@@ -74,14 +74,14 @@ function Badge({ active }: { active: boolean }) {
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) {
     return (
-      <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#414141]/20 ml-1 inline-block">
+      <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#231714]/20 ml-1 inline-block">
         <path d="M6 2l3 3.5H3L6 2z" fill="currentColor" />
         <path d="M6 10L3 6.5h6L6 10z" fill="currentColor" />
       </svg>
     );
   }
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#414141] ml-1 inline-block">
+    <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#231714] ml-1 inline-block">
       {dir === "asc" ? (
         <path d="M6 2l3 4H3L6 2z" fill="currentColor" />
       ) : (
@@ -94,9 +94,9 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 /** プロフィール情報の1行 */
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div className="flex items-start py-2.5 border-b border-[#414141]/5 last:border-b-0">
-      <span className="text-xs text-[#414141]/40 w-28 shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-[#414141] flex-1">{value || "—"}</span>
+    <div className="flex items-start py-2.5 border-b border-[#231714]/5 last:border-b-0">
+      <span className="text-xs text-[#231714]/40 w-28 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-[#231714] flex-1">{value || "—"}</span>
     </div>
   );
 }
@@ -131,7 +131,7 @@ function UserDetailPanel({
             className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center transition-colors shadow-sm"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="#414141" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="#231714" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
 
@@ -153,13 +153,13 @@ function UserDetailPanel({
             )}
 
             <div className="flex-1 pt-1">
-              <h2 className="text-xl font-bold text-[#414141]">{user.displayName}</h2>
+              <h2 className="text-xl font-bold text-[#231714]">{user.displayName}</h2>
               {p && (
-                <p className="text-xs text-[#414141]/40 mt-0.5">
+                <p className="text-xs text-[#231714]/40 mt-0.5">
                   {p.lastNameKana} {p.firstNameKana}
                 </p>
               )}
-              <p className="text-sm text-[#414141]/60 mt-1">{p?.occupation || user.tenantName || "—"}</p>
+              <p className="text-sm text-[#231714]/60 mt-1">{p?.occupation || user.tenantName || "—"}</p>
 
               <div className="flex items-center gap-2 mt-3">
                 <Badge active={user.active} />
@@ -171,12 +171,12 @@ function UserDetailPanel({
                     LINE連携済み
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-[#414141]/5 text-[#414141]/40 text-xs rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#231714]/5 text-[#231714]/40 text-xs rounded-full">
                     LINE未連携
                   </span>
                 )}
                 {user.profileComplete ? (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-[#A5C1C8]/15 text-[#414141]/60 text-xs rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#A5C1C8]/15 text-[#231714]/60 text-xs rounded-full">
                     プロフィール登録済み
                   </span>
                 ) : (
@@ -193,14 +193,14 @@ function UserDetailPanel({
         <div className="px-6 py-5 space-y-5">
           {/* 連絡先情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
                 <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
               連絡先情報
             </h3>
-            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+            <div className="bg-[#231714]/[0.02] rounded-xl px-4">
               <InfoRow label="メールアドレス" value={user.email} />
               <InfoRow label="電話番号" value={p?.phone ? p.phone.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3") : null} />
               {user.lineDisplayName && (
@@ -211,14 +211,14 @@ function UserDetailPanel({
 
           {/* 基本情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="2" y="3" width="10" height="9" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
                 <path d="M4 3V2M10 3V2M2 6h10" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
               基本情報
             </h3>
-            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+            <div className="bg-[#231714]/[0.02] rounded-xl px-4">
               <InfoRow label="生年月日" value={p?.birthday ? dayjs(p.birthday).format("YYYY年M月D日") : null} />
               <InfoRow label="性別" value={p?.gender ? GENDER_LABELS[p.gender] || p.gender : null} />
               <InfoRow label="職業・会社名" value={p?.occupation} />
@@ -228,14 +228,14 @@ function UserDetailPanel({
 
           {/* 住所情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1.5l5 4v6.5a1 1 0 01-1 1H3a1 1 0 01-1-1V5.5l5-4z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
                 <path d="M5.5 13V9.5h3V13" stroke="#A5C1C8" strokeWidth="1.2" />
               </svg>
               住所情報
             </h3>
-            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+            <div className="bg-[#231714]/[0.02] rounded-xl px-4">
               <InfoRow label="住所種別" value={p?.addressType ? ADDRESS_TYPE_LABELS[p.addressType] || p.addressType : null} />
               <InfoRow label="郵便番号" value={p?.postalCode ? `〒${p.postalCode.replace(/(\d{3})(\d{4})/, "$1-$2")}` : null} />
               <InfoRow
@@ -247,14 +247,14 @@ function UserDetailPanel({
 
           {/* アカウント情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#414141]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
                 <path d="M5 5V3.5a2 2 0 014 0V5" stroke="#A5C1C8" strokeWidth="1.2" />
               </svg>
               アカウント情報
             </h3>
-            <div className="bg-[#414141]/[0.02] rounded-xl px-4">
+            <div className="bg-[#231714]/[0.02] rounded-xl px-4">
               <InfoRow label="登録日" value={user.createdAt ? dayjs(user.createdAt).format("YYYY年M月D日") : null} />
               <InfoRow label="最終ログイン" value={user.lastLoginAt ? dayjs(user.lastLoginAt).format("YYYY年M月D日 HH:mm") : null} />
               <InfoRow label="プロフィール更新" value={user.profileUpdatedAt ? dayjs(user.profileUpdatedAt).format("YYYY年M月D日 HH:mm") : null} />
@@ -268,14 +268,14 @@ function UserDetailPanel({
               className={`flex-1 py-2.5 text-sm rounded-xl border transition-colors ${
                 user.active
                   ? "border-red-200 text-red-600 hover:bg-red-50"
-                  : "border-[#B0E401]/40 text-[#414141] hover:bg-[#B0E401]/10"
+                  : "border-[#B0E401]/40 text-[#231714] hover:bg-[#B0E401]/10"
               }`}
             >
               {user.active ? "アカウントを無効化" : "アカウントを有効化"}
             </button>
             <button
               onClick={() => onResetPassword(user)}
-              className="flex-1 py-2.5 text-sm border border-[#A5C1C8]/40 text-[#414141] rounded-xl hover:bg-[#A5C1C8]/10 transition-colors"
+              className="flex-1 py-2.5 text-sm border border-[#A5C1C8]/40 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/10 transition-colors"
             >
               パスワードリセット
             </button>
@@ -603,14 +603,14 @@ export default function AdminUsersPage() {
       {/* ヘッダー */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#414141]">ユーザー管理</h2>
-          <p className="text-sm text-[#414141]/40 mt-1">登録ユーザーの管理・追加</p>
+          <h2 className="text-2xl font-bold text-[#231714]">ユーザー管理</h2>
+          <p className="text-sm text-[#231714]/40 mt-1">登録ユーザーの管理・追加</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportCsv}
             disabled={users.length === 0}
-            className="px-4 py-2.5 text-sm font-medium border border-[#414141]/10 text-[#414141]/60 rounded-xl hover:bg-[#414141]/5 disabled:opacity-30 transition-colors flex items-center gap-2"
+            className="px-4 py-2.5 text-sm font-medium border border-[#231714]/10 text-[#231714]/60 rounded-xl hover:bg-[#231714]/5 disabled:opacity-30 transition-colors flex items-center gap-2"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v8M4 6l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -620,7 +620,7 @@ export default function AdminUsersPage() {
           </button>
           <button
             onClick={() => setShowAddForm(true)}
-            className="px-4 py-2.5 bg-[#414141] text-white text-sm font-medium rounded-xl hover:bg-[#414141]/80 transition-colors flex items-center gap-2"
+            className="px-4 py-2.5 bg-[#231714] text-white text-sm font-medium rounded-xl hover:bg-[#231714]/80 transition-colors flex items-center gap-2"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -642,7 +642,7 @@ export default function AdminUsersPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="氏名・メール・テナント名・電話番号で検索..."
-            className="w-full pl-9 pr-8 py-2.5 text-sm border border-[#414141]/10 rounded-xl bg-white focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] transition-colors"
+            className="w-full pl-9 pr-8 py-2.5 text-sm border border-[#231714]/10 rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
           />
           {searchQuery && (
             <button
@@ -659,8 +659,8 @@ export default function AdminUsersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] transition-colors ${
-            statusFilter !== "all" ? "border-[#414141] text-[#414141]" : "border-[#414141]/10 text-[#414141]/60"
+          className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors ${
+            statusFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/60"
           }`}
         >
           <option value="all">すべてのステータス</option>
@@ -671,8 +671,8 @@ export default function AdminUsersPage() {
         <select
           value={lineFilter}
           onChange={(e) => setLineFilter(e.target.value as LineFilter)}
-          className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] transition-colors ${
-            lineFilter !== "all" ? "border-[#414141] text-[#414141]" : "border-[#414141]/10 text-[#414141]/60"
+          className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors ${
+            lineFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/60"
           }`}
         >
           <option value="all">LINE連携：すべて</option>
@@ -683,7 +683,7 @@ export default function AdminUsersPage() {
         {hasActiveFilter && (
           <button
             onClick={() => { setSearchQuery(""); setStatusFilter("all"); setLineFilter("all"); }}
-            className="px-3 py-2.5 text-xs text-[#414141]/60 border border-[#414141]/10 rounded-xl hover:bg-[#414141]/5 transition-colors flex items-center gap-1"
+            className="px-3 py-2.5 text-xs text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-[#231714]/5 transition-colors flex items-center gap-1"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
@@ -696,8 +696,8 @@ export default function AdminUsersPage() {
       {/* 成功メッセージ */}
       {actionMsg && (
         <div className="mb-4 bg-[#B0E401]/20 border border-[#B0E401]/40 rounded-xl px-4 py-3 flex items-center justify-between">
-          <p className="text-sm text-[#414141]">{actionMsg}</p>
-          <button onClick={() => setActionMsg(null)} className="text-[#414141]/60 text-xs hover:text-[#414141]">✕</button>
+          <p className="text-sm text-[#231714]">{actionMsg}</p>
+          <button onClick={() => setActionMsg(null)} className="text-[#231714]/60 text-xs hover:text-[#231714]">✕</button>
         </div>
       )}
 
@@ -705,7 +705,7 @@ export default function AdminUsersPage() {
       {showAddForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-base font-semibold text-[#414141] mb-4">ユーザーを追加</h3>
+            <h3 className="text-base font-semibold text-[#231714] mb-4">ユーザーを追加</h3>
             <form onSubmit={handleAddUser} className="space-y-3">
               {[
                 { field: "email", label: "メールアドレス", type: "email", placeholder: "user@example.com", required: true },
@@ -713,20 +713,20 @@ export default function AdminUsersPage() {
                 { field: "tenantName", label: "テナント名", type: "text", placeholder: "株式会社〇〇", required: false },
               ].map(({ field, label, type, placeholder, required }) => (
                 <div key={field}>
-                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">{label}</label>
+                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">{label}</label>
                   <input
                     type={type}
                     value={addForm[field as keyof typeof addForm]}
                     onChange={(e) => setAddForm({ ...addForm, [field]: e.target.value })}
                     placeholder={placeholder}
                     required={required}
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                   />
                 </div>
               ))}
               {/* 初期パスワード（生成・コピー・表示切替付き） */}
               <div>
-                <label className="block text-xs font-medium text-[#414141]/60 mb-1">初期パスワード</label>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">初期パスワード</label>
                 <div className="flex gap-1.5">
                   <div className="relative flex-1">
                     <input
@@ -735,12 +735,12 @@ export default function AdminUsersPage() {
                       onChange={(e) => { setAddForm({ ...addForm, password: e.target.value }); setCopiedPassword(false); }}
                       placeholder="8文字以上推奨"
                       required
-                      className="w-full px-3 py-2.5 pr-9 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141] font-mono"
+                      className="w-full px-3 py-2.5 pr-9 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] font-mono"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#414141]/40 hover:text-[#414141] transition-colors"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#231714]/40 hover:text-[#231714] transition-colors"
                       title={showPassword ? "パスワードを隠す" : "パスワードを表示"}
                     >
                       {showPassword ? (
@@ -753,7 +753,7 @@ export default function AdminUsersPage() {
                   <button
                     type="button"
                     onClick={generatePassword}
-                    className="px-3 py-2.5 text-xs font-medium bg-[#A5C1C8]/20 text-[#414141] border border-[#A5C1C8]/40 rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap"
+                    className="px-3 py-2.5 text-xs font-medium bg-[#A5C1C8]/20 text-[#231714] border border-[#A5C1C8]/40 rounded-xl hover:bg-[#A5C1C8]/30 transition-colors whitespace-nowrap"
                     title="パスワードを自動生成"
                   >
                     生成
@@ -762,7 +762,7 @@ export default function AdminUsersPage() {
                     type="button"
                     onClick={copyPassword}
                     disabled={!addForm.password}
-                    className="px-3 py-2.5 text-xs font-medium bg-[#414141]/5 text-[#414141]/60 border border-[#414141]/10 rounded-xl hover:bg-[#414141]/10 disabled:opacity-30 transition-colors whitespace-nowrap"
+                    className="px-3 py-2.5 text-xs font-medium bg-[#231714]/5 text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-[#231714]/10 disabled:opacity-30 transition-colors whitespace-nowrap"
                     title="パスワードをコピー"
                   >
                     {copiedPassword ? "✓" : "コピー"}
@@ -778,14 +778,14 @@ export default function AdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => { setShowAddForm(false); setAddError(null); setShowPassword(false); setCopiedPassword(false); }}
-                  className="flex-1 py-2.5 text-sm border border-[#414141]/10 rounded-xl text-[#414141]/60 hover:bg-[#414141]/5 transition-colors"
+                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="flex-1 py-2.5 text-sm bg-[#414141] text-white rounded-xl hover:bg-[#414141]/80 disabled:opacity-50 transition-colors"
+                  className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors"
                 >
                   {addLoading ? "追加中..." : "追加する"}
                 </button>
@@ -799,11 +799,11 @@ export default function AdminUsersPage() {
       {resetTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-base font-semibold text-[#414141] mb-1">パスワードをリセット</h3>
-            <p className="text-sm text-[#414141]/60 mb-4">{resetTarget.displayName}（{resetTarget.email}）</p>
+            <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードをリセット</h3>
+            <p className="text-sm text-[#231714]/60 mb-4">{resetTarget.displayName}（{resetTarget.email}）</p>
             <form onSubmit={handleResetPassword} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-[#414141]/60 mb-1">新しいパスワード</label>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">新しいパスワード</label>
                 <input
                   type="password"
                   value={resetPassword}
@@ -811,23 +811,23 @@ export default function AdminUsersPage() {
                   placeholder="新しいパスワードを入力"
                   required
                   minLength={4}
-                  className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-xl focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-[#414141]"
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>
-              <p className="text-xs text-[#414141]/40">※ リセット後、LINE ID 連携も解除されます</p>
+              <p className="text-xs text-[#231714]/40">※ リセット後、LINE ID 連携も解除されます</p>
               {resetError && <p className="text-xs text-red-600">{resetError}</p>}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => { setResetTarget(null); setResetPassword(""); setResetError(null); }}
-                  className="flex-1 py-2.5 text-sm border border-[#414141]/10 rounded-xl text-[#414141]/60 hover:bg-[#414141]/5"
+                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="flex-1 py-2.5 text-sm bg-[#C5D94A] text-[#414141] rounded-xl hover:bg-[#B0E401] disabled:opacity-50"
+                  className="flex-1 py-2.5 text-sm bg-[#C5D94A] text-[#231714] rounded-xl hover:bg-[#B0E401] disabled:opacity-50"
                 >
                   {resetLoading ? "リセット中..." : "リセット"}
                 </button>
@@ -850,29 +850,29 @@ export default function AdminUsersPage() {
       {/* ユーザーテーブル */}
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="w-8 h-8 border-2 border-[#414141]/10 border-t-[#414141] rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#231714]/10 border-t-[#231714] rounded-full animate-spin" />
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#414141]/10 overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#414141]/5 flex items-center justify-between">
-            <p className="text-sm text-[#414141]/60">
+        <div className="bg-white rounded-xl border border-[#231714]/10 overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#231714]/5 flex items-center justify-between">
+            <p className="text-sm text-[#231714]/60">
               {hasActiveFilter ? (
                 <>
-                  <span className="font-medium text-[#414141]">{filteredUsers.length}</span>
+                  <span className="font-medium text-[#231714]">{filteredUsers.length}</span>
                   <span> / {users.length} 名を表示</span>
                 </>
               ) : (
                 <>全 {users.length} 名</>
               )}
             </p>
-            <p className="text-xs text-[#414141]/30">行をクリックで詳細表示</p>
+            <p className="text-xs text-[#231714]/30">行をクリックで詳細表示</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#414141]/5 border-b border-[#414141]/5">
+                <tr className="bg-[#231714]/5 border-b border-[#231714]/5">
                   <SortableHeader label="氏名 / テナント" sortKeyName="displayName" />
                   <SortableHeader label="メールアドレス" sortKeyName="email" />
                   <SortableHeader label="LINE連携" sortKeyName="lineUserId" />
@@ -885,7 +885,7 @@ export default function AdminUsersPage() {
                   <tr
                     key={user.id}
                     onClick={() => setSelectedUser(user)}
-                    className="border-b border-[#414141]/5 hover:bg-[#A5C1C8]/5 transition-colors cursor-pointer"
+                    className="border-b border-[#231714]/5 hover:bg-[#A5C1C8]/5 transition-colors cursor-pointer"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -904,25 +904,25 @@ export default function AdminUsersPage() {
                           </div>
                         )}
                         <div>
-                          <p className="font-medium text-[#414141]">{user.displayName}</p>
-                          <p className="text-xs text-[#414141]/40">{user.profile?.occupation || user.tenantName || "—"}</p>
+                          <p className="font-medium text-[#231714]">{user.displayName}</p>
+                          <p className="text-xs text-[#231714]/40">{user.profile?.occupation || user.tenantName || "—"}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[#414141]/60">{user.email}</td>
+                    <td className="px-6 py-4 text-[#231714]/60">{user.email}</td>
                     <td className="px-6 py-4">
                       {user.lineUserId ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#B0E401]/20 text-[#414141] text-xs rounded-full font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#B0E401]/20 text-[#231714] text-xs rounded-full font-medium">
                           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                             <path d="M8.5 1.5l-5 5L1 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           連携済み
                         </span>
                       ) : (
-                        <span className="text-xs text-[#414141]/40">未連携</span>
+                        <span className="text-xs text-[#231714]/40">未連携</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-xs text-[#414141]/60">
+                    <td className="px-6 py-4 text-xs text-[#231714]/60">
                       {user.lastLoginAt ? dayjs(user.lastLoginAt).format("YYYY/M/D HH:mm") : "—"}
                     </td>
                     <td className="px-6 py-4">
@@ -934,7 +934,7 @@ export default function AdminUsersPage() {
             </table>
           </div>
           {filteredUsers.length === 0 && (
-            <div className="px-6 py-12 text-center text-sm text-[#414141]/40">
+            <div className="px-6 py-12 text-center text-sm text-[#231714]/40">
               {hasActiveFilter
                 ? "条件に一致するユーザーが見つかりません。"
                 : "ユーザーがいません。まず追加してください。"}

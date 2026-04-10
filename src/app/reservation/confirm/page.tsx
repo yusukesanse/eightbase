@@ -128,7 +128,7 @@ function ConfirmContent() {
           {/* アクションボタン */}
           <button
             onClick={() => router.push("/my-reservations")}
-            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#414141]"
+            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
           >
             マイ予約を確認する
           </button>
@@ -187,7 +187,7 @@ function ConfirmContent() {
           className={clsx(
             "w-full py-3 rounded-xl text-sm font-medium transition-colors",
             profileLoaded
-              ? "bg-[#B0E401] text-[#414141]"
+              ? "bg-[#B0E401] text-[#231714]"
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           )}
         >

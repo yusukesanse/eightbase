@@ -114,7 +114,7 @@ export default function QuestsPage() {
 /* ─── グッド表示（アイコン＋数字） ─── */
 function GoodBadge({ count, liked }: { count: number; liked: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#414141]/40"}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#231714]/40"}`}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
       </svg>
@@ -163,11 +163,11 @@ function QuestCard({ quest: q, completed = false, onToggleGood, onClick }: {
 
         <div className="flex-1 p-3 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#A5C1C8]/15 text-[#414141]">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#A5C1C8]/15 text-[#231714]">
               {q.category}
             </span>
           </div>
-          <h3 className="text-sm font-bold text-[#414141] mt-1 leading-snug line-clamp-2">
+          <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
             {q.title}
           </h3>
 

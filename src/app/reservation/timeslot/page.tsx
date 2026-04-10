@@ -280,7 +280,7 @@ function TimeslotContent() {
           <button
             onClick={handleCheck}
             disabled={checking}
-            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#414141] disabled:opacity-60"
+            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714] disabled:opacity-60"
           >
             {checking ? "確認中..." : "空きを確認する"}
           </button>
@@ -289,7 +289,7 @@ function TimeslotContent() {
         {availability?.available === true && (
           <button
             onClick={handleConfirm}
-            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#414141]"
+            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
           >
             予約内容を確認する
           </button>

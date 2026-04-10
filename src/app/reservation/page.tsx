@@ -270,8 +270,8 @@ export default function ReservationPage() {
       {/* ── ヘッダー ── */}
       <header className="bg-[#A5C1C8] px-5 pt-4 pb-5">
         <div>
-          <h1 className="text-base font-bold text-[#414141] tracking-wide">施設予約</h1>
-          <p className="text-[11px] text-[#414141]/50 mt-0.5">EIGHT BASE UNGA</p>
+          <h1 className="text-base font-bold text-[#231714] tracking-wide">施設予約</h1>
+          <p className="text-[11px] text-[#231714]/50 mt-0.5">EIGHT BASE UNGA</p>
         </div>
       </header>
 
@@ -279,7 +279,7 @@ export default function ReservationPage() {
       <div className="px-5 pt-3">
         <Link
           href="/my-reservations"
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-[#414141]/70"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-[#231714]/70"
         >
           マイ予約
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -290,11 +290,11 @@ export default function ReservationPage() {
 
       {/* ── 施設選択 ── */}
       <section className="px-5 pt-4 pb-2">
-        <p className="text-[11px] font-bold text-[#414141]/40 uppercase tracking-widest mb-3">施設を選択</p>
+        <p className="text-[11px] font-bold text-[#231714]/40 uppercase tracking-widest mb-3">施設を選択</p>
 
         {meetingRooms.length > 0 && (
           <div className="mb-3">
-            <p className="text-[10px] text-[#414141]/40 mb-1.5">会議室</p>
+            <p className="text-[10px] text-[#231714]/40 mb-1.5">会議室</p>
             <div className="flex gap-2 flex-wrap">
               {meetingRooms.map((f) => (
                 <FacilityPill
@@ -315,7 +315,7 @@ export default function ReservationPage() {
 
         {booths.length > 0 && (
           <div>
-            <p className="text-[10px] text-[#414141]/40 mb-1.5">リモートブース</p>
+            <p className="text-[10px] text-[#231714]/40 mb-1.5">リモートブース</p>
             <div className="flex gap-2 flex-wrap">
               {booths.map((f) => (
                 <FacilityPill
@@ -350,17 +350,17 @@ export default function ReservationPage() {
                 "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
                 currentMonth.isSame(dayjs().startOf("month"), "month")
                   ? "text-gray-200"
-                  : "text-[#414141] hover:bg-gray-50"
+                  : "text-[#231714] hover:bg-gray-50"
               )}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
-            <h2 className="text-sm font-bold text-[#414141]">
+            <h2 className="text-sm font-bold text-[#231714]">
               {currentMonth.format("YYYY年 M月")}
             </h2>
             <button
               onClick={() => setCurrentMonth((m) => m.add(1, "month"))}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[#414141] hover:bg-gray-50 transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[#231714] hover:bg-gray-50 transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
             </button>
@@ -369,7 +369,7 @@ export default function ReservationPage() {
           {/* 曜日ヘッダー */}
           <div className="grid grid-cols-7 mb-1">
             {DAY_LABELS.map((d) => (
-              <div key={d} className="text-center text-[10px] font-medium text-[#414141]/30 py-1">
+              <div key={d} className="text-center text-[10px] font-medium text-[#231714]/30 py-1">
                 {d}
               </div>
             ))}
@@ -393,14 +393,14 @@ export default function ReservationPage() {
                     "relative flex flex-col items-center py-1.5 rounded-xl transition-all",
                     state === "disabled" && "opacity-20",
                     state === "full" && "opacity-30",
-                    isSelected && "bg-[#414141]",
+                    isSelected && "bg-[#231714]",
                     !isSelected && state !== "disabled" && state !== "full" && "hover:bg-gray-50 active:scale-95"
                   )}
                 >
                   <span
                     className={clsx(
                       "text-[13px] font-medium",
-                      isSelected ? "text-white" : isToday ? "text-[#B0E401] font-bold" : "text-[#414141]"
+                      isSelected ? "text-white" : isToday ? "text-[#B0E401] font-bold" : "text-[#231714]"
                     )}
                   >
                     {d.date()}
@@ -431,10 +431,10 @@ export default function ReservationPage() {
 
           {/* 凡例 */}
           <div className="flex items-center gap-4 mt-2 justify-center">
-            <span className="flex items-center gap-1 text-[9px] text-[#414141]/40">
+            <span className="flex items-center gap-1 text-[9px] text-[#231714]/40">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B0E401]" /> 空きあり
             </span>
-            <span className="flex items-center gap-1 text-[9px] text-[#414141]/40">
+            <span className="flex items-center gap-1 text-[9px] text-[#231714]/40">
               <span className="w-1.5 h-1.5 rounded-full bg-[#A5C1C8]" /> 一部予約
             </span>
           </div>
@@ -448,7 +448,7 @@ export default function ReservationPage() {
                 <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-sm text-[#414141]/40 leading-relaxed">
+            <p className="text-sm text-[#231714]/40 leading-relaxed">
               施設を選択すると<br />空き状況が表示されます
             </p>
           </div>
@@ -461,10 +461,10 @@ export default function ReservationPage() {
           <div className="mx-5 h-px bg-gray-100" />
           <section className="px-5 pt-4 pb-2 flex-1">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[11px] font-bold text-[#414141]/40 uppercase tracking-widest">
+              <h3 className="text-[11px] font-bold text-[#231714]/40 uppercase tracking-widest">
                 時間を選択
               </h3>
-              <span className="text-xs font-medium text-[#414141]">
+              <span className="text-xs font-medium text-[#231714]">
                 {dayjs(selectedDate).format("M月D日（ddd）")}
               </span>
             </div>
@@ -475,7 +475,7 @@ export default function ReservationPage() {
               </div>
             ) : (
               <>
-                <p className="text-[10px] text-[#414141]/40 mb-2">
+                <p className="text-[10px] text-[#231714]/40 mb-2">
                   {!selStart ? "開始時間をタップしてください" : !selEnd ? "終了時間をタップしてください" : `${selStart}〜${selEnd} を選択中`}
                 </p>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -490,10 +490,10 @@ export default function ReservationPage() {
                           "py-2.5 rounded-xl text-xs font-medium transition-all",
                           state === "booked" && "bg-gray-50 text-gray-200 line-through cursor-not-allowed",
                           state === "past" && "bg-gray-50 text-gray-200 cursor-not-allowed",
-                          state === "free" && "bg-[#FAFAFA] text-[#414141] hover:bg-[#A5C1C8]/10 active:scale-95 border border-gray-100",
-                          state === "selected-start" && "bg-[#B0E401] text-[#414141] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]",
-                          state === "selected-range" && "bg-[#B0E401]/15 text-[#414141] border border-[#B0E401]/20",
-                          state === "selected-end" && "bg-[#B0E401] text-[#414141] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]"
+                          state === "free" && "bg-[#FAFAFA] text-[#231714] hover:bg-[#A5C1C8]/10 active:scale-95 border border-gray-100",
+                          state === "selected-start" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]",
+                          state === "selected-range" && "bg-[#B0E401]/15 text-[#231714] border border-[#B0E401]/20",
+                          state === "selected-end" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]"
                         )}
                       >
                         {slot}
@@ -521,8 +521,8 @@ export default function ReservationPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[11px] text-[#414141]/50">{selectedFacility?.name}</p>
-                  <p className="text-xs font-bold text-[#414141]">
+                  <p className="text-[11px] text-[#231714]/50">{selectedFacility?.name}</p>
+                  <p className="text-xs font-bold text-[#231714]">
                     {dayjs(selectedDate!).format("M/D（ddd）")} {selStart}〜{selEnd}
                   </p>
                 </div>
@@ -530,13 +530,13 @@ export default function ReservationPage() {
             </div>
             <button
               onClick={handleConfirm}
-              className="w-full py-3.5 rounded-2xl text-sm font-bold bg-[#B0E401] text-[#414141] active:scale-[0.98] transition-transform shadow-sm shadow-[#B0E401]/20"
+              className="w-full py-3.5 rounded-2xl text-sm font-bold bg-[#B0E401] text-[#231714] active:scale-[0.98] transition-transform shadow-sm shadow-[#B0E401]/20"
             >
               予約内容を確認する
             </button>
           </div>
         ) : (
-          <p className="text-center text-[11px] text-[#414141]/30 py-1">
+          <p className="text-center text-[11px] text-[#231714]/30 py-1">
             {!selectedFacility
               ? "上から施設を選択してください"
               : !selectedDate
@@ -568,12 +568,12 @@ function FacilityPill({
       className={clsx(
         "px-4 py-2 rounded-xl text-xs font-medium transition-all active:scale-95",
         selected
-          ? "bg-[#414141] text-white shadow-sm"
-          : "bg-[#FAFAFA] text-[#414141] border border-gray-100 hover:border-[#A5C1C8]/30"
+          ? "bg-[#231714] text-white shadow-sm"
+          : "bg-[#FAFAFA] text-[#231714] border border-gray-100 hover:border-[#A5C1C8]/30"
       )}
     >
       {facility.name}
-      <span className={clsx("ml-1.5 text-[10px]", selected ? "text-white/60" : "text-[#414141]/30")}>
+      <span className={clsx("ml-1.5 text-[10px]", selected ? "text-white/60" : "text-[#231714]/30")}>
         {facility.capacity}名
       </span>
     </button>

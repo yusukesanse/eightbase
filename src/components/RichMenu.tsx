@@ -44,13 +44,23 @@ const MENUS = [
       </svg>
     ),
   },
+  {
+    href: "/profile",
+    label: "ユーザー",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M11 3a4 4 0 014 4v0a4 4 0 01-4 4v0a4 4 0 01-4-4v0a4 4 0 014-4z" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M3 19c0-3.5 3.134-6.5 8-6.5s8 3 8 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 export function RichMenu() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 grid grid-cols-4 z-50">
+    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 grid grid-cols-5 z-50">
       {MENUS.map((menu) => {
         const active = pathname.startsWith(menu.href);
         return (

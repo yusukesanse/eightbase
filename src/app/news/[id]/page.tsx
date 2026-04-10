@@ -9,9 +9,9 @@ import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; label: string }> = {
-  info:      { bg: "bg-[#A5C1C8]/10", text: "text-[#414141]", label: "お知らせ" },
-  facility:  { bg: "bg-[#B0E401]/10", text: "text-[#414141]", label: "施設" },
-  community: { bg: "bg-gray-100",     text: "text-[#414141]", label: "コミュニティ" },
+  info:      { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", label: "お知らせ" },
+  facility:  { bg: "bg-[#B0E401]/10", text: "text-[#231714]", label: "施設" },
+  community: { bg: "bg-gray-100",     text: "text-[#231714]", label: "コミュニティ" },
 };
 
 export default function NewsDetailPage() {
@@ -82,7 +82,7 @@ export default function NewsDetailPage() {
           {cfg.label}
         </span>
 
-        <h1 className="text-xl font-bold text-[#414141] mt-3 leading-tight">
+        <h1 className="text-xl font-bold text-[#231714] mt-3 leading-tight">
           {item.title}
         </h1>
 

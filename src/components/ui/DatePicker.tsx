@@ -130,8 +130,8 @@ export default function DatePicker({
         className={`
           w-full flex items-center justify-between gap-2
           px-3 py-2.5 border rounded-xl text-sm transition-all
-          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/20" : "border-[#414141]/15 hover:border-[#414141]/30"}
-          ${!value ? "text-[#414141]/40" : "text-[#414141]"}
+          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/20" : "border-[#231714]/15 hover:border-[#231714]/30"}
+          ${!value ? "text-[#231714]/40" : "text-[#231714]"}
           bg-white cursor-pointer
         `}
       >
@@ -142,7 +142,7 @@ export default function DatePicker({
           </svg>
           <span className="whitespace-nowrap">{formatDisplay(value) || placeholder}</span>
         </div>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#414141]/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#231714]/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
@@ -150,18 +150,18 @@ export default function DatePicker({
       {/* Calendar Dropdown */}
       {open && (
         <div
-          className="absolute left-0 mt-1 w-[280px] bg-white border border-[#414141]/10 rounded-xl shadow-lg shadow-black/10 p-3"
+          className="absolute left-0 mt-1 w-[280px] bg-white border border-[#231714]/10 rounded-xl shadow-lg shadow-black/10 p-3"
           style={{ zIndex: 99999 }}
         >
           {/* Header: month nav */}
           <div className="flex items-center justify-between mb-2">
-            <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/10 text-[#414141]/50 transition-colors">
+            <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/10 text-[#231714]/50 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <span className="text-sm font-semibold text-[#414141]">
+            <span className="text-sm font-semibold text-[#231714]">
               {viewYear}年{viewMonth + 1}月
             </span>
-            <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/10 text-[#414141]/50 transition-colors">
+            <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/10 text-[#231714]/50 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
@@ -169,7 +169,7 @@ export default function DatePicker({
           {/* Weekday header */}
           <div className="grid grid-cols-7 mb-1">
             {WEEK.map((w, i) => (
-              <div key={w} className={`text-center text-[10px] font-medium py-1 ${i >= 5 ? "text-[#A5C1C8]" : "text-[#414141]/35"}`}>
+              <div key={w} className={`text-center text-[10px] font-medium py-1 ${i >= 5 ? "text-[#A5C1C8]" : "text-[#231714]/35"}`}>
                 {w}
               </div>
             ))}
@@ -195,12 +195,12 @@ export default function DatePicker({
                   className={`
                     w-full aspect-square flex items-center justify-center text-[13px] rounded-lg transition-all
                     ${isSelected
-                      ? "bg-[#414141] text-white font-semibold"
+                      ? "bg-[#231714] text-white font-semibold"
                       : isToday
-                        ? "bg-[#A5C1C8]/15 text-[#414141] font-semibold"
+                        ? "bg-[#A5C1C8]/15 text-[#231714] font-semibold"
                         : isWeekend
                           ? "text-[#A5C1C8] hover:bg-[#A5C1C8]/8"
-                          : "text-[#414141] hover:bg-[#A5C1C8]/8"
+                          : "text-[#231714] hover:bg-[#A5C1C8]/8"
                     }
                   `}
                 >
@@ -211,11 +211,11 @@ export default function DatePicker({
           </div>
 
           {/* Footer: today shortcut */}
-          <div className="mt-2 pt-2 border-t border-[#414141]/5 flex justify-center">
+          <div className="mt-2 pt-2 border-t border-[#231714]/5 flex justify-center">
             <button
               type="button"
               onClick={goToday}
-              className="text-xs text-[#A5C1C8] hover:text-[#414141] font-medium transition-colors"
+              className="text-xs text-[#A5C1C8] hover:text-[#231714] font-medium transition-colors"
             >
               今日
             </button>

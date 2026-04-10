@@ -91,12 +91,12 @@ function MiniKPI({
 }) {
   return (
     <div className="px-4 py-3 rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] min-w-0">
-      <p className="text-[11px] text-[#414141]/40 font-medium mb-1 truncate">{label}</p>
+      <p className="text-[11px] text-[#231714]/40 font-medium mb-1 truncate">{label}</p>
       <div className="flex items-baseline gap-1">
-        <span className={`text-lg sm:text-xl font-bold ${accent || "text-[#414141]"}`}>
+        <span className={`text-lg sm:text-xl font-bold ${accent || "text-[#231714]"}`}>
           {value}
         </span>
-        {unit && <span className="text-[11px] text-[#414141]/40">{unit}</span>}
+        {unit && <span className="text-[11px] text-[#231714]/40">{unit}</span>}
       </div>
     </div>
   );
@@ -111,9 +111,9 @@ function ChartHeader({
 }) {
   return (
     <div className="mb-4 px-1">
-      <h3 className="text-sm font-semibold text-[#414141]">{title}</h3>
+      <h3 className="text-sm font-semibold text-[#231714]">{title}</h3>
       {subtitle && (
-        <p className="text-[11px] text-[#414141]/40 mt-0.5">{subtitle}</p>
+        <p className="text-[11px] text-[#231714]/40 mt-0.5">{subtitle}</p>
       )}
     </div>
   );
@@ -143,7 +143,7 @@ function GlassTooltip({
 
   return (
     <div className="rounded-xl bg-white/85 backdrop-blur-xl border border-white/70 shadow-lg shadow-black/10 px-4 py-3 min-w-[130px]">
-      <p className="text-[11px] font-semibold text-[#414141]/60 mb-1.5">
+      <p className="text-[11px] font-semibold text-[#231714]/60 mb-1.5">
         {labelFormatter ? labelFormatter(label || "") : label}
       </p>
       {payload.map((p, i) => (
@@ -153,9 +153,9 @@ function GlassTooltip({
               className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: p.color }}
             />
-            <span className="text-[11px] text-[#414141]/60 truncate">{p.name}</span>
+            <span className="text-[11px] text-[#231714]/60 truncate">{p.name}</span>
           </div>
-          <span className="text-[11px] font-semibold text-[#414141] shrink-0">
+          <span className="text-[11px] font-semibold text-[#231714] shrink-0">
             {valueFormatter ? valueFormatter(p.value, p.name) : `${p.value}`}
           </span>
         </div>
@@ -202,8 +202,8 @@ export default function AdminDashboardPage() {
     <div className="p-4 sm:p-6 md:p-8">
       {/* ヘッダー */}
       <div className="mb-5">
-        <h2 className="text-lg sm:text-xl font-bold text-[#414141]">ダッシュボード</h2>
-        <p className="text-[11px] text-[#414141]/40 mt-0.5">{today}</p>
+        <h2 className="text-lg sm:text-xl font-bold text-[#231714]">ダッシュボード</h2>
+        <p className="text-[11px] text-[#231714]/40 mt-0.5">{today}</p>
       </div>
 
       {loading ? (
@@ -266,8 +266,8 @@ export default function AdminDashboardPage() {
                           fill={`url(#grad_${fid})`} barSize={16}
                           radius={i === stats!.facilityIds.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
                       ))}
-                      <Line dataKey="total" name="合計" type="monotone" stroke="#414141" strokeWidth={2}
-                        dot={false} activeDot={{ r: 4, fill: "#414141", stroke: "#fff", strokeWidth: 2 }} />
+                      <Line dataKey="total" name="合計" type="monotone" stroke="#231714" strokeWidth={2}
+                        dot={false} activeDot={{ r: 4, fill: "#231714", stroke: "#fff", strokeWidth: 2 }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
@@ -401,21 +401,21 @@ export default function AdminDashboardPage() {
                       const pct = maxGood > 0 ? (item.goodCount / maxGood) * 100 : 0;
                       return (
                         <div key={item.id} className="flex items-center gap-3">
-                          <span className="text-[11px] font-bold text-[#414141]/40 w-4 text-right shrink-0">
+                          <span className="text-[11px] font-bold text-[#231714]/40 w-4 text-right shrink-0">
                             {i + 1}
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-1">
                               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
                                 item.type === "quest"
-                                  ? "bg-[#A5C1C8]/20 text-[#414141]"
-                                  : "bg-[#B0E401]/20 text-[#414141]"
+                                  ? "bg-[#A5C1C8]/20 text-[#231714]"
+                                  : "bg-[#B0E401]/20 text-[#231714]"
                               }`}>
                                 {item.type === "quest" ? "クエスト" : "イベント"}
                               </span>
-                              <span className="text-[12px] text-[#414141] truncate">{item.title}</span>
+                              <span className="text-[12px] text-[#231714] truncate">{item.title}</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-[#414141]/10 overflow-hidden">
+                            <div className="h-1.5 rounded-full bg-[#231714]/10 overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all duration-500"
                                 style={{
@@ -427,14 +427,14 @@ export default function AdminDashboardPage() {
                               />
                             </div>
                           </div>
-                          <span className="text-[12px] font-bold text-[#414141]/60 shrink-0">
+                          <span className="text-[12px] font-bold text-[#231714]/60 shrink-0">
                             {item.goodCount}
                           </span>
                         </div>
                       );
                     })
                 ) : (
-                  <div className="flex items-center justify-center py-8 text-sm text-[#414141]/40">
+                  <div className="flex items-center justify-center py-8 text-sm text-[#231714]/40">
                     データがありません
                   </div>
                 )}
@@ -448,7 +448,7 @@ export default function AdminDashboardPage() {
             <MiniKPI label="イベント" value={`${stats?.publishedEvents ?? 0}/${stats?.totalEvents ?? 0}`} unit="公開中" accent="text-[#B0E401]" />
             <Link
               href="/admin/users"
-              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-[#414141]/60 hover:bg-white/60 hover:shadow-md transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-[#231714]/60 hover:bg-white/60 hover:shadow-md transition-all duration-200"
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.3"/>
@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
             </Link>
             <Link
               href="/admin/reservations"
-              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-[#414141]/60 hover:bg-white/60 hover:shadow-md transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-3 text-[12px] font-medium rounded-xl bg-white/40 backdrop-blur-sm border border-white/60 shadow-sm shadow-black/[0.03] text-[#231714]/60 hover:bg-white/60 hover:shadow-md transition-all duration-200"
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.3"/>

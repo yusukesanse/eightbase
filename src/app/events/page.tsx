@@ -19,10 +19,10 @@ function saveGoodSet(s: Set<string>) { localStorage.setItem(GOOD_KEY, JSON.strin
 interface EventWithGood extends NufEvent { goodCount: number; liked: boolean }
 
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  networking: { bg: "bg-[#A5C1C8]/10", text: "text-[#414141]", label: "ネットワーキング" },
-  workshop:   { bg: "bg-[#A5C1C8]/15", text: "text-[#414141]", label: "ワークショップ" },
-  social:     { bg: "bg-[#B0E401]/10", text: "text-[#414141]", label: "交流" },
-  info:       { bg: "bg-[#A5C1C8]/10", text: "text-[#414141]", label: "お知らせ" },
+  networking: { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", label: "ネットワーキング" },
+  workshop:   { bg: "bg-[#A5C1C8]/15", text: "text-[#231714]", label: "ワークショップ" },
+  social:     { bg: "bg-[#B0E401]/10", text: "text-[#231714]", label: "交流" },
+  info:       { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", label: "お知らせ" },
 };
 function getCategoryStyle(cat: string) {
   return CATEGORY_STYLES[cat] ?? { bg: "bg-gray-100", text: "text-gray-600", label: cat };
@@ -132,7 +132,7 @@ export default function EventsPage() {
 /* ─── グッド表示（アイコン＋数字） ─── */
 function GoodBadge({ count, liked }: { count: number; liked: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#414141]/40"}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#231714]/40"}`}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
       </svg>
@@ -172,7 +172,7 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
             {start.format("M/D（ddd）")}
           </span>
         </div>
-        <h3 className="text-base font-bold text-[#414141] mt-2 leading-snug line-clamp-2">
+        <h3 className="text-base font-bold text-[#231714] mt-2 leading-snug line-clamp-2">
           {ev.title}
         </h3>
         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ev.description}</p>
@@ -222,7 +222,7 @@ function CompactCard({ event: ev, onToggleGood, onClick }: {
             {style.label}
           </span>
         </div>
-        <h3 className="text-sm font-bold text-[#414141] mt-1 leading-snug line-clamp-2">
+        <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
           {ev.title}
         </h3>
         <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-400">

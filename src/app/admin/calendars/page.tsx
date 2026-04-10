@@ -209,14 +209,14 @@ export default function CalendarsPage() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[#414141]">カレンダー連携</h1>
-          <p className="text-sm text-[#414141]/60 mt-1">
+          <h1 className="text-2xl font-bold text-[#231714]">カレンダー連携</h1>
+          <p className="text-sm text-[#231714]/60 mt-1">
             Googleカレンダーと連携する施設を管理します
           </p>
         </div>
         <button
           onClick={openAddModal}
-          className="px-4 py-2.5 bg-[#414141] text-white text-sm font-medium rounded-lg hover:bg-[#414141]/80 transition-colors flex items-center gap-2"
+          className="px-4 py-2.5 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors flex items-center gap-2"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -243,7 +243,7 @@ export default function CalendarsPage() {
           <div className="w-8 h-8 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : facilities.length === 0 ? (
-        <div className="text-center py-20 text-[#414141]/40">
+        <div className="text-center py-20 text-[#231714]/40">
           <svg width="48" height="48" viewBox="0 0 16 16" fill="none" className="mx-auto mb-4 text-gray-300">
             <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.2" />
             <path d="M5 1v2M11 1v2M1 7h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -260,7 +260,7 @@ export default function CalendarsPage() {
             <div
               key={f.id}
               className={`bg-white border rounded-xl p-5 transition-colors ${
-                f.active === false ? "opacity-50 border-[#414141]/10" : "border-[#414141]/10"
+                f.active === false ? "opacity-50 border-[#231714]/10" : "border-[#231714]/10"
               }`}
             >
               <div className="flex items-start justify-between">
@@ -287,33 +287,33 @@ export default function CalendarsPage() {
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-[#414141]">{f.name}</h3>
+                      <h3 className="font-semibold text-[#231714]">{f.name}</h3>
                       <span
                         className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
                           f.type === "meeting_room"
                             ? "bg-[#A5C1C8]/20 text-[#A5C1C8]"
-                            : "bg-[#B0E401]/20 text-[#414141]"
+                            : "bg-[#B0E401]/20 text-[#231714]"
                         }`}
                       >
                         {f.type === "meeting_room" ? "会議室" : "ブース"}
                       </span>
                       {f.active === false && (
-                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#414141]/5 text-[#414141]/60">
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#231714]/5 text-[#231714]/60">
                           無効
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-[#414141]/60 mt-1">
+                    <p className="text-xs text-[#231714]/60 mt-1">
                       定員: {f.capacity}名
                     </p>
-                    <p className="text-xs text-[#414141]/60 mt-0.5">
+                    <p className="text-xs text-[#231714]/60 mt-0.5">
                       🕐 {f.openTime ?? "09:00"} 〜 {f.closeTime ?? "18:00"}
 
                       {(f.availableDays ?? [1, 2, 3, 4, 5])
                         .map((d) => DAY_LABELS[d])
                         .join("・")}
                     </p>
-                    <p className="text-xs text-[#414141]/40 mt-0.5 font-mono break-all">
+                    <p className="text-xs text-[#231714]/40 mt-0.5 font-mono break-all">
                       📅 {f.calendarId}
                     </p>
                   </div>
@@ -327,7 +327,7 @@ export default function CalendarsPage() {
                     className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                       f.active !== false
                         ? "bg-green-50 text-[#B0E401] hover:bg-[#B0E401]/10"
-                        : "bg-[#414141]/5 text-[#414141]/60 hover:bg-[#414141]/10"
+                        : "bg-[#231714]/5 text-[#231714]/60 hover:bg-[#231714]/10"
                     }`}
                   >
                     {f.active !== false ? "有効" : "無効"}
@@ -336,7 +336,7 @@ export default function CalendarsPage() {
                   {/* 編集 */}
                   <button
                     onClick={() => openEditModal(f)}
-                    className="p-1.5 text-[#414141]/40 hover:text-gray-700 hover:bg-[#414141]/5 rounded-md transition-colors"
+                    className="p-1.5 text-[#231714]/40 hover:text-gray-700 hover:bg-[#231714]/5 rounded-md transition-colors"
                     title="編集"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -347,7 +347,7 @@ export default function CalendarsPage() {
                   {/* 削除 */}
                   <button
                     onClick={() => setDeletingId(f.id)}
-                    className="p-1.5 text-[#414141]/40 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    className="p-1.5 text-[#231714]/40 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                     title="削除"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -366,7 +366,7 @@ export default function CalendarsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-visible">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-[#414141]">
+              <h2 className="text-lg font-semibold text-[#231714]">
                 {editingId ? "施設を編集" : "カレンダーを追加"}
               </h2>
             </div>
@@ -382,7 +382,7 @@ export default function CalendarsPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="例: 会議室 D"
-                  className="w-full px-3 py-2.5 border border-[#414141]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#414141] focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-[#231714]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
                   required
                 />
               </div>
@@ -397,10 +397,10 @@ export default function CalendarsPage() {
                   value={form.calendarId}
                   onChange={(e) => setForm({ ...form, calendarId: e.target.value })}
                   placeholder="例: abc123@group.calendar.google.com"
-                  className="w-full px-3 py-2.5 border border-[#414141]/20 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#414141] focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-[#231714]/20 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
                   required
                 />
-                <p className="text-xs text-[#414141]/40 mt-1">
+                <p className="text-xs text-[#231714]/40 mt-1">
                   Googleカレンダーの設定 → カレンダーID からコピーしてください
                 </p>
               </div>
@@ -413,7 +413,7 @@ export default function CalendarsPage() {
                 <select
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value as FacilityType })}
-                  className="w-full px-3 py-2.5 border border-[#414141]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#414141] focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-[#231714]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
                 >
                   <option value="meeting_room">会議室</option>
                   <option value="booth">ブース</option>
@@ -435,7 +435,7 @@ export default function CalendarsPage() {
                     setForm({ ...form, capacity: v });
                   }}
                   placeholder="例: 6"
-                  className="w-full px-3 py-2.5 border border-[#414141]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#414141] focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-[#231714]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
                   required
                 />
               </div>
@@ -456,7 +456,7 @@ export default function CalendarsPage() {
                     required
                     className="flex-1"
                   />
-                  <span className="text-sm text-[#414141]/40 shrink-0">〜</span>
+                  <span className="text-sm text-[#231714]/40 shrink-0">〜</span>
                   <TimePicker
                     value={form.closeTime}
                     onChange={(v) => setForm({ ...form, closeTime: v })}
@@ -490,8 +490,8 @@ export default function CalendarsPage() {
                         }}
                         className={`w-9 h-9 rounded-full text-sm font-medium transition-colors ${
                           checked
-                            ? "bg-[#414141] text-white"
-                            : "bg-[#414141]/5 text-[#414141]/60 hover:bg-[#414141]/10"
+                            ? "bg-[#231714] text-white"
+                            : "bg-[#231714]/5 text-[#231714]/60 hover:bg-[#231714]/10"
                         }`}
                       >
                         {label}
@@ -509,14 +509,14 @@ export default function CalendarsPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 px-4 py-2.5 border border-[#414141]/20 text-sm text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-[#231714]/20 text-sm text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 px-4 py-2.5 bg-[#414141] text-white text-sm font-medium rounded-lg hover:bg-[#414141]/80 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors disabled:opacity-50"
                 >
                   {submitting
                     ? "保存中..."
@@ -534,14 +534,14 @@ export default function CalendarsPage() {
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-            <h3 className="text-lg font-semibold text-[#414141] mb-2">施設を削除</h3>
-            <p className="text-sm text-[#414141]/60 mb-6">
+            <h3 className="text-lg font-semibold text-[#231714] mb-2">施設を削除</h3>
+            <p className="text-sm text-[#231714]/60 mb-6">
               この施設を削除すると、関連するカレンダー連携が解除されます。この操作は取り消せません。
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeletingId(null)}
-                className="flex-1 px-4 py-2.5 border border-[#414141]/20 text-sm text-gray-700 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2.5 border border-[#231714]/20 text-sm text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 キャンセル
               </button>

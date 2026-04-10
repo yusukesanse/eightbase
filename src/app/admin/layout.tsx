@@ -122,7 +122,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div className="flex flex-col items-center h-full w-[72px] py-4 bg-white/80 backdrop-blur-xl border-r border-[#A5C1C8]/15">
           {/* ロゴ */}
-          <div className="w-10 h-10 rounded-xl bg-[#414141] flex items-center justify-center mb-6">
+          <div className="w-10 h-10 rounded-xl bg-[#231714] flex items-center justify-center mb-6">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
               <rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.5"/>
@@ -149,7 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-200
                       ${isActive
                         ? "bg-[#A5C1C8] text-white shadow-md shadow-[#A5C1C8]/30"
-                        : "text-[#414141]/40 hover:text-[#414141] hover:bg-[#A5C1C8]/10"
+                        : "text-[#231714]/40 hover:text-[#231714] hover:bg-[#A5C1C8]/10"
                       }
                     `}
                   >
@@ -157,9 +157,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </Link>
                   {/* ツールチップ */}
                   {isHover && (
-                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#414141] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[99999] shadow-lg pointer-events-none">
+                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#231714] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[99999] shadow-lg pointer-events-none">
                       {link.label}
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#414141]" />
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#231714]" />
                     </div>
                   )}
                 </div>
@@ -173,16 +173,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onClick={handleLogout}
               onMouseEnter={() => setHovered("logout")}
               onMouseLeave={() => setHovered(null)}
-              className="flex items-center justify-center w-11 h-11 rounded-xl text-[#414141]/30 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+              className="flex items-center justify-center w-11 h-11 rounded-xl text-[#231714]/30 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M8 3H5a2 2 0 00-2 2v10a2 2 0 002 2h3M13.5 13.5L17 10l-3.5-3.5M17 10H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
             {hovered === "logout" && (
-              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#414141] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[99999] shadow-lg pointer-events-none">
+              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#231714] text-white text-[11px] font-medium rounded-lg whitespace-nowrap z-[99999] shadow-lg pointer-events-none">
                 ログアウト
-                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#414141]" />
+                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#231714]" />
               </div>
             )}
           </div>
@@ -196,13 +196,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-xl hover:bg-[#A5C1C8]/10 transition-colors text-[#414141]"
+              className="p-2 rounded-xl hover:bg-[#A5C1C8]/10 transition-colors text-[#231714]"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </button>
-            <p className="text-xs font-semibold text-[#414141]/60 tracking-wider">EIGHT BASE UNGA</p>
+            <p className="text-xs font-semibold text-[#231714]/60 tracking-wider">EIGHT BASE UNGA</p>
             <div className="w-9" />
           </div>
         </div>

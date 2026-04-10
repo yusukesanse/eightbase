@@ -170,7 +170,7 @@ export default function AdminUsersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-[#414141] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#231714] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -190,8 +190,8 @@ export default function AdminUsersPage() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-[#414141]">管理者設定</h1>
-          <p className="text-sm text-[#414141]/60 mt-1">
+          <h1 className="text-xl font-bold text-[#231714]">管理者設定</h1>
+          <p className="text-sm text-[#231714]/60 mt-1">
             ログイン中: {currentEmail}
             {currentIsSuperAdmin && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
@@ -203,7 +203,7 @@ export default function AdminUsersPage() {
         {currentIsSuperAdmin && tab === "admins" && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#414141] text-white text-sm font-medium rounded-lg hover:bg-[#414141]/80 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -214,13 +214,13 @@ export default function AdminUsersPage() {
       </div>
 
       {/* タブ */}
-      <div className="flex gap-1 mb-5 border-b border-[#414141]/10">
+      <div className="flex gap-1 mb-5 border-b border-[#231714]/10">
         <button
           onClick={() => setTab("admins")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "admins"
-              ? "border-gray-900 text-[#414141]"
-              : "border-transparent text-[#414141]/40 hover:text-[#414141]/60"
+              ? "border-gray-900 text-[#231714]"
+              : "border-transparent text-[#231714]/40 hover:text-[#231714]/60"
           }`}
         >
           管理者一覧
@@ -229,8 +229,8 @@ export default function AdminUsersPage() {
           onClick={() => setTab("logs")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "logs"
-              ? "border-gray-900 text-[#414141]"
-              : "border-transparent text-[#414141]/40 hover:text-[#414141]/60"
+              ? "border-gray-900 text-[#231714]"
+              : "border-transparent text-[#231714]/40 hover:text-[#231714]/60"
           }`}
         >
           ログイン履歴
@@ -242,11 +242,11 @@ export default function AdminUsersPage() {
         <>
           {/* 追加フォーム */}
           {showAddForm && (
-            <div className="bg-white border border-[#414141]/10 rounded-xl p-5 mb-6">
-              <h2 className="text-sm font-semibold text-[#414141] mb-3">管理者を追加</h2>
+            <div className="bg-white border border-[#231714]/10 rounded-xl p-5 mb-6">
+              <h2 className="text-sm font-semibold text-[#231714] mb-3">管理者を追加</h2>
               <form onSubmit={handleAdd} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">
+                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">
                     Googleメールアドレス <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -255,11 +255,11 @@ export default function AdminUsersPage() {
                     onChange={(e) => setNewEmail(e.target.value)}
                     placeholder="example@gmail.com"
                     required
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-lg focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-gray-800"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-lg focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-gray-800"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#414141]/60 mb-1">
+                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">
                     名前（任意）
                   </label>
                   <input
@@ -267,7 +267,7 @@ export default function AdminUsersPage() {
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="管理者の名前"
-                    className="w-full px-3 py-2.5 text-sm border border-[#414141]/10 rounded-lg focus:outline-none focus:border-[#414141] focus:ring-1 focus:ring-gray-800"
+                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-lg focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-gray-800"
                   />
                 </div>
                 {addError && (
@@ -279,7 +279,7 @@ export default function AdminUsersPage() {
                   <button
                     type="submit"
                     disabled={adding}
-                    className="px-4 py-2 bg-[#414141] text-white text-sm font-medium rounded-lg hover:bg-[#414141]/80 disabled:opacity-50 transition-colors"
+                    className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 disabled:opacity-50 transition-colors"
                   >
                     {adding ? "追加中..." : "追加する"}
                   </button>
@@ -296,13 +296,13 @@ export default function AdminUsersPage() {
           )}
 
           {/* 管理者一覧 */}
-          <div className="bg-white border border-[#414141]/10 rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-[#414141]/5">
-              <h2 className="text-sm font-semibold text-[#414141]">
+          <div className="bg-white border border-[#231714]/10 rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-[#231714]/5">
+              <h2 className="text-sm font-semibold text-[#231714]">
                 管理者一覧（{admins.length}名）
               </h2>
             </div>
-            <div className="divide-y divide-[#414141]/5">
+            <div className="divide-y divide-[#231714]/5">
               {admins.map((admin) => (
                 <div
                   key={admin.id}
@@ -310,7 +310,7 @@ export default function AdminUsersPage() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-[#414141] truncate">
+                      <p className="text-sm font-medium text-[#231714] truncate">
                         {admin.email}
                       </p>
                       {admin.isSuperAdmin && (
@@ -326,15 +326,15 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="flex items-center gap-3 mt-1">
                       {admin.name && (
-                        <p className="text-xs text-[#414141]/60">{admin.name}</p>
+                        <p className="text-xs text-[#231714]/60">{admin.name}</p>
                       )}
                       {admin.createdAt && (
-                        <p className="text-xs text-[#414141]/40">
+                        <p className="text-xs text-[#231714]/40">
                           追加日: {new Date(admin.createdAt).toLocaleDateString("ja-JP")}
                         </p>
                       )}
                       {admin.createdBy && admin.createdBy !== "環境変数" && (
-                        <p className="text-xs text-[#414141]/40">
+                        <p className="text-xs text-[#231714]/40">
                           追加者: {admin.createdBy}
                         </p>
                       )}
@@ -347,7 +347,7 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => handleDelete(admin)}
                         disabled={deletingId === admin.id}
-                        className="ml-3 p-2 text-[#414141]/40 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="ml-3 p-2 text-[#231714]/40 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="削除"
                       >
                         {deletingId === admin.id ? (
@@ -364,7 +364,7 @@ export default function AdminUsersPage() {
 
               {admins.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-sm text-[#414141]/40">管理者が登録されていません</p>
+                  <p className="text-sm text-[#231714]/40">管理者が登録されていません</p>
                 </div>
               )}
             </div>
@@ -372,7 +372,7 @@ export default function AdminUsersPage() {
 
           {currentIsSuperAdmin && (
             <div className="mt-4 px-4 py-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-[#414141]/60 leading-relaxed">
+              <p className="text-xs text-[#231714]/60 leading-relaxed">
                 スーパー管理者（環境変数で設定）は常にアクセス可能で、削除できません。
                 ここで追加した管理者は、Googleアカウントでログインできるようになります。
               </p>
@@ -383,23 +383,23 @@ export default function AdminUsersPage() {
 
       {/* ── ログイン履歴タブ ── */}
       {tab === "logs" && (
-        <div className="bg-white border border-[#414141]/10 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-[#414141]/5">
-            <h2 className="text-sm font-semibold text-[#414141]">
+        <div className="bg-white border border-[#231714]/10 rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#231714]/5">
+            <h2 className="text-sm font-semibold text-[#231714]">
               ログイン履歴（最新100件）
             </h2>
           </div>
 
           {logsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-[#414141] border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#231714] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : logs.length === 0 ? (
             <div className="px-5 py-8 text-center">
-              <p className="text-sm text-[#414141]/40">ログイン履歴がありません</p>
+              <p className="text-sm text-[#231714]/40">ログイン履歴がありません</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#414141]/5">
+            <div className="divide-y divide-[#231714]/5">
               {logs.map((log) => {
                 const actionInfo = ACTION_LABELS[log.action] || {
                   label: log.action,
@@ -413,16 +413,16 @@ export default function AdminUsersPage() {
                       >
                         {actionInfo.label}
                       </span>
-                      <span className="text-sm text-[#414141]">
+                      <span className="text-sm text-[#231714]">
                         {log.email || "(不明)"}
                       </span>
                       {log.name && (
-                        <span className="text-xs text-[#414141]/40">
+                        <span className="text-xs text-[#231714]/40">
                           ({log.name})
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#414141]/40">
+                    <div className="flex items-center gap-3 text-xs text-[#231714]/40">
                       <span>{formatTimestamp(log.timestamp)}</span>
                       {log.reason && (
                         <span className="text-red-500">理由: {log.reason}</span>

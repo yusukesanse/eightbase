@@ -10,9 +10,9 @@ import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; dot: string; label: string }> = {
-  info:      { bg: "bg-[#A5C1C8]/10", text: "text-[#414141]", dot: "bg-[#A5C1C8]",   label: "お知らせ" },
-  facility:  { bg: "bg-[#B0E401]/10", text: "text-[#414141]", dot: "bg-[#B0E401]",   label: "施設" },
-  community: { bg: "bg-gray-100",     text: "text-[#414141]", dot: "bg-gray-400",     label: "コミュニティ" },
+  info:      { bg: "bg-[#A5C1C8]/10", text: "text-[#231714]", dot: "bg-[#A5C1C8]",   label: "お知らせ" },
+  facility:  { bg: "bg-[#B0E401]/10", text: "text-[#231714]", dot: "bg-[#B0E401]",   label: "施設" },
+  community: { bg: "bg-gray-100",     text: "text-[#231714]", dot: "bg-gray-400",     label: "コミュニティ" },
 };
 
 export default function NewsPage() {
@@ -61,7 +61,7 @@ export default function NewsPage() {
             {/* 日付ヘッダー */}
             <div>
               <p className="text-[11px] text-gray-400 font-medium">{today}</p>
-              <h2 className="text-lg font-black text-[#414141] mt-0.5">Breaking News</h2>
+              <h2 className="text-lg font-black text-[#231714] mt-0.5">Breaking News</h2>
             </div>
 
             {/* Featured (大カード) */}
@@ -118,7 +118,7 @@ function FeaturedNewsCard({ item, onClick }: { item: NewsItem; onClick: () => vo
         <span className={clsx("text-[10px] px-2 py-0.5 rounded-full font-bold", cfg.bg, cfg.text)}>
           {cfg.label}
         </span>
-        <h3 className="text-base font-bold text-[#414141] mt-2 leading-snug line-clamp-2">
+        <h3 className="text-base font-bold text-[#231714] mt-2 leading-snug line-clamp-2">
           {item.title}
         </h3>
         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.body}</p>
@@ -147,7 +147,7 @@ function TopStoryCard({ item, onClick }: { item: NewsItem; onClick: () => void }
         <span className={clsx("text-[9px] px-1.5 py-0.5 rounded font-bold", cfg.bg, cfg.text)}>
           {cfg.label}
         </span>
-        <h3 className="text-xs font-bold text-[#414141] mt-1 leading-snug line-clamp-3">
+        <h3 className="text-xs font-bold text-[#231714] mt-1 leading-snug line-clamp-3">
           {item.title}
         </h3>
         <p className="text-[10px] text-gray-400 mt-1">
@@ -181,7 +181,7 @@ function CompactNewsCard({ item, onClick }: { item: NewsItem; onClick: () => voi
           <div className={clsx("w-1.5 h-1.5 rounded-full", cfg.dot)} />
           <span className={clsx("text-[10px] font-bold", cfg.text)}>{cfg.label}</span>
         </div>
-        <h3 className="text-sm font-bold text-[#414141] mt-1 leading-snug line-clamp-2">
+        <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
           {item.title}
         </h3>
         <p className="text-[10px] text-gray-400 mt-1">

@@ -110,21 +110,21 @@ export default function QuestDetailPage() {
       {/* コンテンツ */}
       <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#414141]">
+        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/15 text-[#231714]">
           {quest.category}
         </span>
 
-        <h1 className="text-xl font-bold text-[#414141] mt-3 leading-tight">
+        <h1 className="text-xl font-bold text-[#231714] mt-3 leading-tight">
           {quest.title}
         </h1>
 
         {/* 進捗カード */}
         <div className={`mt-4 rounded-2xl p-4 ${isCompleted ? "bg-[#B0E401]/10 border border-[#B0E401]/20" : "bg-[#A5C1C8]/10 border border-[#A5C1C8]/20"}`}>
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-xs font-bold ${isCompleted ? "text-[#7BA801]" : "text-[#414141]"}`}>
+            <span className={`text-xs font-bold ${isCompleted ? "text-[#7BA801]" : "text-[#231714]"}`}>
               {isCompleted ? "達成済み!" : "進行中"}
             </span>
-            <span className={`text-xs font-medium ${isCompleted ? "text-[#7BA801]" : "text-[#414141]/70"}`}>
+            <span className={`text-xs font-medium ${isCompleted ? "text-[#7BA801]" : "text-[#231714]/70"}`}>
               {current} / {quest.requiredCount}
             </span>
           </div>
@@ -152,7 +152,7 @@ export default function QuestDetailPage() {
             onClick={handleToggleGood}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
               liked
-                ? "bg-[#B0E401]/10 text-[#414141] border border-[#B0E401]/30"
+                ? "bg-[#B0E401]/10 text-[#231714] border border-[#B0E401]/30"
                 : "bg-gray-50 text-gray-500 border border-gray-200"
             }`}
           >
