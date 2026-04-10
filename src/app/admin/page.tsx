@@ -231,7 +231,7 @@ export default function AdminDashboardPage() {
             {/* 1. 予約推移（全幅） */}
             <GlassCard className="p-4 sm:p-5 lg:col-span-2">
               <ChartHeader title="予約推移（過去30日）" subtitle="施設別の内訳と合計推移" />
-              <div className="w-full aspect-[2.2/1] min-h-[200px]">
+              <div className="w-full h-[220px]">
                 {reservationChartData && reservationChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
