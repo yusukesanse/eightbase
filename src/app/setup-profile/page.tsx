@@ -14,12 +14,11 @@ const PREFECTURES = [
 ];
 
 const PURPOSE_OPTIONS = [
-  "リモートワーク",
-  "フリーランス",
-  "勉強・学習",
-  "会議・打ち合わせ",
-  "副業",
-  "起業準備",
+  "本店登記",
+  "支店・営業所",
+  "個人事業の拠点",
+  "プロジェクト利用",
+  "会議・商談",
   "その他",
 ];
 
@@ -409,7 +408,7 @@ export default function SetupProfilePage() {
                   type="text"
                   value={form.occupation}
                   onChange={(e) => updateForm("occupation", e.target.value)}
-                  placeholder="例: フリーランスエンジニア / 株式会社〇〇"
+                  placeholder="例: 株式会社〇〇 / 〇〇事務所 / 個人事業主"
                   className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
               </div>

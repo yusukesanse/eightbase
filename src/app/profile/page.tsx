@@ -14,7 +14,7 @@ const PREFECTURES = [
 ];
 
 const PURPOSE_OPTIONS = [
-  "リモートワーク","フリーランス","勉強・学習","会議・打ち合わせ","副業","起業準備","その他",
+  "本店登記","支店・営業所","個人事業の拠点","プロジェクト利用","会議・商談","その他",
 ];
 
 const GENDER_OPTIONS = [
@@ -339,7 +339,7 @@ export default function ProfilePage() {
             <>
               <div>
                 <label className="block text-[11px] text-[#231714]/40 mb-1">職業・会社名</label>
-                <input type="text" value={form.occupation} onChange={(e) => updateForm("occupation", e.target.value)} placeholder="例: フリーランスエンジニア"
+                <input type="text" value={form.occupation} onChange={(e) => updateForm("occupation", e.target.value)} placeholder="例: 株式会社〇〇 / 〇〇事務所"
                   className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
               </div>
               <div className="mt-3">
