@@ -16,14 +16,26 @@ const MAX_AGE = 60 * 60 * 24; // 1日
 
 /**
  * 許可する Origin のリスト
- * 環境変数 ADMIN_ALLOWED_ORIGINS にカンマ区切りで設定する（必須）
- * 例: "https://admin.example.com,https://portal.example.com"
+ * ADMIN_DOMAIN / CUSTOMER_DOMAIN から自動生成 + ADMIN_ALLOWED_ORIGINS で追加可能
  */
 const ALLOWED_ORIGINS: string[] = (() => {
+  const origins: string[] = ["http://localhost:3000"];
+
+  // ドメイン環境変数から自動追加
+  const adminDomain = process.env.ADMIN_DOMAIN;
+  if (adminDomain) origins.push(`https://${adminDomain}`);
+  const customerDomain = process.env.CUSTOMER_DOMAIN;
+  if (customerDomain) origins.push(`https://${customerDomain}`);
+
+  // 追加の許可 Origin（カンマ区切り）
   const envOrigins = process.env.ADMIN_ALLOWED_ORIGINS;
-  if (envOrigins) return envOrigins.split(",").map((o) => o.trim());
-  // 環境変数未設定時は localhost のみ許可（開発環境用）
-  return ["http://localhost:3000"];
+  if (envOrigins) {
+    envOrigins.split(",").map((o) => o.trim()).forEach((o) => {
+      if (o && !origins.includes(o)) origins.push(o);
+    });
+  }
+
+  return origins;
 })();
 
 /* ───────── JWT 秘密鍵（SESSION_SECRET を使用） ───────── */
