@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const { accessToken } = await req.json();
+    const { accessToken, liffProfile } = await req.json();
 
     if (!accessToken || typeof accessToken !== "string") {
       return NextResponse.json(
@@ -46,23 +46,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 2. LINE API でユーザープロフィールを取得 ──
+    // ── 2. LINE API でユーザープロフィールを取得（失敗時はクライアント側プロフィールをフォールバック）──
+    let lineUserId = "";
+    let displayName = "";
+    let pictureUrl = "";
+
     const profileRes = await fetch("https://api.line.me/v2/profile", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!profileRes.ok) {
-      console.error("[liff-login] profile fetch failed:", await profileRes.text());
-      return NextResponse.json(
-        { error: "プロフィール取得に失敗しました" },
-        { status: 401 }
-      );
-    }
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      lineUserId = profile.userId;
+      displayName = profile.displayName;
+      pictureUrl = profile.pictureUrl ?? "";
+    } else {
+      // サーバー側 LINE API 失敗 → クライアント側 liff.getProfile() の結果を使用
+      const errText = await profileRes.text();
+      console.warn("[liff-login] server-side profile fetch failed, using client profile:", errText);
 
-    const profile = await profileRes.json();
-    const lineUserId: string = profile.userId;
-    const displayName: string = profile.displayName;
-    const pictureUrl: string = profile.pictureUrl ?? "";
+      if (liffProfile?.userId) {
+        lineUserId = liffProfile.userId;
+        displayName = liffProfile.displayName ?? "";
+        pictureUrl = liffProfile.pictureUrl ?? "";
+      } else {
+        console.error("[liff-login] no fallback profile available");
+        return NextResponse.json(
+          { error: "プロフィール取得に失敗しました。LINEアプリからアクセスしてください。" },
+          { status: 401 }
+        );
+      }
+    }
 
     console.log(`[liff-login] LINE user: ${displayName} (${lineUserId})`);
 

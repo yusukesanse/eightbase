@@ -63,10 +63,19 @@ export default function LoginPage() {
           return;
         }
 
+        // クライアント側でプロフィールを取得（サーバー側 LINE API 失敗時のフォールバック）
+        let liffProfile: { userId?: string; displayName?: string; pictureUrl?: string } = {};
+        try {
+          const p = await liff.getProfile();
+          liffProfile = { userId: p.userId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" };
+        } catch (e) {
+          console.warn("[LoginPage] liff.getProfile() failed:", e);
+        }
+
         const res = await fetch("/api/auth/liff-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken }),
+          body: JSON.stringify({ accessToken, liffProfile }),
           credentials: "include",
         });
 
@@ -90,6 +99,7 @@ export default function LoginPage() {
           });
           setStatus("needs-linking");
         } else {
+          if (data.error) setMessage(data.error);
           setStatus("no-access");
         }
       } catch (err) {
