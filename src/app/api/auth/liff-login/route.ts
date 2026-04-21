@@ -89,7 +89,18 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .get();
 
+    // ── 審査モード: Firestore settings/app の reviewMode が true なら未登録でもログイン可 ──
+    let isReviewMode = false;
     if (snap.empty) {
+      try {
+        const settingsDoc = await db.collection("settings").doc("app").get();
+        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
+      } catch (e) {
+        console.warn("[liff-login] settings fetch error:", e);
+      }
+    }
+
+    if (snap.empty && !isReviewMode) {
       // lineUserId が未連携 → アカウント連携が必要
       console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
       return NextResponse.json({
@@ -101,15 +112,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── 4. 連携済み → プロフィール完了チェック & セッション発行 ──
-    const userData = snap.docs[0].data();
-    const profileComplete = !!userData.profileComplete;
+    if (snap.empty && isReviewMode) {
+      console.log(`[liff-login] review mode: allowing unregistered user ${displayName} (${lineUserId})`);
+    }
+
+    // ── 4. 連携済み or 審査モード → セッション発行 ──
+    const userData = snap.empty ? null : snap.docs[0].data();
+    const profileComplete = snap.empty ? true : !!userData?.profileComplete;
 
     // users コレクションに LINE 表示名を同期
     const userRef = db.collection("users").doc(lineUserId);
     await userRef.set(
       {
-        displayName: userData.displayName || displayName,
+        displayName: userData?.displayName || displayName,
         lineDisplayName: displayName,
         pictureUrl,
         lineUserId,
@@ -122,7 +137,7 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({
       success: true,
-      displayName: userData.displayName || displayName,
+      displayName: userData?.displayName || displayName,
       lineUserId,
       profileComplete,
     });

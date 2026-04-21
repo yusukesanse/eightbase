@@ -170,6 +170,9 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(true);
+  const [reviewToggling, setReviewToggling] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/stats", { credentials: "same-origin" })
@@ -182,7 +185,45 @@ export default function AdminDashboardPage() {
         setError("データの取得に失敗しました");
         setLoading(false);
       });
+
+    // 審査モードの状態を取得
+    fetch("/api/admin/review-mode", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((data) => {
+        setReviewMode(data.reviewMode === true);
+        setReviewLoading(false);
+      })
+      .catch(() => {
+        setReviewLoading(false);
+      });
   }, []);
+
+  const handleToggleReviewMode = async () => {
+    const next = !reviewMode;
+    const msg = next
+      ? "審査モードをONにしますか？\n未登録ユーザーでもログインできるようになります。"
+      : "審査モードをOFFにしますか？\n通常のログイン制限に戻ります。";
+    if (!confirm(msg)) return;
+
+    setReviewToggling(true);
+    try {
+      const res = await fetch("/api/admin/review-mode", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ reviewMode: next }),
+      });
+      if (res.ok) {
+        setReviewMode(next);
+      } else {
+        alert("審査モードの切り替えに失敗しました");
+      }
+    } catch {
+      alert("通信エラーが発生しました");
+    } finally {
+      setReviewToggling(false);
+    }
+  };
 
   // チャートデータ整形
   const reservationChartData = stats?.dailyData?.map((d) => {
@@ -205,6 +246,45 @@ export default function AdminDashboardPage() {
         <h2 className="text-lg sm:text-xl font-bold text-[#231714]">ダッシュボード</h2>
         <p className="text-[11px] text-[#231714]/40 mt-0.5">{today}</p>
       </div>
+
+      {/* 審査モード トグル */}
+      {!reviewLoading && (
+        <GlassCard className={`p-4 mb-5 ${reviewMode ? "border-amber-300/60 bg-amber-50/40" : ""}`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-[#231714]">審査モード</h3>
+                {reviewMode && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/80 text-white">
+                    ON
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-[#231714]/50 mt-0.5">
+                {reviewMode
+                  ? "有効: 未登録ユーザーでもログイン可能です"
+                  : "無効: 登録済みユーザーのみログイン可能です"}
+              </p>
+            </div>
+            <button
+              onClick={handleToggleReviewMode}
+              disabled={reviewToggling}
+              className={`relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                reviewMode
+                  ? "bg-amber-400 focus:ring-amber-400"
+                  : "bg-[#231714]/20 focus:ring-[#A5C1C8]"
+              } ${reviewToggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              aria-label="審査モード切替"
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                  reviewMode ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </GlassCard>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
