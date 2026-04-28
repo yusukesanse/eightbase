@@ -25,25 +25,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 1. LINE API でアクセストークンを検証 ──
-    const verifyRes = await fetch(
-      `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
-    );
+    // ── 審査モードを先に取得（トークン検証失敗時のフォールバック判定に使用）──
+    const db = getDb();
+    let isReviewMode = false;
+    try {
+      const settingsDoc = await db.collection("settings").doc("app").get();
+      isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
+    } catch (e) {
+      console.warn("[liff-login] settings fetch error:", e);
+    }
 
-    if (!verifyRes.ok) {
-      console.error("[liff-login] token verify failed:", await verifyRes.text());
+    // ── 1. LINE API でアクセストークンを検証 ──
+    let tokenValid = false;
+    try {
+      const verifyRes = await fetch(
+        `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
+      );
+
+      if (verifyRes.ok) {
+        const verifyData = await verifyRes.json();
+        tokenValid = verifyData.expires_in > 0;
+      } else {
+        console.warn("[liff-login] token verify failed:", await verifyRes.text());
+      }
+    } catch (e) {
+      console.warn("[liff-login] token verify error:", e);
+    }
+
+    if (!tokenValid && !isReviewMode) {
       return NextResponse.json(
         { error: "無効なアクセストークンです" },
         { status: 401 }
       );
     }
 
-    const verifyData = await verifyRes.json();
-    if (verifyData.expires_in <= 0) {
-      return NextResponse.json(
-        { error: "アクセストークンが期限切れです" },
-        { status: 401 }
-      );
+    if (!tokenValid && isReviewMode) {
+      console.log("[liff-login] review mode: skipping token verification");
     }
 
     // ── 2. LINE API でユーザープロフィールを取得（失敗時はクライアント側プロフィールをフォールバック）──
@@ -51,54 +68,47 @@ export async function POST(req: NextRequest) {
     let displayName = "";
     let pictureUrl = "";
 
-    const profileRes = await fetch("https://api.line.me/v2/profile", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    if (tokenValid) {
+      const profileRes = await fetch("https://api.line.me/v2/profile", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-    if (profileRes.ok) {
-      const profile = await profileRes.json();
-      lineUserId = profile.userId;
-      displayName = profile.displayName;
-      pictureUrl = profile.pictureUrl ?? "";
-    } else {
-      // サーバー側 LINE API 失敗 → クライアント側 liff.getProfile() の結果を使用
-      const errText = await profileRes.text();
-      console.warn("[liff-login] server-side profile fetch failed, using client profile:", errText);
-
-      if (liffProfile?.userId) {
-        lineUserId = liffProfile.userId;
-        displayName = liffProfile.displayName ?? "";
-        pictureUrl = liffProfile.pictureUrl ?? "";
+      if (profileRes.ok) {
+        const profile = await profileRes.json();
+        lineUserId = profile.userId;
+        displayName = profile.displayName;
+        pictureUrl = profile.pictureUrl ?? "";
       } else {
-        console.error("[liff-login] no fallback profile available");
-        return NextResponse.json(
-          { error: "プロフィール取得に失敗しました。LINEアプリからアクセスしてください。" },
-          { status: 401 }
-        );
+        const errText = await profileRes.text();
+        console.warn("[liff-login] server-side profile fetch failed:", errText);
       }
+    }
+
+    // サーバー側で取得できなかった場合、クライアント側プロフィールをフォールバック
+    if (!lineUserId && liffProfile?.userId) {
+      console.log("[liff-login] using client-side profile as fallback");
+      lineUserId = liffProfile.userId;
+      displayName = liffProfile.displayName ?? "";
+      pictureUrl = liffProfile.pictureUrl ?? "";
+    }
+
+    if (!lineUserId) {
+      console.error("[liff-login] no profile available");
+      return NextResponse.json(
+        { error: "プロフィール取得に失敗しました。LINEアプリからアクセスしてください。" },
+        { status: 401 }
+      );
     }
 
     console.log(`[liff-login] LINE user: ${displayName} (${lineUserId})`);
 
     // ── 3. authorizedUsers で lineUserId を照合 ──
-    const db = getDb();
     const snap = await db
       .collection("authorizedUsers")
       .where("lineUserId", "==", lineUserId)
       .where("active", "==", true)
       .limit(1)
       .get();
-
-    // ── 審査モード: Firestore settings/app の reviewMode が true なら未登録でもログイン可 ──
-    let isReviewMode = false;
-    if (snap.empty) {
-      try {
-        const settingsDoc = await db.collection("settings").doc("app").get();
-        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
-      } catch (e) {
-        console.warn("[liff-login] settings fetch error:", e);
-      }
-    }
 
     if (snap.empty && !isReviewMode) {
       // lineUserId が未連携 → アカウント連携が必要
