@@ -26,8 +26,26 @@ export async function GET(req: NextRequest) {
       .get();
 
     if (snap.empty) {
-      // セッションはあるが authorizedUsers に存在しない → 無効
-      return NextResponse.json({ authorized: false });
+      // authorizedUsers に存在しない → 審査モードを確認
+      let isReviewMode = false;
+      try {
+        const settingsDoc = await db.collection("settings").doc("app").get();
+        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
+      } catch (e) {
+        console.warn("[auth/check] settings fetch error:", e);
+      }
+
+      if (!isReviewMode) {
+        return NextResponse.json({ authorized: false });
+      }
+
+      // 審査モード: 未登録ユーザーでも認証OK
+      console.log(`[auth/check] review mode: allowing ${lineUserId}`);
+      return NextResponse.json({
+        authorized: true,
+        lineUserId,
+        profileComplete: true,
+      });
     }
 
     const userData = snap.docs[0].data();
