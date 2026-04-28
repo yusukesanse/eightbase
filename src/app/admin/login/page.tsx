@@ -138,14 +138,7 @@ export default function AdminLoginPage() {
 
         {/* Google ログインボタン */}
         <div className="flex flex-col items-center space-y-4">
-          {loading ? (
-            <div className="flex items-center space-x-2 py-3">
-              <div className="w-5 h-5 border-2 border-[#A5C1C8]/40 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-[#231714]/60">認証中...</span>
-            </div>
-          ) : (
-            <div ref={googleBtnRef} className="flex justify-center" />
-          )}
+          <div ref={googleBtnRef} className="flex justify-center" />
 
           {error && (
             <div className="w-full bg-red-50/60 backdrop-blur-sm border border-red-200/40 rounded-xl px-4 py-3">
@@ -157,6 +150,16 @@ export default function AdminLoginPage() {
             管理者として登録されたGoogleアカウントで<br />ログインしてください
           </p>
         </div>
+
+        {/* 認証中オーバーレイ */}
+        {loading && (
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm font-medium text-[#231714]/60">認証中...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
