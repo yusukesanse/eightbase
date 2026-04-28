@@ -63,6 +63,30 @@ export async function GET(req: NextRequest) {
       .get();
 
     if (snap.empty) {
+      // 審査モードチェック: 未登録ユーザーにはダミープロフィールを返す
+      let isReviewMode = false;
+      try {
+        const settingsDoc = await db.collection("settings").doc("app").get();
+        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
+      } catch (e) {
+        console.warn("[auth/profile] settings fetch error:", e);
+      }
+
+      if (isReviewMode) {
+        return NextResponse.json({
+          profileComplete: true,
+          profile: {
+            lastName: "審査", firstName: "太郎",
+            lastNameKana: "シンサ", firstNameKana: "タロウ",
+            phone: "09012345678", birthday: "1990-01-01", gender: "male",
+            occupation: "審査担当", purpose: "プロジェクト利用",
+            postalCode: "1000001", prefecture: "東京都", city: "千代田区",
+            address: "1-1", building: "", addressType: "office",
+          },
+          displayName: "審査 太郎",
+        });
+      }
+
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
     }
 
@@ -136,6 +160,19 @@ export async function POST(req: NextRequest) {
       .get();
 
     if (snap.empty) {
+      // 審査モード: 保存はスキップして成功を返す
+      let isReviewMode = false;
+      try {
+        const settingsDoc = await db.collection("settings").doc("app").get();
+        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
+      } catch (e) {
+        console.warn("[auth/profile] settings fetch error:", e);
+      }
+
+      if (isReviewMode) {
+        return NextResponse.json({ success: true });
+      }
+
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
     }
 
