@@ -2,38 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { initLiff } from "@/lib/liff";
-
-/**
- * ホームページ — LIFF エンドポイント URL のランディングページ。
- *
- * 1. liff.init() を完了させる（LINE の OAuth フローを処理）
- * 2. LINE ログイン済みなら LIFF アクセストークンでセッションを作成
- * 3. /reservation へ遷移
- *
- * ⚠️ AuthGuard より先に LIFF 初期化を行う必要があるため、
- *   このパスは AuthGuard の PUBLIC_PATHS に含めること。
- */
-
-/** ロゴ SVG（∞ + EIGHT BASE UNGA） */
-function Logo({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      {/* ∞ マーク */}
-      <path
-        d="M67 70c-18 0-33 13-33 30s15 30 33 30c12 0 22-6 33-18 11 12 21 18 33 18 18 0 33-13 33-30s-15-30-33-30c-12 0-22 6-33 18C89 76 79 70 67 70zm0 10c9 0 17 5 27 17-10 12-18 17-27 17-13 0-23-10-23-20s10-14 23-14zm66 0c13 0 23 4 23 14s-10 20-23 20c-9 0-17-5-27-17 10-12 18-17 27-17z"
-        fill="currentColor"
-      />
-      {/* 目（白丸） */}
-      <circle cx="67" cy="97" r="7" fill="white" />
-      <circle cx="133" cy="97" r="7" fill="white" />
-      {/* テキスト */}
-      <text x="100" y="152" textAnchor="middle" fontFamily="system-ui, sans-serif" fontWeight="900" fontSize="18" letterSpacing="3" fill="currentColor">EIGHT</text>
-      <text x="100" y="172" textAnchor="middle" fontFamily="system-ui, sans-serif" fontWeight="900" fontSize="18" letterSpacing="3" fill="currentColor">BASE</text>
-      <text x="100" y="192" textAnchor="middle" fontFamily="system-ui, sans-serif" fontWeight="900" fontSize="16" letterSpacing="4" fill="currentColor">UNGA</text>
-    </svg>
-  );
-}
 
 export default function HomePage() {
   const router = useRouter();
@@ -116,13 +86,15 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden px-6">
         {/* 背景ロゴ */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <Logo className="w-72 h-72 text-[#231714] opacity-[0.06]" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04]">
+          <Image src="/logo.svg" alt="" width={320} height={320} priority />
         </div>
 
         {/* メインコンテンツ */}
         <div className="relative z-10 text-center max-w-xs">
-          <Logo className="w-24 h-24 text-[#231714] mx-auto mb-6" />
+          <div className="mx-auto mb-6 w-28 h-28">
+            <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={112} height={112} priority />
+          </div>
 
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-sm p-6">
             <div className="w-12 h-12 rounded-full bg-[#A5C1C8]/15 flex items-center justify-center mx-auto mb-4">
@@ -149,7 +121,9 @@ export default function HomePage() {
   if (phase === "error") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-        <Logo className="w-20 h-20 text-[#231714] opacity-20 mb-6" />
+        <div className="opacity-20 mb-6">
+          <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={80} height={80} priority />
+        </div>
         <p className="text-sm text-[#231714]/50 text-center">{statusText}</p>
       </div>
     );

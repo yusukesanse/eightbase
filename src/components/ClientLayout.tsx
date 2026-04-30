@@ -5,7 +5,7 @@ import { AuthGuard } from "./AuthGuard";
 import { RichMenu } from "./RichMenu";
 
 /** ボトムナビゲーションを表示しないパス */
-const NO_NAV_PATHS = ["/login"];
+const NO_NAV_PATHS = ["/", "/login", "/setup-profile"];
 
 /**
  * クライアントサイドのレイアウト。
