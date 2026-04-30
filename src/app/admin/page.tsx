@@ -247,8 +247,8 @@ export default function AdminDashboardPage() {
         <p className="text-[11px] text-[#231714]/40 mt-0.5">{today}</p>
       </div>
 
-      {/* 審査モード トグル */}
-      {!reviewLoading && (
+      {/* 審査モード トグル — UI非表示（API・ロジックは維持） */}
+      {false && !reviewLoading && (
         <GlassCard className={`p-4 mb-5 ${reviewMode ? "border-amber-300/60 bg-amber-50/40" : ""}`}>
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
