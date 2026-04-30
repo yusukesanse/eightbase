@@ -111,7 +111,24 @@ export async function POST(req: NextRequest) {
       .get();
 
     if (snap.empty && !isReviewMode) {
-      // lineUserId が未連携 → アカウント連携が必要
+      // lineUserId が未連携 → 連携可能なアカウントが存在するか確認
+      const unlinkedSnap = await db
+        .collection("authorizedUsers")
+        .where("lineUserId", "==", null)
+        .where("active", "==", true)
+        .limit(1)
+        .get();
+
+      if (unlinkedSnap.empty) {
+        // 連携可能なアカウントが存在しない → アカウントなし
+        console.log(`[liff-login] no linkable account for: ${lineUserId}`);
+        return NextResponse.json({
+          success: false,
+          noAccount: true,
+        });
+      }
+
+      // 連携可能なアカウントが存在する → 連携フォームへ
       console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
       return NextResponse.json({
         success: false,

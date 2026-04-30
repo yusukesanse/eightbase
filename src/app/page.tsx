@@ -59,9 +59,10 @@ export default function HomePage() {
           if (data.success) {
             router.replace("/reservation");
           } else if (data.needsLinking) {
-            // 未連携ユーザー → ログインページでアカウント連携
+            // 未連携だが連携可能なアカウントあり → 連携フォームへ
             router.replace("/login");
           } else {
+            // noAccount or その他 → アカウントなし画面
             setPhase("no-account");
           }
         } else {
