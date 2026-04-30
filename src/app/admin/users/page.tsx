@@ -108,11 +108,13 @@ function UserDetailPanel({
   onClose,
   onToggleActive,
   onResetPassword,
+  onDelete,
 }: {
   user: User;
   onClose: () => void;
   onToggleActive: (user: User) => void;
   onResetPassword: (user: User) => void;
+  onDelete: (user: User) => void;
 }) {
   const p = user.profile;
 
@@ -280,6 +282,23 @@ function UserDetailPanel({
               パスワードリセット
             </button>
           </div>
+
+          {/* 完全削除ボタン */}
+          <div className="pt-4 border-t border-[#231714]/5">
+            <button
+              onClick={() => onDelete(user)}
+              className="w-full py-2.5 text-sm text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 4h10M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4M11 4v7.5a1 1 0 01-1 1H4a1 1 0 01-1-1V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6 7v3M8 7v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              ユーザーを完全に削除
+            </button>
+            <p className="text-xs text-[#231714]/30 text-center mt-2">
+              予約データを含むすべての関連データが削除されます
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -362,6 +381,11 @@ export default function AdminUsersPage() {
 
   // 顧客詳細
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // 削除確認
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // CSV エクスポート
   function handleExportCsv() {
@@ -572,6 +596,32 @@ export default function AdminUsersPage() {
       setResetError("パスワードリセットに失敗しました");
     } finally {
       setResetLoading(false);
+    }
+  }
+
+  async function handleDeleteUser() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ id: deleteTarget.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+      setSelectedUser(null);
+      setActionMsg(
+        `${deleteTarget.displayName} を完全に削除しました${data.deletedReservations > 0 ? `（予約 ${data.deletedReservations} 件も削除）` : ""}`
+      );
+      await fetchUsers();
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : "削除に失敗しました");
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -837,6 +887,58 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* 削除確認モーダル */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 11v5M14 11v5" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-[#231714] text-center mb-1">ユーザーを完全に削除</h3>
+            <p className="text-sm text-[#231714]/60 text-center mb-4">
+              <span className="font-medium text-[#231714]">{deleteTarget.displayName}</span>（{deleteTarget.email}）の全データが削除されます。この操作は取り消せません。
+            </p>
+            <div className="bg-red-50/50 border border-red-100 rounded-xl px-3 py-2.5 mb-4">
+              <p className="text-xs text-red-600 leading-relaxed">
+                削除されるデータ: アカウント情報、プロフィール、LINE連携、すべての予約データ
+              </p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-[#231714]/60 mb-1">
+                確認のため「<span className="text-red-500 font-bold">削除</span>」と入力してください
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="削除"
+                className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }}
+                className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteUser}
+                disabled={deleteConfirmText !== "削除" || deleteLoading}
+                className="flex-1 py-2.5 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteLoading ? "削除中..." : "完全に削除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 顧客詳細パネル */}
       {selectedUser && (
         <UserDetailPanel
@@ -844,6 +946,7 @@ export default function AdminUsersPage() {
           onClose={() => setSelectedUser(null)}
           onToggleActive={handleToggleActive}
           onResetPassword={(u) => { setResetTarget(u); }}
+          onDelete={(u) => { setDeleteTarget(u); }}
         />
       )}
 

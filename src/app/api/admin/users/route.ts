@@ -176,3 +176,74 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
+
+/**
+ * DELETE /api/admin/users
+ * ユーザーを完全削除する。
+ * Body: { id }
+ * 削除対象: authorizedUsers, users, reservations（関連する全データ）
+ */
+export async function DELETE(req: NextRequest) {
+  if (!(await checkAdminAuth(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: "id は必須です" }, { status: 400 });
+    }
+
+    const db = getDb();
+
+    // 1. authorizedUsers ドキュメントを取得
+    const authDocRef = db.collection("authorizedUsers").doc(id);
+    const authDoc = await authDocRef.get();
+    if (!authDoc.exists) {
+      return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
+    }
+
+    const userData = authDoc.data()!;
+    const lineUserId = userData.lineUserId as string | null;
+
+    // 2. 関連する予約データを削除
+    let deletedReservations = 0;
+    if (lineUserId) {
+      const reservationsSnap = await db
+        .collection("reservations")
+        .where("lineUserId", "==", lineUserId)
+        .get();
+
+      const batch = db.batch();
+      reservationsSnap.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        deletedReservations++;
+      });
+
+      // users コレクションのドキュメントも削除
+      const userDocRef = db.collection("users").doc(lineUserId);
+      const userDoc = await userDocRef.get();
+      if (userDoc.exists) {
+        batch.delete(userDocRef);
+      }
+
+      if (reservationsSnap.docs.length > 0 || userDoc.exists) {
+        await batch.commit();
+      }
+    }
+
+    // 3. authorizedUsers ドキュメントを削除
+    await authDocRef.delete();
+
+    return NextResponse.json({
+      success: true,
+      deletedReservations,
+    });
+  } catch (error) {
+    console.error("[admin/users] DELETE error:", error);
+    return NextResponse.json(
+      { error: "ユーザーの削除に失敗しました" },
+      { status: 500 }
+    );
+  }
+}
