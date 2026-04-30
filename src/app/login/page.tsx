@@ -301,34 +301,18 @@ export default function LoginPage() {
 
   // ── アクセス不可 ──
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden px-6">
-      {/* 背景ロゴ */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04]">
-        <Image src="/logo.svg" alt="" width={320} height={320} priority />
-      </div>
-
-      {/* メインコンテンツ */}
-      <div className="relative z-10 text-center max-w-xs">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
+      <div className="text-center max-w-xs">
         <div className="mx-auto mb-6 w-28 h-28">
           <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={112} height={112} priority />
         </div>
 
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-sm p-6">
-          <div className="w-12 h-12 rounded-full bg-[#A5C1C8]/15 flex items-center justify-center mx-auto mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="8" r="4" stroke="#A5C1C8" strokeWidth="1.8"/>
-              <path d="M5 20c0-3.87 3.13-7 7-7s7 3.13 7 7" stroke="#A5C1C8" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="12" y1="18" x2="12" y2="14" stroke="#A5C1C8" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="10" y1="16" x2="14" y2="16" stroke="#A5C1C8" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <h2 className="text-base font-bold text-[#231714] mb-2">
-            アカウントが存在しません
-          </h2>
-          <p className="text-sm text-[#231714]/50 leading-relaxed">
-            ご契約者様は、施設管理者までお問い合わせください。
-          </p>
-        </div>
+        <h2 className="text-base font-bold text-[#231714] mb-2">
+          アカウントが存在しません
+        </h2>
+        <p className="text-sm text-[#231714]/50 leading-relaxed">
+          ご契約者様は、施設管理者までお問い合わせください。
+        </p>
       </div>
     </div>
   );
