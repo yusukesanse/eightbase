@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { initLiff } from "@/lib/liff";
 
 export default function HomePage() {
@@ -58,11 +59,8 @@ export default function HomePage() {
           const data = await res.json().catch(() => ({}));
           if (data.success) {
             router.replace("/reservation");
-          } else if (data.needsLinking) {
-            // 未連携だが連携可能なアカウントあり → 連携フォームへ
-            router.replace("/login");
           } else {
-            // noAccount or その他 → アカウントなし画面
+            // 未連携・未登録・削除済み → すべてアカウントなし画面
             setPhase("no-account");
           }
         } else {
@@ -97,6 +95,13 @@ export default function HomePage() {
           <p className="text-sm text-[#231714]/50 leading-relaxed">
             ご契約者様は、施設管理者までお問い合わせください。
           </p>
+
+          <Link
+            href="/login"
+            className="inline-block mt-6 text-xs text-[#A5C1C8] underline underline-offset-2"
+          >
+            アカウント情報をお持ちの方はこちら
+          </Link>
         </div>
       </div>
     );
