@@ -80,26 +80,156 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  // ── アカウントなし画面 ──
+  // ── アカウントなし画面（柴犬ドット絵アニメーション） ──
   if (phase === "no-account") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-        <div className="text-center max-w-xs">
-          <div className="mx-auto mb-6 w-28 h-28">
-            <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={112} height={112} priority />
-          </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fafafa] px-4">
+        <style>{`
+          @keyframes sJump{0%,40%,100%{transform:translateY(0)}15%,25%{transform:translateY(-30px)}20%{transform:translateY(-32px)}60%,62%{transform:translateY(0)}72%,82%{transform:translateY(-22px)}77%{transform:translateY(-24px)}}
+          @keyframes legR{0%,50%{transform:translateY(0)}25%{transform:translateY(2px)}75%{transform:translateY(-2px)}}
+          @keyframes legL{0%,50%{transform:translateY(0)}25%{transform:translateY(-2px)}75%{transform:translateY(2px)}}
+          @keyframes tw{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(18deg)}}
+          @keyframes obs{0%{transform:translateX(0)}100%{transform:translateX(-380px)}}
+          @keyframes cld{0%{transform:translateX(0)}100%{transform:translateX(-420px)}}
+          @keyframes eb{0%,92%,96%,100%{opacity:1}94%{opacity:0}}
+        `}</style>
 
-          <h2 className="text-base font-bold text-[#231714] mb-4">
-            アカウントが存在しません
-          </h2>
+        <div className="w-full max-w-xs overflow-hidden" style={{ imageRendering: "pixelated" }}>
+          <svg width="300" height="120" viewBox="0 0 300 120" className="w-full h-auto">
+            {/* スコア */}
+            <text x="274" y="14" fontSize="9" fill="#231714" opacity="0.18" fontFamily="monospace" textAnchor="end">00000</text>
 
-          <Link
-            href="/login"
-            className="inline-block mt-6 text-xs text-[#A5C1C8] underline underline-offset-2"
-          >
-            アカウント情報をお持ちの方はこちら
-          </Link>
+            {/* 雲 */}
+            <g style={{ animation: "cld 20s linear infinite" }}>
+              <rect x="140" y="18" width="4" height="2" fill="#ddd"/>
+              <rect x="136" y="20" width="12" height="2" fill="#ddd"/>
+              <rect x="132" y="22" width="20" height="2" fill="#ddd"/>
+              <rect x="136" y="24" width="4" height="2" fill="#ddd"/>
+              <rect x="146" y="24" width="4" height="2" fill="#ddd"/>
+              <rect x="290" y="28" width="4" height="2" fill="#ddd"/>
+              <rect x="286" y="30" width="12" height="2" fill="#ddd"/>
+              <rect x="282" y="32" width="20" height="2" fill="#ddd"/>
+              <rect x="420" y="16" width="4" height="2" fill="#ddd"/>
+              <rect x="416" y="18" width="12" height="2" fill="#ddd"/>
+              <rect x="412" y="20" width="20" height="2" fill="#ddd"/>
+              <rect x="416" y="22" width="4" height="2" fill="#ddd"/>
+            </g>
+
+            {/* 柴犬 */}
+            <g style={{ animation: "sJump 4.5s ease-in-out infinite" }}>
+              {/* しっぽ */}
+              <g style={{ animation: "tw 0.3s ease-in-out infinite", transformOrigin: "42px 60px" }}>
+                <rect x="38" y="54" width="2" height="2" fill="#e8c97a"/>
+                <rect x="36" y="52" width="2" height="2" fill="#e8c97a"/>
+                <rect x="36" y="50" width="2" height="2" fill="#c4a87a"/>
+                <rect x="38" y="48" width="2" height="2" fill="#c4a87a"/>
+              </g>
+              {/* 胴体 */}
+              <rect x="42" y="54" width="2" height="2" fill="#c4a87a"/>
+              <rect x="44" y="52" width="18" height="2" fill="#c4a87a"/>
+              <rect x="44" y="54" width="18" height="2" fill="#c4a87a"/>
+              <rect x="44" y="56" width="18" height="2" fill="#c4a87a"/>
+              <rect x="44" y="58" width="18" height="2" fill="#c4a87a"/>
+              <rect x="44" y="60" width="18" height="2" fill="#c4a87a"/>
+              <rect x="44" y="62" width="18" height="2" fill="#c4a87a"/>
+              <rect x="46" y="54" width="14" height="2" fill="#e8c97a"/>
+              <rect x="46" y="56" width="14" height="2" fill="#e8c97a"/>
+              <rect x="46" y="58" width="14" height="2" fill="#e8c97a"/>
+              <rect x="46" y="60" width="14" height="2" fill="#e8c97a"/>
+              {/* 後ろ足 */}
+              <g style={{ animation: "legR 0.2s steps(2) infinite" }}>
+                <rect x="46" y="64" width="4" height="2" fill="#c4a87a"/>
+                <rect x="46" y="66" width="4" height="2" fill="#c4a87a"/>
+                <rect x="46" y="68" width="4" height="2" fill="#c4a87a"/>
+                <rect x="46" y="70" width="4" height="2" fill="#c4a87a"/>
+                <rect x="48" y="72" width="4" height="2" fill="#8B6F47"/>
+              </g>
+              {/* 前足 */}
+              <g style={{ animation: "legL 0.2s steps(2) infinite" }}>
+                <rect x="54" y="64" width="4" height="2" fill="#c4a87a"/>
+                <rect x="54" y="66" width="4" height="2" fill="#c4a87a"/>
+                <rect x="54" y="68" width="4" height="2" fill="#c4a87a"/>
+                <rect x="54" y="70" width="4" height="2" fill="#c4a87a"/>
+                <rect x="56" y="72" width="4" height="2" fill="#8B6F47"/>
+              </g>
+              {/* 頭 */}
+              <rect x="58" y="38" width="2" height="2" fill="#c4a87a"/>
+              <rect x="56" y="40" width="6" height="2" fill="#c4a87a"/>
+              <rect x="54" y="42" width="14" height="2" fill="#c4a87a"/>
+              <rect x="54" y="44" width="16" height="2" fill="#c4a87a"/>
+              <rect x="54" y="46" width="16" height="2" fill="#c4a87a"/>
+              <rect x="56" y="48" width="14" height="2" fill="#c4a87a"/>
+              <rect x="58" y="50" width="10" height="2" fill="#c4a87a"/>
+              {/* 右耳 */}
+              <rect x="72" y="40" width="2" height="2" fill="#c4a87a"/>
+              <rect x="70" y="42" width="6" height="2" fill="#c4a87a"/>
+              <rect x="70" y="44" width="4" height="2" fill="#c4a87a"/>
+              <rect x="70" y="46" width="4" height="2" fill="#c4a87a"/>
+              <rect x="70" y="44" width="2" height="2" fill="#f5b0a0"/>
+              {/* 左耳 */}
+              <rect x="56" y="40" width="2" height="2" fill="#c4a87a"/>
+              <rect x="54" y="42" width="4" height="2" fill="#c4a87a"/>
+              <rect x="54" y="44" width="4" height="2" fill="#c4a87a"/>
+              <rect x="54" y="46" width="2" height="2" fill="#c4a87a"/>
+              <rect x="56" y="42" width="2" height="2" fill="#f5b0a0"/>
+              {/* 顔（白い部分） */}
+              <rect x="58" y="44" width="10" height="2" fill="#e8c97a"/>
+              <rect x="58" y="46" width="10" height="2" fill="#e8c97a"/>
+              <rect x="60" y="48" width="6" height="2" fill="#e8c97a"/>
+              {/* 目 */}
+              <rect x="60" y="44" width="2" height="2" fill="#231714" style={{ animation: "eb 4s step-end infinite" }}/>
+              <rect x="66" y="44" width="2" height="2" fill="#231714" style={{ animation: "eb 4s step-end infinite 0.2s" }}/>
+              {/* 鼻 */}
+              <rect x="64" y="48" width="2" height="2" fill="#231714"/>
+              {/* マズル */}
+              <rect x="68" y="48" width="4" height="2" fill="#c4a87a"/>
+              <rect x="70" y="46" width="2" height="2" fill="#c4a87a"/>
+            </g>
+
+            {/* 障害物（サボテン） */}
+            <g style={{ animation: "obs 3.8s linear infinite" }}>
+              <rect x="210" y="58" width="2" height="16" fill="#8B9B5A"/>
+              <rect x="208" y="56" width="6" height="4" fill="#8B9B5A"/>
+              <rect x="212" y="52" width="2" height="8" fill="#8B9B5A"/>
+              <rect x="214" y="52" width="2" height="2" fill="#8B9B5A"/>
+              <rect x="206" y="60" width="2" height="6" fill="#8B9B5A"/>
+              <rect x="204" y="60" width="2" height="2" fill="#8B9B5A"/>
+              <rect x="310" y="54" width="2" height="20" fill="#8B9B5A"/>
+              <rect x="308" y="52" width="6" height="4" fill="#8B9B5A"/>
+              <rect x="312" y="48" width="2" height="8" fill="#8B9B5A"/>
+              <rect x="314" y="48" width="2" height="2" fill="#8B9B5A"/>
+              <rect x="306" y="56" width="2" height="6" fill="#8B9B5A"/>
+              <rect x="304" y="56" width="2" height="2" fill="#8B9B5A"/>
+              <rect x="318" y="56" width="2" height="18" fill="#8B9B5A"/>
+              <rect x="316" y="54" width="6" height="4" fill="#8B9B5A"/>
+            </g>
+
+            {/* 地面 */}
+            <rect x="0" y="74" width="300" height="2" fill="#bbb"/>
+            <rect x="8" y="78" width="6" height="2" fill="#ddd"/>
+            <rect x="24" y="80" width="2" height="2" fill="#ddd"/>
+            <rect x="44" y="78" width="10" height="2" fill="#ddd"/>
+            <rect x="72" y="80" width="4" height="2" fill="#ddd"/>
+            <rect x="96" y="78" width="8" height="2" fill="#ddd"/>
+            <rect x="120" y="80" width="2" height="2" fill="#ddd"/>
+            <rect x="142" y="78" width="6" height="2" fill="#ddd"/>
+            <rect x="168" y="80" width="4" height="2" fill="#ddd"/>
+            <rect x="190" y="78" width="10" height="2" fill="#ddd"/>
+            <rect x="220" y="80" width="2" height="2" fill="#ddd"/>
+            <rect x="240" y="78" width="6" height="2" fill="#ddd"/>
+            <rect x="262" y="80" width="4" height="2" fill="#ddd"/>
+            <rect x="280" y="78" width="8" height="2" fill="#ddd"/>
+          </svg>
         </div>
+
+        <p className="text-sm font-medium text-[#231714] mt-4 font-mono">NO ACCOUNT</p>
+        <p className="text-xs text-[#231714]/30 mt-1 font-mono">アカウントが見つかりませんでした</p>
+        <Link
+          href="/login"
+          className="inline-block mt-5 text-xs text-[#A5C1C8] underline underline-offset-2"
+        >
+          アカウント情報をお持ちの方はこちら
+        </Link>
       </div>
     );
   }
