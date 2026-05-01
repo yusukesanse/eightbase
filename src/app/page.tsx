@@ -89,12 +89,9 @@ export default function HomePage() {
             <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={112} height={112} priority />
           </div>
 
-          <h2 className="text-base font-bold text-[#231714] mb-2">
+          <h2 className="text-base font-bold text-[#231714] mb-4">
             アカウントが存在しません
           </h2>
-          <p className="text-sm text-[#231714]/50 leading-relaxed">
-            ご契約者様は、施設管理者までお問い合わせください。
-          </p>
 
           <Link
             href="/login"
