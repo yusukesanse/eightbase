@@ -9,423 +9,166 @@ import { initLiff } from "@/lib/liff";
 // ── 柴犬ドット絵ゲーム コンポーネント ──
 function ShibaGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<{
-    running: boolean;
-    gameOver: boolean;
-    score: number;
-    highScore: number;
-    speed: number;
-    shibaY: number;
-    velocityY: number;
-    isJumping: boolean;
-    obstacles: { x: number; w: number; h: number }[];
-    clouds: { x: number; y: number; size: number }[];
-    groundDots: { x: number; y: number; w: number }[];
-    legFrame: number;
-    legTimer: number;
-    tailAngle: number;
-    tailDir: number;
-    blinkTimer: number;
-    isBlinking: boolean;
-    spawnTimer: number;
-    frameCount: number;
-  }>({
-    running: false,
-    gameOver: false,
-    score: 0,
-    highScore: 0,
-    speed: 3,
-    shibaY: 0,
-    velocityY: 0,
-    isJumping: false,
-    obstacles: [],
-    clouds: [
-      { x: 120, y: 20, size: 1 },
-      { x: 220, y: 30, size: 0.8 },
-      { x: 50, y: 15, size: 0.6 },
-    ],
-    groundDots: [],
-    legFrame: 0,
-    legTimer: 0,
-    tailAngle: 0,
-    tailDir: 1,
-    blinkTimer: 0,
-    isBlinking: false,
-    spawnTimer: 0,
-    frameCount: 0,
-  });
   const animRef = useRef<number>(0);
+  const gameRef = useRef({
+    run: false, over: false, score: 0, hi: 0, spd: 2.5,
+    sy: 0, vy: 0, jmp: false,
+    obs: [] as { x: number; w: number; h: number }[],
+    cld: [{ x: 100, y: 12, s: 1 }, { x: 200, y: 22, s: 0.7 }, { x: 300, y: 8, s: 0.5 }],
+    dots: [] as { x: number; y: number; w: number }[],
+    lf: 0, lt: 0, ta: 0, td: 1, bt: 0, bk: false, st: 0, fc: 0,
+  });
 
-  const P = 2; // pixel size
-  const GROUND_Y = 130;
-  const SHIBA_X = 50;
-  const JUMP_VELOCITY = -10;
-  const GRAVITY = 0.45;
-  const BASE_SPEED = 3;
-  const MAX_SPEED = 9;
-
-  const drawPixel = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x * P, y * P, w * P, h * P);
-  }, [P]);
-
-  const drawShiba = useCallback((ctx: CanvasRenderingContext2D, baseY: number, g: typeof gameRef.current) => {
-    const bx = SHIBA_X;
-    const by = baseY;
-
-    // しっぽ（巻き尾）
-    const ta = g.tailAngle;
-    const tx = bx - 2;
-    const ty = by - 6;
-    drawPixel(ctx, tx, ty + 4, 2, 2, "#c4a87a");
-    drawPixel(ctx, tx - 1 + (ta > 0 ? 1 : 0), ty + 2, 2, 2, "#e8c97a");
-    drawPixel(ctx, tx - 1 + (ta > 0 ? 2 : 0), ty, 2, 2, "#c4a87a");
-    drawPixel(ctx, tx + (ta > 0 ? 2 : -1), ty - 1, 2, 2, "#e8c97a");
-
-    // 胴体（長め）
-    drawPixel(ctx, bx, by - 8, 20, 2, "#c4a87a");
-    drawPixel(ctx, bx, by - 6, 20, 2, "#c4a87a");
-    drawPixel(ctx, bx, by - 4, 20, 2, "#c4a87a");
-    drawPixel(ctx, bx, by - 2, 20, 2, "#c4a87a");
-    drawPixel(ctx, bx, by, 20, 2, "#c4a87a");
-    // 明るい部分（背中のハイライト）
-    drawPixel(ctx, bx + 2, by - 6, 16, 2, "#e8c97a");
-    drawPixel(ctx, bx + 2, by - 4, 16, 2, "#e8c97a");
-    drawPixel(ctx, bx + 2, by - 2, 16, 2, "#e8c97a");
-
-    // 後ろ足（2本、奥の足は暗め）
-    const legOff = g.legFrame === 0 ? 0 : (g.legFrame === 1 ? 1 : -1);
-    // 奥の後ろ足
-    drawPixel(ctx, bx + 2, by + 2 - legOff, 4, 2, "#a89060");
-    drawPixel(ctx, bx + 2, by + 4 - legOff, 4, 2, "#a89060");
-    drawPixel(ctx, bx + 2, by + 6 - legOff, 4, 2, "#a89060");
-    drawPixel(ctx, bx + 3, by + 8 - legOff, 4, 2, "#7a5f3a");
-    // 手前の後ろ足
-    drawPixel(ctx, bx + 5, by + 2 + legOff, 4, 2, "#c4a87a");
-    drawPixel(ctx, bx + 5, by + 4 + legOff, 4, 2, "#c4a87a");
-    drawPixel(ctx, bx + 5, by + 6 + legOff, 4, 2, "#c4a87a");
-    drawPixel(ctx, bx + 6, by + 8 + legOff, 4, 2, "#8B6F47");
-
-    // 前足（2本、奥の足は暗め）
-    // 奥の前足
-    drawPixel(ctx, bx + 13, by + 2 + legOff, 4, 2, "#a89060");
-    drawPixel(ctx, bx + 13, by + 4 + legOff, 4, 2, "#a89060");
-    drawPixel(ctx, bx + 13, by + 6 + legOff, 4, 2, "#a89060");
-    drawPixel(ctx, bx + 14, by + 8 + legOff, 4, 2, "#7a5f3a");
-    // 手前の前足
-    drawPixel(ctx, bx + 16, by + 2 - legOff, 4, 2, "#c4a87a");
-    drawPixel(ctx, bx + 16, by + 4 - legOff, 4, 2, "#c4a87a");
-    drawPixel(ctx, bx + 16, by + 6 - legOff, 4, 2, "#c4a87a");
-    drawPixel(ctx, bx + 17, by + 8 - legOff, 4, 2, "#8B6F47");
-
-    // 頭
-    const hx = bx + 17;
-    const hy = by - 16;
-    // 耳（左）
-    drawPixel(ctx, hx, hy - 4, 2, 2, "#c4a87a");
-    drawPixel(ctx, hx - 1, hy - 2, 4, 2, "#c4a87a");
-    drawPixel(ctx, hx, hy - 2, 2, 2, "#f5b0a0");
-    // 耳（右）
-    drawPixel(ctx, hx + 10, hy - 4, 2, 2, "#c4a87a");
-    drawPixel(ctx, hx + 9, hy - 2, 4, 2, "#c4a87a");
-    drawPixel(ctx, hx + 10, hy - 2, 2, 2, "#f5b0a0");
-    // 頭の輪郭
-    drawPixel(ctx, hx - 1, hy, 14, 2, "#c4a87a");
-    drawPixel(ctx, hx - 1, hy + 2, 14, 2, "#c4a87a");
-    drawPixel(ctx, hx, hy + 4, 12, 2, "#c4a87a");
-    drawPixel(ctx, hx + 1, hy + 6, 10, 2, "#c4a87a");
-    // 顔（明るい部分）
-    drawPixel(ctx, hx + 1, hy + 2, 10, 2, "#e8c97a");
-    drawPixel(ctx, hx + 2, hy + 4, 8, 2, "#e8c97a");
-    drawPixel(ctx, hx + 3, hy + 6, 6, 2, "#e8c97a");
-    // 目
-    if (!g.isBlinking) {
-      drawPixel(ctx, hx + 3, hy + 2, 2, 2, "#231714");
-      drawPixel(ctx, hx + 8, hy + 2, 2, 2, "#231714");
-    }
-    // 鼻
-    drawPixel(ctx, hx + 6, hy + 6, 2, 2, "#231714");
-    // マズル
-    drawPixel(ctx, hx + 9, hy + 4, 3, 2, "#c4a87a");
-    drawPixel(ctx, hx + 11, hy + 2, 2, 2, "#c4a87a");
-    // ほっぺ模様
-    drawPixel(ctx, hx + 1, hy + 4, 2, 2, "#f0d090");
-    drawPixel(ctx, hx + 9, hy + 4, 2, 2, "#f0d090");
-  }, [drawPixel, P]);
-
-  const drawCactus = useCallback((ctx: CanvasRenderingContext2D, x: number, w: number, h: number) => {
-    const col = "#8B9B5A";
-    const dark = "#6B7B3A";
-    const gy = GROUND_Y / P;
-    const cw = Math.floor(w / P);
-    const ch = Math.floor(h / P);
-    const cx = Math.floor(x / P);
-
-    // メイン幹
-    const trunkW = Math.min(cw, 3);
-    for (let row = 0; row < ch; row++) {
-      drawPixel(ctx, cx, gy - ch + row, trunkW, 1, col);
-    }
-    // 枝（高い障害物のみ）
-    if (ch > 8) {
-      drawPixel(ctx, cx + trunkW, gy - ch + 3, 2, 1, col);
-      drawPixel(ctx, cx + trunkW + 1, gy - ch + 2, 1, 3, col);
-      drawPixel(ctx, cx + trunkW + 2, gy - ch + 1, 1, 1, dark);
-      drawPixel(ctx, cx - 2, gy - ch + 5, 2, 1, col);
-      drawPixel(ctx, cx - 2, gy - ch + 4, 1, 2, col);
-      drawPixel(ctx, cx - 3, gy - ch + 4, 1, 1, dark);
-    }
-    // 横幅が広い場合は複数幹
-    if (cw > 4) {
-      const tx2 = cx + cw - 3;
-      const ch2 = ch - 2;
-      for (let row = 0; row < ch2; row++) {
-        drawPixel(ctx, tx2, gy - ch2 + row, 3, 1, col);
-      }
-      if (ch2 > 6) {
-        drawPixel(ctx, tx2 + 3, gy - ch2 + 2, 1, 2, col);
-        drawPixel(ctx, tx2 + 4, gy - ch2 + 1, 1, 1, dark);
-      }
-    }
-  }, [drawPixel, P]);
+  const W = 340, H = 180, GY = 144, SX = 38;
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d")!;
-
-    const W = canvas.width;
-    const H = canvas.height;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const cx = cv.getContext("2d")!;
     const g = gameRef.current;
 
-    // 地面のドット初期化
-    g.groundDots = [];
-    for (let i = 0; i < 20; i++) {
-      g.groundDots.push({
-        x: Math.random() * W,
-        y: GROUND_Y + 6 + Math.random() * 10,
-        w: 2 + Math.random() * 6,
-      });
+    // 地面ドット初期化
+    g.dots = [];
+    for (let i = 0; i < 15; i++) {
+      g.dots.push({ x: Math.random() * W, y: GY + 4 + Math.random() * 12, w: 2 + Math.random() * 6 });
+    }
+
+    function px(x: number, y: number, w: number, h: number, c: string) {
+      cx.fillStyle = c;
+      cx.fillRect(x, y, w, h);
+    }
+
+    function drawShiba(by: number) {
+      const x = SX, y = by;
+      const t = g.ta;
+
+      // しっぽ（柴犬らしい太い巻き尾）
+      px(x - 1, y - 2, 3, 2, "#c4a87a");
+      px(x - 2, y - 4, 3, 2, "#c4a87a");
+      px(x - 3, y - 6, 3, 2, "#e8c97a");
+      px(x - 4 + (t > 0 ? 1 : 0), y - 8, 3, 2, "#e8c97a");
+      px(x - 4 + (t > 0 ? 2 : 0), y - 10, 3, 2, "#e8c97a");
+      px(x - 3 + (t > 0 ? 2 : 0), y - 11, 2, 2, "#c4a87a");
+      px(x - 4, y - 5, 2, 2, "#e8c97a");
+      px(x - 5 + (t > 0 ? 1 : 0), y - 7, 2, 2, "#d8b86a");
+      px(x - 5 + (t > 0 ? 2 : 0), y - 9, 2, 2, "#d8b86a");
+
+      // 胴体
+      for (let r = -6; r <= 2; r += 2) px(x, y + r, 14, 2, "#c4a87a");
+      for (let r = -4; r <= 0; r += 2) px(x + 1, y + r, 12, 2, "#e8c97a");
+
+      // 足
+      const lo = g.lf === 0 ? 0 : (g.lf === 1 ? 1 : -1);
+      // 後ろ足
+      px(x + 1, y + 4 - lo, 3, 2, "#a89060"); px(x + 1, y + 6 - lo, 3, 2, "#a89060"); px(x + 2, y + 8 - lo, 3, 2, "#7a5f3a");
+      px(x + 3, y + 4 + lo, 3, 2, "#c4a87a"); px(x + 3, y + 6 + lo, 3, 2, "#c4a87a"); px(x + 4, y + 8 + lo, 3, 2, "#8B6F47");
+      // 前足
+      px(x + 8, y + 4 + lo, 3, 2, "#a89060"); px(x + 8, y + 6 + lo, 3, 2, "#a89060"); px(x + 9, y + 8 + lo, 3, 2, "#7a5f3a");
+      px(x + 10, y + 4 - lo, 3, 2, "#c4a87a"); px(x + 10, y + 6 - lo, 3, 2, "#c4a87a"); px(x + 11, y + 8 - lo, 3, 2, "#8B6F47");
+
+      // 頭
+      const hx = x + 11, hy = y - 14;
+      px(hx, hy, 2, 2, "#c4a87a"); px(hx - 1, hy + 2, 3, 2, "#c4a87a"); px(hx, hy + 2, 2, 2, "#f5b0a0");
+      px(hx + 8, hy, 2, 2, "#c4a87a"); px(hx + 7, hy + 2, 3, 2, "#c4a87a"); px(hx + 8, hy + 2, 2, 2, "#f5b0a0");
+      px(hx - 1, hy + 4, 12, 2, "#c4a87a");
+      px(hx - 1, hy + 6, 12, 2, "#c4a87a");
+      px(hx, hy + 8, 10, 2, "#c4a87a");
+      px(hx + 1, hy + 10, 8, 2, "#c4a87a");
+      px(hx + 1, hy + 6, 8, 2, "#e8c97a");
+      px(hx + 2, hy + 8, 6, 2, "#e8c97a");
+      px(hx + 3, hy + 10, 4, 2, "#e8c97a");
+      if (!g.bk) { px(hx + 2, hy + 6, 2, 2, "#231714"); px(hx + 7, hy + 6, 2, 2, "#231714"); }
+      px(hx + 5, hy + 10, 2, 2, "#231714");
+      px(hx + 8, hy + 8, 2, 2, "#c4a87a"); px(hx + 9, hy + 6, 2, 2, "#c4a87a");
+      px(hx + 1, hy + 8, 2, 2, "#f0d090"); px(hx + 7, hy + 8, 2, 2, "#f0d090");
+    }
+
+    function drawCactus(ox: number, ow: number, oh: number) {
+      const c = "#8B9B5A", d = "#6B7B3A";
+      const bx = Math.floor(ox);
+      const tw = Math.min(ow, 6);
+      for (let r = 0; r < oh; r += 2) px(bx, GY - oh + r, tw, 2, c);
+      if (oh > 16) {
+        px(bx + tw, GY - oh + 6, 3, 2, c); px(bx + tw + 2, GY - oh + 4, 2, 4, c); px(bx + tw + 3, GY - oh + 3, 2, 2, d);
+        px(bx - 3, GY - oh + 10, 3, 2, c); px(bx - 3, GY - oh + 8, 2, 4, c); px(bx - 4, GY - oh + 8, 2, 2, d);
+      }
+      if (ow > 10) {
+        const tx = bx + ow - 6, ch2 = oh - 4;
+        for (let r = 0; r < ch2; r += 2) px(tx, GY - ch2 + r, 6, 2, c);
+        if (ch2 > 10) { px(tx + 6, GY - ch2 + 4, 2, 3, c); px(tx + 7, GY - ch2 + 3, 2, 2, d); }
+      }
     }
 
     function update() {
-      if (g.gameOver) return;
-
-      g.frameCount++;
-
-      // 難易度上昇: スコアに応じて速度アップ
-      g.speed = Math.min(MAX_SPEED, BASE_SPEED + Math.floor(g.score / 5) * 0.3);
-
-      // スコア
-      if (g.running && g.frameCount % 6 === 0) {
-        g.score++;
-      }
-
-      // ジャンプ
-      if (g.isJumping) {
-        g.velocityY += GRAVITY;
-        g.shibaY += g.velocityY;
-        if (g.shibaY >= 0) {
-          g.shibaY = 0;
-          g.velocityY = 0;
-          g.isJumping = false;
-        }
-      }
-
-      // 足のアニメーション
-      if (!g.isJumping && g.running) {
-        g.legTimer++;
-        if (g.legTimer > 4) {
-          g.legTimer = 0;
-          g.legFrame = (g.legFrame + 1) % 3;
-        }
-      }
-
-      // しっぽ
-      g.tailAngle += 0.15 * g.tailDir;
-      if (g.tailAngle > 1 || g.tailAngle < -1) g.tailDir *= -1;
-
-      // 瞬き
-      g.blinkTimer++;
-      if (g.blinkTimer > 120) {
-        g.isBlinking = true;
-        if (g.blinkTimer > 126) {
-          g.isBlinking = false;
-          g.blinkTimer = 0;
-        }
-      }
+      if (g.over) return;
+      g.fc++;
+      g.spd = Math.min(7, 2.5 + Math.floor(g.score / 8) * 0.25);
+      if (g.run && g.fc % 6 === 0) g.score++;
+      if (g.jmp) { g.vy += 0.5; g.sy += g.vy; if (g.sy >= 0) { g.sy = 0; g.vy = 0; g.jmp = false; } }
+      if (!g.jmp && g.run) { g.lt++; if (g.lt > 4) { g.lt = 0; g.lf = (g.lf + 1) % 3; } }
+      g.ta += 0.15 * g.td; if (g.ta > 1 || g.ta < -1) g.td *= -1;
+      g.bt++; if (g.bt > 140) { g.bk = true; if (g.bt > 146) { g.bk = false; g.bt = 0; } }
 
       // 障害物生成
-      if (g.running) {
-        g.spawnTimer++;
-        // 難易度上昇に伴いスポーン間隔を短く
-        const minInterval = Math.max(40, 80 - Math.floor(g.score / 10) * 5);
-        const maxInterval = Math.max(70, 140 - Math.floor(g.score / 10) * 8);
-        const interval = minInterval + Math.random() * (maxInterval - minInterval);
-        if (g.spawnTimer > interval) {
-          g.spawnTimer = 0;
-          const types = [
-            { w: 8, h: 24 },   // 細い背の高いサボテン
-            { w: 12, h: 20 },  // 中くらい
-            { w: 16, h: 16 },  // 横長 低い
-            { w: 6, h: 28 },   // 細長い
-          ];
-          // 難易度が上がると横長も出現
-          if (g.score > 20) {
-            types.push({ w: 22, h: 14 }); // より横長
-          }
-          if (g.score > 40) {
-            types.push({ w: 28, h: 12 }); // かなり横長
-          }
+      if (g.run) {
+        g.st++;
+        const mn = Math.max(50, 90 - Math.floor(g.score / 10) * 4);
+        const mx = Math.max(80, 160 - Math.floor(g.score / 10) * 7);
+        if (g.st > mn + Math.random() * (mx - mn)) {
+          g.st = 0;
+          const types = [{ w: 6, h: 20 }, { w: 8, h: 16 }, { w: 10, h: 14 }, { w: 5, h: 24 }];
+          if (g.score > 20) types.push({ w: 14, h: 12 });
+          if (g.score > 40) types.push({ w: 18, h: 10 });
           const t = types[Math.floor(Math.random() * types.length)];
-          g.obstacles.push({ x: W + 10, w: t.w, h: t.h });
+          g.obs.push({ x: W + 10, w: t.w, h: t.h });
         }
       }
 
-      // 障害物移動
-      for (let i = g.obstacles.length - 1; i >= 0; i--) {
-        g.obstacles[i].x -= g.speed;
-        if (g.obstacles[i].x < -40) {
-          g.obstacles.splice(i, 1);
-        }
-      }
+      for (let i = g.obs.length - 1; i >= 0; i--) { g.obs[i].x -= g.spd; if (g.obs[i].x < -30) g.obs.splice(i, 1); }
+      for (const c of g.cld) { c.x -= g.spd * 0.15; if (c.x < -20) c.x = W + 10 + Math.random() * 40; }
+      for (const d of g.dots) { d.x -= g.spd; if (d.x < -10) d.x = W + Math.random() * 20; }
 
-      // 雲移動
-      for (const c of g.clouds) {
-        c.x -= g.speed * 0.2;
-        if (c.x < -30) c.x = W / P + 10;
-      }
-
-      // 地面ドット移動
-      for (const d of g.groundDots) {
-        d.x -= g.speed;
-        if (d.x < -10) d.x = W + Math.random() * 20;
-      }
-
-      // 当たり判定
-      const shibaLeft = SHIBA_X * P + 4;
-      const shibaRight = (SHIBA_X + 20) * P - 4;
-      const shibaTop = (GROUND_Y / P - 10 + g.shibaY / P) * P;
-      const shibaBottom = GROUND_Y;
-
-      for (const obs of g.obstacles) {
-        const obsLeft = obs.x;
-        const obsRight = obs.x + obs.w;
-        const obsTop = GROUND_Y - obs.h;
-
-        if (
-          shibaRight > obsLeft + 4 &&
-          shibaLeft < obsRight - 4 &&
-          shibaBottom > obsTop + 4 &&
-          shibaTop < GROUND_Y
-        ) {
-          g.gameOver = true;
-          g.running = false;
-          if (g.score > g.highScore) g.highScore = g.score;
+      // 当たり判定（胴体中心のみ）
+      const sl = SX + 4, sr = SX + 12, st2 = GY - 6 + g.sy, sb = GY - 2 + g.sy;
+      for (const o of g.obs) {
+        const ol = o.x + 1, or2 = o.x + Math.min(o.w, 6) - 1, ot = GY - o.h + 4;
+        if (sr > ol && sl < or2 && sb > ot && st2 < GY) {
+          g.over = true; g.run = false; if (g.score > g.hi) g.hi = g.score;
         }
       }
     }
 
     function draw() {
-      ctx.clearRect(0, 0, W, H);
-
-      // 雲
-      for (const c of g.clouds) {
-        ctx.fillStyle = "#e0e0e0";
-        const s = c.size;
-        ctx.fillRect(c.x * P, c.y * P, 8 * s * P, 2 * P);
-        ctx.fillRect((c.x - 1) * P, (c.y + 1) * P, 10 * s * P, 2 * P);
-        ctx.fillRect((c.x + 1) * P, (c.y + 2) * P, 6 * s * P, 2 * P);
+      cx.clearRect(0, 0, W, H);
+      for (const c of g.cld) { cx.fillStyle = "#e8e8e8"; const s = c.s; cx.fillRect(c.x, c.y, 16 * s, 3); cx.fillRect(c.x - 2, c.y + 3, 20 * s, 3); cx.fillRect(c.x + 2, c.y + 6, 12 * s, 2); }
+      cx.fillStyle = "rgba(35,23,20,0.18)"; cx.font = "14px monospace"; cx.textAlign = "right";
+      cx.fillText(String(g.score).padStart(5, "0"), W - 8, 18);
+      if (g.hi > 0) { cx.fillStyle = "rgba(35,23,20,0.1)"; cx.font = "11px monospace"; cx.fillText("HI " + String(g.hi).padStart(5, "0"), W - 8, 32); }
+      drawShiba(GY - 10 + g.sy);
+      for (const o of g.obs) drawCactus(o.x, o.w, o.h);
+      cx.fillStyle = "#bbb"; cx.fillRect(0, GY, W, 2);
+      cx.fillStyle = "#ddd"; for (const d of g.dots) cx.fillRect(d.x, d.y, d.w, 2);
+      if (g.over) {
+        cx.fillStyle = "rgba(35,23,20,0.65)"; cx.font = "bold 16px monospace"; cx.textAlign = "center";
+        cx.fillText("GAME OVER", W / 2, H / 2 - 6);
+        cx.fillStyle = "rgba(35,23,20,0.35)"; cx.font = "11px monospace"; cx.fillText("TAP TO RETRY", W / 2, H / 2 + 12);
       }
-
-      // スコア
-      ctx.fillStyle = "rgba(35,23,20,0.2)";
-      ctx.font = "16px monospace";
-      ctx.textAlign = "right";
-      ctx.fillText(String(g.score).padStart(5, "0"), W - 10, 22);
-
-      if (g.highScore > 0) {
-        ctx.fillStyle = "rgba(35,23,20,0.12)";
-        ctx.font = "12px monospace";
-        ctx.fillText("HI " + String(g.highScore).padStart(5, "0"), W - 10, 38);
-      }
-
-      // 柴犬
-      const shibaBaseY = GROUND_Y / P - 10 + g.shibaY / P;
-      drawShiba(ctx, shibaBaseY, g);
-
-      // 障害物
-      for (const obs of g.obstacles) {
-        drawCactus(ctx, obs.x, obs.w, obs.h);
-      }
-
-      // 地面
-      ctx.fillStyle = "#bbb";
-      ctx.fillRect(0, GROUND_Y, W, 2);
-
-      // 地面のドット
-      ctx.fillStyle = "#ddd";
-      for (const d of g.groundDots) {
-        ctx.fillRect(d.x, d.y, d.w, 2);
-      }
-
-      // ゲームオーバー表示
-      if (g.gameOver) {
-        ctx.fillStyle = "rgba(35,23,20,0.7)";
-        ctx.font = "bold 18px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText("GAME OVER", W / 2, H / 2 - 10);
-        ctx.fillStyle = "rgba(35,23,20,0.4)";
-        ctx.font = "12px monospace";
-        ctx.fillText("TAP TO RETRY", W / 2, H / 2 + 14);
-      }
-
-      // 開始前の表示
-      if (!g.running && !g.gameOver) {
-        ctx.fillStyle = "rgba(35,23,20,0.3)";
-        ctx.font = "bold 14px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText("TAP !!!", W / 2, H - 20);
+      if (!g.run && !g.over) {
+        cx.fillStyle = "rgba(35,23,20,0.25)"; cx.font = "bold 13px monospace"; cx.textAlign = "center";
+        cx.fillText("TAP !!!", W / 2, H - 14);
       }
     }
 
-    function gameLoop() {
-      update();
-      draw();
-      animRef.current = requestAnimationFrame(gameLoop);
-    }
-
+    function gameLoop() { update(); draw(); animRef.current = requestAnimationFrame(gameLoop); }
     animRef.current = requestAnimationFrame(gameLoop);
-
-    return () => {
-      cancelAnimationFrame(animRef.current);
-    };
-  }, [drawShiba, drawCactus, drawPixel, P]);
+    return () => { cancelAnimationFrame(animRef.current); };
+  }, []);
 
   const handleTap = useCallback(() => {
     const g = gameRef.current;
-    if (g.gameOver) {
-      // リセット
-      g.gameOver = false;
-      g.running = true;
-      g.score = 0;
-      g.speed = BASE_SPEED;
-      g.obstacles = [];
-      g.spawnTimer = 0;
-      g.frameCount = 0;
-      g.shibaY = 0;
-      g.velocityY = 0;
-      g.isJumping = false;
-      return;
-    }
-    if (!g.running) {
-      g.running = true;
-    }
-    if (!g.isJumping) {
-      g.isJumping = true;
-      g.velocityY = JUMP_VELOCITY;
-    }
+    if (g.over) { g.over = false; g.run = true; g.score = 0; g.spd = 2.5; g.obs = []; g.st = 0; g.fc = 0; g.sy = 0; g.vy = 0; g.jmp = false; return; }
+    if (!g.run) g.run = true;
+    if (!g.jmp) { g.jmp = true; g.vy = -7.5; }
   }, []);
 
   return (
