@@ -336,6 +336,7 @@ function EventsTab({
    ═══════════════════════════════════════════ */
 
 type QuestTimeFilter = "active" | "ended" | "all";
+type QuestGroupMode = "month" | "category";
 
 function QuestsTab({
   quests,
@@ -346,6 +347,7 @@ function QuestsTab({
 }) {
   const [timeFilter, setTimeFilter] = useState<QuestTimeFilter>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [groupMode, setGroupMode] = useState<QuestGroupMode>("month");
 
   // カテゴリ一覧を抽出
   const categories = useMemo(() => {
@@ -354,7 +356,7 @@ function QuestsTab({
   }, [quests]);
 
   // フィルタリング・ソート・グルーピング
-  const { dated, undated, isEmpty } = useMemo(() => {
+  const { groups, undated, isEmpty } = useMemo(() => {
     const today = dayjs().format("YYYY-MM-DD");
 
     // 期間あり/なし分離
@@ -376,15 +378,15 @@ function QuestsTab({
       });
     }
 
-    // カテゴリフィルタ
-    if (categoryFilter !== "all") {
+    // カテゴリフィルタ（月別モード時のみ適用）
+    if (groupMode === "month" && categoryFilter !== "all") {
       filteredDated = filteredDated.filter((q) => q.category === categoryFilter);
     }
-    const filteredUndated = categoryFilter === "all"
-      ? noDate
-      : noDate.filter((q) => q.category === categoryFilter);
+    const filteredUndated = groupMode === "month" && categoryFilter !== "all"
+      ? noDate.filter((q) => q.category === categoryFilter)
+      : noDate;
 
-    // ソート: 開催中→開始日新しい順、終了済み→終了日新しい順
+    // ソート
     const sortedDated = Array.from(filteredDated).sort((a, b) => {
       if (timeFilter === "ended") {
         return dayjs(b.endAt).unix() - dayjs(a.endAt).unix();
@@ -392,21 +394,39 @@ function QuestsTab({
       return dayjs(b.startAt!).unix() - dayjs(a.startAt!).unix();
     });
 
-    // 月別グルーピング
+    // グルーピング
     const map = new Map<string, Quest[]>();
     for (const q of sortedDated) {
-      const key = dayjs(q.startAt).format("YYYY年M月");
+      const key = groupMode === "category"
+        ? q.category
+        : dayjs(q.startAt).format("YYYY年M月");
       const arr = map.get(key);
       if (arr) arr.push(q);
       else map.set(key, [q]);
     }
 
+    // カテゴリ別モード時は期間なしもカテゴリでグルーピング
+    if (groupMode === "category") {
+      for (const q of noDate) {
+        // 時期フィルタが「終了」の場合、期間なし＝終了してないので除外
+        if (timeFilter === "ended") continue;
+        const arr = map.get(q.category);
+        if (arr) arr.push(q);
+        else map.set(q.category, [q]);
+      }
+      return {
+        groups: Array.from(map.entries()),
+        undated: [] as Quest[],
+        isEmpty: map.size === 0,
+      };
+    }
+
     return {
-      dated: Array.from(map.entries()),
+      groups: Array.from(map.entries()),
       undated: filteredUndated,
       isEmpty: sortedDated.length === 0 && filteredUndated.length === 0,
     };
-  }, [quests, timeFilter, categoryFilter]);
+  }, [quests, timeFilter, categoryFilter, groupMode]);
 
   if (quests.length === 0) {
     return <EmptyState message="現在進行中のクエストはありません" />;
@@ -416,28 +436,65 @@ function QuestsTab({
     <div className="space-y-4">
       {/* フィルタバー */}
       <div className="space-y-2">
-        <div className="flex gap-2">
-          {([
-            { id: "active", label: "開催中" },
-            { id: "ended", label: "終了" },
-            { id: "all", label: "すべて" },
-          ] as { id: QuestTimeFilter; label: string }[]).map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setTimeFilter(f.id)}
-              className={clsx(
-                "text-[11px] px-3 py-1.5 rounded-full font-medium transition-colors",
-                timeFilter === f.id
-                  ? "bg-[#A5C1C8] text-white"
-                  : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* 時期フィルタ + グルーピング切替 */}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-2">
+            {([
+              { id: "active", label: "開催中" },
+              { id: "ended", label: "終了" },
+              { id: "all", label: "すべて" },
+            ] as { id: QuestTimeFilter; label: string }[]).map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setTimeFilter(f.id)}
+                className={clsx(
+                  "text-[11px] px-3 py-1.5 rounded-full font-medium transition-colors",
+                  timeFilter === f.id
+                    ? "bg-[#A5C1C8] text-white"
+                    : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* グルーピング切替 */}
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            {([
+              { id: "month", icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+              )},
+              { id: "category", icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+                </svg>
+              )},
+            ] as { id: QuestGroupMode; icon: React.ReactNode }[]).map((g) => (
+              <button
+                key={g.id}
+                onClick={() => {
+                  setGroupMode(g.id);
+                  if (g.id === "category") setCategoryFilter("all");
+                }}
+                className={clsx(
+                  "p-1.5 rounded-md transition-colors",
+                  groupMode === g.id
+                    ? "bg-white text-[#231714] shadow-sm"
+                    : "text-gray-400"
+                )}
+              >
+                {g.icon}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {categories.length > 1 && (
+        {/* カテゴリフィルタ（月別モード時のみ表示） */}
+        {groupMode === "month" && categories.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
             <button
               onClick={() => setCategoryFilter("all")}
@@ -480,16 +537,17 @@ function QuestsTab({
         </div>
       ) : (
         <div className="space-y-5">
-          {/* 期間ありクエスト（タイムライン） */}
-          {dated.map(([month, items]) => (
-            <div key={month}>
+          {groups.map(([label, items]) => (
+            <div key={label}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-bold text-[#231714]">{month}</span>
+                <span className="text-xs font-bold text-[#231714]">{label}</span>
                 <span className="text-[10px] text-gray-300">{items.length}件</span>
               </div>
 
-              <div className="relative pl-5">
-                <div className="absolute left-[5px] top-2 bottom-2 w-[1.5px] bg-gray-200" />
+              <div className={clsx(groupMode === "month" && "relative pl-5")}>
+                {groupMode === "month" && (
+                  <div className="absolute left-[5px] top-2 bottom-2 w-[1.5px] bg-gray-200" />
+                )}
 
                 <div className="space-y-3">
                   {items.map((q) => {
@@ -499,12 +557,14 @@ function QuestsTab({
 
                     return (
                       <div key={q.questId} className="relative">
-                        <div
-                          className={clsx(
-                            "absolute -left-5 top-3 w-[11px] h-[11px] rounded-full border-2 border-white z-10",
-                            isEnded ? "bg-gray-300" : "bg-[#B0E401]"
-                          )}
-                        />
+                        {groupMode === "month" && (
+                          <div
+                            className={clsx(
+                              "absolute -left-5 top-3 w-[11px] h-[11px] rounded-full border-2 border-white z-10",
+                              isEnded ? "bg-gray-300" : "bg-[#B0E401]"
+                            )}
+                          />
+                        )}
                         <QuestTimelineCard quest={q} isEnded={isEnded} onClick={() => router.push(`/quests/${q.questId}`)} />
                       </div>
                     );
@@ -514,7 +574,7 @@ function QuestsTab({
             </div>
           ))}
 
-          {/* 期間なしクエスト */}
+          {/* 常時開催（月別モード時のみ表示） */}
           {undated.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
