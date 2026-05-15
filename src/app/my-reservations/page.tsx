@@ -166,9 +166,9 @@ function ReservationCard({
 }) {
   const dateLabel = dayjs(r.date).format("M月D日（ddd）");
 
-  // キャンセル期限（開始30分前）
-  const startDt = dayjs(`${r.date}T${r.startTime}:00`);
-  const canCancel = !isPast && startDt.diff(dayjs(), "minute") >= 30;
+  // キャンセル期限（終了時刻まで可能）
+  const endDt = dayjs(`${r.date}T${r.endTime}:00`);
+  const canCancel = !isPast && dayjs().isBefore(endDt);
 
   return (
     <div

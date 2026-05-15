@@ -44,17 +44,16 @@ export async function DELETE(
     );
   }
 
-  // キャンセル期限チェック（開始30分前まで）
+  // キャンセル期限チェック（終了時刻まで可能）
   const now = new Date();
-  const reservationStart = new Date(
-    `${reservation.date}T${reservation.startTime}:00+09:00`
+  const reservationEnd = new Date(
+    `${reservation.date}T${reservation.endTime}:00+09:00`
   );
-  const diffMinutes = (reservationStart.getTime() - now.getTime()) / 60000;
-  if (diffMinutes < 30) {
+  if (now.getTime() >= reservationEnd.getTime()) {
     return NextResponse.json(
       {
         error: "CANCEL_DEADLINE_PASSED",
-        message: "開始30分前を過ぎているためキャンセルできません。",
+        message: "予約の終了時刻を過ぎているためキャンセルできません。",
       },
       { status: 422 }
     );
