@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { sendCommentNotification } from "@/lib/line";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +116,24 @@ export async function POST(
     await postRef.update({
       commentCount: FieldValue.increment(1),
     });
+
+    // 投稿者にLINE通知（自分自身へのコメントは除外）
+    const postData = postDoc.data()!;
+    const postAuthorId = postData.authorId as string;
+    if (postAuthorId && postAuthorId !== lineUserId) {
+      try {
+        const commenterName = (userData.displayName || userData.lineDisplayName || "メンバー") as string;
+        const postContent = (postData.content || "") as string;
+        await sendCommentNotification(postAuthorId, {
+          commenterName,
+          postContent,
+          postId,
+        });
+      } catch (err) {
+        // 通知失敗してもコメント自体は成功させる
+        console.error("[api/posts/[id]/comments] LINE notification failed:", err);
+      }
+    }
 
     return NextResponse.json({
       success: true,

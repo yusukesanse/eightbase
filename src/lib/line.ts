@@ -304,6 +304,90 @@ export async function broadcastContentPublished(
   ]);
 }
 
+// ─── 掲示板コメント通知 ──────────────────────────────────────────────────────
+export async function sendCommentNotification(
+  postAuthorLineUserId: string,
+  {
+    commenterName,
+    postContent,
+    postId,
+  }: {
+    commenterName: string;
+    postContent: string;   // 投稿本文（プレビュー用）
+    postId: string;
+  }
+) {
+  const preview = postContent.length > 30 ? postContent.slice(0, 30) + "…" : postContent;
+  const url = `${PORTAL_URL}/timeline/${postId}`;
+
+  await pushMessage(postAuthorLineUserId, [
+    {
+      type: "flex",
+      altText: `${commenterName}さんがあなたの投稿にコメントしました`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box",
+          layout: "vertical",
+          backgroundColor: "#A5C1C8",
+          paddingAll: "14px",
+          contents: [
+            {
+              type: "text",
+              text: "投稿にコメントがつきました",
+              color: "#231714",
+              weight: "bold",
+              size: "md",
+            },
+          ],
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "text",
+              text: `${commenterName}さんがコメントしました`,
+              size: "sm",
+              color: "#231714",
+              wrap: true,
+            },
+            {
+              type: "separator",
+              margin: "md",
+            },
+            {
+              type: "text",
+              text: `あなたの投稿「${preview}」`,
+              color: "#888888",
+              size: "xs",
+              margin: "md",
+              wrap: true,
+            },
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "button",
+              action: {
+                type: "uri",
+                label: "投稿を確認する",
+                uri: url,
+              },
+              style: "primary",
+              color: "#A5C1C8",
+            },
+          ],
+        },
+      },
+    },
+  ]);
+}
+
 // ─── ユーティリティ ───────────────────────────────────────────────────────────
 function labelValue(label: string, value: string) {
   return {
