@@ -123,14 +123,14 @@ function EventsTab({
 
   // フィルタリング・ソート・月別グルーピング
   const grouped = useMemo(() => {
-    const now = dayjs();
+    const today = dayjs().format("YYYY-MM-DD");
 
-    // 時期フィルタ
+    // 時期フィルタ（イベント開始日ベースで判定）
     let filtered = events;
     if (timeFilter === "upcoming") {
-      filtered = events.filter((e) => dayjs(e.endAt).isAfter(now));
+      filtered = events.filter((e) => dayjs(e.startAt).format("YYYY-MM-DD") >= today);
     } else if (timeFilter === "past") {
-      filtered = events.filter((e) => dayjs(e.endAt).isBefore(now));
+      filtered = events.filter((e) => dayjs(e.startAt).format("YYYY-MM-DD") < today);
     }
 
     // カテゴリフィルタ
@@ -256,7 +256,7 @@ function EventsTab({
                   {items.map((ev, idx) => {
                     const start = dayjs(ev.startAt);
                     const end = dayjs(ev.endAt);
-                    const isPastEvent = end.isBefore(dayjs());
+                    const isPastEvent = start.format("YYYY-MM-DD") < dayjs().format("YYYY-MM-DD");
                     const catLabel = EVENT_CATEGORY_LABELS[ev.category] || ev.category;
                     const catColor = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.info;
 

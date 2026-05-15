@@ -14,12 +14,23 @@ export async function GET() {
     .get();
 
   const events = snap.docs.map((doc) => {
-    const data = doc.data() as Omit<NufEvent, "eventId">;
+    const data = doc.data();
+
+    // Firestore Timestamp → ISO文字列に変換（文字列ならそのまま）
+    const toISO = (v: unknown): string => {
+      if (v && typeof v === "object" && typeof (v as { toDate?: unknown }).toDate === "function") {
+        return ((v as { toDate: () => Date }).toDate()).toISOString();
+      }
+      return String(v ?? "");
+    };
+
     return {
       eventId: doc.id,
       ...data,
+      startAt: toISO(data.startAt),
+      endAt: toISO(data.endAt),
       goodCount: (data as Record<string, unknown>).goodCount ?? 0,
-    };
+    } as Omit<NufEvent, "eventId"> & { eventId: string; goodCount: number };
   });
 
   return NextResponse.json({ events });
