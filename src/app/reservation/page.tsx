@@ -18,11 +18,25 @@ function timeToMin(t: string) {
   return h * 60 + m;
 }
 
-function generateSlots(openTime: string, closeTime: string): string[] {
+/** 開始時刻用スロット（closeTime は含めない） */
+function generateStartSlots(openTime: string, closeTime: string): string[] {
   const start = timeToMin(openTime);
   const end = timeToMin(closeTime);
   const slots: string[] = [];
   for (let t = start; t < end; t += 30) {
+    const h = Math.floor(t / 60);
+    const m = t % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  }
+  return slots;
+}
+
+/** 終了時刻用スロット（closeTime を含む） */
+function generateEndSlots(openTime: string, closeTime: string): string[] {
+  const start = timeToMin(openTime);
+  const end = timeToMin(closeTime);
+  const slots: string[] = [];
+  for (let t = start + 30; t <= end; t += 30) {
     const h = Math.floor(t / 60);
     const m = t % 60;
     slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
@@ -169,13 +183,28 @@ export default function ReservationPage() {
   );
 
   // ─── タイムスロット生成 ────────────────────────────────────────────────────
-  const timeSlots = useMemo(() => {
+  const startSlots = useMemo(() => {
     if (!selectedFacility) return [];
-    return generateSlots(
+    return generateStartSlots(
       selectedFacility.openTime ?? "09:00",
       selectedFacility.closeTime ?? "18:00"
     );
   }, [selectedFacility?.openTime, selectedFacility?.closeTime]);
+
+  const endSlots = useMemo(() => {
+    if (!selectedFacility) return [];
+    return generateEndSlots(
+      selectedFacility.openTime ?? "09:00",
+      selectedFacility.closeTime ?? "18:00"
+    );
+  }, [selectedFacility?.openTime, selectedFacility?.closeTime]);
+
+  /** 現在の選択状態に応じて表示するスロット一覧 */
+  const timeSlots = useMemo(() => {
+    // 開始時刻が選択済み＆終了未選択 → 終了時刻用スロット
+    if (selStart && !selEnd) return endSlots;
+    return startSlots;
+  }, [selStart, selEnd, startSlots, endSlots]);
 
   const isSlotBooked = useCallback(
     (slot: string) => {
@@ -238,25 +267,14 @@ export default function ReservationPage() {
     }
 
     // 2回目 → 終了時刻の選択
-    const slotMin = timeToMin(slot);
-    const startMin = timeToMin(selStart);
-
-    // 開始以前をタップ → 開始を再設定
-    if (slotMin <= startMin) {
-      if (isSlotBooked(slot)) return;
-      setSelStart(slot);
-      setSelEnd(null);
-      return;
-    }
-
     // 有効な終了時刻ならセット
     if (isValidEndSlot(slot, selStart)) {
       setSelEnd(slot);
       return;
     }
 
-    // 無効な終了時刻 → 予約済みでなければ開始を再設定
-    if (!isSlotBooked(slot)) {
+    // 無効 → 開始時刻用スロットに含まれていれば開始を再設定
+    if (startSlots.includes(slot) && !isSlotBooked(slot)) {
       setSelStart(slot);
       setSelEnd(null);
     }
@@ -285,14 +303,12 @@ export default function ReservationPage() {
       return "free" as const;
     }
 
-    // 終了時刻選択モード
-    if (sm > ss && isValidEndSlot(slot, selStart)) {
+    // 終了時刻選択モード（endSlots を表示中）
+    if (isValidEndSlot(slot, selStart)) {
       return "free" as const; // 選択可能な終了時刻
     }
 
-    if (isSlotBooked(slot)) return "booked" as const;
-    if (sm <= ss) return "free" as const; // 開始より前は新しい開始として選択可能
-    return "booked" as const; // 予約境界を超えた先は無効
+    return "booked" as const; // 選択不可
   }
 
   // ─── 予約確定へ ────────────────────────────────────────────────────────────
