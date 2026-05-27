@@ -13,7 +13,7 @@ export interface NufUser {
 }
 
 // ─── 施設 ────────────────────────────────────────────────────────────────────
-export type FacilityType = "meeting_room" | "booth";
+export type FacilityType = "meeting_room" | "booth" | "activity";
 
 export interface Facility {
   id: string;          // e.g. "meetingroom-a"

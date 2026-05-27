@@ -98,9 +98,9 @@ export async function POST(req: NextRequest) {
   }
 
   // type のバリデーション
-  if (type !== "meeting_room" && type !== "booth") {
+  if (type !== "meeting_room" && type !== "booth" && type !== "activity") {
     return NextResponse.json(
-      { error: "type は 'meeting_room' または 'booth' でなければなりません" },
+      { error: "type は 'meeting_room', 'booth', 'activity' のいずれかでなければなりません" },
       { status: 400 }
     );
   }

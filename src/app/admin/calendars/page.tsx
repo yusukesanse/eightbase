@@ -293,13 +293,17 @@ export default function CalendarsPage() {
                   {/* タイプアイコン */}
                   <div
                     className={`w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 ${
-                      f.type === "meeting_room" ? "bg-[#A5C1C8]" : "bg-[#B0E401]"
+                      f.type === "meeting_room" ? "bg-[#A5C1C8]" : f.type === "activity" ? "bg-[#F59E0B]" : "bg-[#B0E401]"
                     }`}
                   >
                     {f.type === "meeting_room" ? (
                       <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
                         <rect x="2" y="4" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" />
                         <path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke="currentColor" strokeWidth="1.2" />
+                      </svg>
+                    ) : f.type === "activity" ? (
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 2l1.5 3.5L13 6l-2.5 2.5L11 12l-3-1.5L5 12l.5-3.5L3 6l3.5-.5L8 2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
                       </svg>
                     ) : (
                       <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
@@ -316,10 +320,12 @@ export default function CalendarsPage() {
                         className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
                           f.type === "meeting_room"
                             ? "bg-[#A5C1C8]/30 text-[#A5C1C8]"
+                            : f.type === "activity"
+                            ? "bg-[#F59E0B]/20 text-[#92400E]"
                             : "bg-[#B0E401]/20 text-[#231714]"
                         }`}
                       >
-                        {f.type === "meeting_room" ? "会議室" : "ブース"}
+                        {f.type === "meeting_room" ? "会議室" : f.type === "activity" ? "アクティビティ" : "ブース"}
                       </span>
                       {f.active === false && (
                         <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#231714]/5 text-[#231714]/60">
@@ -452,6 +458,7 @@ export default function CalendarsPage() {
                 >
                   <option value="meeting_room">会議室</option>
                   <option value="booth">ブース</option>
+                  <option value="activity">アクティビティ</option>
                 </select>
               </div>
 

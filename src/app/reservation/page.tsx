@@ -376,6 +376,7 @@ export default function ReservationPage() {
   const canConfirm = !!(selectedFacility && selectedDate && selStart && selEnd && (!needsTerms || termsAgreed));
   const meetingRooms = facilities.filter((f) => f.type === "meeting_room");
   const booths = facilities.filter((f) => f.type === "booth");
+  const activities = facilities.filter((f) => f.type === "activity");
 
   // ─── レンダリング ──────────────────────────────────────────────────────────
   return (
@@ -429,6 +430,27 @@ export default function ReservationPage() {
             <p className="text-[10px] text-[#231714]/40 mb-1.5">リモートブース</p>
             <div className="flex gap-2 flex-wrap">
               {booths.map((f) => (
+                <FacilityPill
+                  key={f.id}
+                  facility={f}
+                  selected={selectedFacility?.id === f.id}
+                  onSelect={() => {
+                    setSelectedFacility(f);
+                    setSelectedDate(null);
+                    setSelStart(null);
+                    setSelEnd(null);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activities.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] text-[#231714]/40 mb-1.5">アクティビティ</p>
+            <div className="flex gap-2 flex-wrap">
+              {activities.map((f) => (
                 <FacilityPill
                   key={f.id}
                   facility={f}
