@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@line/liff": "^2.23.0",
+    "@tailwindcss/typography": "^0.5.19",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.11",
     "firebase": "^10.12.0",
@@ -23,6 +24,7 @@
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "uuid": "^10.0.0"
   },

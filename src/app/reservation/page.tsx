@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Facility } from "@/types";
+import ReactMarkdown from "react-markdown";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -654,8 +655,13 @@ export default function ReservationPage() {
               </button>
             </div>
             <div className="px-5 py-4 overflow-y-auto flex-1">
-              <div className="text-sm text-[#231714]/80 leading-relaxed whitespace-pre-wrap">
-                {selectedFacility.termsContent}
+              <div className="prose prose-sm max-w-none text-[#231714]/80
+                prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+                prose-h2:text-base prose-h3:text-sm
+                prose-p:my-1.5 prose-p:leading-relaxed
+                prose-li:my-0.5
+                prose-strong:text-[#231714]">
+                <ReactMarkdown>{selectedFacility.termsContent}</ReactMarkdown>
               </div>
             </div>
             <div className="px-5 py-3 border-t border-gray-100 shrink-0">
