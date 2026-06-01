@@ -669,61 +669,59 @@ export default function ReservationPage() {
         </>
       )}
 
-      {/* ── 利用規約モーダル ── */}
+      {/* ── 利用規約 全画面オーバーレイ ── */}
       {showTermsModal && selectedFacility?.termsContent && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setShowTermsModal(false)}>
-          <div
-            className="bg-white rounded-t-2xl w-full flex flex-col animate-slide-up"
-            style={{ maxHeight: "calc(100dvh - 80px)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-base font-bold text-[#231714]">利用規約</h3>
-              <button
-                onClick={() => setShowTermsModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#231714" strokeWidth="2" strokeLinecap="round">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="relative flex-1 overflow-hidden flex flex-col">
-              <div className="px-5 py-4 overflow-y-auto flex-1" onScroll={handleTermsScroll}>
-                <div className="prose prose-sm max-w-none text-[#231714]/80
-                  prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
-                  prose-h2:text-base prose-h3:text-sm
-                  prose-p:my-1.5 prose-p:leading-relaxed
-                  prose-li:my-0.5
-                  prose-strong:text-[#231714]">
-                  <ReactMarkdown>{selectedFacility.termsContent}</ReactMarkdown>
-                </div>
+        <div className="fixed inset-0 z-[60] bg-white flex flex-col">
+          {/* ヘッダー */}
+          <header className="shrink-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+            <button
+              onClick={() => setShowTermsModal(false)}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#231714" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <h1 className="text-[15px] font-bold text-[#231714]">利用規約</h1>
+          </header>
 
-                {/* 規約末尾の同意ボタン（スクロール完了で表示） */}
-                {termsRead && (
-                  <div className="mt-6 mb-4">
-                    <button
-                      onClick={() => { setTermsAgreed(true); setShowTermsModal(false); }}
-                      className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
-                    >
-                      利用規約に同意する
-                    </button>
-                  </div>
-                )}
+          {/* 規約本文（スクロール領域） */}
+          <div className="flex-1 overflow-y-auto relative" onScroll={handleTermsScroll}>
+            <div className="px-5 py-5">
+              <div className="prose prose-sm max-w-none text-[#231714]/80
+                prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+                prose-h2:text-base prose-h3:text-sm
+                prose-p:my-1.5 prose-p:leading-relaxed
+                prose-li:my-0.5
+                prose-strong:text-[#231714]">
+                <ReactMarkdown>{selectedFacility.termsContent}</ReactMarkdown>
               </div>
 
-              {/* スクロールガイド（未読時のみ表示） */}
-              {!termsRead && (
-                <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-                  <div className="bg-gradient-to-t from-white via-white/90 to-transparent px-5 pt-6 pb-4">
-                    <p className="text-[11px] text-center text-[#231714]/50 animate-bounce">
-                      ↓ 最後までスクロールしてください
-                    </p>
-                  </div>
+              {/* 規約末尾の同意ボタン（スクロール完了で表示） */}
+              {termsRead && (
+                <div className="mt-8 mb-6 px-2">
+                  <button
+                    onClick={() => { setTermsAgreed(true); setShowTermsModal(false); }}
+                    className="w-full py-3.5 rounded-2xl text-sm font-bold bg-[#B0E401] text-[#231714] active:scale-[0.98] transition-transform"
+                  >
+                    利用規約に同意する
+                  </button>
                 </div>
               )}
             </div>
           </div>
+
+          {/* スクロールガイド（未読時のみフローティング表示） */}
+          {!termsRead && (
+            <div className="shrink-0 border-t border-gray-100 bg-white px-5 py-3">
+              <div className="flex items-center justify-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
+                  <path d="M12 5v14M19 12l-7 7-7-7" />
+                </svg>
+                <p className="text-[12px] text-[#231714]/40">最後までスクロールしてください</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
