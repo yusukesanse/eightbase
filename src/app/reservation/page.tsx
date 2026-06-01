@@ -701,18 +701,21 @@ export default function ReservationPage() {
               {!termsRead && (
                 <p className="text-[10px] text-center text-[#231714]/40">最後までスクロールしてご確認ください</p>
               )}
-              <button
-                onClick={() => { if (termsRead) { setShowTermsModal(false); } }}
-                disabled={!termsRead}
-                className={clsx(
-                  "w-full py-3 rounded-xl text-sm font-medium transition-colors",
-                  termsRead
-                    ? "bg-[#231714] text-white"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                )}
-              >
-                {termsRead ? "確認しました" : "規約を確認中..."}
-              </button>
+              {termsRead ? (
+                <button
+                  onClick={() => { setTermsAgreed(true); setShowTermsModal(false); }}
+                  className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
+                >
+                  利用規約に同意する
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-3 rounded-xl text-sm font-medium bg-gray-200 text-gray-400 cursor-not-allowed"
+                >
+                  下までスクロールしてください
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -746,30 +749,25 @@ export default function ReservationPage() {
               </div>
             </div>
 
-            {/* 利用規約チェックボックス */}
+            {/* 利用規約 */}
             {needsTerms && (
-              <label className={clsx(
-                "flex items-start gap-2 px-1 py-1",
-                termsRead ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-              )}>
-                <input
-                  type="checkbox"
-                  checked={termsAgreed}
-                  disabled={!termsRead}
-                  onChange={(e) => setTermsAgreed(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#B0E401] focus:ring-[#B0E401] disabled:opacity-40"
-                />
-                <span className="text-xs text-[#231714]/70">
-                  <button
-                    type="button"
-                    onClick={() => setShowTermsModal(true)}
-                    className="text-[#A5C1C8] underline font-medium"
-                  >
-                    利用規約
-                  </button>
-                  {termsRead ? "に同意する" : "を確認してください"}
-                </span>
-              </label>
+              termsAgreed ? (
+                <div className="flex items-center gap-2 px-1 py-1">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                    <circle cx="8" cy="8" r="8" fill="#B0E401"/>
+                    <path d="M4.5 8l2.5 2.5L11.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-xs text-[#231714]/70">利用規約に同意済み</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="w-full py-2.5 rounded-xl text-xs font-medium border border-[#A5C1C8] text-[#A5C1C8]"
+                >
+                  利用規約を確認する
+                </button>
+              )
             )}
 
             <button
