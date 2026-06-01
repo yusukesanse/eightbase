@@ -673,7 +673,8 @@ export default function ReservationPage() {
       {showTermsModal && selectedFacility?.termsContent && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setShowTermsModal(false)}>
           <div
-            className="bg-white rounded-t-2xl w-full max-h-[80vh] flex flex-col animate-slide-up"
+            className="bg-white rounded-t-2xl w-full flex flex-col animate-slide-up"
+            style={{ maxHeight: "calc(100dvh - 80px)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
@@ -687,31 +688,40 @@ export default function ReservationPage() {
                 </svg>
               </button>
             </div>
-            <div className="px-5 py-4 overflow-y-auto flex-1" onScroll={handleTermsScroll}>
-              <div className="prose prose-sm max-w-none text-[#231714]/80
-                prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
-                prose-h2:text-base prose-h3:text-sm
-                prose-p:my-1.5 prose-p:leading-relaxed
-                prose-li:my-0.5
-                prose-strong:text-[#231714]">
-                <ReactMarkdown>{selectedFacility.termsContent}</ReactMarkdown>
-              </div>
+            <div className="relative flex-1 overflow-hidden flex flex-col">
+              <div className="px-5 py-4 overflow-y-auto flex-1" onScroll={handleTermsScroll}>
+                <div className="prose prose-sm max-w-none text-[#231714]/80
+                  prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+                  prose-h2:text-base prose-h3:text-sm
+                  prose-p:my-1.5 prose-p:leading-relaxed
+                  prose-li:my-0.5
+                  prose-strong:text-[#231714]">
+                  <ReactMarkdown>{selectedFacility.termsContent}</ReactMarkdown>
+                </div>
 
-              {/* 規約末尾の同意ボタン（スクロール完了で表示） */}
-              <div className="mt-6 mb-2">
-                {termsRead ? (
-                  <button
-                    onClick={() => { setTermsAgreed(true); setShowTermsModal(false); }}
-                    className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
-                  >
-                    利用規約に同意する
-                  </button>
-                ) : (
-                  <p className="text-[11px] text-center text-[#231714]/30 py-3">
-                    ↓ 最後までスクロールしてください
-                  </p>
+                {/* 規約末尾の同意ボタン（スクロール完了で表示） */}
+                {termsRead && (
+                  <div className="mt-6 mb-4">
+                    <button
+                      onClick={() => { setTermsAgreed(true); setShowTermsModal(false); }}
+                      className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
+                    >
+                      利用規約に同意する
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {/* スクロールガイド（未読時のみ表示） */}
+              {!termsRead && (
+                <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+                  <div className="bg-gradient-to-t from-white via-white/90 to-transparent px-5 pt-6 pb-4">
+                    <p className="text-[11px] text-center text-[#231714]/50 animate-bounce">
+                      ↓ 最後までスクロールしてください
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
