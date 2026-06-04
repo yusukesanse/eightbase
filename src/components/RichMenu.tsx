@@ -18,7 +18,7 @@ const MENUS = [
   {
     href: "/info",
     label: "Info",
-    match: ["/info", "/events", "/quests", "/news"],
+    match: ["/info", "/events", "/news", "/games"],
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
         <circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5"/>

@@ -220,12 +220,12 @@ export async function sendReservationReminder(
   ]);
 }
 
-// ─── コンテンツ公開通知（イベント・クエスト・ニュース）─────────────────────────
-type ContentType = "event" | "quest" | "news";
+// ─── コンテンツ公開通知（イベント・ゲーム・ニュース）─────────────────────────
+type ContentType = "event" | "game" | "news";
 
 const CONTENT_CONFIG: Record<ContentType, { label: string; path: string; color: string }> = {
   event: { label: "イベント", path: "/events", color: "#A5C1C8" },
-  quest: { label: "クエスト", path: "/quests", color: "#A5C1C8" },
+  game:  { label: "ゲーム",   path: "/games",  color: "#A5C1C8" },
   news:  { label: "ニュース", path: "/news",   color: "#A5C1C8" },
 };
 

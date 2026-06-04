@@ -25,13 +25,11 @@ export async function GET(req: NextRequest) {
       usersSnap,
       reservationsSnap,
       facilitiesSnap,
-      questsSnap,
       eventsSnap,
     ] = await Promise.all([
       db.collection("authorizedUsers").get(),
       db.collection("reservations").where("status", "==", "confirmed").get(),
       db.collection("facilities").where("active", "==", true).get(),
-      db.collection("quests").get(),
       db.collection("events").get(),
     ]);
 
@@ -130,21 +128,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── 4. クエスト・イベントのグッド数ランキング ──
-    const questRanking = questsSnap.docs
-      .map((doc) => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          title: (d.title as string) || "無題",
-          goodCount: (d.goodCount as number) || 0,
-          type: "quest" as const,
-        };
-      })
-      .filter((q) => q.goodCount > 0)
-      .sort((a, b) => b.goodCount - a.goodCount)
-      .slice(0, 5);
-
+    // ── 4. イベントのグッド数ランキング ──
     const eventRanking = eventsSnap.docs
       .map((doc) => {
         const d = doc.data();
@@ -175,7 +159,6 @@ export async function GET(req: NextRequest) {
       }));
 
     // ── 6. コンテンツ統計 ──
-    const publishedQuests = questsSnap.docs.filter((d) => d.data().published).length;
     const publishedEvents = eventsSnap.docs.filter((d) => d.data().published).length;
 
     return NextResponse.json({
@@ -192,12 +175,9 @@ export async function GET(req: NextRequest) {
       facilityNames,
       userGrowth,
       hourlyDistribution,
-      questRanking,
       eventRanking,
       facilityUsage,
       // コンテンツ統計
-      totalQuests: questsSnap.size,
-      publishedQuests,
       totalEvents: eventsSnap.size,
       publishedEvents,
     });

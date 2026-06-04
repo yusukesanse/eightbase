@@ -26,12 +26,12 @@ export async function GET(req: NextRequest) {
 
   let publishedCount = 0;
   const errors: string[] = [];
-  const publishedItems: { type: "event" | "quest" | "news"; title: string }[] = [];
+  const publishedItems: { type: "event" | "game" | "news"; title: string }[] = [];
 
-  const collections: { name: string; type: "event" | "quest" | "news" }[] = [
+  const collections: { name: string; type: "event" | "game" | "news" }[] = [
     { name: "events", type: "event" },
     { name: "news", type: "news" },
-    { name: "quests", type: "quest" },
+    { name: "games", type: "game" },
   ];
 
   for (const col of collections) {
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
         batch.update(doc.ref, { published: true, scheduledAt: null });
         publishedItems.push({
           type: col.type,
-          title: doc.data().title || `新しい${col.type === "event" ? "イベント" : col.type === "news" ? "ニュース" : "クエスト"}`,
+          title: doc.data().title || `新しい${col.type === "event" ? "イベント" : col.type === "news" ? "ニュース" : "ゲーム"}`,
         });
         publishedCount++;
       }

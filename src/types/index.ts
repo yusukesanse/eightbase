@@ -101,28 +101,6 @@ export interface NewsItem {
   scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }
 
-// ─── クエスト ─────────────────────────────────────────────────────────────────
-export interface Quest {
-  questId: string;
-  title: string;
-  description: string;
-  requiredCount: number;
-  rewardPoints: number;
-  category: string;
-  imageUrl?: string;
-  published?: boolean;
-  scheduledAt?: string; // ISO8601: この日時になったら自動公開
-  startAt?: string;     // ISO8601: クエスト開始日
-  endAt?: string;       // ISO8601: クエスト終了日
-}
-
-export interface UserQuestProgress {
-  questId: string;
-  currentCount: number;
-  completed: boolean;
-  completedAt?: string;
-}
-
 // ─── スキル・プロフィール拡張 ─────────────────────────────────────────────────
 
 export interface SkillCategory {

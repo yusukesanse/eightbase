@@ -80,8 +80,8 @@ const NAV_ITEMS: NavItem[] = [
         ),
       },
       {
-        href: "/admin/quests",
-        label: "クエスト",
+        href: "/admin/games",
+        label: "ゲーム",
         icon: (
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
             <path d="M10 2.5l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L3 7.6l4.8-.7L10 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
@@ -123,7 +123,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   /* コンテンツ管理の子ページなら自動展開 */
   useEffect(() => {
-    const contentPaths = ["/admin/events", "/admin/quests", "/admin/news"];
+    const contentPaths = ["/admin/events", "/admin/games", "/admin/news"];
     if (contentPaths.some((p) => pathname.startsWith(p))) {
       setContentOpen(true);
     }
@@ -173,7 +173,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   function isContentChildActive() {
-    const contentPaths = ["/admin/events", "/admin/quests", "/admin/news"];
+    const contentPaths = ["/admin/events", "/admin/games", "/admin/news"];
     return contentPaths.some((p) => pathname.startsWith(p));
   }
 

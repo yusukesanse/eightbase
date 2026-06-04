@@ -42,11 +42,8 @@ interface Stats {
   facilityNames: Record<string, string>;
   userGrowth: { date: string; total: number; newUsers: number }[];
   hourlyDistribution: { hour: string; count: number }[];
-  questRanking: { id: string; title: string; goodCount: number; type: string }[];
   eventRanking: { id: string; title: string; goodCount: number; type: string }[];
   facilityUsage: { name: string; count: number }[];
-  totalQuests: number;
-  publishedQuests: number;
   totalEvents: number;
   publishedEvents: number;
 }
@@ -471,16 +468,14 @@ export default function AdminDashboardPage() {
 
             {/* 5. グッド数ランキング */}
             <StatCard className="p-5 sm:p-6">
-              <ChartHeader title="グッド数ランキング" subtitle="クエスト・イベントの人気度" />
+              <ChartHeader title="グッド数ランキング" subtitle="イベントの人気度" />
               <div className="space-y-2.5 mt-2">
-                {stats?.questRanking && stats.questRanking.length > 0 ? (
-                  [...stats.questRanking, ...stats.eventRanking]
+                {stats?.eventRanking && stats.eventRanking.length > 0 ? (
+                  stats.eventRanking
                     .sort((a, b) => b.goodCount - a.goodCount)
                     .slice(0, 6)
                     .map((item, i) => {
-                      const maxGood = Math.max(
-                        ...[...stats.questRanking, ...stats.eventRanking].map((x) => x.goodCount)
-                      );
+                      const maxGood = Math.max(...stats.eventRanking.map((x) => x.goodCount));
                       const pct = maxGood > 0 ? (item.goodCount / maxGood) * 100 : 0;
                       return (
                         <div key={item.id} className="flex items-center gap-3">
@@ -489,12 +484,8 @@ export default function AdminDashboardPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-1">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                item.type === "quest"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-teal-100 text-teal-700"
-                              }`}>
-                                {item.type === "quest" ? "クエスト" : "イベント"}
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-teal-100 text-teal-700">
+                                イベント
                               </span>
                               <span className="text-xs text-[#1a1a2e] font-medium truncate">{item.title}</span>
                             </div>
@@ -503,9 +494,7 @@ export default function AdminDashboardPage() {
                                 className="h-full rounded-full transition-all duration-500"
                                 style={{
                                   width: `${pct}%`,
-                                  background: item.type === "quest"
-                                    ? "linear-gradient(90deg, #2563eb, #3b82f6)"
-                                    : "linear-gradient(90deg, #0d9488, #14b8a6)",
+                                  background: "linear-gradient(90deg, #0d9488, #14b8a6)",
                                 }}
                               />
                             </div>
@@ -527,7 +516,7 @@ export default function AdminDashboardPage() {
 
           {/* コンテンツKPI + クイックアクション */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <MiniKPI label="クエスト" value={`${stats?.publishedQuests ?? 0}/${stats?.totalQuests ?? 0}`} unit="公開中" accent="text-blue-600" />
+            <MiniKPI label="ゲーム" value="—" unit="準備中" accent="text-blue-600" />
             <MiniKPI label="イベント" value={`${stats?.publishedEvents ?? 0}/${stats?.totalEvents ?? 0}`} unit="公開中" accent="text-teal-600" />
             <Link
               href="/admin/users"
