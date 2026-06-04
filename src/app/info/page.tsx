@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { NufEvent, NewsItem } from "@/types";
+import type { NufEvent, NewsItem, Game } from "@/types";
+import { GAME_CATEGORIES } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -20,18 +21,18 @@ export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
   const [events, setEvents] = useState<(NufEvent & { goodCount: number })[]>([]);
-  // ゲーム（STEP 3 で実装予定）
+  const [games, setGames] = useState<Game[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/events").then((r) => r.json()).catch(() => ({ events: [] })),
-      Promise.resolve({ games: [] }),
+      fetch("/api/games").then((r) => r.json()).catch(() => ({ games: [] })),
       fetch("/api/news").then((r) => r.json()).catch(() => ({ news: [] })),
-    ]).then(([evData, qData, nData]) => {
+    ]).then(([evData, gData, nData]) => {
       setEvents(evData.events ?? []);
-      // ゲームデータはSTEP 3で実装
+      setGames(gData.games ?? []);
       setNews(nData.news ?? []);
       setLoading(false);
     });
@@ -74,14 +75,7 @@ export default function InfoPage() {
             <EventsTab events={events} router={router} />
           )}
           {activeTab === "games" && (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 rounded-2xl bg-[#A5C1C8]/10 flex items-center justify-center mx-auto mb-4">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="1.5">
-                  <path d="M12 2.5l2.9 5.8 6.4 1-4.6 4.5 1.1 6.4-5.8-3-5.8 3 1.1-6.4-4.6-4.5 6.4-1L12 2.5z" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <p className="text-sm text-[#231714]/40">ゲーム機能は準備中です</p>
-            </div>
+            <GamesTab games={games} router={router} />
           )}
           {activeTab === "news" && (
             <NewsTab news={news} router={router} />
@@ -351,6 +345,154 @@ function EventsTab({
   );
 }
 
+
+/* ═══════════════════════════════════════════
+   ゲームタブ
+   ═══════════════════════════════════════════ */
+
+const GAME_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  upcoming:         { label: "募集中",   color: "bg-blue-100 text-blue-700" },
+  ongoing:          { label: "開催中",   color: "bg-green-100 text-green-700" },
+  awaiting_results: { label: "結果待ち", color: "bg-amber-100 text-amber-700" },
+  completed:        { label: "完了",     color: "bg-gray-100 text-gray-500" },
+};
+
+function getGameCategoryLabel(category: string, categoryLabel?: string): string {
+  if (category === "other" && categoryLabel) return categoryLabel;
+  return GAME_CATEGORIES.find((c) => c.id === category)?.label ?? category;
+}
+
+function GamesTab({
+  games,
+  router,
+}: {
+  games: Game[];
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+
+  const filtered = useMemo(() => {
+    const now = new Date().toISOString();
+    let list = games;
+    if (filter === "upcoming") {
+      list = games.filter((g) => g.status === "upcoming" || g.status === "ongoing");
+    } else if (filter === "past") {
+      list = games.filter((g) => g.status === "completed" || g.status === "awaiting_results");
+    }
+    return list.sort((a, b) => {
+      if (filter === "upcoming") return new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
+      return new Date(b.startAt).getTime() - new Date(a.startAt).getTime();
+    });
+  }, [games, filter]);
+
+  if (games.length === 0) {
+    return <EmptyState message="現在開催予定のゲームはありません" />;
+  }
+
+  return (
+    <div>
+      {/* フィルター */}
+      <div className="flex gap-1.5 mb-4">
+        {([
+          { key: "upcoming" as const, label: "開催予定" },
+          { key: "past" as const, label: "過去" },
+          { key: "all" as const, label: "すべて" },
+        ]).map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={clsx(
+              "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+              filter === f.key
+                ? "bg-[#231714] text-white"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState message={filter === "upcoming" ? "開催予定のゲームはありません" : "該当するゲームはありません"} />
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((g) => {
+            const isPast = g.status === "completed" || g.status === "awaiting_results";
+            const isFull = (g.participantCount ?? 0) >= g.maxParticipants;
+            const isDeadlinePassed = new Date(g.deadline) < new Date();
+            const statusCfg = GAME_STATUS_CONFIG[g.status] ?? GAME_STATUS_CONFIG.upcoming;
+
+            return (
+              <div
+                key={g.gameId}
+                onClick={() => router.push(`/games/${g.gameId}`)}
+                className={clsx(
+                  "bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer",
+                  isPast && "opacity-70"
+                )}
+              >
+                <div className="flex">
+                  {/* 左: 日付ブロック */}
+                  <div className={clsx(
+                    "w-20 flex-shrink-0 flex flex-col items-center justify-center py-3",
+                    isPast ? "bg-gray-100" : "bg-gradient-to-b from-[#A5C1C8] to-[#8BA8AF]"
+                  )}>
+                    <span className={clsx("text-[10px] font-bold", isPast ? "text-gray-400" : "text-white/70")}>
+                      {dayjs(g.startAt).format("M月")}
+                    </span>
+                    <span className={clsx("text-2xl font-bold leading-none", isPast ? "text-gray-500" : "text-white")}>
+                      {dayjs(g.startAt).format("D")}
+                    </span>
+                    <span className={clsx("text-[10px]", isPast ? "text-gray-400" : "text-white/70")}>
+                      {dayjs(g.startAt).format("ddd")}
+                    </span>
+                  </div>
+
+                  {/* 右: 情報 */}
+                  <div className="flex-1 p-3 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-bold", statusCfg.color)}>
+                        {statusCfg.label}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70">
+                        {getGameCategoryLabel(g.category, g.categoryLabel)}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-[#231714] leading-snug line-clamp-2">
+                      {g.title}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-[#231714]/40">
+                      <span>{dayjs(g.startAt).format("HH:mm")}〜</span>
+                      <span>📍 {g.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className={clsx(
+                        "text-[11px] font-medium",
+                        isFull ? "text-red-500" : "text-[#231714]/60"
+                      )}>
+                        👥 {g.participantCount ?? 0}/{g.maxParticipants}名
+                      </span>
+                      {isFull && <span className="text-[10px] text-red-400">満員</span>}
+                      {!isFull && isDeadlinePassed && g.status === "upcoming" && (
+                        <span className="text-[10px] text-amber-500">締切済</span>
+                      )}
+                      {!isFull && !isDeadlinePassed && g.status === "upcoming" && (
+                        <span className="text-[10px] text-[#231714]/30">
+                          締切 {dayjs(g.deadline).format("M/D HH:mm")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════
    ニュースタブ
