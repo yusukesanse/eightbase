@@ -51,7 +51,6 @@ const EMPTY_FORM = {
   imageUrl: "",
   maxParticipants: "8",
   deadline: "",
-  calendarId: "",
   published: false,
   scheduledAt: "",
   pointsParticipation: "10",
@@ -195,7 +194,6 @@ export default function AdminGamesPage() {
       imageUrl: g.imageUrl ?? "",
       maxParticipants: String(g.maxParticipants),
       deadline: g.deadline ? dayjs(g.deadline).format("YYYY-MM-DDTHH:mm") : "",
-      calendarId: g.calendarId ?? "",
       published: g.published,
       scheduledAt: g.scheduledAt ? dayjs(g.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
       pointsParticipation: String(g.pointsConfig?.participation ?? 10),
@@ -251,7 +249,6 @@ export default function AdminGamesPage() {
         imageUrl: imageUrl ?? "",
         maxParticipants: Number(form.maxParticipants) || 8,
         deadline: form.deadline ? new Date(form.deadline).toISOString() : "",
-        calendarId: form.calendarId || undefined,
         published: publishMode === "immediate",
         scheduledAt: publishMode === "scheduled" && form.scheduledAt
           ? new Date(form.scheduledAt).toISOString() : null,
@@ -628,13 +625,6 @@ export default function AdminGamesPage() {
                     <input type="number" min="0" value={form.pointsRank3} onChange={(e) => setForm({ ...form, pointsRank3: e.target.value })} className={inputClass} />
                   </div>
                 </div>
-              </div>
-
-              {/* Googleカレンダー */}
-              <div>
-                <label className={labelClass}>Google Calendar ID（任意）</label>
-                <input type="text" value={form.calendarId} onChange={(e) => setForm({ ...form, calendarId: e.target.value })} className={inputClass} placeholder="xxx@group.calendar.google.com" />
-                <p className="text-[10px] text-[#231714]/30 mt-1">設定するとGoogleカレンダーにイベントが自動登録されます</p>
               </div>
 
               {/* 画像 */}

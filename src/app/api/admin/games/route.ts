@@ -23,7 +23,7 @@ const GAME_UPDATE_FIELDS = [
   "title", "category", "categoryLabel", "description",
   "startAt", "endAt", "location", "imageUrl",
   "maxParticipants", "deadline", "pointsConfig",
-  "published", "scheduledAt", "status", "calendarId",
+  "published", "scheduledAt", "status",
 ];
 
 /**
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       title, category, categoryLabel, description,
       startAt, endAt, location, imageUrl,
       maxParticipants, deadline, pointsConfig,
-      published, scheduledAt, calendarId,
+      published, scheduledAt,
     } = body;
 
     if (!title || !category || !description || !startAt || !location || !maxParticipants || !deadline) {
@@ -96,12 +96,15 @@ export async function POST(req: NextRequest) {
     if (categoryLabel) data.categoryLabel = categoryLabel;
     if (imageUrl) data.imageUrl = imageUrl;
     if (scheduledAt) data.scheduledAt = scheduledAt;
-    if (calendarId) data.calendarId = calendarId;
 
-    // Google Calendar 連携
-    if (calendarId && startAt) {
+    // Google Calendar 連携（settings からカレンダーIDを取得）
+    const settingsDoc = await db.collection("settings").doc("app").get();
+    const gameCalendarId = settingsDoc.exists ? (settingsDoc.data()?.gameCalendarId as string) : "";
+    if (gameCalendarId) data.calendarId = gameCalendarId;
+
+    if (gameCalendarId && startAt) {
       try {
-        const eventId = await createCalendarEventISO(calendarId, {
+        const eventId = await createCalendarEventISO(gameCalendarId, {
           summary: `🎮 ${title}`,
           description: description || "",
           startTime: startAt,

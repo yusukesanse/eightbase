@@ -58,6 +58,11 @@ export default function CalendarsPage() {
   // 削除確認
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // ゲーム用カレンダー設定
+  const [gameCalendarId, setGameCalendarId] = useState("");
+  const [gameCalendarSaving, setGameCalendarSaving] = useState(false);
+  const [gameCalendarLoaded, setGameCalendarLoaded] = useState(false);
+
   /* ───────── データ取得 ───────── */
 
   const fetchFacilities = useCallback(async (migrate = false) => {
@@ -88,7 +93,33 @@ export default function CalendarsPage() {
   useEffect(() => {
     // 初回は移行チェック付きで取得
     fetchFacilities(true);
+    // ゲーム用カレンダー設定を取得
+    fetch("/api/admin/settings", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((d) => {
+        setGameCalendarId(d.settings?.gameCalendarId ?? "");
+        setGameCalendarLoaded(true);
+      })
+      .catch(() => setGameCalendarLoaded(true));
   }, [fetchFacilities]);
+
+  async function saveGameCalendar() {
+    setGameCalendarSaving(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ gameCalendarId }),
+      });
+      if (!res.ok) throw new Error();
+      setSuccess("ゲーム用カレンダーIDを保存しました");
+    } catch {
+      setError("ゲーム用カレンダーIDの保存に失敗しました");
+    } finally {
+      setGameCalendarSaving(false);
+    }
+  }
 
   /* ───────── モーダル操作 ───────── */
 
@@ -258,6 +289,35 @@ export default function CalendarsPage() {
       {success && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-[#B0E401] text-sm">
           {success}
+        </div>
+      )}
+
+      {/* ゲーム用カレンダー設定 */}
+      {gameCalendarLoaded && (
+        <div className="mb-6 bg-white border border-[#231714]/10 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2.5l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L3 7.6l4.8-.7L10 2.5z" stroke="#A5C1C8" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+            <h3 className="text-sm font-semibold text-[#231714]">ゲーム用カレンダー</h3>
+          </div>
+          <p className="text-xs text-[#231714]/40 mb-3">ゲーム（大会・トーナメント）の予定を登録するGoogleカレンダーIDを設定します</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={gameCalendarId}
+              onChange={(e) => setGameCalendarId(e.target.value)}
+              placeholder="xxx@group.calendar.google.com"
+              className="flex-1 px-3 py-2 text-sm border border-[#231714]/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#231714]"
+            />
+            <button
+              onClick={saveGameCalendar}
+              disabled={gameCalendarSaving}
+              className="px-4 py-2 text-sm bg-[#231714] text-white rounded-lg hover:bg-[#231714]/80 disabled:opacity-50 whitespace-nowrap"
+            >
+              {gameCalendarSaving ? "保存中…" : "保存"}
+            </button>
+          </div>
         </div>
       )}
 
