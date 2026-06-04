@@ -101,6 +101,57 @@ export interface NewsItem {
   scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }
 
+// ─── ゲーム（大会・トーナメント） ───────────────────────────────────────────────
+
+export type GameStatus = "upcoming" | "ongoing" | "awaiting_results" | "completed" | "cancelled";
+
+/** 固定カテゴリ + "other" で自由入力を許可 */
+export const GAME_CATEGORIES = [
+  { id: "mahjong",   label: "麻雀" },
+  { id: "darts",     label: "ダーツ" },
+  { id: "billiards", label: "ビリヤード" },
+  { id: "poker",     label: "ポーカー" },
+  { id: "boardgame", label: "ボードゲーム" },
+  { id: "other",     label: "その他" },
+] as const;
+
+export interface GamePointsConfig {
+  participation: number;  // 参加ポイント
+  ranks: Record<number, number>; // { 1: 100, 2: 50, 3: 30 }
+}
+
+export interface Game {
+  gameId: string;
+  title: string;
+  category: string;       // GAME_CATEGORIES の id or 自由入力値
+  categoryLabel?: string; // "other" の場合の表示名
+  description: string;
+  startAt: string;        // ISO8601
+  endAt?: string;         // ISO8601
+  location: string;
+  imageUrl?: string;
+  maxParticipants: number;
+  deadline: string;       // ISO8601: 申込締切
+  pointsConfig: GamePointsConfig;
+  googleEventId?: string;
+  calendarId?: string;
+  status: GameStatus;
+  participantCount: number;
+  published: boolean;
+  scheduledAt?: string;   // ISO8601: 自動公開日時
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GameParticipant {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  joinedAt: string;       // ISO8601
+  rank?: number;          // 結果登録後
+  pointsAwarded?: number; // 付与済みポイント
+}
+
 // ─── スキル・プロフィール拡張 ─────────────────────────────────────────────────
 
 export interface SkillCategory {

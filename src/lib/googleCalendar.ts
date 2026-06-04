@@ -128,6 +128,39 @@ export async function deleteCalendarEvent(
   await calendar.events.delete({ calendarId, eventId });
 }
 
+// ─── ISO8601 日時でイベント作成（ゲーム等に使用）────────────────────────────────
+
+export async function createCalendarEventISO(
+  calendarId: string,
+  {
+    summary,
+    description,
+    startTime,
+    endTime,
+    location,
+  }: {
+    summary: string;
+    description?: string;
+    startTime: string;   // ISO8601
+    endTime: string;     // ISO8601
+    location?: string;
+  }
+): Promise<string> {
+  const calendar = getCalendar();
+  const res = await calendar.events.insert({
+    calendarId,
+    requestBody: {
+      summary,
+      description,
+      location,
+      start: { dateTime: startTime, timeZone: "Asia/Tokyo" },
+      end:   { dateTime: endTime,   timeZone: "Asia/Tokyo" },
+    },
+  });
+  if (!res.data.id) throw new Error("Failed to create calendar event");
+  return res.data.id;
+}
+
 // ─── ユーティリティ ───────────────────────────────────────────────────────────
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
