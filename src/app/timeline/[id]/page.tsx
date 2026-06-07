@@ -298,26 +298,29 @@ export default function PostDetailPage() {
       )}
 
       {/* コメント入力 */}
-      <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 px-4 py-2.5 flex items-center gap-2 z-20">
-        <input
-          ref={commentInputRef}
-          type="text"
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submitComment()}
-          placeholder="コメントを入力..."
-          maxLength={200}
-          className="flex-1 px-3 py-2 text-[13px] bg-gray-50 rounded-full border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-        />
-        <button
-          onClick={submitComment}
-          disabled={!commentText.trim() || sending}
-          className="p-2 rounded-full bg-[#A5C1C8] text-white disabled:opacity-40 transition-opacity"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 8l5-5v3.5h5a1 1 0 011 1v1a1 1 0 01-1 1H7V13L2 8z" fill="white" />
-          </svg>
-        </button>
+      <div className="fixed bottom-0 left-0 right-0 max-w-4xl mx-auto bg-white border-t border-gray-200 z-20 safe-area-pb">
+        <div className="px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px)+56px)] flex items-center gap-2">
+          <input
+            ref={commentInputRef}
+            type="text"
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submitComment()}
+            placeholder="コメントを入力..."
+            maxLength={200}
+            className="flex-1 min-w-0 px-3 py-2 text-[16px] bg-gray-50 rounded-full border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+            style={{ fontSize: "16px" }}
+          />
+          <button
+            onClick={submitComment}
+            disabled={!commentText.trim() || sending}
+            className="shrink-0 w-9 h-9 rounded-full bg-[#A5C1C8] text-white disabled:opacity-40 transition-opacity flex items-center justify-center"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 8l5-5v3.5h5a1 1 0 011 1v1a1 1 0 01-1 1H7V13L2 8z" fill="white" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

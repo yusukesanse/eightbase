@@ -1,24 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-/** ログイン不要のパス（/ は LIFF エンドポイントURL で初期化に必要） */
 const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
-/** ログイン不要のプレフィックス（/admin は独自の認証を持つ） */
 const PUBLIC_PREFIXES = ["/admin"];
 
-/**
- * 認証ガード（ハイブリッド認証対応）
- * - セッション Cookie を /api/auth/check に送り認証状態を確認
- * - 未認証の場合 /login にリダイレクト
- * - 認証済みだがプロフィール未登録の場合 /setup-profile にリダイレクト
- * - /login, /setup-profile, /admin はチェックをスキップ
- */
+/** セッション中の認証キャッシュ（ページ遷移ごとのAPIコールを防止） */
+let authCache: { authorized: boolean; profileComplete: boolean; checkedAt: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000; // 5分間キャッシュ
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [status, setStatus] = useState<"loading" | "authorized" | "unauthorized">("loading");
+  const [status, setStatus] = useState<"loading" | "authorized" | "unauthorized">(() => {
+    // キャッシュが有効ならloadingをスキップ
+    if (authCache && Date.now() - authCache.checkedAt < CACHE_TTL && authCache.authorized) {
+      return "authorized";
+    }
+    return "loading";
+  });
+  const checkingRef = useRef(false);
 
   const isPublicPath =
     PUBLIC_PATHS.includes(pathname) ||
@@ -30,15 +32,35 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let cancelled = false;
+    // キャッシュが有効なら即authorized（プロフィール未完了チェックのみ）
+    if (authCache && Date.now() - authCache.checkedAt < CACHE_TTL) {
+      if (authCache.authorized) {
+        if (!authCache.profileComplete && pathname !== "/setup-profile") {
+          router.replace("/setup-profile");
+          return;
+        }
+        setStatus("authorized");
+        return;
+      }
+      setStatus("unauthorized");
+      router.replace("/login");
+      return;
+    }
+
+    // 同時リクエスト防止
+    if (checkingRef.current) return;
+    checkingRef.current = true;
 
     fetch("/api/auth/check", { credentials: "include" })
       .then(async (res) => {
-        if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
+          authCache = {
+            authorized: !!data.authorized,
+            profileComplete: !!data.profileComplete,
+            checkedAt: Date.now(),
+          };
           if (data.authorized) {
-            // プロフィール未登録チェック
             if (!data.profileComplete && pathname !== "/setup-profile") {
               router.replace("/setup-profile");
               return;
@@ -49,36 +71,41 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             router.replace("/login");
           }
         } else {
+          authCache = null;
           setStatus("unauthorized");
           router.replace("/login");
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setStatus("unauthorized");
-          router.replace("/login");
-        }
+        authCache = null;
+        setStatus("unauthorized");
+        router.replace("/login");
+      })
+      .finally(() => {
+        checkingRef.current = false;
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [isPublicPath, pathname, router]);
 
-  // ロード中
   if (status === "loading" && !isPublicPath) {
+    // 軽量なスケルトン（フルスクリーンスピナーではない）
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400">読み込み中...</p>
+      <div className="min-h-screen bg-gray-50 animate-pulse">
+        <div className="h-14 bg-gray-100" />
+        <div className="p-4 space-y-3">
+          <div className="h-4 bg-gray-100 rounded w-1/3" />
+          <div className="h-24 bg-gray-100 rounded-xl" />
+          <div className="h-24 bg-gray-100 rounded-xl" />
         </div>
       </div>
     );
   }
 
-  // リダイレクト中は何も表示しない
   if (status === "unauthorized") return null;
 
   return <>{children}</>;
+}
+
+/** 外部からキャッシュをクリア（ログアウト時に使用） */
+export function clearAuthCache() {
+  authCache = null;
 }

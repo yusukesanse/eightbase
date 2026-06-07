@@ -1,44 +1,79 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // LIFF は CSR が必要なため SSR を部分的に無効化
   reactStrictMode: true,
 
-  // ─── セキュリティヘッダー ─────────────────────────────────────────────────
+  // ─── 画像最適化 ─────────────────────────────────────────────────────────
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      { protocol: "https", hostname: "profile.line-scdn.net" },
+      { protocol: "https", hostname: "firebasestorage.googleapis.com" },
+      { protocol: "https", hostname: "storage.googleapis.com" },
+    ],
+  },
+
+  // ─── セキュリティヘッダー + キャッシュ ───────────────────────────────────
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: [
-          // HTTPS 強制（本番のみ有効 / Vercel では自動的に HTTPS）
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
-          // iframe 埋め込みを同一オリジンのみ許可
           {
             key: "X-Frame-Options",
             value: "SAMEORIGIN",
           },
-          // MIME タイプ スニッフィングを無効化
           {
             key: "X-Content-Type-Options",
             value: "nosniff",
           },
-          // Referrer ヘッダーのポリシー
           {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
-          // 不要なブラウザAPIのアクセスを制限
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
-          // XSS フィルター（レガシーブラウザ向け）
           {
             key: "X-XSS-Protection",
             value: "1; mode=block",
           },
+        ],
+      },
+      // 静的アセットの長期キャッシュ
+      {
+        source: "/_next/static/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      // API レスポンスの短期キャッシュ（公開API）
+      {
+        source: "/api/facilities",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" },
+        ],
+      },
+      {
+        source: "/api/events",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" },
+        ],
+      },
+      {
+        source: "/api/news",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" },
+        ],
+      },
+      {
+        source: "/api/games",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" },
         ],
       },
     ];
