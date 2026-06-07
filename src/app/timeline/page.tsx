@@ -85,6 +85,24 @@ export default function TimelinePage() {
     }
   }
 
+  async function handleDelete(postId: string) {
+    if (!confirm("この投稿を削除しますか？")) return;
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setPosts((prev) => prev.filter((p) => p.postId !== postId));
+      } else {
+        const data = await res.json();
+        alert(data.error || "削除に失敗しました");
+      }
+    } catch {
+      alert("通信エラーが発生しました");
+    }
+  }
+
   const filtered =
     activeTab === "all" ? posts : posts.filter((p) => p.type === activeTab);
 
@@ -137,6 +155,7 @@ export default function TimelinePage() {
               currentUserId={currentUserId}
               onLike={() => toggleLike(post.postId)}
               onClick={() => router.push(`/timeline/${post.postId}`)}
+              onDelete={() => handleDelete(post.postId)}
             />
           ))}
         </div>
@@ -160,13 +179,16 @@ function PostCard({
   currentUserId,
   onLike,
   onClick,
+  onDelete,
 }: {
   post: Post;
   currentUserId: string;
   onLike: () => void;
   onClick: () => void;
+  onDelete: () => void;
 }) {
   const liked = post.likes.includes(currentUserId);
+  const isOwner = currentUserId === post.authorId;
   const timeAgo = getRelativeTime(post.createdAt);
 
   return (
@@ -262,6 +284,20 @@ function PostCard({
           </svg>
           <span className="text-[11px] text-gray-400">{post.commentCount}</span>
         </button>
+        {isOwner && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="flex items-center gap-1 ml-auto"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 5h10M6 5V3.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V5M5 5v8.5a.5.5 0 00.5.5h5a.5.5 0 00.5-.5V5" stroke="#ccc" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[11px] text-gray-300">削除</span>
+          </button>
+        )}
       </div>
     </div>
   );

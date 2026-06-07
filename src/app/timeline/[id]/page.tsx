@@ -36,6 +36,7 @@ export default function PostDetailPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -127,6 +128,29 @@ export default function PostDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("この投稿を削除しますか？")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        router.replace("/timeline");
+      } else {
+        const data = await res.json();
+        alert(data.error || "削除に失敗しました");
+      }
+    } catch {
+      alert("通信エラーが発生しました");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const isOwner = currentUserId && post?.authorId === currentUserId;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -160,7 +184,16 @@ export default function PostDetailPage() {
         <button onClick={() => router.back()} className="p-1">
           <BackIcon />
         </button>
-        <h1 className="text-[15px] font-medium text-[#231714]">投稿</h1>
+        <h1 className="text-[15px] font-medium text-[#231714] flex-1">投稿</h1>
+        {isOwner && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50 px-2 py-1"
+          >
+            {deleting ? "削除中..." : "削除"}
+          </button>
+        )}
       </header>
 
       {/* 投稿本文 */}
