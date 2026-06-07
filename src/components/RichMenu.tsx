@@ -64,7 +64,7 @@ export function RichMenu() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 grid grid-cols-5 z-50">
+    <nav className="fixed bottom-0 left-0 right-0 max-w-4xl mx-auto bg-white border-t border-gray-200 grid grid-cols-5 z-50">
       {MENUS.map((menu) => {
         const paths = (menu as { match?: string[] }).match || [menu.href];
         const active = paths.some((p) => pathname.startsWith(p));
