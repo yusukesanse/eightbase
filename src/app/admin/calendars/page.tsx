@@ -22,6 +22,9 @@ interface FacilityForm {
   // 利用規約
   requireTerms: boolean;
   termsContent: string;
+  // 課金設定
+  requirePayment: boolean;
+  hourlyRate: string;        // 円/時間（空文字=未設定）
 }
 
 const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -39,6 +42,8 @@ const EMPTY_FORM: FacilityForm = {
   prepTime: "",
   requireTerms: false,
   termsContent: "",
+  requirePayment: false,
+  hourlyRate: "",
 };
 
 /* ───────── メインコンポーネント ───────── */
@@ -144,6 +149,8 @@ export default function CalendarsPage() {
       prepTime: facility.prepTime ? String(facility.prepTime) : "",
       requireTerms: facility.requireTerms ?? false,
       termsContent: facility.termsContent ?? "",
+      requirePayment: facility.requirePayment ?? false,
+      hourlyRate: facility.hourlyRate ? String(facility.hourlyRate) : "",
     });
     setShowModal(true);
   }
@@ -179,6 +186,8 @@ export default function CalendarsPage() {
         prepTime: form.prepTime ? Number(form.prepTime) : undefined,
         // termsContent は requireTerms=false なら送らない
         termsContent: form.requireTerms ? form.termsContent : undefined,
+        // hourlyRate は requirePayment=false なら送らない
+        hourlyRate: form.requirePayment && form.hourlyRate ? Number(form.hourlyRate) : undefined,
       };
 
       if (editingId) {
@@ -412,6 +421,11 @@ export default function CalendarsPage() {
                     {f.requireTerms && (
                       <p className="text-xs text-[#231714]/60 mt-0.5">
                         📋 利用規約あり
+                      </p>
+                    )}
+                    {f.requirePayment && (
+                      <p className="text-xs text-[#231714]/60 mt-0.5">
+                        💳 決済あり（{f.hourlyRate?.toLocaleString() ?? "—"}円/時間）
                       </p>
                     )}
                     <p className="text-xs text-[#231714]/40 mt-0.5 font-mono break-all">
@@ -684,6 +698,34 @@ export default function CalendarsPage() {
                     value={form.termsContent}
                     onChange={(v) => setForm({ ...form, termsContent: v })}
                   />
+                )}
+              </div>
+
+              {/* ── 課金設定 ── */}
+              <div className="border-t border-gray-100 pt-4">
+                <label className="flex items-center gap-3 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={form.requirePayment}
+                    onChange={(e) => setForm({ ...form, requirePayment: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-[#A5C1C8] focus:ring-[#A5C1C8]"
+                  />
+                  <span className="text-sm text-gray-700">予約時にSquare決済を必須にする</span>
+                </label>
+                {form.requirePayment && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">時間単価（円/時間）</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={form.hourlyRate}
+                      onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
+                      placeholder="1000"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">利用時間×単価が予約時に課金されます</p>
+                  </div>
                 )}
               </div>
 

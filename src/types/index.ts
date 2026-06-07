@@ -33,6 +33,9 @@ export interface Facility {
   // ── 利用規約 ──
   requireTerms?: boolean;  // true=予約前に利用規約への同意が必要
   termsContent?: string;   // 利用規約の本文（改行対応）
+  // ── 課金設定 ──
+  requirePayment?: boolean;  // true=予約時にSquare決済が必要
+  hourlyRate?: number;       // 時間単価（円/時間）
   createdAt?: string;  // ISO8601
   updatedAt?: string;  // ISO8601
 }
@@ -52,6 +55,10 @@ export interface Reservation {
   status: ReservationStatus;
   termsAgreed?: boolean;    // 利用規約に同意済み
   termsAgreedAt?: string;   // 同意日時 ISO8601
+  // ── 決済情報 ──
+  paymentId?: string;       // Square Payment ID
+  paymentAmount?: number;   // 決済金額（円）
+  paymentStatus?: "completed" | "failed" | "refunded";
   createdAt: string;
 }
 

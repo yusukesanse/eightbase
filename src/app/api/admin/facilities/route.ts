@@ -23,6 +23,7 @@ const ALLOWED_UPDATE_FIELDS = [
   "openTime", "closeTime", "availableDays",
   "minDuration", "fixedDuration", "prepTime",
   "requireTerms", "termsContent",
+  "requirePayment", "hourlyRate",
 ];
 
 const TIME_REGEX = /^\d{2}:\d{2}$/;
@@ -130,6 +131,8 @@ export async function POST(req: NextRequest) {
     prepTime: body.prepTime,
     requireTerms: body.requireTerms,
     termsContent: body.termsContent,
+    requirePayment: body.requirePayment,
+    hourlyRate: body.hourlyRate ? Number(body.hourlyRate) : undefined,
   });
 
   return NextResponse.json({ facility }, { status: 201 });
@@ -179,6 +182,9 @@ export async function PUT(req: NextRequest) {
   }
   if (updateData.prepTime !== undefined) {
     updateData.prepTime = Number(updateData.prepTime);
+  }
+  if (updateData.hourlyRate !== undefined) {
+    updateData.hourlyRate = Number(updateData.hourlyRate);
   }
 
   await updateFacility(id, updateData);
