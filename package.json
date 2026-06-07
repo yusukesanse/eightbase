@@ -26,6 +26,7 @@
     "react-dom": "^18",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
+    "square": "^44.1.0",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
