@@ -362,6 +362,15 @@ function getGameCategoryLabel(category: string, categoryLabel?: string): string 
   return GAME_CATEGORIES.find((c) => c.id === category)?.label ?? category;
 }
 
+interface RankingUser {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl: string;
+  totalPoints: number;
+  gameCount: number;
+  winCount: number;
+}
+
 function GamesTab({
   games,
   router,
@@ -369,10 +378,26 @@ function GamesTab({
   games: Game[];
   router: ReturnType<typeof useRouter>;
 }) {
+  const [subTab, setSubTab] = useState<"games" | "ranking">("games");
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
 
+  // ランキングデータ
+  const [ranking, setRanking] = useState<RankingUser[]>([]);
+  const [rankingCategory, setRankingCategory] = useState("all");
+  const [rankingLoading, setRankingLoading] = useState(false);
+
+  // ランキング取得
+  useEffect(() => {
+    if (subTab !== "ranking") return;
+    setRankingLoading(true);
+    fetch(`/api/games/ranking?category=${rankingCategory}`)
+      .then((r) => r.json())
+      .then((d) => setRanking(d.ranking ?? []))
+      .catch(() => setRanking([]))
+      .finally(() => setRankingLoading(false));
+  }, [subTab, rankingCategory]);
+
   const filtered = useMemo(() => {
-    const now = new Date().toISOString();
     let list = games;
     if (filter === "upcoming") {
       list = games.filter((g) => g.status === "upcoming" || g.status === "ongoing");
@@ -385,110 +410,212 @@ function GamesTab({
     });
   }, [games, filter]);
 
-  if (games.length === 0) {
-    return <EmptyState message="現在開催予定のゲームはありません" />;
-  }
+  // 種目一覧を抽出（ランキングフィルタ用）
+  const categoryOptions = useMemo(() => {
+    const cats = new Set(games.map((g) => g.category));
+    return Array.from(cats);
+  }, [games]);
 
   return (
     <div>
-      {/* フィルター */}
-      <div className="flex gap-1.5 mb-4">
-        {([
-          { key: "upcoming" as const, label: "開催予定" },
-          { key: "past" as const, label: "過去" },
-          { key: "all" as const, label: "すべて" },
-        ]).map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={clsx(
-              "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-              filter === f.key
-                ? "bg-[#231714] text-white"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* サブタブ */}
+      <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1">
+        <button
+          onClick={() => setSubTab("games")}
+          className={clsx(
+            "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
+            subTab === "games" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+          )}
+        >
+          ゲーム
+        </button>
+        <button
+          onClick={() => setSubTab("ranking")}
+          className={clsx(
+            "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
+            subTab === "ranking" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+          )}
+        >
+          ランキング
+        </button>
       </div>
 
-      {filtered.length === 0 ? (
-        <EmptyState message={filter === "upcoming" ? "開催予定のゲームはありません" : "該当するゲームはありません"} />
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((g) => {
-            const isPast = g.status === "completed" || g.status === "awaiting_results";
-            const isFull = (g.participantCount ?? 0) >= g.maxParticipants;
-            const isDeadlinePassed = new Date(g.deadline) < new Date();
-            const statusCfg = GAME_STATUS_CONFIG[g.status] ?? GAME_STATUS_CONFIG.upcoming;
-
-            return (
-              <div
-                key={g.gameId}
-                onClick={() => router.push(`/games/${g.gameId}`)}
+      {/* ── ランキングタブ ── */}
+      {subTab === "ranking" && (
+        <div>
+          {/* 種目フィルター */}
+          <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+            <button
+              onClick={() => setRankingCategory("all")}
+              className={clsx(
+                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
+                rankingCategory === "all" ? "bg-[#231714] text-white" : "bg-gray-100 text-gray-500"
+              )}
+            >
+              総合
+            </button>
+            {categoryOptions.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setRankingCategory(cat)}
                 className={clsx(
-                  "bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer",
-                  isPast && "opacity-70"
+                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
+                  rankingCategory === cat ? "bg-[#231714] text-white" : "bg-gray-100 text-gray-500"
                 )}
               >
-                <div className="flex">
-                  {/* 左: 日付ブロック */}
-                  <div className={clsx(
-                    "w-20 flex-shrink-0 flex flex-col items-center justify-center py-3",
-                    isPast ? "bg-gray-100" : "bg-gradient-to-b from-[#A5C1C8] to-[#8BA8AF]"
-                  )}>
-                    <span className={clsx("text-[10px] font-bold", isPast ? "text-gray-400" : "text-white/70")}>
-                      {dayjs(g.startAt).format("M月")}
-                    </span>
-                    <span className={clsx("text-2xl font-bold leading-none", isPast ? "text-gray-500" : "text-white")}>
-                      {dayjs(g.startAt).format("D")}
-                    </span>
-                    <span className={clsx("text-[10px]", isPast ? "text-gray-400" : "text-white/70")}>
-                      {dayjs(g.startAt).format("ddd")}
-                    </span>
-                  </div>
+                {getGameCategoryLabel(cat)}
+              </button>
+            ))}
+          </div>
 
-                  {/* 右: 情報 */}
-                  <div className="flex-1 p-3 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-bold", statusCfg.color)}>
-                        {statusCfg.label}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70">
-                        {getGameCategoryLabel(g.category, g.categoryLabel)}
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-bold text-[#231714] leading-snug line-clamp-2">
-                      {g.title}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-[#231714]/40">
-                      <span>{dayjs(g.startAt).format("HH:mm")}〜</span>
-                      <span>📍 {g.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5">
+          {rankingLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : ranking.length === 0 ? (
+            <EmptyState message="まだランキングデータがありません" />
+          ) : (
+            <div className="space-y-2">
+              {ranking.map((user, i) => {
+                const rank = i + 1;
+                const maxPts = ranking[0]?.totalPoints || 1;
+                const pct = Math.round((user.totalPoints / maxPts) * 100);
+                return (
+                  <div key={user.lineUserId} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3">
                       <span className={clsx(
-                        "text-[11px] font-medium",
-                        isFull ? "text-red-500" : "text-[#231714]/60"
+                        "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                        rank === 1 ? "bg-yellow-100 text-yellow-700" :
+                        rank === 2 ? "bg-gray-100 text-gray-600" :
+                        rank === 3 ? "bg-orange-100 text-orange-600" :
+                        "bg-gray-50 text-gray-400"
                       )}>
-                        👥 {g.participantCount ?? 0}/{g.maxParticipants}名
+                        {rank}
                       </span>
-                      {isFull && <span className="text-[10px] text-red-400">満員</span>}
-                      {!isFull && isDeadlinePassed && g.status === "upcoming" && (
-                        <span className="text-[10px] text-amber-500">締切済</span>
+                      {user.pictureUrl ? (
+                        <img src={user.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-xs font-bold text-[#A5C1C8] shrink-0">
+                          {user.displayName.charAt(0)}
+                        </div>
                       )}
-                      {!isFull && !isDeadlinePassed && g.status === "upcoming" && (
-                        <span className="text-[10px] text-[#231714]/30">
-                          締切 {dayjs(g.deadline).format("M/D HH:mm")}
-                        </span>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-[#231714] truncate">{user.displayName}</span>
+                          <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalPoints}pt</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full bg-[#A5C1C8] transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/40">
+                          <span>{user.gameCount}回参加</span>
+                          {user.winCount > 0 && <span>🏆 {user.winCount}勝</span>}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* ── ゲーム一覧タブ ── */}
+      {subTab === "games" && (
+        <>
+          {/* フィルター */}
+          <div className="flex gap-1.5 mb-4">
+            {([
+              { key: "upcoming" as const, label: "開催予定" },
+              { key: "past" as const, label: "過去" },
+              { key: "all" as const, label: "すべて" },
+            ]).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={clsx(
+                  "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                  filter === f.key
+                    ? "bg-[#231714] text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState message={filter === "upcoming" ? "開催予定のゲームはありません" : "該当するゲームはありません"} />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((g) => {
+                const isPast = g.status === "completed" || g.status === "awaiting_results";
+                const isFull = (g.participantCount ?? 0) >= g.maxParticipants;
+                const isDeadlinePassed = new Date(g.deadline) < new Date();
+                const statusCfg = GAME_STATUS_CONFIG[g.status] ?? GAME_STATUS_CONFIG.upcoming;
+
+                return (
+                  <div
+                    key={g.gameId}
+                    onClick={() => router.push(`/games/${g.gameId}`)}
+                    className={clsx(
+                      "bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer",
+                      isPast && "opacity-70"
+                    )}
+                  >
+                    <div className="flex">
+                      <div className={clsx(
+                        "w-20 flex-shrink-0 flex flex-col items-center justify-center py-3",
+                        isPast ? "bg-gray-100" : "bg-gradient-to-b from-[#A5C1C8] to-[#8BA8AF]"
+                      )}>
+                        <span className={clsx("text-[10px] font-bold", isPast ? "text-gray-400" : "text-white/70")}>
+                          {dayjs(g.startAt).format("M月")}
+                        </span>
+                        <span className={clsx("text-2xl font-bold leading-none", isPast ? "text-gray-500" : "text-white")}>
+                          {dayjs(g.startAt).format("D")}
+                        </span>
+                        <span className={clsx("text-[10px]", isPast ? "text-gray-400" : "text-white/70")}>
+                          {dayjs(g.startAt).format("ddd")}
+                        </span>
+                      </div>
+                      <div className="flex-1 p-3 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-bold", statusCfg.color)}>
+                            {statusCfg.label}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70">
+                            {getGameCategoryLabel(g.category, g.categoryLabel)}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-[#231714] leading-snug line-clamp-2">{g.title}</h3>
+                        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-[#231714]/40">
+                          <span>{dayjs(g.startAt).format("HH:mm")}〜</span>
+                          <span>📍 {g.location}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className={clsx("text-[11px] font-medium", isFull ? "text-red-500" : "text-[#231714]/60")}>
+                            👥 {g.participantCount ?? 0}/{g.maxParticipants}名
+                          </span>
+                          {isFull && <span className="text-[10px] text-red-400">満員</span>}
+                          {!isFull && isDeadlinePassed && g.status === "upcoming" && (
+                            <span className="text-[10px] text-amber-500">締切済</span>
+                          )}
+                          {!isFull && !isDeadlinePassed && g.status === "upcoming" && (
+                            <span className="text-[10px] text-[#231714]/30">
+                              締切 {dayjs(g.deadline).format("M/D HH:mm")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
