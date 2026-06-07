@@ -21,6 +21,9 @@ function ConfirmContent() {
   const startTime   = params.get("startTime") ?? "";
   const endTime     = params.get("endTime") ?? "";
   const termsAgreed = params.get("termsAgreed") === "true";
+  const sourceId    = params.get("sourceId") ?? "";      // Square 決済トークン
+  const amount      = Number(params.get("amount") ?? "0");
+  const hasPayment  = !!(sourceId && amount > 0);
 
   const [facility, setFacility] = useState<Facility | null>(null);
   const dateLabel = dayjs(date).format("M月D日（ddd）");
@@ -60,12 +63,45 @@ function ConfirmContent() {
     setStep("loading");
 
     try {
-      // Cookie は自動送信されるため、x-line-user-id ヘッダーは不要
+      let paymentId: string | undefined;
+
+      // ── 決済が必要な場合、先に Square 決済を実行 ──
+      if (hasPayment) {
+        const payRes = await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            sourceId,
+            amount,
+            facilityName: facility?.name ?? "",
+            date,
+            startTime,
+            endTime,
+          }),
+        });
+
+        const payData = await payRes.json();
+
+        if (!payRes.ok) {
+          setErrorMsg(payData.error ?? "決済に失敗しました。カード情報をご確認ください。");
+          setStep("error");
+          return;
+        }
+
+        paymentId = payData.paymentId;
+      }
+
+      // ── 予約を作成 ──
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ facilityId, date, startTime, endTime, displayName, termsAgreed }),
+        body: JSON.stringify({
+          facilityId, date, startTime, endTime, displayName, termsAgreed,
+          paymentId,
+          paymentAmount: hasPayment ? amount : undefined,
+        }),
       });
 
       const data = await res.json();
@@ -177,10 +213,18 @@ function ConfirmContent() {
           <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
           <DetailRow label="予約者" value={displayName || "読み込み中..."} />
           {termsAgreed && <DetailRow label="利用規約" value="同意済み ✓" />}
+          {hasPayment && (
+            <div className="border-t border-gray-100 pt-2 mt-2">
+              <DetailRow label="お支払い金額" value={`¥${amount.toLocaleString()}`} />
+              <p className="text-[10px] text-gray-300 mt-1 text-right">クレジットカード決済</p>
+            </div>
+          )}
         </div>
 
         <p className="text-xs text-gray-400 text-center">
-          予約確定後はLINEにて通知が届きます
+          {hasPayment
+            ? "「予約する」を押すと決済が実行されます"
+            : "予約確定後はLINEにて通知が届きます"}
         </p>
 
         <button
@@ -189,11 +233,13 @@ function ConfirmContent() {
           className={clsx(
             "w-full py-3 rounded-xl text-sm font-medium transition-colors",
             profileLoaded
-              ? "bg-[#B0E401] text-[#231714]"
+              ? hasPayment
+                ? "bg-[#231714] text-white"
+                : "bg-[#B0E401] text-[#231714]"
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           )}
         >
-          予約を確定する
+          {hasPayment ? `¥${amount.toLocaleString()} を支払って予約する` : "予約を確定する"}
         </button>
         <button
           onClick={() => router.back()}

@@ -48,13 +48,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { facilityId, date, startTime, endTime, displayName: bodyDisplayName, termsAgreed } = body as {
+    const {
+      facilityId, date, startTime, endTime,
+      displayName: bodyDisplayName, termsAgreed,
+      paymentId, paymentAmount,
+    } = body as {
       facilityId: string;
       date: string;
       startTime: string;
       endTime: string;
       displayName?: string;
       termsAgreed?: boolean;
+      paymentId?: string;
+      paymentAmount?: number;
     };
 
     if (!facilityId || !date || !startTime || !endTime) {
@@ -123,6 +129,7 @@ export async function POST(req: NextRequest) {
       googleEventId,
       status: "confirmed",
       ...(termsAgreed ? { termsAgreed: true, termsAgreedAt: dayjs().toISOString() } : {}),
+      ...(paymentId ? { paymentId, paymentAmount, paymentStatus: "completed" as const } : {}),
       createdAt: dayjs().toISOString(),
     };
 

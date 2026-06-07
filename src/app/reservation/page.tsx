@@ -370,6 +370,19 @@ export default function ReservationPage() {
     }
   }
 
+  // ─── 課金関連 ──────────────────────────────────────────────────────────────
+  const needsPayment = selectedFacility?.requirePayment ?? false;
+  const hourlyRate = selectedFacility?.hourlyRate ?? 0;
+
+  /** 選択時間から金額を計算 */
+  function calcAmount(): number {
+    if (!selStart || !selEnd || !hourlyRate) return 0;
+    const startMin = timeToMin(selStart);
+    const endMin = timeToMin(selEnd);
+    const hours = (endMin - startMin) / 60;
+    return Math.round(hours * hourlyRate);
+  }
+
   // ─── 予約確定へ ────────────────────────────────────────────────────────────
   function handleConfirm() {
     if (!selectedFacility || !selectedDate || !selStart || !selEnd) return;
@@ -381,7 +394,14 @@ export default function ReservationPage() {
       endTime: selEnd,
     });
     if (termsAgreed) params.set("termsAgreed", "true");
-    router.push(`/reservation/confirm?${params.toString()}`);
+
+    // 課金が必要な場合はカード入力画面へ
+    if (needsPayment) {
+      params.set("amount", String(calcAmount()));
+      router.push(`/reservation/payment?${params.toString()}`);
+    } else {
+      router.push(`/reservation/confirm?${params.toString()}`);
+    }
   }
 
   const canConfirm = !!(selectedFacility && selectedDate && selStart && selEnd && (!needsTerms || termsAgreed));
@@ -774,17 +794,29 @@ export default function ReservationPage() {
               )
             )}
 
+            {/* 金額表示（課金施設の場合） */}
+            {needsPayment && selStart && selEnd && (
+              <div className="flex items-center justify-between px-1 py-1">
+                <span className="text-xs text-[#231714]/50">利用料金</span>
+                <span className="text-base font-bold text-[#231714]">
+                  ¥{calcAmount().toLocaleString()}
+                </span>
+              </div>
+            )}
+
             <button
               onClick={handleConfirm}
               disabled={!canConfirm}
               className={clsx(
                 "w-full py-3.5 rounded-2xl text-sm font-bold transition-all",
                 canConfirm
-                  ? "bg-[#B0E401] text-[#231714] active:scale-[0.98] shadow-sm shadow-[#B0E401]/20"
+                  ? needsPayment
+                    ? "bg-[#231714] text-white active:scale-[0.98] shadow-sm"
+                    : "bg-[#B0E401] text-[#231714] active:scale-[0.98] shadow-sm shadow-[#B0E401]/20"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
               )}
             >
-              予約内容を確認する
+              {needsPayment ? "支払いへ進む" : "予約内容を確認する"}
             </button>
           </div>
         ) : (
