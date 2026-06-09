@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
@@ -115,30 +114,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "メール送信設定エラー" }, { status: 500 });
     }
 
-    const resend = new Resend(resendApiKey);
-
-    await resend.emails.send({
-      to: normalizedEmail,
-      from: `EIGHT BASE UNGA <${fromEmail}>`,
-      subject: "【EIGHT BASE UNGA】管理画面ログイン認証コード",
-      text: `管理画面ログインの認証コードです。\n\n認証コード: ${code}\n\nこのコードは10分間有効です。\n心当たりのない場合はこのメールを無視してください。`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px;">
-          <div style="background: linear-gradient(135deg, #A5C1C8 0%, #7BA8B0 100%); border-radius: 12px; padding: 24px; margin-bottom: 24px; text-align: center;">
-            <h1 style="color: white; font-size: 18px; margin: 0;">EIGHT BASE UNGA</h1>
-            <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin: 4px 0 0;">管理画面ログイン認証</p>
+    const emailRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `EIGHT BASE UNGA <${fromEmail}>`,
+        to: [normalizedEmail],
+        subject: "【EIGHT BASE UNGA】管理画面ログイン認証コード",
+        text: `管理画面ログインの認証コードです。\n\n認証コード: ${code}\n\nこのコードは10分間有効です。\n心当たりのない場合はこのメールを無視してください。`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px;">
+            <div style="background: linear-gradient(135deg, #A5C1C8 0%, #7BA8B0 100%); border-radius: 12px; padding: 24px; margin-bottom: 24px; text-align: center;">
+              <h1 style="color: white; font-size: 18px; margin: 0;">EIGHT BASE UNGA</h1>
+              <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin: 4px 0 0;">管理画面ログイン認証</p>
+            </div>
+            <p style="color: #231714; font-size: 14px; line-height: 1.6;">管理画面ログインの認証コードです。</p>
+            <div style="background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+              <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #231714; margin: 0;">${code}</p>
+            </div>
+            <p style="color: #666; font-size: 12px; line-height: 1.6;">
+              このコードは <strong>10分間</strong> 有効です。<br/>
+              心当たりのない場合はこのメールを無視してください。
+            </p>
           </div>
-          <p style="color: #231714; font-size: 14px; line-height: 1.6;">管理画面ログインの認証コードです。</p>
-          <div style="background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
-            <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #231714; margin: 0;">${code}</p>
-          </div>
-          <p style="color: #666; font-size: 12px; line-height: 1.6;">
-            このコードは <strong>10分間</strong> 有効です。<br/>
-            心当たりのない場合はこのメールを無視してください。
-          </p>
-        </div>
-      `,
+        `,
+      }),
     });
+
+    if (!emailRes.ok) {
+      const errBody = await emailRes.text();
+      console.error("[send-code] Resend API error:", emailRes.status, errBody);
+      throw new Error(`Resend API error: ${emailRes.status}`);
+    }
 
     console.log(`[send-code] Code sent to ${normalizedEmail}`);
     return NextResponse.json({ success: true });
