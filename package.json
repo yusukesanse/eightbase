@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@line/liff": "^2.23.0",
+    "@sendgrid/mail": "^8.1.6",
     "@tailwindcss/typography": "^0.5.19",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.11",
