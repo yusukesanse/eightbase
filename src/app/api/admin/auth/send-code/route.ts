@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "メール送信設定エラー" }, { status: 500 });
     }
 
-    const { Resend } = await import("resend");
     const resend = new Resend(resendApiKey);
 
     await resend.emails.send({
