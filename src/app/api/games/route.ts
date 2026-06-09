@@ -32,7 +32,6 @@ export async function GET() {
         deadline: d.deadline,
         status: d.status,
         participantCount: d.participantCount ?? 0,
-        pointsConfig: d.pointsConfig,
       };
     });
 

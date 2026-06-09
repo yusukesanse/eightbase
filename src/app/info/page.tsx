@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { NufEvent, NewsItem, Game } from "@/types";
+import type { NufEvent, NewsItem, Game, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -363,12 +363,12 @@ function getGameCategoryLabel(category: string, categoryLabel?: string): string 
 }
 
 interface RankingUser {
+  rank: number;
   lineUserId: string;
   displayName: string;
-  pictureUrl: string;
-  totalPoints: number;
-  gameCount: number;
-  winCount: number;
+  pictureUrl?: string;
+  totalScore: number;
+  playedCount: number;
 }
 
 function GamesTab({
@@ -378,24 +378,64 @@ function GamesTab({
   games: Game[];
   router: ReturnType<typeof useRouter>;
 }) {
-  const [subTab, setSubTab] = useState<"games" | "ranking">("games");
+  const [subTab, setSubTab] = useState<"games" | "ranking" | "cs">("games");
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
 
   // ランキングデータ
   const [ranking, setRanking] = useState<RankingUser[]>([]);
-  const [rankingCategory, setRankingCategory] = useState("all");
+  const [gameCategory, setGameCategory] = useState<ScoreboardGameId>("mahjong");
+  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+  const [yearMonth, setYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [rankingLoading, setRankingLoading] = useState(false);
+
+  // CSデータ
+  interface CsEventPublic {
+    csEventId: string;
+    title: string;
+    description: string;
+    startAt: string;
+    endAt: string;
+    location: string;
+    status: string;
+    candidates: { gameCategory: string; annualRank: number; displayName: string; pictureUrl: string }[];
+    myCandidacies: { gameCategory: string; annualRank: number; status: string }[];
+  }
+  const [csEvents, setCsEvents] = useState<CsEventPublic[]>([]);
+  const [csLoading, setCsLoading] = useState(false);
+
+  // 月送り
+  function shiftMonth(delta: number) {
+    const [y, m] = yearMonth.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
 
   // ランキング取得
   useEffect(() => {
     if (subTab !== "ranking") return;
     setRankingLoading(true);
-    fetch(`/api/games/ranking?category=${rankingCategory}`)
+    const params = new URLSearchParams({
+      gameCategory,
+      period,
+      yearMonth,
+    });
+    fetch(`/api/games/ranking?${params}`)
       .then((r) => r.json())
       .then((d) => setRanking(d.ranking ?? []))
       .catch(() => setRanking([]))
       .finally(() => setRankingLoading(false));
-  }, [subTab, rankingCategory]);
+  }, [subTab, gameCategory, period, yearMonth]);
+
+  // CS取得
+  useEffect(() => {
+    if (subTab !== "cs") return;
+    setCsLoading(true);
+    fetch("/api/games/cs")
+      .then((r) => r.json())
+      .then((d) => setCsEvents(d.csEvents ?? []))
+      .catch(() => setCsEvents([]))
+      .finally(() => setCsLoading(false));
+  }, [subTab]);
 
   const filtered = useMemo(() => {
     let list = games;
@@ -409,12 +449,6 @@ function GamesTab({
       return new Date(b.startAt).getTime() - new Date(a.startAt).getTime();
     });
   }, [games, filter]);
-
-  // 種目一覧を抽出（ランキングフィルタ用）
-  const categoryOptions = useMemo(() => {
-    const cats = new Set(games.map((g) => g.category));
-    return Array.from(cats);
-  }, [games]);
 
   return (
     <div>
@@ -438,34 +472,71 @@ function GamesTab({
         >
           ランキング
         </button>
+        <button
+          onClick={() => setSubTab("cs")}
+          className={clsx(
+            "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
+            subTab === "cs" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+          )}
+        >
+          CS
+        </button>
       </div>
 
       {/* ── ランキングタブ ── */}
       {subTab === "ranking" && (
         <div>
           {/* 種目フィルター */}
-          <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
-            <button
-              onClick={() => setRankingCategory("all")}
-              className={clsx(
-                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
-                rankingCategory === "all" ? "bg-[#231714] text-white" : "bg-gray-100 text-gray-500"
-              )}
-            >
-              総合
-            </button>
-            {categoryOptions.map((cat) => (
+          <div className="flex gap-1 mb-3 bg-[#231714]/5 rounded-xl p-1 overflow-x-auto">
+            {GAME_CATEGORIES.map((cat) => (
               <button
-                key={cat}
-                onClick={() => setRankingCategory(cat)}
+                key={cat.id}
+                onClick={() => setGameCategory(cat.id as ScoreboardGameId)}
                 className={clsx(
-                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
-                  rankingCategory === cat ? "bg-[#231714] text-white" : "bg-gray-100 text-gray-500"
+                  "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
+                  gameCategory === cat.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
                 )}
               >
-                {getGameCategoryLabel(cat)}
+                {cat.label}
               </button>
             ))}
+          </div>
+
+          {/* 期間切替 + 月ナビ */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex gap-0.5 bg-[#231714]/5 rounded-lg p-0.5">
+              <button
+                onClick={() => setPeriod("monthly")}
+                className={clsx(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                  period === "monthly" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+                )}
+              >
+                月間
+              </button>
+              <button
+                onClick={() => setPeriod("annual")}
+                className={clsx(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                  period === "annual" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+                )}
+              >
+                年間
+              </button>
+            </div>
+            {period === "monthly" && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/40 hover:text-[#231714] rounded">
+                  ←
+                </button>
+                <span className="text-xs font-medium text-[#231714] min-w-[70px] text-center">
+                  {yearMonth.replace("-", "年") + "月"}
+                </span>
+                <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/40 hover:text-[#231714] rounded">
+                  →
+                </button>
+              </div>
+            )}
           </div>
 
           {rankingLoading ? (
@@ -476,21 +547,20 @@ function GamesTab({
             <EmptyState message="まだランキングデータがありません" />
           ) : (
             <div className="space-y-2">
-              {ranking.map((user, i) => {
-                const rank = i + 1;
-                const maxPts = ranking[0]?.totalPoints || 1;
-                const pct = Math.round((user.totalPoints / maxPts) * 100);
+              {ranking.map((user) => {
+                const maxScore = ranking[0]?.totalScore || 1;
+                const pct = Math.round((user.totalScore / maxScore) * 100);
                 return (
                   <div key={user.lineUserId} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
                     <div className="flex items-center gap-3">
                       <span className={clsx(
                         "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                        rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                        rank === 2 ? "bg-gray-100 text-gray-600" :
-                        rank === 3 ? "bg-orange-100 text-orange-600" :
+                        user.rank === 1 ? "bg-yellow-100 text-yellow-700" :
+                        user.rank === 2 ? "bg-gray-100 text-gray-600" :
+                        user.rank === 3 ? "bg-orange-100 text-orange-600" :
                         "bg-gray-50 text-gray-400"
                       )}>
-                        {rank}
+                        {user.rank}
                       </span>
                       {user.pictureUrl ? (
                         <img src={user.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -502,17 +572,108 @@ function GamesTab({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-medium text-[#231714] truncate">{user.displayName}</span>
-                          <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalPoints}pt</span>
+                          <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalScore.toLocaleString()}</span>
                         </div>
                         <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                           <div className="h-full rounded-full bg-[#A5C1C8] transition-all" style={{ width: `${pct}%` }} />
                         </div>
                         <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/40">
-                          <span>{user.gameCount}回参加</span>
-                          {user.winCount > 0 && <span>🏆 {user.winCount}勝</span>}
+                          <span>{user.playedCount}回参加</span>
                         </div>
                       </div>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CSタブ ── */}
+      {subTab === "cs" && (
+        <div>
+          {csLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : csEvents.length === 0 ? (
+            <EmptyState message="現在開催予定のCSはありません" />
+          ) : (
+            <div className="space-y-4">
+              {csEvents.map((ev) => {
+                const isMyCs = ev.myCandidacies.length > 0;
+                const gameLabelMap: Record<string, string> = {
+                  mahjong: "麻雀", poker: "ポーカー", billiards: "ビリヤード", darts: "ダーツ",
+                };
+                return (
+                  <div key={ev.csEventId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    {/* ヘッダー */}
+                    <div className="p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-bold text-[#231714]">{ev.title}</h3>
+                        {isMyCs && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#B0E401] text-[#231714]">
+                            選出
+                          </span>
+                        )}
+                      </div>
+                      {ev.description && (
+                        <p className="text-xs text-[#231714]/60 mb-2">{ev.description}</p>
+                      )}
+                      <div className="flex gap-3 text-[10px] text-[#231714]/40">
+                        <span>{ev.startAt}</span>
+                        <span>{ev.location}</span>
+                      </div>
+                    </div>
+
+                    {/* 自分の選出情報 */}
+                    {isMyCs && (
+                      <div className="mx-4 mb-3 p-3 rounded-lg bg-[#B0E401]/10 border border-[#B0E401]/30">
+                        <p className="text-xs font-medium text-[#231714] mb-1">あなたは以下の種目でCS候補に選出されています</p>
+                        <div className="flex flex-wrap gap-2">
+                          {ev.myCandidacies.map((c) => (
+                            <span
+                              key={c.gameCategory}
+                              className={clsx(
+                                "px-2 py-0.5 rounded-full text-[10px] font-medium",
+                                c.status === "declined"
+                                  ? "bg-red-100 text-red-600"
+                                  : "bg-[#B0E401]/20 text-[#231714]"
+                              )}
+                            >
+                              {gameLabelMap[c.gameCategory] ?? c.gameCategory} ({c.annualRank}位)
+                              {c.status === "declined" && " 辞退済"}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 候補者一覧 */}
+                    {ev.candidates.length > 0 && (
+                      <div className="border-t border-gray-100 p-4">
+                        <p className="text-[10px] font-medium text-[#231714]/40 mb-2">CS出場者</p>
+                        <div className="space-y-1">
+                          {ev.candidates.map((c, i) => (
+                            <div key={`${c.displayName}-${i}`} className="flex items-center gap-2 py-1">
+                              <span className="text-[10px] text-[#231714]/30 w-4 text-right shrink-0">{c.annualRank}</span>
+                              {c.pictureUrl ? (
+                                <img src={c.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[9px] font-bold text-[#A5C1C8] shrink-0">
+                                  {c.displayName.charAt(0)}
+                                </div>
+                              )}
+                              <span className="text-xs text-[#231714]">{c.displayName}</span>
+                              <span className="text-[10px] text-[#231714]/30 ml-auto">
+                                {gameLabelMap[c.gameCategory] ?? c.gameCategory}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

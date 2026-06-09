@@ -8,7 +8,6 @@ export interface NufUser {
   tenantId: string;
   tenantName: string;
   role: UserRole;
-  points: number;
   createdAt: string; // ISO8601
 }
 
@@ -112,26 +111,21 @@ export interface NewsItem {
 
 export type GameStatus = "upcoming" | "ongoing" | "awaiting_results" | "completed" | "cancelled";
 
-/** 固定カテゴリ + "other" で自由入力を許可 */
+/** スコアボード対象の4種目 */
 export const GAME_CATEGORIES = [
   { id: "mahjong",   label: "麻雀" },
   { id: "darts",     label: "ダーツ" },
   { id: "billiards", label: "ビリヤード" },
   { id: "poker",     label: "ポーカー" },
-  { id: "boardgame", label: "ボードゲーム" },
-  { id: "other",     label: "その他" },
 ] as const;
 
-export interface GamePointsConfig {
-  participation: number;  // 参加ポイント
-  ranks: Record<number, number>; // { 1: 100, 2: 50, 3: 30 }
-}
+export type ScoreboardGameId = "mahjong" | "poker" | "billiards" | "darts";
 
 export interface Game {
   gameId: string;
   title: string;
-  category: string;       // GAME_CATEGORIES の id or 自由入力値
-  categoryLabel?: string; // "other" の場合の表示名
+  category: string;       // GAME_CATEGORIES の id
+  categoryLabel?: string; // 旧データ互換用
   description: string;
   startAt: string;        // ISO8601
   endAt?: string;         // ISO8601
@@ -139,13 +133,14 @@ export interface Game {
   imageUrl?: string;
   maxParticipants: number;
   deadline: string;       // ISO8601: 申込締切
-  pointsConfig: GamePointsConfig;
   googleEventId?: string;
   calendarId?: string;
   status: GameStatus;
   participantCount: number;
   published: boolean;
   scheduledAt?: string;   // ISO8601: 自動公開日時
+  seasonId?: string;      // 紐付けシーズンID
+  scoreRegistered?: boolean; // スコア登録済みフラグ
   createdAt: string;
   updatedAt: string;
 }
@@ -155,8 +150,102 @@ export interface GameParticipant {
   displayName: string;
   pictureUrl?: string;
   joinedAt: string;       // ISO8601
-  rank?: number;          // 結果登録後
-  pointsAwarded?: number; // 付与済みポイント
+}
+
+// ─── スコアボード ─────────────────────────────────────────────────────────────
+
+/** シーズン（ランキング集計期間） */
+export interface Season {
+  seasonId: string;
+  name: string;
+  startDate: string;      // YYYY-MM-DD
+  endDate: string;        // YYYY-MM-DD
+  active: boolean;
+  csConfig: Record<ScoreboardGameId, { topN: number }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 種目別スコア詳細 */
+export interface MahjongDetails {
+  rounds: { rank: number; score: number }[];
+}
+
+export interface PokerDetails {
+  tournamentRank: number;
+  chipCount: number;
+  bountyCount?: number;
+}
+
+export interface BilliardsDetails {
+  matches: { result: "win" | "lose" | "draw"; points: number }[];
+}
+
+export interface DartsDetails {
+  gameType?: string;
+  rank: number;
+  points: number;
+}
+
+export type ScoreDetails =
+  | MahjongDetails
+  | PokerDetails
+  | BilliardsDetails
+  | DartsDetails;
+
+/** 個人スコア（1ゲーム×1ユーザー） */
+export interface Score {
+  scoreId: string;
+  gameId: string;
+  gameCategory: ScoreboardGameId;
+  lineUserId: string;
+  seasonId: string;
+  yearMonth: string;      // YYYY-MM（月間クエリ用）
+  totalScore: number;
+  details: ScoreDetails;
+  playedAt: string;       // ISO8601
+  recordedBy: string;
+  createdAt: string;
+}
+
+/** ランキングエントリ */
+export interface RankingEntry {
+  rank: number;
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  totalScore: number;
+  playedCount: number;
+}
+
+/** CSイベント */
+export type CsEventStatus = "draft" | "upcoming" | "ongoing" | "completed";
+
+export interface CsCandidate {
+  lineUserId: string;
+  gameCategory: ScoreboardGameId;
+  annualRank: number;
+  annualScore: number;
+  displayName: string;
+  pictureUrl?: string;
+  status: "active" | "declined" | "promoted"; // 繰り上げ対応
+}
+
+export interface CsEvent {
+  csEventId: string;
+  seasonId: string;
+  title: string;
+  description?: string;
+  startAt: string;
+  endAt?: string;
+  location: string;
+  status: CsEventStatus;
+  candidates: CsCandidate[];
+  results?: CsCandidate[];
+  published: boolean;
+  notifiedCandidates: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── スキル・プロフィール拡張 ─────────────────────────────────────────────────

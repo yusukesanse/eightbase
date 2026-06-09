@@ -388,6 +388,98 @@ export async function sendCommentNotification(
   ]);
 }
 
+// ─── CS候補者通知 ──────────────────────────────────────────────────────────────
+export async function sendCsNotification(
+  userIds: string[],
+  {
+    title,
+    startAt,
+    location,
+  }: {
+    title: string;
+    startAt: string;
+    location: string;
+  }
+) {
+  if (userIds.length === 0) return;
+
+  const dateLabel = startAt.length >= 10 ? formatDate(startAt.slice(0, 10)) : startAt;
+
+  await multicastMessage(userIds, [
+    {
+      type: "flex",
+      altText: `【CS選出のお知らせ】${title}`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box",
+          layout: "vertical",
+          backgroundColor: "#B0E401",
+          paddingAll: "14px",
+          contents: [
+            {
+              type: "text",
+              text: "CS（チャンピオンシップ）選出",
+              color: "#231714",
+              weight: "bold",
+              size: "md",
+            },
+          ],
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "text",
+              text: "おめでとうございます！あなたはCSに選出されました。",
+              size: "sm",
+              color: "#231714",
+              wrap: true,
+            },
+            {
+              type: "separator",
+              margin: "md",
+            },
+            labelValue("大会名", title),
+            labelValue("日程", dateLabel),
+            labelValue("会場", location),
+            {
+              type: "separator",
+              margin: "md",
+            },
+            {
+              type: "text",
+              text: "詳細はアプリの「ゲーム」タブからご確認ください。辞退される場合はお早めにご連絡ください。",
+              color: "#888888",
+              size: "xs",
+              margin: "md",
+              wrap: true,
+            },
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "button",
+              action: {
+                type: "uri",
+                label: "詳細を確認する",
+                uri: `${PORTAL_URL}/info`,
+              },
+              style: "primary",
+              color: "#B0E401",
+            },
+          ],
+        },
+      },
+    },
+  ]);
+}
+
 // ─── ユーティリティ ───────────────────────────────────────────────────────────
 function labelValue(label: string, value: string) {
   return {

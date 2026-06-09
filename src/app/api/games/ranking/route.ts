@@ -1,73 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+const VALID_GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
+
 /**
- * GET /api/games/ranking?category=all
- * ゲームのポイントランキングを返す
- * - category=all: 全種目合算
- * - category=mahjong: 麻雀のみ  等
+ * GET /api/games/ranking
+ * 公開ランキングAPI（ユーザー向け）
+ * Params:
+ *   gameCategory: ScoreboardGameId (default: "mahjong")
+ *   period: "monthly" | "annual" (default: "monthly")
+ *   yearMonth: YYYY-MM (default: current month)
  */
 export async function GET(req: NextRequest) {
   try {
-    const category = req.nextUrl.searchParams.get("category") ?? "all";
-    const db = getDb();
+    const gameCategory = (req.nextUrl.searchParams.get("gameCategory") ?? "mahjong") as ScoreboardGameId;
+    const period = req.nextUrl.searchParams.get("period") ?? "monthly";
+    const yearMonth = req.nextUrl.searchParams.get("yearMonth") ??
+      new Date().toISOString().slice(0, 7);
 
-    // 完了済みゲームを取得
-    let gamesQuery = db.collection("games")
-      .where("status", "==", "completed");
-
-    const gamesSnap = await gamesQuery.get();
-
-    // カテゴリフィルタ（Firestoreの複合インデックスを避けてコード側で）
-    const gameDocs = category === "all"
-      ? gamesSnap.docs
-      : gamesSnap.docs.filter((d) => d.data().category === category);
-
-    // 全参加者のポイントを集計
-    const userPoints: Record<string, {
-      lineUserId: string;
-      displayName: string;
-      pictureUrl: string;
-      totalPoints: number;
-      gameCount: number;
-      winCount: number;
-    }> = {};
-
-    for (const gameDoc of gameDocs) {
-      const partSnap = await gameDoc.ref.collection("participants").get();
-      for (const partDoc of partSnap.docs) {
-        const p = partDoc.data();
-        const userId = partDoc.id;
-        const points = (p.pointsAwarded as number) ?? 0;
-
-        if (!userPoints[userId]) {
-          userPoints[userId] = {
-            lineUserId: userId,
-            displayName: (p.displayName as string) || "ユーザー",
-            pictureUrl: (p.pictureUrl as string) || "",
-            totalPoints: 0,
-            gameCount: 0,
-            winCount: 0,
-          };
-        }
-
-        userPoints[userId].totalPoints += points;
-        userPoints[userId].gameCount += 1;
-        if (p.rank === 1) userPoints[userId].winCount += 1;
-        // 最新の表示名・画像で上書き
-        if (p.displayName) userPoints[userId].displayName = p.displayName as string;
-        if (p.pictureUrl) userPoints[userId].pictureUrl = p.pictureUrl as string;
-      }
+    if (!VALID_GAME_IDS.includes(gameCategory)) {
+      return NextResponse.json({ error: "Invalid gameCategory" }, { status: 400 });
     }
 
-    // ポイント降順でソート
-    const ranking = Object.values(userPoints)
-      .sort((a, b) => b.totalPoints - a.totalPoints)
+    const db = getDb();
+
+    // アクティブシーズンを取得
+    const seasonSnap = await db.collection("seasons")
+      .where("active", "==", true)
+      .limit(1)
+      .get();
+
+    if (seasonSnap.empty) {
+      return NextResponse.json({ ranking: [], period, gameCategory });
+    }
+
+    const seasonId = seasonSnap.docs[0].id;
+
+    // スコア集計
+    let query = db.collection("scores")
+      .where("seasonId", "==", seasonId)
+      .where("gameCategory", "==", gameCategory);
+
+    if (period === "monthly") {
+      query = query.where("yearMonth", "==", yearMonth);
+    }
+
+    const snap = await query.get();
+
+    // ユーザーごと集計
+    const userMap: Record<string, { totalScore: number; playedCount: number }> = {};
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const userId = d.lineUserId as string;
+      if (!userMap[userId]) {
+        userMap[userId] = { totalScore: 0, playedCount: 0 };
+      }
+      userMap[userId].totalScore += (d.totalScore as number) || 0;
+      userMap[userId].playedCount += 1;
+    }
+
+    const sorted = Object.entries(userMap)
+      .sort(([, a], [, b]) => b.totalScore - a.totalScore)
       .slice(0, 50);
 
-    return NextResponse.json({ ranking });
+    // ユーザー情報
+    const userIds = sorted.map(([id]) => id);
+    const userInfoMap: Record<string, { displayName: string; pictureUrl?: string }> = {};
+
+    for (let i = 0; i < userIds.length; i += 30) {
+      const batch = userIds.slice(i, i + 30);
+      if (batch.length === 0) continue;
+      const usersSnap = await db.collection("users")
+        .where("lineUserId", "in", batch)
+        .get();
+      usersSnap.docs.forEach((d) => {
+        const data = d.data();
+        userInfoMap[data.lineUserId] = {
+          displayName: data.displayName || "ユーザー",
+          pictureUrl: data.pictureUrl,
+        };
+      });
+    }
+
+    const ranking = sorted.map(([userId, stats], idx) => ({
+      rank: idx + 1,
+      lineUserId: userId,
+      displayName: userInfoMap[userId]?.displayName ?? "ユーザー",
+      pictureUrl: userInfoMap[userId]?.pictureUrl ?? undefined,
+      totalScore: stats.totalScore,
+      playedCount: stats.playedCount,
+    }));
+
+    return NextResponse.json({ ranking, period, gameCategory, yearMonth });
   } catch (error) {
     console.error("[games/ranking] GET error:", error);
     return NextResponse.json({ error: "ランキング取得に失敗しました" }, { status: 500 });

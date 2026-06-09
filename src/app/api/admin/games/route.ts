@@ -22,7 +22,7 @@ const GAME_VALIDATION = {
 const GAME_UPDATE_FIELDS = [
   "title", "category", "categoryLabel", "description",
   "startAt", "endAt", "location", "imageUrl",
-  "maxParticipants", "deadline", "pointsConfig",
+  "maxParticipants", "deadline",
   "published", "scheduledAt", "status",
 ];
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const {
       title, category, categoryLabel, description,
       startAt, endAt, location, imageUrl,
-      maxParticipants, deadline, pointsConfig,
+      maxParticipants, deadline,
       published, scheduledAt,
     } = body;
 
@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
       location,
       maxParticipants: Number(maxParticipants),
       deadline,
-      pointsConfig: pointsConfig || { participation: 10, ranks: { 1: 100, 2: 50, 3: 30 } },
       status: "upcoming" as GameStatus,
       participantCount: 0,
       published: published ?? false,

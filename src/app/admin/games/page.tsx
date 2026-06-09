@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { GAME_CATEGORIES } from "@/types";
-import type { GameStatus, GamePointsConfig } from "@/types";
+import type { GameStatus } from "@/types";
 import DateTimePicker from "@/components/ui/DateTimePicker";
 import dayjs from "dayjs";
 
@@ -20,7 +20,6 @@ interface GameItem {
   imageUrl?: string;
   maxParticipants: number;
   deadline: string;
-  pointsConfig: GamePointsConfig;
   calendarId?: string;
   googleEventId?: string;
   status: GameStatus;
@@ -34,8 +33,6 @@ interface Participant {
   displayName: string;
   pictureUrl?: string;
   joinedAt: string;
-  rank?: number;
-  pointsAwarded?: number;
 }
 
 /* ───────── フォーム初期値 ───────── */
@@ -53,10 +50,6 @@ const EMPTY_FORM = {
   deadline: "",
   published: false,
   scheduledAt: "",
-  pointsParticipation: "10",
-  pointsRank1: "100",
-  pointsRank2: "50",
-  pointsRank3: "30",
 };
 
 type PublishMode = "immediate" | "draft" | "scheduled";
@@ -86,7 +79,6 @@ export default function AdminGamesPage() {
   const [editing, setEditing] = useState<GameItem | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [publishMode, setPublishMode] = useState<PublishMode>("draft");
-  const [isOtherCategory, setIsOtherCategory] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // 画像
@@ -102,11 +94,6 @@ export default function AdminGamesPage() {
   const [participantsGameId, setParticipantsGameId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
-
-  // 結果登録
-  const [resultsMode, setResultsMode] = useState(false);
-  const [rankInputs, setRankInputs] = useState<Record<string, string>>({});
-  const [savingResults, setSavingResults] = useState(false);
 
   // フィルター
   const [statusFilter, setStatusFilter] = useState<"all" | GameStatus>("all");
@@ -130,42 +117,12 @@ export default function AdminGamesPage() {
   async function openParticipants(gameId: string) {
     setParticipantsGameId(gameId);
     setLoadingParticipants(true);
-    setResultsMode(false);
     try {
       const res = await fetch(`/api/admin/games/${gameId}/participants`, { credentials: "same-origin" });
       const data = await res.json();
       setParticipants(data.participants ?? []);
-      const ranks: Record<string, string> = {};
-      (data.participants ?? []).forEach((p: Participant) => {
-        ranks[p.lineUserId] = p.rank ? String(p.rank) : "";
-      });
-      setRankInputs(ranks);
     } catch { setParticipants([]); }
     finally { setLoadingParticipants(false); }
-  }
-
-  /* ───────── 結果登録 ───────── */
-
-  async function handleSaveResults() {
-    if (!participantsGameId) return;
-    const results = Object.entries(rankInputs)
-      .filter(([, v]) => v !== "")
-      .map(([userId, rank]) => ({ lineUserId: userId, rank: Number(rank) }));
-    if (results.length === 0) { alert("順位を1件以上入力してください"); return; }
-    setSavingResults(true);
-    try {
-      const res = await fetch(`/api/admin/games/${participantsGameId}/results`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ results }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      alert("結果を登録しました");
-      setParticipantsGameId(null);
-      await fetchGames();
-    } catch (e) { alert(`結果登録に失敗しました: ${e}`); }
-    finally { setSavingResults(false); }
   }
 
   /* ───────── モーダル操作 ───────── */
@@ -174,7 +131,6 @@ export default function AdminGamesPage() {
     setEditing(null);
     setForm({ ...EMPTY_FORM });
     setPublishMode("draft");
-    setIsOtherCategory(false);
     setImageFile(null);
     setImagePreview("");
     setModalOpen(true);
@@ -182,7 +138,6 @@ export default function AdminGamesPage() {
 
   function openEdit(g: GameItem) {
     setEditing(g);
-    const isPreset = GAME_CATEGORIES.some((c) => c.id === g.category && c.id !== "other");
     setForm({
       title: g.title,
       category: g.category,
@@ -196,13 +151,8 @@ export default function AdminGamesPage() {
       deadline: g.deadline ? dayjs(g.deadline).format("YYYY-MM-DDTHH:mm") : "",
       published: g.published,
       scheduledAt: g.scheduledAt ? dayjs(g.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
-      pointsParticipation: String(g.pointsConfig?.participation ?? 10),
-      pointsRank1: String(g.pointsConfig?.ranks?.[1] ?? 100),
-      pointsRank2: String(g.pointsConfig?.ranks?.[2] ?? 50),
-      pointsRank3: String(g.pointsConfig?.ranks?.[3] ?? 30),
     });
     setPublishMode(g.published ? "immediate" : g.scheduledAt ? "scheduled" : "draft");
-    setIsOtherCategory(g.category === "other");
     setImageFile(null);
     setImagePreview(g.imageUrl ?? "");
     setModalOpen(true);
@@ -241,7 +191,6 @@ export default function AdminGamesPage() {
       const payload: Record<string, unknown> = {
         title: form.title,
         category: form.category,
-        categoryLabel: form.category === "other" ? form.categoryLabel : undefined,
         description: form.description,
         startAt: form.startAt ? new Date(form.startAt).toISOString() : "",
         endAt: form.endAt ? new Date(form.endAt).toISOString() : "",
@@ -252,14 +201,6 @@ export default function AdminGamesPage() {
         published: publishMode === "immediate",
         scheduledAt: publishMode === "scheduled" && form.scheduledAt
           ? new Date(form.scheduledAt).toISOString() : null,
-        pointsConfig: {
-          participation: Number(form.pointsParticipation) || 0,
-          ranks: {
-            1: Number(form.pointsRank1) || 0,
-            2: Number(form.pointsRank2) || 0,
-            3: Number(form.pointsRank3) || 0,
-          },
-        },
       };
 
       const method = editing ? "PUT" : "POST";
@@ -420,7 +361,7 @@ export default function AdminGamesPage() {
                         <button onClick={() => updateStatus(g.gameId, "awaiting_results")} className="text-xs text-amber-600 hover:underline mr-2">終了</button>
                       )}
                       {g.status === "awaiting_results" && (
-                        <button onClick={() => openParticipants(g.gameId)} className="text-xs text-blue-600 hover:underline mr-2">結果入力</button>
+                        <button onClick={() => updateStatus(g.gameId, "completed")} className="text-xs text-blue-600 hover:underline mr-2">完了</button>
                       )}
                       <button onClick={() => openEdit(g)} className="text-xs text-[#A5C1C8] hover:underline mr-2">編集</button>
                       <button onClick={() => setDeleteTarget(g.gameId)} className="text-xs text-red-600 hover:underline">削除</button>
@@ -453,21 +394,12 @@ export default function AdminGamesPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-8">
             <div className="px-6 py-5 border-b border-[#231714]/5 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-semibold text-[#231714]">
-                  {resultsMode ? "結果登録" : "参加者一覧"}
-                </h3>
+                <h3 className="text-base font-semibold text-[#231714]">参加者一覧</h3>
                 <p className="text-xs text-[#231714]/40 mt-0.5">{participants.length}名参加</p>
               </div>
-              <div className="flex gap-2">
-                {!resultsMode && participants.length > 0 && (
-                  <button onClick={() => setResultsMode(true)} className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600">
-                    結果入力
-                  </button>
-                )}
-                <button onClick={() => setParticipantsGameId(null)} className="px-3 py-1.5 text-xs border border-[#231714]/10 rounded-lg hover:bg-gray-50">
-                  閉じる
-                </button>
-              </div>
+              <button onClick={() => setParticipantsGameId(null)} className="px-3 py-1.5 text-xs border border-[#231714]/10 rounded-lg hover:bg-gray-50">
+                閉じる
+              </button>
             </div>
             <div className="px-6 py-4">
               {loadingParticipants ? (
@@ -492,39 +424,8 @@ export default function AdminGamesPage() {
                         <p className="text-sm font-medium text-[#231714] truncate">{p.displayName}</p>
                         <p className="text-[10px] text-[#231714]/30">{dayjs(p.joinedAt).format("M/D HH:mm")} 申込</p>
                       </div>
-                      {resultsMode ? (
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="順位"
-                          value={rankInputs[p.lineUserId] ?? ""}
-                          onChange={(e) => setRankInputs({ ...rankInputs, [p.lineUserId]: e.target.value })}
-                          className="w-16 border border-[#231714]/10 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
-                        />
-                      ) : p.rank ? (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          p.rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                          p.rank === 2 ? "bg-gray-100 text-gray-600" :
-                          p.rank === 3 ? "bg-orange-100 text-orange-700" :
-                          "bg-gray-50 text-gray-500"
-                        }`}>
-                          {p.rank}位
-                        </span>
-                      ) : null}
                     </div>
                   ))}
-                </div>
-              )}
-              {resultsMode && participants.length > 0 && (
-                <div className="mt-4 flex gap-2 justify-end">
-                  <button onClick={() => setResultsMode(false)} className="px-4 py-2 text-sm border border-[#231714]/10 rounded-lg hover:bg-gray-50">戻る</button>
-                  <button
-                    onClick={handleSaveResults}
-                    disabled={savingResults}
-                    className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
-                  >
-                    {savingResults ? "登録中…" : "結果を確定"}
-                  </button>
                 </div>
               )}
             </div>
@@ -553,19 +454,13 @@ export default function AdminGamesPage() {
               <div>
                 <label className={labelClass}>種目 *</label>
                 <select
-                  value={isOtherCategory ? "other" : form.category}
-                  onChange={(e) => {
-                    if (e.target.value === "other") { setIsOtherCategory(true); setForm({ ...form, category: "other" }); }
-                    else { setIsOtherCategory(false); setForm({ ...form, category: e.target.value, categoryLabel: "" }); }
-                  }}
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
                   className={`${inputClass} bg-white`}
                 >
                   <option value="" disabled>種目を選択</option>
                   {GAME_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
-                {isOtherCategory && (
-                  <input type="text" value={form.categoryLabel} onChange={(e) => setForm({ ...form, categoryLabel: e.target.value })} className={`${inputClass} mt-2`} placeholder="種目名を入力" />
-                )}
               </div>
 
               {/* 日時 */}
@@ -602,29 +497,6 @@ export default function AdminGamesPage() {
               <div>
                 <label className={labelClass}>説明 *</label>
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} className={`${inputClass} resize-none`} placeholder="ゲームの詳細を入力" />
-              </div>
-
-              {/* ポイント設定 */}
-              <div>
-                <label className={labelClass}>ポイント設定</label>
-                <div className="grid grid-cols-4 gap-2 mt-1">
-                  <div>
-                    <span className="text-[10px] text-[#231714]/40">参加</span>
-                    <input type="number" min="0" value={form.pointsParticipation} onChange={(e) => setForm({ ...form, pointsParticipation: e.target.value })} className={inputClass} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#231714]/40">🥇 1位</span>
-                    <input type="number" min="0" value={form.pointsRank1} onChange={(e) => setForm({ ...form, pointsRank1: e.target.value })} className={inputClass} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#231714]/40">🥈 2位</span>
-                    <input type="number" min="0" value={form.pointsRank2} onChange={(e) => setForm({ ...form, pointsRank2: e.target.value })} className={inputClass} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-[#231714]/40">🥉 3位</span>
-                    <input type="number" min="0" value={form.pointsRank3} onChange={(e) => setForm({ ...form, pointsRank3: e.target.value })} className={inputClass} />
-                  </div>
-                </div>
               </div>
 
               {/* 画像 */}

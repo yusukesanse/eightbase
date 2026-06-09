@@ -101,6 +101,55 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    href: "#scoreboard",
+    label: "スコアボード",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 17V8l3-1v10M8.5 17V5l3-1v13M14 17V3l3-1v15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    children: [
+      {
+        href: "/admin/scoreboard/seasons",
+        label: "シーズン管理",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="3" width="16" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M6 1.5v2.5M14 1.5v2.5M2 8h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/scoreboard/scores",
+        label: "スコア入力",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M3 17V8l3-1v10M8.5 17V5l3-1v13M14 17V3l3-1v15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/scoreboard/rankings",
+        label: "ランキング",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2.5l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L3 7.6l4.8-.7L10 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+      {
+        href: "/admin/scoreboard/cs",
+        label: "CS管理",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M6 10l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
     href: "/admin/admin-users",
     label: "管理者設定",
     icon: (
@@ -117,15 +166,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [checking, setChecking] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [contentOpen, setContentOpen] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const isLoginPage = pathname === "/admin/login";
 
-  /* コンテンツ管理の子ページなら自動展開 */
+  /* 折りたたみセクションの子ページなら自動展開 */
   useEffect(() => {
     const contentPaths = ["/admin/events", "/admin/games", "/admin/news"];
+    const scoreboardPaths = ["/admin/scoreboard"];
     if (contentPaths.some((p) => pathname.startsWith(p))) {
-      setContentOpen(true);
+      setOpenSections((prev) => ({ ...prev, "#content": true }));
+    }
+    if (scoreboardPaths.some((p) => pathname.startsWith(p))) {
+      setOpenSections((prev) => ({ ...prev, "#scoreboard": true }));
     }
   }, [pathname]);
 
@@ -172,9 +225,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return pathname.startsWith(item.href);
   }
 
-  function isContentChildActive() {
-    const contentPaths = ["/admin/events", "/admin/games", "/admin/news"];
-    return contentPaths.some((p) => pathname.startsWith(p));
+  function isSectionChildActive(item: NavItem) {
+    return item.children?.some((child) => pathname.startsWith(child.href)) ?? false;
   }
 
   return (
@@ -216,12 +268,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
             {NAV_ITEMS.map((item) => {
               if (item.children) {
-                /* 折りたたみセクション: コンテンツ管理 */
-                const childActive = isContentChildActive();
+                /* 折りたたみセクション */
+                const childActive = isSectionChildActive(item);
+                const sectionKey = item.href;
+                const isOpen = openSections[sectionKey] ?? false;
                 return (
                   <div key={item.label}>
                     <button
-                      onClick={() => setContentOpen((v) => !v)}
+                      onClick={() => setOpenSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150
                         ${childActive ? "text-white bg-white/10" : "text-white/50 hover:text-white hover:bg-white/5"}
                       `}
@@ -233,12 +287,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         height="16"
                         viewBox="0 0 16 16"
                         fill="none"
-                        className={`shrink-0 transition-transform duration-200 ${contentOpen ? "rotate-90" : ""}`}
+                        className={`shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
                       >
                         <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
-                    {contentOpen && (
+                    {isOpen && (
                       <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-3">
                         {item.children.map((child) => {
                           const active = pathname.startsWith(child.href);

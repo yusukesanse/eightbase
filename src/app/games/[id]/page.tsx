@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { GAME_CATEGORIES } from "@/types";
-import type { Game, GamePointsConfig } from "@/types";
+import type { Game } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -128,7 +128,6 @@ export default function GameDetailPage() {
   const isDeadlinePassed = new Date(game.deadline) < new Date();
   const canJoin = game.status === "upcoming" && !isFull && !isDeadlinePassed && !joined;
   const canCancel = joined && !isDeadlinePassed;
-  const points = game.pointsConfig as GamePointsConfig | undefined;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -201,19 +200,6 @@ export default function GameDetailPage() {
           <InfoRow icon="⏰" label="申込締切" value={dayjs(game.deadline).format("M月D日(ddd) HH:mm")} highlight={isDeadlinePassed} />
         </div>
 
-        {/* ポイント */}
-        {points && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-3">
-            <p className="text-xs font-bold text-[#231714]/40 mb-2">獲得ポイント</p>
-            <div className="flex gap-2">
-              <PointBadge label="参加" points={points.participation} color="bg-[#A5C1C8]/15 text-[#231714]" />
-              {points.ranks?.[1] ? <PointBadge label="🥇 1位" points={points.ranks[1]} color="bg-yellow-50 text-yellow-700" /> : null}
-              {points.ranks?.[2] ? <PointBadge label="🥈 2位" points={points.ranks[2]} color="bg-gray-50 text-gray-600" /> : null}
-              {points.ranks?.[3] ? <PointBadge label="🥉 3位" points={points.ranks[3]} color="bg-orange-50 text-orange-600" /> : null}
-            </div>
-          </div>
-        )}
-
         {/* 説明 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-3">
           <p className="text-xs font-bold text-[#231714]/40 mb-2">詳細</p>
@@ -276,11 +262,3 @@ function InfoRow({ icon, label, value, highlight }: { icon: string; label: strin
   );
 }
 
-function PointBadge({ label, points, color }: { label: string; points: number; color: string }) {
-  return (
-    <div className={clsx("flex-1 rounded-xl px-3 py-2 text-center", color)}>
-      <p className="text-[10px] opacity-60">{label}</p>
-      <p className="text-sm font-bold">{points}pt</p>
-    </div>
-  );
-}
