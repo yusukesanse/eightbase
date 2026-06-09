@@ -12,7 +12,7 @@ const SUPER_ADMIN_EMAILS: string[] = (() => {
 
 /**
  * POST /api/admin/auth/send-code
- * メール認証: reCAPTCHA検証 → 管理者チェック → 6桁コード生成 → SendGrid送信
+ * メール認証: reCAPTCHA検証 → 管理者チェック → 6桁コード生成 → Resend送信
  *
  * Body: { email: string, recaptchaToken: string }
  */
@@ -105,21 +105,21 @@ export async function POST(req: NextRequest) {
     });
     if (invalidated > 0) await batch.commit();
 
-    // ── 5. SendGrid でメール送信 ──
-    const sgApiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@example.com";
+    // ── 5. Resend でメール送信 ──
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
-    if (!sgApiKey) {
-      console.error("[send-code] SENDGRID_API_KEY is not set");
+    if (!resendApiKey) {
+      console.error("[send-code] RESEND_API_KEY is not set");
       return NextResponse.json({ error: "メール送信設定エラー" }, { status: 500 });
     }
 
-    const sgMail = (await import("@sendgrid/mail")).default;
-    sgMail.setApiKey(sgApiKey);
+    const { Resend } = await import("resend");
+    const resend = new Resend(resendApiKey);
 
-    await sgMail.send({
+    await resend.emails.send({
       to: normalizedEmail,
-      from: { email: fromEmail, name: "EIGHT BASE UNGA" },
+      from: `EIGHT BASE UNGA <${fromEmail}>`,
       subject: "【EIGHT BASE UNGA】管理画面ログイン認証コード",
       text: `管理画面ログインの認証コードです。\n\n認証コード: ${code}\n\nこのコードは10分間有効です。\n心当たりのない場合はこのメールを無視してください。`,
       html: `
