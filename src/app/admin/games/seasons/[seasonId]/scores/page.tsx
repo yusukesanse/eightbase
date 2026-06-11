@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { GAME_CATEGORIES } from "@/types";
 import type { ScoreboardGameId, Season } from "@/types";
@@ -50,6 +50,29 @@ const STATUS_BADGES: Record<string, { label: string; color: string }> = {
   completed: { label: "完了", color: "bg-gray-100 text-gray-500" },
 };
 
+type SortKey = "date_desc" | "date_asc" | "category" | "status";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "date_desc", label: "開催日（新しい順）" },
+  { value: "date_asc", label: "開催日（古い順）" },
+  { value: "category", label: "種目別" },
+  { value: "status", label: "ステータス別" },
+];
+
+const STATUS_ORDER: Record<string, number> = {
+  ongoing: 0,
+  awaiting_results: 1,
+  upcoming: 2,
+  completed: 3,
+};
+
+const CATEGORY_ORDER: Record<string, number> = {
+  mahjong: 0,
+  poker: 1,
+  billiards: 2,
+  darts: 3,
+};
+
 /* ───────── メインコンポーネント ───────── */
 
 export default function SeasonScoresPage() {
@@ -75,6 +98,54 @@ export default function SeasonScoresPage() {
 
   // 削除確認
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // 検索・ソート
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("date_desc");
+
+  /* ───────── フィルタ & ソート ───────── */
+
+  const filteredGames = useMemo(() => {
+    let result = [...games];
+
+    // 検索フィルタ
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((g) => {
+        const catLabel = GAME_CATEGORIES.find((c) => c.id === g.category)?.label ?? g.category;
+        return (
+          g.title.toLowerCase().includes(q) ||
+          catLabel.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    // ソート
+    result.sort((a, b) => {
+      switch (sortKey) {
+        case "date_desc":
+          return (b.startAt ?? "").localeCompare(a.startAt ?? "");
+        case "date_asc":
+          return (a.startAt ?? "").localeCompare(b.startAt ?? "");
+        case "category": {
+          const ca = CATEGORY_ORDER[a.category] ?? 99;
+          const cb = CATEGORY_ORDER[b.category] ?? 99;
+          if (ca !== cb) return ca - cb;
+          return (b.startAt ?? "").localeCompare(a.startAt ?? "");
+        }
+        case "status": {
+          const sa = STATUS_ORDER[a.status] ?? 99;
+          const sb = STATUS_ORDER[b.status] ?? 99;
+          if (sa !== sb) return sa - sb;
+          return (b.startAt ?? "").localeCompare(a.startAt ?? "");
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [games, searchQuery, sortKey]);
 
   /* ───────── データ取得 ───────── */
 
@@ -179,19 +250,69 @@ export default function SeasonScoresPage() {
           シーズンが見つかりませんでした
         </div>
       ) : (
-        <div className="flex gap-6">
+        <div className="flex gap-6 items-stretch" style={{ minHeight: "70vh" }}>
           {/* 左: ゲーム一覧 */}
-          <div className="w-80 shrink-0">
+          <div className="w-80 shrink-0 flex flex-col">
             <p className="text-xs font-medium text-[#231714]/60 mb-2">
-              ゲーム選択（{games.length}件）
+              ゲーム選択（{filteredGames.length}/{games.length}件）
             </p>
+
+            {/* 検索 */}
+            <div className="relative mb-2">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#231714]/30"
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+              >
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ゲーム名・種目で検索..."
+                className="w-full pl-8 pr-3 py-2 text-sm border border-[#231714]/10 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#231714]/20 placeholder:text-[#231714]/25"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#231714]/30 hover:text-[#231714]/60"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* ソート */}
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="w-full border border-[#231714]/10 rounded-lg px-3 py-1.5 text-xs text-[#231714]/70 bg-white focus:outline-none focus:ring-2 focus:ring-[#231714]/20 mb-3 appearance-none cursor-pointer"
+              style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3e%3cpath d='M1 1l4 4 4-4' stroke='%23231714' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round' opacity='.4'/%3e%3c/svg%3e\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
             {games.length === 0 ? (
-              <div className="bg-white rounded-xl border border-[#231714]/10 p-6 text-center text-sm text-[#231714]/40">
+              <div className="bg-white rounded-xl border border-[#231714]/10 p-6 text-center text-sm text-[#231714]/40 flex-1 flex items-center justify-center">
                 このシーズン期間内のゲームがありません
               </div>
+            ) : filteredGames.length === 0 ? (
+              <div className="bg-white rounded-xl border border-[#231714]/10 p-6 text-center text-sm text-[#231714]/40 flex-1 flex items-center justify-center">
+                「{searchQuery}」に一致するゲームがありません
+              </div>
             ) : (
-              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-                {games.map((g) => {
+              <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                {filteredGames.map((g) => {
                   const badge = getStatusBadge(g.status);
                   return (
                     <button
@@ -235,17 +356,17 @@ export default function SeasonScoresPage() {
           </div>
 
           {/* 右: 参加者一覧 + スコア */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col">
             {!selectedGame ? (
-              <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+              <div className="bg-white rounded-xl border border-[#231714]/10 flex-1 flex items-center justify-center text-sm text-[#231714]/40">
                 左からゲームを選択してください
               </div>
             ) : loadingDetail ? (
-              <div className="flex items-center justify-center h-48">
+              <div className="flex-1 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
               </div>
             ) : (
-              <div>
+              <div className="flex flex-col flex-1">
                 <div className="bg-white rounded-xl border border-[#231714]/10 p-4 mb-4">
                   <h3 className="text-base font-semibold text-[#231714]">
                     {selectedGame.title}
@@ -257,94 +378,96 @@ export default function SeasonScoresPage() {
                 </div>
 
                 {participants.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/40">
+                  <div className="bg-white rounded-xl border border-[#231714]/10 flex-1 flex items-center justify-center text-sm text-[#231714]/40">
                     参加者がいません
                   </div>
                 ) : (
-                  <div className="bg-white rounded-xl border border-[#231714]/10 overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-[#231714]/5">
-                          <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
-                            参加者
-                          </th>
-                          <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
-                            スコア
-                          </th>
-                          <th className="px-4 py-2.5 text-right text-xs font-medium text-[#231714]/60">
-                            操作
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {participants.map((p) => {
-                          const score = getScoreForUser(p.lineUserId);
-                          return (
-                            <tr
-                              key={p.lineUserId}
-                              className="border-b border-[#231714]/5 hover:bg-[#231714]/[0.02]"
-                            >
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                  {p.pictureUrl ? (
-                                    <img
-                                      src={p.pictureUrl}
-                                      alt=""
-                                      className="w-7 h-7 rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[10px] font-bold text-[#A5C1C8]">
-                                      {p.displayName.charAt(0)}
-                                    </div>
-                                  )}
-                                  <span className="text-sm text-[#231714] truncate">
-                                    {p.displayName}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                {score ? (
-                                  <span className="text-sm font-bold text-[#231714]">
-                                    {score.totalScore}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-[#231714]/30">
-                                    未登録
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {score ? (
-                                  <div className="flex gap-2 justify-end">
-                                    <button
-                                      onClick={() => openScoreForm(p, score)}
-                                      className="text-xs text-[#A5C1C8] hover:underline"
-                                    >
-                                      編集
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        setDeleteTarget(score.scoreId)
-                                      }
-                                      className="text-xs text-red-500 hover:underline"
-                                    >
-                                      削除
-                                    </button>
+                  <div className="bg-white rounded-xl border border-[#231714]/10 overflow-hidden flex-1 flex flex-col">
+                    <div className="overflow-y-auto flex-1">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-[1]">
+                          <tr className="bg-gray-50 border-b border-[#231714]/5">
+                            <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
+                              参加者
+                            </th>
+                            <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
+                              スコア
+                            </th>
+                            <th className="px-4 py-2.5 text-right text-xs font-medium text-[#231714]/60">
+                              操作
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {participants.map((p) => {
+                            const score = getScoreForUser(p.lineUserId);
+                            return (
+                              <tr
+                                key={p.lineUserId}
+                                className="border-b border-[#231714]/5 hover:bg-[#231714]/[0.02]"
+                              >
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    {p.pictureUrl ? (
+                                      <img
+                                        src={p.pictureUrl}
+                                        alt=""
+                                        className="w-7 h-7 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[10px] font-bold text-[#A5C1C8]">
+                                        {p.displayName.charAt(0)}
+                                      </div>
+                                    )}
+                                    <span className="text-sm text-[#231714] truncate">
+                                      {p.displayName}
+                                    </span>
                                   </div>
-                                ) : (
-                                  <button
-                                    onClick={() => openScoreForm(p)}
-                                    className="px-3 py-1 text-xs bg-[#231714] text-white rounded-lg hover:bg-[#231714]/80 disabled:opacity-50"
-                                  >
-                                    スコア入力
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {score ? (
+                                    <span className="text-sm font-bold text-[#231714]">
+                                      {score.totalScore}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-[#231714]/30">
+                                      未登録
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  {score ? (
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={() => openScoreForm(p, score)}
+                                        className="text-xs text-[#A5C1C8] hover:underline"
+                                      >
+                                        編集
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          setDeleteTarget(score.scoreId)
+                                        }
+                                        className="text-xs text-red-500 hover:underline"
+                                      >
+                                        削除
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => openScoreForm(p)}
+                                      className="px-3 py-1 text-xs bg-[#231714] text-white rounded-lg hover:bg-[#231714]/80 disabled:opacity-50"
+                                    >
+                                      スコア入力
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
