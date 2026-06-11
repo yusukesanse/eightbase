@@ -96,14 +96,17 @@ export async function POST(req: NextRequest) {
     if (imageUrl) data.imageUrl = imageUrl;
     if (scheduledAt) data.scheduledAt = scheduledAt;
 
-    // Google Calendar 連携（settings からカレンダーIDを取得）
+    // Google Calendar 連携（種目別カレンダーIDを取得）
     const settingsDoc = await db.collection("settings").doc("app").get();
-    const gameCalendarId = settingsDoc.exists ? (settingsDoc.data()?.gameCalendarId as string) : "";
-    if (gameCalendarId) data.calendarId = gameCalendarId;
+    const settingsData = settingsDoc.exists ? settingsDoc.data() : {};
+    const gameCalendarIds = (settingsData?.gameCalendarIds ?? {}) as Record<string, string>;
+    // 種目別カレンダー → フォールバック: 旧共通カレンダー
+    const calendarId = gameCalendarIds[category] || (settingsData?.gameCalendarId as string) || "";
+    if (calendarId) data.calendarId = calendarId;
 
-    if (gameCalendarId && startAt) {
+    if (calendarId && startAt) {
       try {
-        const eventId = await createCalendarEventISO(gameCalendarId, {
+        const eventId = await createCalendarEventISO(calendarId, {
           summary: `🎮 ${title}`,
           description: description || "",
           startTime: startAt,

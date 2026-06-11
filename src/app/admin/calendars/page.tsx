@@ -63,8 +63,13 @@ export default function CalendarsPage() {
   // 削除確認
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // ゲーム用カレンダー設定
-  const [gameCalendarId, setGameCalendarId] = useState("");
+  // ゲーム用カレンダー設定（種目別）
+  const [gameCalendarIds, setGameCalendarIds] = useState<Record<string, string>>({
+    mahjong: "",
+    poker: "",
+    billiards: "",
+    darts: "",
+  });
   const [gameCalendarSaving, setGameCalendarSaving] = useState(false);
   const [gameCalendarLoaded, setGameCalendarLoaded] = useState(false);
 
@@ -98,11 +103,17 @@ export default function CalendarsPage() {
   useEffect(() => {
     // 初回は移行チェック付きで取得
     fetchFacilities(true);
-    // ゲーム用カレンダー設定を取得
+    // ゲーム用カレンダー設定を取得（種目別）
     fetch("/api/admin/settings", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => {
-        setGameCalendarId(d.settings?.gameCalendarId ?? "");
+        const ids = d.settings?.gameCalendarIds ?? {};
+        setGameCalendarIds({
+          mahjong: ids.mahjong ?? "",
+          poker: ids.poker ?? "",
+          billiards: ids.billiards ?? "",
+          darts: ids.darts ?? "",
+        });
         setGameCalendarLoaded(true);
       })
       .catch(() => setGameCalendarLoaded(true));
@@ -115,7 +126,7 @@ export default function CalendarsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ gameCalendarId }),
+        body: JSON.stringify({ gameCalendarIds }),
       });
       if (!res.ok) throw new Error();
       setSuccess("ゲーム用カレンダーIDを保存しました");
@@ -301,31 +312,51 @@ export default function CalendarsPage() {
         </div>
       )}
 
-      {/* ゲーム用カレンダー設定 */}
+      {/* ゲーム用カレンダー設定（種目別） */}
       {gameCalendarLoaded && (
         <div className="mb-6 bg-white border border-[#231714]/10 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2.5l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L3 7.6l4.8-.7L10 2.5z" stroke="#A5C1C8" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-            <h3 className="text-sm font-semibold text-[#231714]">ゲーム用カレンダー</h3>
-          </div>
-          <p className="text-xs text-[#231714]/40 mb-3">ゲーム（大会・トーナメント）の予定を登録するGoogleカレンダーIDを設定します</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={gameCalendarId}
-              onChange={(e) => setGameCalendarId(e.target.value)}
-              placeholder="xxx@group.calendar.google.com"
-              className="flex-1 px-3 py-2 text-sm border border-[#231714]/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#231714]"
-            />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2.5l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L3 7.6l4.8-.7L10 2.5z" stroke="#A5C1C8" strokeWidth="1.5" strokeLinejoin="round" />
+              </svg>
+              <h3 className="text-sm font-semibold text-[#231714]">ゲーム用カレンダー（種目別）</h3>
+            </div>
             <button
               onClick={saveGameCalendar}
               disabled={gameCalendarSaving}
               className="px-4 py-2 text-sm bg-[#231714] text-white rounded-lg hover:bg-[#231714]/80 disabled:opacity-50 whitespace-nowrap"
             >
-              {gameCalendarSaving ? "保存中…" : "保存"}
+              {gameCalendarSaving ? "保存中…" : "一括保存"}
             </button>
+          </div>
+          <p className="text-xs text-[#231714]/40 mb-4">
+            種目ごとにGoogleカレンダーIDを設定します。シーズンゲームも利用者の個別予約も同じカレンダーで管理されます。
+          </p>
+          <div className="space-y-3">
+            {([
+              { key: "mahjong", label: "麻雀", emoji: "🀄" },
+              { key: "poker", label: "ポーカー", emoji: "🃏" },
+              { key: "billiards", label: "ビリヤード", emoji: "🎱" },
+              { key: "darts", label: "ダーツ", emoji: "🎯" },
+            ] as const).map(({ key, label, emoji }) => (
+              <div key={key} className="flex items-center gap-3">
+                <span className="text-base w-6 text-center shrink-0">{emoji}</span>
+                <span className="text-sm font-medium text-[#231714] w-24 shrink-0">{label}</span>
+                <input
+                  type="text"
+                  value={gameCalendarIds[key]}
+                  onChange={(e) =>
+                    setGameCalendarIds((prev) => ({ ...prev, [key]: e.target.value }))
+                  }
+                  placeholder="xxx@group.calendar.google.com"
+                  className="flex-1 px-3 py-2 text-sm border border-[#231714]/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#231714]"
+                />
+                {gameCalendarIds[key] && (
+                  <span className="text-[10px] text-green-600 font-medium shrink-0">設定済</span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

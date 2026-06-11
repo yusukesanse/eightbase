@@ -30,7 +30,7 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
 
   // 許可するフィールドのホワイトリスト
-  const ALLOWED = ["gameCalendarId"];
+  const ALLOWED = ["gameCalendarId", "gameCalendarIds"];
   const updates: Record<string, unknown> = {};
   for (const key of ALLOWED) {
     if (key in body) updates[key] = body[key];
