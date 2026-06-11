@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { Season, ScoreboardGameId } from "@/types";
+import DatePicker from "@/components/ui/DatePicker";
 
 /* ───────── 定数 ───────── */
 
@@ -399,24 +400,20 @@ export default function SeasonOverviewPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>開始日 *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={form.startDate}
-                    onChange={(e) =>
-                      setForm({ ...form, startDate: e.target.value })
-                    }
-                    className={inputClass}
+                    onChange={(v) => setForm({ ...form, startDate: v })}
+                    placeholder="開始日を選択"
+                    required
                   />
                 </div>
                 <div>
                   <label className={labelClass}>終了日 *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={form.endDate}
-                    onChange={(e) =>
-                      setForm({ ...form, endDate: e.target.value })
-                    }
-                    className={inputClass}
+                    onChange={(v) => setForm({ ...form, endDate: v })}
+                    placeholder="終了日を選択"
+                    required
                   />
                 </div>
               </div>

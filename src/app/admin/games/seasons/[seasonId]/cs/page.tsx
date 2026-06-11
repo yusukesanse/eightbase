@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import type { CsEvent, CsCandidate, ScoreboardGameId } from "@/types";
+import DateTimePicker from "@/components/ui/DateTimePicker";
 import { GAME_CATEGORIES } from "@/types";
 
 /* ───────── 定数 ───────── */
@@ -515,20 +516,17 @@ function CreateCsModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-[#231714]/60 mb-1">開始日時 *</label>
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={startAt}
-                onChange={(e) => setStartAt(e.target.value)}
-                className="w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]"
+                onChange={(v) => setStartAt(v)}
+                required
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-[#231714]/60 mb-1">終了日時</label>
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={endAt}
-                onChange={(e) => setEndAt(e.target.value)}
-                className="w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]"
+                onChange={(v) => setEndAt(v)}
               />
             </div>
           </div>
