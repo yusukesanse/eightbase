@@ -21,13 +21,21 @@ export async function GET(req: NextRequest) {
     const db = getDb();
     const seasonId = req.nextUrl.searchParams.get("seasonId");
 
-    let query: FirebaseFirestore.Query = db.collection("cs_events").orderBy("createdAt", "desc");
+    // 複合インデックス不要: where のみでクエリし、ソートは JS 側
+    let snap;
     if (seasonId) {
-      query = db.collection("cs_events").where("seasonId", "==", seasonId).orderBy("createdAt", "desc");
+      snap = await db.collection("cs_events").where("seasonId", "==", seasonId).get();
+    } else {
+      snap = await db.collection("cs_events").get();
     }
 
-    const snap = await query.get();
-    const csEvents = snap.docs.map((doc) => ({ csEventId: doc.id, ...doc.data() }));
+    const csEvents = snap.docs
+      .map((doc) => ({ csEventId: doc.id, ...doc.data() }))
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const ta = (a.createdAt as string) ?? "";
+        const tb = (b.createdAt as string) ?? "";
+        return tb.localeCompare(ta);
+      });
 
     return NextResponse.json({ csEvents });
   } catch (error) {

@@ -39,20 +39,22 @@ export async function GET(req: NextRequest) {
 
     const seasonId = seasonSnap.docs[0].id;
 
-    // スコア集計
-    let query = db.collection("scores")
+    // スコア集計（複合インデックス不要: seasonId のみでクエリし、JS側でフィルタ）
+    const snap = await db.collection("scores")
       .where("seasonId", "==", seasonId)
-      .where("gameCategory", "==", gameCategory);
+      .get();
 
-    if (period === "monthly") {
-      query = query.where("yearMonth", "==", yearMonth);
-    }
-
-    const snap = await query.get();
+    // JS側で gameCategory と yearMonth をフィルタ
+    const filteredDocs = snap.docs.filter((doc) => {
+      const d = doc.data();
+      if (d.gameCategory !== gameCategory) return false;
+      if (period === "monthly" && d.yearMonth !== yearMonth) return false;
+      return true;
+    });
 
     // ユーザーごと集計
     const userMap: Record<string, { totalScore: number; playedCount: number }> = {};
-    for (const doc of snap.docs) {
+    for (const doc of filteredDocs) {
       const d = doc.data();
       const userId = d.lineUserId as string;
       if (!userMap[userId]) {

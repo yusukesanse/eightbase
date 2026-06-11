@@ -23,23 +23,26 @@ export async function GET(req: NextRequest) {
     const seasonId = req.nextUrl.searchParams.get("seasonId");
 
     const db = getDb();
-    let query = db.collection("scores").orderBy("createdAt", "desc");
+    // 複合インデックス不要: where のみでクエリし、ソートは JS 側で行う
+    let query: FirebaseFirestore.Query = db.collection("scores");
 
     if (gameId) {
-      query = db.collection("scores")
-        .where("gameId", "==", gameId)
-        .orderBy("createdAt", "desc");
+      query = db.collection("scores").where("gameId", "==", gameId);
     } else if (seasonId) {
-      query = db.collection("scores")
-        .where("seasonId", "==", seasonId)
-        .orderBy("createdAt", "desc");
+      query = db.collection("scores").where("seasonId", "==", seasonId);
     }
 
     const snap = await query.limit(500).get();
-    const scores = snap.docs.map((doc) => ({
-      scoreId: doc.id,
-      ...doc.data(),
-    }));
+    const scores = snap.docs
+      .map((doc) => ({
+        scoreId: doc.id,
+        ...doc.data(),
+      }))
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const ta = (a.createdAt as string) ?? "";
+        const tb = (b.createdAt as string) ?? "";
+        return tb.localeCompare(ta);
+      });
 
     return NextResponse.json({ scores });
   } catch (error) {

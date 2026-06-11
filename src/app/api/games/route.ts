@@ -10,30 +10,37 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const db = getDb();
+    // 複合インデックス不要: published フィルタのみで取得し、ソートは JS 側で行う
     const snap = await db
       .collection("games")
       .where("published", "==", true)
-      .orderBy("startAt", "desc")
       .get();
 
-    const games = snap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        gameId: doc.id,
-        title: d.title,
-        category: d.category,
-        categoryLabel: d.categoryLabel,
-        description: d.description,
-        startAt: d.startAt,
-        endAt: d.endAt,
-        location: d.location,
-        imageUrl: d.imageUrl,
-        maxParticipants: d.maxParticipants,
-        deadline: d.deadline,
-        status: d.status,
-        participantCount: d.participantCount ?? 0,
-      };
-    });
+    const games = snap.docs
+      .map((doc) => {
+        const d = doc.data();
+        return {
+          gameId: doc.id,
+          title: d.title,
+          category: d.category,
+          categoryLabel: d.categoryLabel,
+          description: d.description,
+          startAt: d.startAt,
+          endAt: d.endAt,
+          location: d.location,
+          imageUrl: d.imageUrl,
+          maxParticipants: d.maxParticipants,
+          deadline: d.deadline,
+          status: d.status,
+          participantCount: d.participantCount ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        // startAt 降順
+        const ta = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const tb = b.startAt ? new Date(b.startAt).getTime() : 0;
+        return tb - ta;
+      });
 
     return NextResponse.json({ games });
   } catch (error) {

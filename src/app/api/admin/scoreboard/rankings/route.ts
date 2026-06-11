@@ -55,17 +55,17 @@ async function buildRanking(
 ) {
   const db = getDb();
 
-  // クエリ: シーズン + 種目
-  let query = db.collection("scores")
+  // 複合インデックス不要: seasonId のみでクエリし、JS側でフィルタ
+  const snap = await db.collection("scores")
     .where("seasonId", "==", seasonId)
-    .where("gameCategory", "==", gameCategory);
+    .get();
 
-  // 月間の場合は yearMonth でフィルタ
-  if (period === "monthly") {
-    query = query.where("yearMonth", "==", yearMonth);
-  }
-
-  const snap = await query.get();
+  const filteredDocs = snap.docs.filter((doc) => {
+    const d = doc.data();
+    if (d.gameCategory !== gameCategory) return false;
+    if (period === "monthly" && d.yearMonth !== yearMonth) return false;
+    return true;
+  });
 
   // ユーザーごとに集計
   const userMap: Record<string, {
@@ -74,7 +74,7 @@ async function buildRanking(
     playedCount: number;
   }> = {};
 
-  for (const doc of snap.docs) {
+  for (const doc of filteredDocs) {
     const d = doc.data();
     const userId = d.lineUserId as string;
     if (!userMap[userId]) {
