@@ -178,7 +178,7 @@ export default function PostDetailPage() {
   const liked = post.likes.includes(currentUserId);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-40">
       {/* ヘッダー */}
       <header className="bg-white pt-12 pb-4 px-5 flex items-center gap-3 border-b border-gray-100">
         <button onClick={() => router.back()} className="p-1">
@@ -331,8 +331,8 @@ export default function PostDetailPage() {
       )}
 
       {/* コメント入力 */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-4xl mx-auto bg-white border-t border-gray-200 z-20 safe-area-pb">
-        <div className="px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px)+56px)] flex items-center gap-2">
+      <div className="fixed left-0 right-0 max-w-4xl mx-auto bg-white border-t border-gray-200 z-20 safe-area-pb" style={{ bottom: "var(--bottom-nav-height)" }}>
+        <div className="px-4 py-2.5 flex items-center gap-2">
           <input
             ref={commentInputRef}
             type="text"

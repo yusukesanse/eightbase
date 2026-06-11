@@ -130,7 +130,7 @@ export default function GameDetailPage() {
   const canCancel = joined && !isDeadlinePassed;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-40">
       {/* ヘッダー画像 or グラデーション */}
       {game.imageUrl ? (
         <div className="relative h-48 overflow-hidden">
@@ -208,7 +208,7 @@ export default function GameDetailPage() {
       </div>
 
       {/* フッター */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb z-20">
+      <div className="fixed left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb z-20" style={{ bottom: "var(--bottom-nav-height)" }}>
         {canJoin ? (
           <button
             onClick={handleJoin}

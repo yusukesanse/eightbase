@@ -128,7 +128,7 @@ function PaymentContent() {
     : "https://sandbox.web.squarecdn.com/v1/square.js";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-24">
+    <div className="min-h-screen bg-gray-50 flex flex-col pb-40">
       <TopBar title="お支払い" subtitle="カード情報の入力" />
 
       {/* Square SDK 読み込み */}
@@ -202,7 +202,7 @@ function PaymentContent() {
       </div>
 
       {/* フッター */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb">
+      <div className="fixed left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb" style={{ bottom: "var(--bottom-nav-height)" }}>
         <button
           onClick={handleTokenize}
           disabled={!cardReady || tokenizing}

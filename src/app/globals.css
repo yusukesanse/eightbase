@@ -20,3 +20,13 @@
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ボトムナビの高さ変数 */
+:root {
+  --bottom-nav-height: 56px;
+}
+
+/* iOSセーフエリア対応 */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

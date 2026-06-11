@@ -746,7 +746,7 @@ export default function ReservationPage() {
       )}
 
       {/* ── フローティングフッター ── */}
-      <div className="sticky bottom-0 bg-white/80 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb">
+      <div className="sticky bg-white/80 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb" style={{ bottom: "var(--bottom-nav-height)" }}>
         {selectedFacility && selectedDate && selStart && selEnd ? (
           <div className="space-y-2">
             {/* 選択サマリー */}
