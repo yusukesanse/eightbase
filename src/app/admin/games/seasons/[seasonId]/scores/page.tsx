@@ -390,8 +390,11 @@ export default function SeasonScoresPage() {
                             <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
                               参加者
                             </th>
-                            <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
-                              スコア
+                            <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/60">
+                              順位
+                            </th>
+                            <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/60">
+                              ポイント
                             </th>
                             <th className="px-4 py-2.5 text-right text-xs font-medium text-[#231714]/60">
                               操作
@@ -401,6 +404,8 @@ export default function SeasonScoresPage() {
                         <tbody>
                           {participants.map((p) => {
                             const score = getScoreForUser(p.lineUserId);
+                            const det = (score?.details ?? {}) as Record<string, unknown>;
+                            const rank = det.rank as number | undefined;
                             return (
                               <tr
                                 key={p.lineUserId}
@@ -424,15 +429,22 @@ export default function SeasonScoresPage() {
                                     </span>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3">
-                                  {score ? (
-                                    <span className="text-sm font-bold text-[#231714]">
-                                      {score.totalScore}
+                                <td className="px-4 py-3 text-center">
+                                  {rank ? (
+                                    <span className="text-sm font-medium text-[#231714]">
+                                      {rank}位
                                     </span>
                                   ) : (
-                                    <span className="text-xs text-[#231714]/30">
-                                      未登録
+                                    <span className="text-xs text-[#231714]/30">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {score ? (
+                                    <span className="text-sm font-bold text-[#231714]">
+                                      {score.totalScore}pt
                                     </span>
+                                  ) : (
+                                    <span className="text-xs text-[#231714]/30">—</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-right">
@@ -458,7 +470,7 @@ export default function SeasonScoresPage() {
                                       onClick={() => openScoreForm(p)}
                                       className="px-3 py-1 text-xs bg-[#231714] text-white rounded-lg hover:bg-[#231714]/80 disabled:opacity-50"
                                     >
-                                      スコア入力
+                                      順位入力
                                     </button>
                                   )}
                                 </td>
@@ -504,11 +516,12 @@ export default function SeasonScoresPage() {
         </div>
       )}
 
-      {/* スコア入力モーダル */}
+      {/* 順位入力モーダル */}
       {scoreModal && scoreTarget && selectedGame && season && (
-        <ScoreFormModal
+        <RankFormModal
           game={selectedGame}
           participant={scoreTarget}
+          participantCount={participants.length}
           season={season}
           existingScore={editingScore}
           onClose={() => setScoreModal(false)}
@@ -523,122 +536,48 @@ export default function SeasonScoresPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   種目別スコア入力モーダル
+   順位ポイント制モーダル
    ═══════════════════════════════════════════════════════════════ */
 
-interface ScoreFormModalProps {
+interface RankFormModalProps {
   game: GameItem;
   participant: Participant;
+  participantCount: number;
   season: Season;
   existingScore: ScoreItem | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
-function ScoreFormModal({
+function RankFormModal({
   game,
   participant,
+  participantCount,
   season,
   existingScore,
   onClose,
   onSaved,
-}: ScoreFormModalProps) {
+}: RankFormModalProps) {
   const gameCategory = game.category as ScoreboardGameId;
   const [saving, setSaving] = useState(false);
 
-  // 種目共通: totalScore
-  const [totalScore, setTotalScore] = useState(
-    existingScore?.totalScore ?? 0
-  );
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const det = (existingScore?.details ?? {}) as Record<string, any>;
+  const [rank, setRank] = useState<number>((det.rank as number) ?? 1);
 
-  // 麻雀
-  const [mahjongRounds, setMahjongRounds] = useState<
-    { rank: number; score: number }[]
-  >(
-    det.rounds
-      ? (det.rounds as { rank: number; score: number }[])
-      : [{ rank: 1, score: 0 }]
-  );
+  // ポイント自動計算: 1位 = 参加人数pt, 最下位 = 1pt
+  const points = Math.max(participantCount - rank + 1, 0);
 
-  // ポーカー
-  const [pokerRank, setPokerRank] = useState((det.tournamentRank as number) ?? 1);
-  const [pokerChips, setPokerChips] = useState((det.chipCount as number) ?? 0);
-  const [pokerBounty, setPokerBounty] = useState((det.bountyCount as number) ?? 0);
-
-  // ビリヤード
-  const [billiardsMatches, setBilliardsMatches] = useState<
-    { result: string; points: number }[]
-  >(
-    det.matches
-      ? (det.matches as { result: string; points: number }[])
-      : [{ result: "win", points: 0 }]
-  );
-
-  // ダーツ
-  const [dartsRank, setDartsRank] = useState((det.rank as number) ?? 1);
-  const [dartsPoints, setDartsPoints] = useState((det.points as number) ?? 0);
-  const [dartsGameType, setDartsGameType] = useState((det.gameType as string) ?? "");
-
-  /* ───────── 自動計算 ───────── */
-
-  useEffect(() => {
-    switch (gameCategory) {
-      case "mahjong":
-        setTotalScore(mahjongRounds.reduce((sum, r) => sum + r.score, 0));
-        break;
-      case "poker":
-        setTotalScore(pokerChips + pokerBounty * 100);
-        break;
-      case "billiards":
-        setTotalScore(billiardsMatches.reduce((sum, m) => sum + m.points, 0));
-        break;
-      case "darts":
-        setTotalScore(dartsPoints);
-        break;
-    }
-  }, [
-    gameCategory,
-    mahjongRounds,
-    pokerChips,
-    pokerBounty,
-    billiardsMatches,
-    dartsPoints,
-  ]);
-
-  /* ───────── 保存 ───────── */
+  // 順位選択肢を生成
+  const rankOptions = Array.from({ length: participantCount }, (_, i) => i + 1);
 
   async function handleSave() {
     setSaving(true);
     try {
-      let details: Record<string, unknown> = {};
-      switch (gameCategory) {
-        case "mahjong":
-          details = { rounds: mahjongRounds };
-          break;
-        case "poker":
-          details = {
-            tournamentRank: pokerRank,
-            chipCount: pokerChips,
-            bountyCount: pokerBounty,
-          };
-          break;
-        case "billiards":
-          details = { matches: billiardsMatches };
-          break;
-        case "darts":
-          details = {
-            rank: dartsRank,
-            points: dartsPoints,
-            gameType: dartsGameType || undefined,
-          };
-          break;
-      }
+      const details = { rank };
+      const totalScore = points;
 
       if (existingScore) {
-        // 更新
         const res = await fetch(
           `/api/admin/scoreboard/scores/${existingScore.scoreId}`,
           {
@@ -650,7 +589,6 @@ function ScoreFormModal({
         );
         if (!res.ok) throw new Error((await res.json()).error);
       } else {
-        // 新規
         const res = await fetch("/api/admin/scoreboard/scores", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -675,69 +613,52 @@ function ScoreFormModal({
     }
   }
 
-  const inputClass =
-    "w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]";
-  const labelClass = "block text-xs font-medium text-[#231714]/60 mb-1";
-
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-8">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
         <div className="px-6 py-5 border-b border-[#231714]/5">
           <h3 className="text-base font-semibold text-[#231714]">
-            {existingScore ? "スコア編集" : "スコア入力"}
+            {existingScore ? "順位を編集" : "順位を入力"}
           </h3>
           <p className="text-xs text-[#231714]/40 mt-0.5">
             {participant.displayName} · {GAME_LABELS[gameCategory]}
           </p>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
-          {/* 種目別フォーム */}
-          {gameCategory === "mahjong" && (
-            <MahjongForm
-              rounds={mahjongRounds}
-              setRounds={setMahjongRounds}
-              inputClass={inputClass}
-              labelClass={labelClass}
-            />
-          )}
-          {gameCategory === "poker" && (
-            <PokerForm
-              rank={pokerRank}
-              setRank={setPokerRank}
-              chips={pokerChips}
-              setChips={setPokerChips}
-              bounty={pokerBounty}
-              setBounty={setPokerBounty}
-              inputClass={inputClass}
-              labelClass={labelClass}
-            />
-          )}
-          {gameCategory === "billiards" && (
-            <BilliardsForm
-              matches={billiardsMatches}
-              setMatches={setBilliardsMatches}
-              inputClass={inputClass}
-              labelClass={labelClass}
-            />
-          )}
-          {gameCategory === "darts" && (
-            <DartsForm
-              rank={dartsRank}
-              setRank={setDartsRank}
-              points={dartsPoints}
-              setPoints={setDartsPoints}
-              gameType={dartsGameType}
-              setGameType={setDartsGameType}
-              inputClass={inputClass}
-              labelClass={labelClass}
-            />
-          )}
+        <div className="px-6 py-6 space-y-5">
+          {/* 順位選択 */}
+          <div>
+            <label className="block text-xs font-medium text-[#231714]/60 mb-2">
+              順位（{participantCount}名中）
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {rankOptions.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRank(r)}
+                  className={`w-12 h-12 rounded-xl text-sm font-bold transition-all ${
+                    rank === r
+                      ? "bg-[#231714] text-white shadow-md scale-105"
+                      : "bg-[#231714]/5 text-[#231714]/60 hover:bg-[#231714]/10"
+                  }`}
+                >
+                  {r}位
+                </button>
+              ))}
+            </div>
+          </div>
 
-          {/* 合計スコア表示 */}
-          <div className="bg-[#231714]/5 rounded-xl p-4 text-center">
-            <p className="text-xs text-[#231714]/50 mb-1">合計スコア</p>
-            <p className="text-2xl font-bold text-[#231714]">{totalScore}</p>
+          {/* ポイント表示 */}
+          <div className="bg-[#231714]/5 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[#231714]/50">獲得ポイント</p>
+              <p className="text-[10px] text-[#231714]/30 mt-0.5">
+                {participantCount}名参加 − {rank}位 + 1
+              </p>
+            </div>
+            <p className="text-3xl font-bold text-[#231714]">
+              {points}<span className="text-sm font-medium ml-0.5">pt</span>
+            </p>
           </div>
         </div>
 
@@ -756,254 +677,6 @@ function ScoreFormModal({
             {saving ? "保存中…" : "保存する"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   種目別フォーム
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ─── 麻雀 ─── */
-function MahjongForm({
-  rounds,
-  setRounds,
-  inputClass,
-  labelClass,
-}: {
-  rounds: { rank: number; score: number }[];
-  setRounds: (r: { rank: number; score: number }[]) => void;
-  inputClass: string;
-  labelClass: string;
-}) {
-  return (
-    <div>
-      <label className={labelClass}>半荘ごとの結果</label>
-      <div className="space-y-2">
-        {rounds.map((r, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="text-xs text-[#231714]/40 w-12 shrink-0">
-              {i + 1}半荘
-            </span>
-            <select
-              value={r.rank}
-              onChange={(e) => {
-                const next = [...rounds];
-                next[i] = { ...next[i], rank: Number(e.target.value) };
-                setRounds(next);
-              }}
-              className={`${inputClass} w-20 bg-white`}
-            >
-              {[1, 2, 3, 4].map((v) => (
-                <option key={v} value={v}>
-                  {v}着
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder="スコア"
-              value={r.score || ""}
-              onChange={(e) => {
-                const next = [...rounds];
-                next[i] = { ...next[i], score: Number(e.target.value) };
-                setRounds(next);
-              }}
-              className={`${inputClass} flex-1`}
-            />
-            {rounds.length > 1 && (
-              <button
-                onClick={() => setRounds(rounds.filter((_, j) => j !== i))}
-                className="text-xs text-red-500 hover:underline shrink-0"
-              >
-                削除
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <button
-        onClick={() => setRounds([...rounds, { rank: 1, score: 0 }])}
-        className="mt-2 text-xs text-[#A5C1C8] hover:underline"
-      >
-        ＋ 半荘を追加
-      </button>
-    </div>
-  );
-}
-
-/* ─── ポーカー ─── */
-function PokerForm({
-  rank,
-  setRank,
-  chips,
-  setChips,
-  bounty,
-  setBounty,
-  inputClass,
-  labelClass,
-}: {
-  rank: number;
-  setRank: (v: number) => void;
-  chips: number;
-  setChips: (v: number) => void;
-  bounty: number;
-  setBounty: (v: number) => void;
-  inputClass: string;
-  labelClass: string;
-}) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <label className={labelClass}>トーナメント順位</label>
-        <input
-          type="number"
-          min="1"
-          value={rank || ""}
-          onChange={(e) => setRank(Number(e.target.value))}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className={labelClass}>チップ数</label>
-        <input
-          type="number"
-          value={chips || ""}
-          onChange={(e) => setChips(Number(e.target.value))}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className={labelClass}>バウンティ数（任意）</label>
-        <input
-          type="number"
-          min="0"
-          value={bounty || ""}
-          onChange={(e) => setBounty(Number(e.target.value))}
-          className={inputClass}
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ─── ビリヤード ─── */
-function BilliardsForm({
-  matches,
-  setMatches,
-  inputClass,
-  labelClass,
-}: {
-  matches: { result: string; points: number }[];
-  setMatches: (m: { result: string; points: number }[]) => void;
-  inputClass: string;
-  labelClass: string;
-}) {
-  return (
-    <div>
-      <label className={labelClass}>試合ごとの結果</label>
-      <div className="space-y-2">
-        {matches.map((m, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="text-xs text-[#231714]/40 w-12 shrink-0">
-              第{i + 1}試合
-            </span>
-            <select
-              value={m.result}
-              onChange={(e) => {
-                const next = [...matches];
-                next[i] = { ...next[i], result: e.target.value };
-                setMatches(next);
-              }}
-              className={`${inputClass} w-20 bg-white`}
-            >
-              <option value="win">勝ち</option>
-              <option value="lose">負け</option>
-              <option value="draw">引分</option>
-            </select>
-            <input
-              type="number"
-              placeholder="ポイント"
-              value={m.points || ""}
-              onChange={(e) => {
-                const next = [...matches];
-                next[i] = { ...next[i], points: Number(e.target.value) };
-                setMatches(next);
-              }}
-              className={`${inputClass} flex-1`}
-            />
-            {matches.length > 1 && (
-              <button
-                onClick={() => setMatches(matches.filter((_, j) => j !== i))}
-                className="text-xs text-red-500 hover:underline shrink-0"
-              >
-                削除
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <button
-        onClick={() => setMatches([...matches, { result: "win", points: 0 }])}
-        className="mt-2 text-xs text-[#A5C1C8] hover:underline"
-      >
-        ＋ 試合を追加
-      </button>
-    </div>
-  );
-}
-
-/* ─── ダーツ ─── */
-function DartsForm({
-  rank,
-  setRank,
-  points,
-  setPoints,
-  gameType,
-  setGameType,
-  inputClass,
-  labelClass,
-}: {
-  rank: number;
-  setRank: (v: number) => void;
-  points: number;
-  setPoints: (v: number) => void;
-  gameType: string;
-  setGameType: (v: string) => void;
-  inputClass: string;
-  labelClass: string;
-}) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <label className={labelClass}>ゲームタイプ（任意）</label>
-        <input
-          type="text"
-          value={gameType}
-          onChange={(e) => setGameType(e.target.value)}
-          className={inputClass}
-          placeholder="501, クリケットなど"
-        />
-      </div>
-      <div>
-        <label className={labelClass}>順位</label>
-        <input
-          type="number"
-          min="1"
-          value={rank || ""}
-          onChange={(e) => setRank(Number(e.target.value))}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className={labelClass}>ポイント</label>
-        <input
-          type="number"
-          value={points || ""}
-          onChange={(e) => setPoints(Number(e.target.value))}
-          className={inputClass}
-        />
       </div>
     </div>
   );
