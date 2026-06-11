@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { CsEvent, CsCandidate, Season, ScoreboardGameId } from "@/types";
+import { useParams } from "next/navigation";
+import type { CsEvent, CsCandidate, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 
 /* ───────── 定数 ───────── */
@@ -28,9 +29,8 @@ const CANDIDATE_STATUS: Record<string, { label: string; cls: string }> = {
 
 /* ───────── メインコンポーネント ───────── */
 
-export default function CsManagementPage() {
-  const [seasons, setSeasons] = useState<Season[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState<string>("");
+export default function SeasonCsPage() {
+  const { seasonId } = useParams<{ seasonId: string }>();
   const [csEvents, setCsEvents] = useState<CsEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -39,30 +39,14 @@ export default function CsManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CsEvent | null>(null);
 
-  /* ───────── シーズン取得 ───────── */
-
-  useEffect(() => {
-    fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
-      .then((r) => r.json())
-      .then((data) => {
-        const items = data.seasons ?? [];
-        setSeasons(items);
-        const active = items.find((s: Season) => s.active);
-        if (active) setSelectedSeason(active.seasonId);
-        else if (items.length > 0) setSelectedSeason(items[0].seasonId);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
   /* ───────── CSイベント取得 ───────── */
 
   const fetchCsEvents = useCallback(async () => {
-    if (!selectedSeason) return;
+    if (!seasonId) return;
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/admin/scoreboard/cs?seasonId=${selectedSeason}`,
+        `/api/admin/scoreboard/cs?seasonId=${seasonId}`,
         { credentials: "same-origin" }
       );
       const data = await res.json();
@@ -72,11 +56,11 @@ export default function CsManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSeason]);
+  }, [seasonId]);
 
   useEffect(() => {
-    if (selectedSeason) fetchCsEvents();
-  }, [fetchCsEvents, selectedSeason]);
+    fetchCsEvents();
+  }, [fetchCsEvents]);
 
   /* ───────── CSイベント作成 ───────── */
 
@@ -93,7 +77,7 @@ export default function CsManagementPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ seasonId: selectedSeason, ...form }),
+        body: JSON.stringify({ seasonId, ...form }),
       });
       if (res.ok) {
         setShowCreateModal(false);
@@ -119,7 +103,7 @@ export default function CsManagementPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ csEventId, seasonId: selectedSeason }),
+        body: JSON.stringify({ csEventId, seasonId }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -230,7 +214,7 @@ export default function CsManagementPage() {
 
   /* ───────── UI ───────── */
 
-  if (loading && seasons.length === 0) {
+  if (loading && csEvents.length === 0) {
     return (
       <div className="p-8 flex items-center justify-center h-48">
         <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
@@ -239,38 +223,19 @@ export default function CsManagementPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-[#231714]">CS管理</h2>
-          <p className="text-sm text-[#231714]/40 mt-1">チャンピオンシップ候補者の管理・通知</p>
+          <h2 className="text-lg font-bold text-[#231714]">CS管理</h2>
+          <p className="text-xs text-[#231714]/40 mt-0.5">チャンピオンシップ候補者の管理・通知</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          disabled={!selectedSeason}
-          className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/90 transition-colors disabled:opacity-40"
+          className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/90 transition-colors"
         >
           + 新規CS作成
         </button>
       </div>
-
-      {/* シーズン選択 */}
-      {seasons.length > 0 && (
-        <div className="mb-5 flex items-center gap-3">
-          <span className="text-xs font-medium text-[#231714]/60">シーズン</span>
-          <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value)}
-            className="border border-[#231714]/10 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#231714]"
-          >
-            {seasons.map((s) => (
-              <option key={s.seasonId} value={s.seasonId}>
-                {s.name} {s.active ? "(有効)" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* CSイベント一覧 */}
       {loading ? (
@@ -356,7 +321,7 @@ function CsEventCard({
         onClick={onSelect}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h3 className="text-sm font-bold text-[#231714]">{event.title}</h3>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusBadge.cls}`}>
               {statusBadge.label}
@@ -373,7 +338,7 @@ function CsEventCard({
             )}
           </div>
           <svg
-            className={`w-4 h-4 text-[#231714]/30 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-[#231714]/30 transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`}
             viewBox="0 0 20 20"
             fill="currentColor"
           >

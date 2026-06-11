@@ -6,9 +6,6 @@ import Link from "next/link";
 const TABS = [
   { href: "/admin/games", label: "ゲーム管理", exact: true },
   { href: "/admin/games/seasons", label: "シーズン" },
-  { href: "/admin/games/scores", label: "スコア入力" },
-  { href: "/admin/games/rankings", label: "ランキング" },
-  { href: "/admin/games/cs", label: "CS管理" },
 ];
 
 export default function GamesLayout({ children }: { children: React.ReactNode }) {

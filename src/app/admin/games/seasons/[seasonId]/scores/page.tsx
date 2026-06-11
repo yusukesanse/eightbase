@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { GAME_CATEGORIES } from "@/types";
 import type { ScoreboardGameId, Season } from "@/types";
 
@@ -42,12 +43,23 @@ const GAME_LABELS: Record<ScoreboardGameId, string> = {
   darts: "ダーツ",
 };
 
+const STATUS_BADGES: Record<string, { label: string; color: string }> = {
+  upcoming: { label: "募集中", color: "bg-blue-100 text-blue-700" },
+  ongoing: { label: "開催中", color: "bg-green-100 text-green-700" },
+  awaiting_results: { label: "結果待ち", color: "bg-amber-100 text-amber-700" },
+  completed: { label: "完了", color: "bg-gray-100 text-gray-500" },
+};
+
 /* ───────── メインコンポーネント ───────── */
 
-export default function ScoresPage() {
+export default function SeasonScoresPage() {
+  const { seasonId } = useParams<{ seasonId: string }>();
+
+  // シーズン情報
+  const [season, setSeason] = useState<Season | null>(null);
+
   // ゲーム一覧
   const [games, setGames] = useState<GameItem[]>([]);
-  const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 選択状態
@@ -60,7 +72,6 @@ export default function ScoresPage() {
   const [scoreModal, setScoreModal] = useState(false);
   const [scoreTarget, setScoreTarget] = useState<Participant | null>(null);
   const [editingScore, setEditingScore] = useState<ScoreItem | null>(null);
-  const [saving, setSaving] = useState(false);
 
   // 削除確認
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -69,18 +80,28 @@ export default function ScoresPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/admin/games", { credentials: "same-origin" }).then((r) => r.json()),
       fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" }).then((r) => r.json()),
-    ]).then(([gData, sData]) => {
-      // completed/awaiting_results のゲームを対象
-      const eligible = (gData.games ?? []).filter(
-        (g: GameItem) => g.status === "completed" || g.status === "awaiting_results"
-      );
-      setGames(eligible);
-      setSeasons(sData.seasons ?? []);
-    }).catch(() => {})
+      fetch("/api/admin/games", { credentials: "same-origin" }).then((r) => r.json()),
+    ])
+      .then(([sData, gData]) => {
+        // シーズン情報を取得
+        const found = (sData.seasons ?? []).find((s: Season) => s.seasonId === seasonId);
+        if (found) {
+          setSeason(found);
+
+          // シーズン期間内のゲームをフィルタ（全ステータス対象）
+          const allGames: GameItem[] = gData.games ?? [];
+          const filtered = allGames.filter((g) => {
+            if (!g.startAt) return false;
+            const gameDate = g.startAt.slice(0, 10); // YYYY-MM-DD
+            return gameDate >= found.startDate && gameDate <= found.endDate;
+          });
+          setGames(filtered);
+        }
+      })
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [seasonId]);
 
   const loadGameDetail = useCallback(async (game: GameItem) => {
     setSelectedGame(game);
@@ -101,10 +122,6 @@ export default function ScoresPage() {
       setLoadingDetail(false);
     }
   }, []);
-
-  /* ───────── アクティブシーズン ───────── */
-
-  const activeSeason = seasons.find((s) => s.active);
 
   /* ───────── スコア登録/編集 ───────── */
 
@@ -134,65 +151,85 @@ export default function ScoresPage() {
     }
   }
 
-  /* ───────── UI ───────── */
+  /* ───────── ヘルパー ───────── */
 
   const getCategoryLabel = (cat: string) =>
     GAME_CATEGORIES.find((c) => c.id === cat)?.label ?? cat;
+
+  const getStatusBadge = (status: string) =>
+    STATUS_BADGES[status] ?? { label: status, color: "bg-gray-100 text-gray-500" };
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-[#231714]">スコア入力</h2>
-        <p className="text-sm text-[#231714]/40 mt-1">完了済みゲームのスコアを登録</p>
+        <p className="text-sm text-[#231714]/40 mt-1">
+          {season
+            ? `${season.name}（${season.startDate} 〜 ${season.endDate}）のゲームスコアを登録`
+            : "シーズン情報を読み込み中..."}
+        </p>
       </div>
-
-      {!activeSeason && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 text-sm text-amber-700">
-          有効なシーズンがありません。先にシーズン管理からシーズンを作成してください。
-        </div>
-      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
         </div>
+      ) : !season ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">
+          シーズンが見つかりませんでした
+        </div>
       ) : (
         <div className="flex gap-6">
           {/* 左: ゲーム一覧 */}
           <div className="w-80 shrink-0">
-            <p className="text-xs font-medium text-[#231714]/60 mb-2">ゲーム選択</p>
+            <p className="text-xs font-medium text-[#231714]/60 mb-2">
+              ゲーム選択（{games.length}件）
+            </p>
             {games.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#231714]/10 p-6 text-center text-sm text-[#231714]/40">
-                対象ゲームがありません
+                このシーズン期間内のゲームがありません
               </div>
             ) : (
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-                {games.map((g) => (
-                  <button
-                    key={g.gameId}
-                    onClick={() => loadGameDetail(g)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all ${
-                      selectedGame?.gameId === g.gameId
-                        ? "border-[#231714] bg-[#231714]/5 shadow-sm"
-                        : "border-[#231714]/10 bg-white hover:border-[#231714]/30"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-1.5 py-0.5 rounded bg-[#A5C1C8]/15 text-[9px] font-medium text-[#231714]/70">
-                        {getCategoryLabel(g.category)}
-                      </span>
-                      {g.scoreRegistered && (
-                        <span className="px-1.5 py-0.5 rounded bg-green-100 text-[9px] font-bold text-green-700">
-                          登録済
+                {games.map((g) => {
+                  const badge = getStatusBadge(g.status);
+                  return (
+                    <button
+                      key={g.gameId}
+                      onClick={() => loadGameDetail(g)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all ${
+                        selectedGame?.gameId === g.gameId
+                          ? "border-[#231714] bg-[#231714]/5 shadow-sm"
+                          : "border-[#231714]/10 bg-white hover:border-[#231714]/30"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="px-1.5 py-0.5 rounded bg-[#A5C1C8]/15 text-[9px] font-medium text-[#231714]/70">
+                          {getCategoryLabel(g.category)}
                         </span>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-[#231714] truncate">{g.title}</p>
-                    <p className="text-[10px] text-[#231714]/40 mt-0.5">
-                      {g.startAt ? new Date(g.startAt).toLocaleDateString("ja-JP") : "—"} · {g.participantCount}名参加
-                    </p>
-                  </button>
-                ))}
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${badge.color}`}
+                        >
+                          {badge.label}
+                        </span>
+                        {g.scoreRegistered && (
+                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-[9px] font-bold text-green-700">
+                            登録済
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-[#231714] truncate">
+                        {g.title}
+                      </p>
+                      <p className="text-[10px] text-[#231714]/40 mt-0.5">
+                        {g.startAt
+                          ? new Date(g.startAt).toLocaleDateString("ja-JP")
+                          : "—"}{" "}
+                        · {g.participantCount}名参加
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -210,10 +247,12 @@ export default function ScoresPage() {
             ) : (
               <div>
                 <div className="bg-white rounded-xl border border-[#231714]/10 p-4 mb-4">
-                  <h3 className="text-base font-semibold text-[#231714]">{selectedGame.title}</h3>
+                  <h3 className="text-base font-semibold text-[#231714]">
+                    {selectedGame.title}
+                  </h3>
                   <p className="text-xs text-[#231714]/40 mt-0.5">
-                    {getCategoryLabel(selectedGame.category)} · {participants.length}名参加
-                    {activeSeason && ` · シーズン: ${activeSeason.name}`}
+                    {getCategoryLabel(selectedGame.category)} ·{" "}
+                    {participants.length}名参加 · シーズン: {season.name}
                   </p>
                 </div>
 
@@ -226,33 +265,52 @@ export default function ScoresPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-gray-50 border-b border-[#231714]/5">
-                          <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">参加者</th>
-                          <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">スコア</th>
-                          <th className="px-4 py-2.5 text-right text-xs font-medium text-[#231714]/60">操作</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
+                            参加者
+                          </th>
+                          <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">
+                            スコア
+                          </th>
+                          <th className="px-4 py-2.5 text-right text-xs font-medium text-[#231714]/60">
+                            操作
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {participants.map((p) => {
                           const score = getScoreForUser(p.lineUserId);
                           return (
-                            <tr key={p.lineUserId} className="border-b border-[#231714]/5 hover:bg-[#231714]/[0.02]">
+                            <tr
+                              key={p.lineUserId}
+                              className="border-b border-[#231714]/5 hover:bg-[#231714]/[0.02]"
+                            >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
                                   {p.pictureUrl ? (
-                                    <img src={p.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+                                    <img
+                                      src={p.pictureUrl}
+                                      alt=""
+                                      className="w-7 h-7 rounded-full object-cover"
+                                    />
                                   ) : (
                                     <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[10px] font-bold text-[#A5C1C8]">
                                       {p.displayName.charAt(0)}
                                     </div>
                                   )}
-                                  <span className="text-sm text-[#231714] truncate">{p.displayName}</span>
+                                  <span className="text-sm text-[#231714] truncate">
+                                    {p.displayName}
+                                  </span>
                                 </div>
                               </td>
                               <td className="px-4 py-3">
                                 {score ? (
-                                  <span className="text-sm font-bold text-[#231714]">{score.totalScore}</span>
+                                  <span className="text-sm font-bold text-[#231714]">
+                                    {score.totalScore}
+                                  </span>
                                 ) : (
-                                  <span className="text-xs text-[#231714]/30">未登録</span>
+                                  <span className="text-xs text-[#231714]/30">
+                                    未登録
+                                  </span>
                                 )}
                               </td>
                               <td className="px-4 py-3 text-right">
@@ -261,12 +319,13 @@ export default function ScoresPage() {
                                     <button
                                       onClick={() => openScoreForm(p, score)}
                                       className="text-xs text-[#A5C1C8] hover:underline"
-                                      disabled={!activeSeason}
                                     >
                                       編集
                                     </button>
                                     <button
-                                      onClick={() => setDeleteTarget(score.scoreId)}
+                                      onClick={() =>
+                                        setDeleteTarget(score.scoreId)
+                                      }
                                       className="text-xs text-red-500 hover:underline"
                                     >
                                       削除
@@ -276,7 +335,6 @@ export default function ScoresPage() {
                                   <button
                                     onClick={() => openScoreForm(p)}
                                     className="px-3 py-1 text-xs bg-[#231714] text-white rounded-lg hover:bg-[#231714]/80 disabled:opacity-50"
-                                    disabled={!activeSeason}
                                   >
                                     スコア入力
                                   </button>
@@ -299,22 +357,36 @@ export default function ScoresPage() {
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="text-base font-semibold text-[#231714] mb-2">削除の確認</h3>
-            <p className="text-sm text-[#231714]/60 mb-5">このスコアを削除しますか？</p>
+            <h3 className="text-base font-semibold text-[#231714] mb-2">
+              削除の確認
+            </h3>
+            <p className="text-sm text-[#231714]/60 mb-5">
+              このスコアを削除しますか？
+            </p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-sm border border-[#231714]/10 rounded-lg hover:bg-gray-50">キャンセル</button>
-              <button onClick={() => handleDeleteScore(deleteTarget)} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">削除する</button>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-sm border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => handleDeleteScore(deleteTarget)}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                削除する
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* スコア入力モーダル */}
-      {scoreModal && scoreTarget && selectedGame && activeSeason && (
+      {scoreModal && scoreTarget && selectedGame && season && (
         <ScoreFormModal
           game={selectedGame}
           participant={scoreTarget}
-          season={activeSeason}
+          season={season}
           existingScore={editingScore}
           onClose={() => setScoreModal(false)}
           onSaved={() => {
@@ -340,32 +412,52 @@ interface ScoreFormModalProps {
   onSaved: () => void;
 }
 
-function ScoreFormModal({ game, participant, season, existingScore, onClose, onSaved }: ScoreFormModalProps) {
+function ScoreFormModal({
+  game,
+  participant,
+  season,
+  existingScore,
+  onClose,
+  onSaved,
+}: ScoreFormModalProps) {
   const gameCategory = game.category as ScoreboardGameId;
   const [saving, setSaving] = useState(false);
 
   // 種目共通: totalScore
-  const [totalScore, setTotalScore] = useState(existingScore?.totalScore ?? 0);
+  const [totalScore, setTotalScore] = useState(
+    existingScore?.totalScore ?? 0
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const det = (existingScore?.details ?? {}) as Record<string, any>;
 
   // 麻雀
-  const [mahjongRounds, setMahjongRounds] = useState<{ rank: number; score: number }[]>(
-    (existingScore?.details as any)?.rounds ?? [{ rank: 1, score: 0 }]
+  const [mahjongRounds, setMahjongRounds] = useState<
+    { rank: number; score: number }[]
+  >(
+    det.rounds
+      ? (det.rounds as { rank: number; score: number }[])
+      : [{ rank: 1, score: 0 }]
   );
 
   // ポーカー
-  const [pokerRank, setPokerRank] = useState((existingScore?.details as any)?.tournamentRank ?? 1);
-  const [pokerChips, setPokerChips] = useState((existingScore?.details as any)?.chipCount ?? 0);
-  const [pokerBounty, setPokerBounty] = useState((existingScore?.details as any)?.bountyCount ?? 0);
+  const [pokerRank, setPokerRank] = useState((det.tournamentRank as number) ?? 1);
+  const [pokerChips, setPokerChips] = useState((det.chipCount as number) ?? 0);
+  const [pokerBounty, setPokerBounty] = useState((det.bountyCount as number) ?? 0);
 
   // ビリヤード
-  const [billiardsMatches, setBilliardsMatches] = useState<{ result: string; points: number }[]>(
-    (existingScore?.details as any)?.matches ?? [{ result: "win", points: 0 }]
+  const [billiardsMatches, setBilliardsMatches] = useState<
+    { result: string; points: number }[]
+  >(
+    det.matches
+      ? (det.matches as { result: string; points: number }[])
+      : [{ result: "win", points: 0 }]
   );
 
   // ダーツ
-  const [dartsRank, setDartsRank] = useState((existingScore?.details as any)?.rank ?? 1);
-  const [dartsPoints, setDartsPoints] = useState((existingScore?.details as any)?.points ?? 0);
-  const [dartsGameType, setDartsGameType] = useState((existingScore?.details as any)?.gameType ?? "");
+  const [dartsRank, setDartsRank] = useState((det.rank as number) ?? 1);
+  const [dartsPoints, setDartsPoints] = useState((det.points as number) ?? 0);
+  const [dartsGameType, setDartsGameType] = useState((det.gameType as string) ?? "");
 
   /* ───────── 自動計算 ───────── */
 
@@ -384,7 +476,14 @@ function ScoreFormModal({ game, participant, season, existingScore, onClose, onS
         setTotalScore(dartsPoints);
         break;
     }
-  }, [gameCategory, mahjongRounds, pokerChips, pokerBounty, billiardsMatches, dartsPoints]);
+  }, [
+    gameCategory,
+    mahjongRounds,
+    pokerChips,
+    pokerBounty,
+    billiardsMatches,
+    dartsPoints,
+  ]);
 
   /* ───────── 保存 ───────── */
 
@@ -397,24 +496,35 @@ function ScoreFormModal({ game, participant, season, existingScore, onClose, onS
           details = { rounds: mahjongRounds };
           break;
         case "poker":
-          details = { tournamentRank: pokerRank, chipCount: pokerChips, bountyCount: pokerBounty };
+          details = {
+            tournamentRank: pokerRank,
+            chipCount: pokerChips,
+            bountyCount: pokerBounty,
+          };
           break;
         case "billiards":
           details = { matches: billiardsMatches };
           break;
         case "darts":
-          details = { rank: dartsRank, points: dartsPoints, gameType: dartsGameType || undefined };
+          details = {
+            rank: dartsRank,
+            points: dartsPoints,
+            gameType: dartsGameType || undefined,
+          };
           break;
       }
 
       if (existingScore) {
         // 更新
-        const res = await fetch(`/api/admin/scoreboard/scores/${existingScore.scoreId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ totalScore, details }),
-        });
+        const res = await fetch(
+          `/api/admin/scoreboard/scores/${existingScore.scoreId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ totalScore, details }),
+          }
+        );
         if (!res.ok) throw new Error((await res.json()).error);
       } else {
         // 新規
@@ -442,7 +552,8 @@ function ScoreFormModal({ game, participant, season, existingScore, onClose, onS
     }
   }
 
-  const inputClass = "w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]";
+  const inputClass =
+    "w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]";
   const labelClass = "block text-xs font-medium text-[#231714]/60 mb-1";
 
   return (
@@ -460,25 +571,43 @@ function ScoreFormModal({ game, participant, season, existingScore, onClose, onS
         <div className="px-6 py-5 space-y-4">
           {/* 種目別フォーム */}
           {gameCategory === "mahjong" && (
-            <MahjongForm rounds={mahjongRounds} setRounds={setMahjongRounds} inputClass={inputClass} labelClass={labelClass} />
+            <MahjongForm
+              rounds={mahjongRounds}
+              setRounds={setMahjongRounds}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           )}
           {gameCategory === "poker" && (
             <PokerForm
-              rank={pokerRank} setRank={setPokerRank}
-              chips={pokerChips} setChips={setPokerChips}
-              bounty={pokerBounty} setBounty={setPokerBounty}
-              inputClass={inputClass} labelClass={labelClass}
+              rank={pokerRank}
+              setRank={setPokerRank}
+              chips={pokerChips}
+              setChips={setPokerChips}
+              bounty={pokerBounty}
+              setBounty={setPokerBounty}
+              inputClass={inputClass}
+              labelClass={labelClass}
             />
           )}
           {gameCategory === "billiards" && (
-            <BilliardsForm matches={billiardsMatches} setMatches={setBilliardsMatches} inputClass={inputClass} labelClass={labelClass} />
+            <BilliardsForm
+              matches={billiardsMatches}
+              setMatches={setBilliardsMatches}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           )}
           {gameCategory === "darts" && (
             <DartsForm
-              rank={dartsRank} setRank={setDartsRank}
-              points={dartsPoints} setPoints={setDartsPoints}
-              gameType={dartsGameType} setGameType={setDartsGameType}
-              inputClass={inputClass} labelClass={labelClass}
+              rank={dartsRank}
+              setRank={setDartsRank}
+              points={dartsPoints}
+              setPoints={setDartsPoints}
+              gameType={dartsGameType}
+              setGameType={setDartsGameType}
+              inputClass={inputClass}
+              labelClass={labelClass}
             />
           )}
 
@@ -490,7 +619,10 @@ function ScoreFormModal({ game, participant, season, existingScore, onClose, onS
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm border border-[#231714]/10 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+          >
             キャンセル
           </button>
           <button
@@ -512,7 +644,10 @@ function ScoreFormModal({ game, participant, season, existingScore, onClose, onS
 
 /* ─── 麻雀 ─── */
 function MahjongForm({
-  rounds, setRounds, inputClass, labelClass,
+  rounds,
+  setRounds,
+  inputClass,
+  labelClass,
 }: {
   rounds: { rank: number; score: number }[];
   setRounds: (r: { rank: number; score: number }[]) => void;
@@ -525,7 +660,9 @@ function MahjongForm({
       <div className="space-y-2">
         {rounds.map((r, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-xs text-[#231714]/40 w-12 shrink-0">{i + 1}半荘</span>
+            <span className="text-xs text-[#231714]/40 w-12 shrink-0">
+              {i + 1}半荘
+            </span>
             <select
               value={r.rank}
               onChange={(e) => {
@@ -535,7 +672,11 @@ function MahjongForm({
               }}
               className={`${inputClass} w-20 bg-white`}
             >
-              {[1, 2, 3, 4].map((v) => <option key={v} value={v}>{v}着</option>)}
+              {[1, 2, 3, 4].map((v) => (
+                <option key={v} value={v}>
+                  {v}着
+                </option>
+              ))}
             </select>
             <input
               type="number"
@@ -571,26 +712,54 @@ function MahjongForm({
 
 /* ─── ポーカー ─── */
 function PokerForm({
-  rank, setRank, chips, setChips, bounty, setBounty, inputClass, labelClass,
+  rank,
+  setRank,
+  chips,
+  setChips,
+  bounty,
+  setBounty,
+  inputClass,
+  labelClass,
 }: {
-  rank: number; setRank: (v: number) => void;
-  chips: number; setChips: (v: number) => void;
-  bounty: number; setBounty: (v: number) => void;
-  inputClass: string; labelClass: string;
+  rank: number;
+  setRank: (v: number) => void;
+  chips: number;
+  setChips: (v: number) => void;
+  bounty: number;
+  setBounty: (v: number) => void;
+  inputClass: string;
+  labelClass: string;
 }) {
   return (
     <div className="space-y-3">
       <div>
         <label className={labelClass}>トーナメント順位</label>
-        <input type="number" min="1" value={rank || ""} onChange={(e) => setRank(Number(e.target.value))} className={inputClass} />
+        <input
+          type="number"
+          min="1"
+          value={rank || ""}
+          onChange={(e) => setRank(Number(e.target.value))}
+          className={inputClass}
+        />
       </div>
       <div>
         <label className={labelClass}>チップ数</label>
-        <input type="number" value={chips || ""} onChange={(e) => setChips(Number(e.target.value))} className={inputClass} />
+        <input
+          type="number"
+          value={chips || ""}
+          onChange={(e) => setChips(Number(e.target.value))}
+          className={inputClass}
+        />
       </div>
       <div>
         <label className={labelClass}>バウンティ数（任意）</label>
-        <input type="number" min="0" value={bounty || ""} onChange={(e) => setBounty(Number(e.target.value))} className={inputClass} />
+        <input
+          type="number"
+          min="0"
+          value={bounty || ""}
+          onChange={(e) => setBounty(Number(e.target.value))}
+          className={inputClass}
+        />
       </div>
     </div>
   );
@@ -598,11 +767,15 @@ function PokerForm({
 
 /* ─── ビリヤード ─── */
 function BilliardsForm({
-  matches, setMatches, inputClass, labelClass,
+  matches,
+  setMatches,
+  inputClass,
+  labelClass,
 }: {
   matches: { result: string; points: number }[];
   setMatches: (m: { result: string; points: number }[]) => void;
-  inputClass: string; labelClass: string;
+  inputClass: string;
+  labelClass: string;
 }) {
   return (
     <div>
@@ -610,7 +783,9 @@ function BilliardsForm({
       <div className="space-y-2">
         {matches.map((m, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-xs text-[#231714]/40 w-12 shrink-0">第{i + 1}試合</span>
+            <span className="text-xs text-[#231714]/40 w-12 shrink-0">
+              第{i + 1}試合
+            </span>
             <select
               value={m.result}
               onChange={(e) => {
@@ -658,26 +833,54 @@ function BilliardsForm({
 
 /* ─── ダーツ ─── */
 function DartsForm({
-  rank, setRank, points, setPoints, gameType, setGameType, inputClass, labelClass,
+  rank,
+  setRank,
+  points,
+  setPoints,
+  gameType,
+  setGameType,
+  inputClass,
+  labelClass,
 }: {
-  rank: number; setRank: (v: number) => void;
-  points: number; setPoints: (v: number) => void;
-  gameType: string; setGameType: (v: string) => void;
-  inputClass: string; labelClass: string;
+  rank: number;
+  setRank: (v: number) => void;
+  points: number;
+  setPoints: (v: number) => void;
+  gameType: string;
+  setGameType: (v: string) => void;
+  inputClass: string;
+  labelClass: string;
 }) {
   return (
     <div className="space-y-3">
       <div>
         <label className={labelClass}>ゲームタイプ（任意）</label>
-        <input type="text" value={gameType} onChange={(e) => setGameType(e.target.value)} className={inputClass} placeholder="501, クリケットなど" />
+        <input
+          type="text"
+          value={gameType}
+          onChange={(e) => setGameType(e.target.value)}
+          className={inputClass}
+          placeholder="501, クリケットなど"
+        />
       </div>
       <div>
         <label className={labelClass}>順位</label>
-        <input type="number" min="1" value={rank || ""} onChange={(e) => setRank(Number(e.target.value))} className={inputClass} />
+        <input
+          type="number"
+          min="1"
+          value={rank || ""}
+          onChange={(e) => setRank(Number(e.target.value))}
+          className={inputClass}
+        />
       </div>
       <div>
         <label className={labelClass}>ポイント</label>
-        <input type="number" value={points || ""} onChange={(e) => setPoints(Number(e.target.value))} className={inputClass} />
+        <input
+          type="number"
+          value={points || ""}
+          onChange={(e) => setPoints(Number(e.target.value))}
+          className={inputClass}
+        />
       </div>
     </div>
   );

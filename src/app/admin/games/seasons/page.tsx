@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Season, ScoreboardGameId } from "@/types";
 
 /* ───────── 定数 ───────── */
@@ -27,6 +28,7 @@ const EMPTY_FORM = {
 /* ───────── メインコンポーネント ───────── */
 
 export default function SeasonsPage() {
+  const router = useRouter();
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +201,8 @@ export default function SeasonsPage() {
           {seasons.map((s) => (
             <div
               key={s.seasonId}
-              className="bg-white rounded-xl border border-[#231714]/10 p-5 hover:shadow-sm transition-shadow"
+              className="bg-white rounded-xl border border-[#231714]/10 p-5 hover:shadow-sm hover:border-[#A5C1C8]/50 transition-all cursor-pointer"
+              onClick={() => router.push(`/admin/games/seasons/${s.seasonId}`)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -229,7 +232,7 @@ export default function SeasonsPage() {
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => toggleActive(s)}
                     className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
