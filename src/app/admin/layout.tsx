@@ -101,55 +101,6 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    href: "#scoreboard",
-    label: "スコアボード",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 17V8l3-1v10M8.5 17V5l3-1v13M14 17V3l3-1v15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    children: [
-      {
-        href: "/admin/scoreboard/seasons",
-        label: "シーズン管理",
-        icon: (
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-            <rect x="2" y="3" width="16" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M6 1.5v2.5M14 1.5v2.5M2 8h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/scoreboard/scores",
-        label: "スコア入力",
-        icon: (
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-            <path d="M3 17V8l3-1v10M8.5 17V5l3-1v13M14 17V3l3-1v15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/scoreboard/rankings",
-        label: "ランキング",
-        icon: (
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-            <path d="M10 2.5l2.2 4.4 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8L3 7.6l4.8-.7L10 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
-        ),
-      },
-      {
-        href: "/admin/scoreboard/cs",
-        label: "CS管理",
-        icon: (
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-            <path d="M6 10l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
     href: "/admin/admin-users",
     label: "管理者設定",
     icon: (
@@ -173,12 +124,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   /* 折りたたみセクションの子ページなら自動展開 */
   useEffect(() => {
     const contentPaths = ["/admin/events", "/admin/games", "/admin/news"];
-    const scoreboardPaths = ["/admin/scoreboard"];
     if (contentPaths.some((p) => pathname.startsWith(p))) {
       setOpenSections((prev) => ({ ...prev, "#content": true }));
-    }
-    if (scoreboardPaths.some((p) => pathname.startsWith(p))) {
-      setOpenSections((prev) => ({ ...prev, "#scoreboard": true }));
     }
   }, [pathname]);
 
