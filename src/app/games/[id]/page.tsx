@@ -208,7 +208,7 @@ export default function GameDetailPage() {
       </div>
 
       {/* フッター */}
-      <div className="fixed left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb z-20" style={{ bottom: "var(--bottom-nav-height)" }}>
+      <div className="fixed left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-100 px-5 pt-3 pb-5 safe-area-pb z-20" style={{ bottom: "var(--bottom-nav-height)" }}>
         {canJoin ? (
           <button
             onClick={handleJoin}
