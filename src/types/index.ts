@@ -304,3 +304,57 @@ export interface TimelinePost {
   commentCount: number;
   createdAt: string;
 }
+
+// ─── 麻雀リーグ ───────────────────────────────────────────────────────────────
+
+/** 配給原点 */
+export const MAHJONG_START_POINTS = 25000;
+/** 同卓4人の合計点（検証用） */
+export const MAHJONG_TABLE_TOTAL = 100000;
+
+export type MahjongLeagueTier = "M1" | "M2" | "M3";
+
+/**
+ * 卓のステータス
+ * - reporting: メンバーの申告待ち（未申告者あり、または検証未通過）
+ * - completed: 全員申告済み＋合計100,000点の検証通過。集計対象
+ */
+export type MahjongTableStatus = "reporting" | "completed";
+
+/** 卓メンバーの申告 */
+export interface MahjongTableMember {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  /** 最終持ち点（未申告は null） */
+  points: number | null;
+  /** 卓内順位 1〜4（未申告は null） */
+  rank: number | null;
+  reportedAt: string | null;
+}
+
+/** 麻雀の卓（1卓 = 1半荘 = 1試合） */
+export interface MahjongTable {
+  tableId: string;
+  seasonId: string;
+  eventDate: string;       // YYYY-MM-DD
+  createdBy: string;       // 代表者の lineUserId
+  memberIds: string[];     // 4人の lineUserId
+  members: MahjongTableMember[];
+  status: MahjongTableStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 通算成績（standings APIの計算結果） */
+export interface MahjongStanding {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  gamesPlayed: number;
+  totalPoints: number;
+  /** シーズン通算アベレージ（最終持ち点の平均） */
+  average: number;
+  rank: number;            // 1始まり
+  tier: MahjongLeagueTier; // 1-4位=M1, 5-8位=M2, 9位〜=M3
+}
