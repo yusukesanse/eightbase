@@ -1,0 +1,324 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
+import type { MahjongStanding, MahjongTable, MahjongLeagueTier } from "@/types";
+
+/* ───────── 定数 ───────── */
+
+const TIER_STYLES: Record<MahjongLeagueTier, string> = {
+  M1: "bg-yellow-100 text-yellow-700",
+  M2: "bg-gray-100 text-gray-600",
+  M3: "bg-orange-50 text-orange-600",
+};
+
+/* ───────── メインコンポーネント ───────── */
+
+export default function SeasonMahjongPage() {
+  const { seasonId } = useParams<{ seasonId: string }>();
+  const [standings, setStandings] = useState<MahjongStanding[]>([]);
+  const [tables, setTables] = useState<MahjongTable[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editTable, setEditTable] = useState<MahjongTable | null>(null);
+
+  const fetchAll = useCallback(async () => {
+    if (!seasonId) return;
+    setLoading(true);
+    try {
+      const [sRes, tRes] = await Promise.all([
+        fetch(`/api/admin/mahjong/standings?seasonId=${seasonId}`, { credentials: "same-origin" }),
+        fetch(`/api/admin/mahjong/tables?seasonId=${seasonId}`, { credentials: "same-origin" }),
+      ]);
+      const sData = await sRes.json();
+      const tData = await tRes.json();
+      setStandings(sData.standings ?? []);
+      setTables(tData.tables ?? []);
+    } catch {
+      setStandings([]);
+      setTables([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [seasonId]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  async function deleteTable(tableId: string) {
+    if (!confirm("この卓を削除しますか？（集計からも除外されます）")) return;
+    const res = await fetch(`/api/admin/mahjong/tables/${tableId}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (res.ok) fetchAll();
+    else alert("削除に失敗しました");
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-8 space-y-8">
+      {/* ───── 通算アベレージ順位表 ───── */}
+      <section>
+        <h2 className="text-sm font-bold text-[#231714] mb-3">
+          通算アベレージ順位表（リーグ別）
+        </h2>
+        {standings.length === 0 ? (
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+            集計済みの卓がまだありません
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-[#231714]/10 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-[#231714]/5">
+                  <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/60 w-14">順位</th>
+                  <th className="text-center px-2 py-2.5 text-xs font-medium text-[#231714]/60 w-16">リーグ</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">プレイヤー</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/60">アベレージ</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/60 w-20">試合数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((s) => (
+                  <tr key={s.lineUserId} className="border-b border-[#231714]/5 hover:bg-[#231714]/[0.02]">
+                    <td className="px-4 py-3 text-center text-sm text-[#231714]/70 font-medium">{s.rank}</td>
+                    <td className="px-2 py-3 text-center">
+                      <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold ${TIER_STYLES[s.tier]}`}>
+                        {s.tier}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {s.pictureUrl ? (
+                          <img src={s.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[10px] font-bold text-[#A5C1C8]">
+                            {s.displayName.charAt(0)}
+                          </div>
+                        )}
+                        <span className="text-sm font-medium text-[#231714]">{s.displayName}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-sm font-bold text-[#231714]">{s.average.toLocaleString()}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs text-[#231714]/50">{s.gamesPlayed}試合</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ───── 卓一覧 ───── */}
+      <section>
+        <h2 className="text-sm font-bold text-[#231714] mb-3">卓一覧（申告状況）</h2>
+        {tables.length === 0 ? (
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+            卓がまだ作成されていません
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {tables.map((t) => (
+              <div key={t.tableId} className="bg-white rounded-xl border border-[#231714]/10 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-[#231714]">{t.eventDate}</span>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        t.status === "completed"
+                          ? "bg-[#B0E401]/20 text-[#231714]"
+                          : "bg-orange-50 text-orange-600"
+                      }`}
+                    >
+                      {t.status === "completed" ? "集計済み" : "申告待ち"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditTable(t)}
+                      className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                    >
+                      修正
+                    </button>
+                    <button
+                      onClick={() => deleteTable(t.tableId)}
+                      className="px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {t.members.map((m) => (
+                    <div key={m.lineUserId} className="bg-gray-50 rounded-lg p-2.5">
+                      <div className="text-xs font-medium text-[#231714] truncate">{m.displayName}</div>
+                      {m.points !== null ? (
+                        <div className="mt-1 text-xs text-[#231714]/60">
+                          {m.rank}位 / {m.points.toLocaleString()}点
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-xs text-orange-500">未申告</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {editTable && (
+        <EditTableModal
+          table={editTable}
+          onClose={() => setEditTable(null)}
+          onSaved={() => {
+            setEditTable(null);
+            fetchAll();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────── 修正モーダル ───────── */
+
+function EditTableModal({
+  table,
+  onClose,
+  onSaved,
+}: {
+  table: MahjongTable;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [rows, setRows] = useState(
+    table.members.map((m) => ({
+      lineUserId: m.lineUserId,
+      displayName: m.displayName,
+      points: m.points !== null ? String(m.points) : "",
+      rank: m.rank !== null ? String(m.rank) : "",
+    }))
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const total = rows.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+
+  async function save() {
+    setError(null);
+    for (const r of rows) {
+      if (r.points === "" || r.rank === "") {
+        setError("全員の点数と順位を入力してください");
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/mahjong/tables/${table.tableId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          members: rows.map((r) => ({
+            lineUserId: r.lineUserId,
+            points: Number(r.points),
+            rank: Number(r.rank),
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "更新に失敗しました");
+      } else if (!data.validation?.ok) {
+        setError(`保存しましたが検証未通過です: ${data.validation?.error ?? ""}`);
+        onSaved();
+      } else {
+        onSaved();
+      }
+    } catch {
+      setError("更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-[#231714] mb-1">申告内容の修正</h3>
+        <p className="text-xs text-[#231714]/50 mb-4">
+          {table.eventDate} の卓 / 合計は 100,000 点になる必要があります
+        </p>
+
+        <div className="space-y-3">
+          {rows.map((r, i) => (
+            <div key={r.lineUserId} className="flex items-center gap-2">
+              <span className="flex-1 text-sm font-medium text-[#231714] truncate">{r.displayName}</span>
+              <select
+                value={r.rank}
+                onChange={(e) =>
+                  setRows((prev) => prev.map((p, j) => (j === i ? { ...p, rank: e.target.value } : p)))
+                }
+                className="w-20 px-2 py-2 text-sm border border-[#231714]/10 rounded-lg bg-white"
+              >
+                <option value="">順位</option>
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>{n}位</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                step={100}
+                value={r.points}
+                onChange={(e) =>
+                  setRows((prev) => prev.map((p, j) => (j === i ? { ...p, points: e.target.value } : p)))
+                }
+                placeholder="点数"
+                className="w-28 px-3 py-2 text-sm border border-[#231714]/10 rounded-lg text-right"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/50" : "text-red-500"}`}>
+          合計: {total.toLocaleString()} 点
+        </div>
+
+        {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="flex-1 py-2.5 text-sm font-bold text-[#231714] bg-[#B0E401] rounded-xl hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? "保存中..." : "保存"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

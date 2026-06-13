@@ -346,6 +346,9 @@ export interface MahjongTable {
   updatedAt: string;
 }
 
+/** CS（チャンピオンシップ）出場に必要なリーグ戦試合数 */
+export const MAHJONG_CS_MIN_GAMES = 5;
+
 /** 通算成績（standings APIの計算結果） */
 export interface MahjongStanding {
   lineUserId: string;
@@ -355,6 +358,16 @@ export interface MahjongStanding {
   totalPoints: number;
   /** シーズン通算アベレージ（最終持ち点の平均） */
   average: number;
+  /** 1位の回数 */
+  firstCount: number;
+  /** 連対（1位または2位）の回数 */
+  top2Count: number;
+  /** 1位率（タイブレーク第1キー） */
+  firstRate: number;
+  /** 連対率（タイブレーク第2キー） */
+  top2Rate: number;
+  /** CS出場資格（リーグ戦5試合以上） */
+  csEligible: boolean;
   rank: number;            // 1始まり
   tier: MahjongLeagueTier; // 1-4位=M1, 5-8位=M2, 9位〜=M3
 }

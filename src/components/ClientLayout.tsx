@@ -10,7 +10,13 @@ const NO_NAV_PATHS = ["/", "/login", "/setup-profile"];
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
-  const showNav = !NO_NAV_PATHS.includes(pathname) && !isAdmin;
+  const isDemo = pathname.startsWith("/demo");
+  const showNav = !NO_NAV_PATHS.includes(pathname) && !isAdmin && !isDemo;
+
+  // デモ画面: 認証なし・モックデータのみ（関係者への共有用）
+  if (isDemo) {
+    return <main className="flex-1 w-full">{children}</main>;
+  }
 
   // 管理画面: フル幅・ボトムナビなし
   if (isAdmin) {

@@ -26,6 +26,7 @@ export default function SeasonDetailLayout({
 
   const TABS = [
     { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
+    { href: `/admin/games/seasons/${seasonId}/mahjong`, label: "麻雀リーグ" },
     { href: `/admin/games/seasons/${seasonId}/scores`, label: "スコア入力" },
     { href: `/admin/games/seasons/${seasonId}/rankings`, label: "ランキング" },
     { href: `/admin/games/seasons/${seasonId}/cs`, label: "CS管理" },

@@ -6,6 +6,7 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import {
+  MAHJONG_CS_MIN_GAMES,
   MAHJONG_TABLE_TOTAL,
   type MahjongLeagueTier,
   type MahjongStanding,
@@ -98,8 +99,11 @@ export function tierForRank(rank: number): MahjongLeagueTier {
 
 /**
  * シーズンの完了済み卓から通算アベレージ順位表を計算する。
- * 並び順: アベレージ降順 → 試合数降順 → 合計点降順 → 名前順
- * （同点タイブレークは暫定。仕様確定後に変更可能）
+ * 並び順（確定仕様）:
+ *   1. アベレージ降順
+ *   2. 1位率降順（タイブレーク第1キー）
+ *   3. 連対率降順（1位または2位の率。タイブレーク第2キー）
+ *   4. 試合数降順 → 名前順（最終フォールバック）
  */
 export async function computeStandings(
   seasonId: string
@@ -118,6 +122,8 @@ export async function computeStandings(
       pictureUrl?: string;
       gamesPlayed: number;
       totalPoints: number;
+      firstCount: number;
+      top2Count: number;
     }
   >();
 
@@ -125,15 +131,19 @@ export async function computeStandings(
     const table = doc.data() as MahjongTable;
     if (table.status !== "completed") continue;
     for (const m of table.members) {
-      if (m.points === null) continue;
+      if (m.points === null || m.rank === null) continue;
       const cur = acc.get(m.lineUserId) ?? {
         displayName: m.displayName,
         pictureUrl: m.pictureUrl,
         gamesPlayed: 0,
         totalPoints: 0,
+        firstCount: 0,
+        top2Count: 0,
       };
       cur.gamesPlayed += 1;
       cur.totalPoints += m.points;
+      if (m.rank === 1) cur.firstCount += 1;
+      if (m.rank <= 2) cur.top2Count += 1;
       // 表示名は最新の卓のものを採用
       cur.displayName = m.displayName;
       if (m.pictureUrl) cur.pictureUrl = m.pictureUrl;
@@ -148,13 +158,19 @@ export async function computeStandings(
     gamesPlayed: s.gamesPlayed,
     totalPoints: s.totalPoints,
     average: Math.round(s.totalPoints / s.gamesPlayed),
+    firstCount: s.firstCount,
+    top2Count: s.top2Count,
+    firstRate: s.firstCount / s.gamesPlayed,
+    top2Rate: s.top2Count / s.gamesPlayed,
+    csEligible: s.gamesPlayed >= MAHJONG_CS_MIN_GAMES,
   }));
 
   standings.sort(
     (a, b) =>
       b.average - a.average ||
+      b.firstRate - a.firstRate ||
+      b.top2Rate - a.top2Rate ||
       b.gamesPlayed - a.gamesPlayed ||
-      b.totalPoints - a.totalPoints ||
       a.displayName.localeCompare(b.displayName, "ja")
   );
 
