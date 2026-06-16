@@ -338,12 +338,27 @@ export interface MahjongTable {
   tableId: string;
   seasonId: string;
   eventDate: string;       // YYYY-MM-DD
-  createdBy: string;       // 代表者の lineUserId
+  createdBy: string;       // 代表者の lineUserId（卓組み自動生成時は "system"）
   memberIds: string[];     // 4人の lineUserId
   members: MahjongTableMember[];
   status: MahjongTableStatus;
+  /** 卓組みで生成されたラウンド番号（1始まり）。手動作成卓は undefined */
+  round?: number;
+  /** 卓ラベル（A / B）。卓組み生成時に付与 */
+  tableLabel?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** リーグ戦 開催日への参加表明 */
+export interface MahjongEntry {
+  entryId: string;
+  seasonId: string;
+  eventDate: string;       // YYYY-MM-DD
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  enteredAt: string;
 }
 
 /** CS（チャンピオンシップ）出場に必要なリーグ戦試合数 */
