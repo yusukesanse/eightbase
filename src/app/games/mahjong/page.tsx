@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
 import type {
   MahjongStanding,
@@ -19,7 +19,16 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function MahjongLeaguePage() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("league");
+
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/info");
+    }
+  }
   const [standings, setStandings] = useState<MahjongStanding[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -40,9 +49,9 @@ export default function MahjongLeaguePage() {
       {/* ヘッダー */}
       <header className="bg-white px-5 pt-12 pb-3">
         <div className="flex items-center gap-2">
-          <Link href="/games" className="text-[#231714]/50 hover:text-[#231714]/80">
+          <button onClick={goBack} aria-label="戻る" className="text-[#231714]/50 hover:text-[#231714]/80">
             ←
-          </Link>
+          </button>
           <div>
             <h1 className="text-[17px] font-medium text-[#231714]">麻雀リーグ</h1>
             <p className="text-[11px] text-[#231714]/40 mt-0.5">M.LEAGUE</p>
