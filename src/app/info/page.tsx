@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { NufEvent, NewsItem, Game, ScoreboardGameId } from "@/types";
+import type { NufEvent, NewsItem, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
+import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
+import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -21,18 +23,15 @@ export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
   const [events, setEvents] = useState<(NufEvent & { goodCount: number })[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/events").then((r) => r.json()).catch(() => ({ events: [] })),
-      fetch("/api/games").then((r) => r.json()).catch(() => ({ games: [] })),
       fetch("/api/news").then((r) => r.json()).catch(() => ({ news: [] })),
-    ]).then(([evData, gData, nData]) => {
+    ]).then(([evData, nData]) => {
       setEvents(evData.events ?? []);
-      setGames(gData.games ?? []);
       setNews(nData.news ?? []);
       setLoading(false);
     });
@@ -74,9 +73,7 @@ export default function InfoPage() {
           {activeTab === "events" && (
             <EventsTab events={events} router={router} />
           )}
-          {activeTab === "games" && (
-            <GamesTab games={games} router={router} />
-          )}
+          {activeTab === "games" && <GamesTab />}
           {activeTab === "news" && (
             <NewsTab news={news} router={router} />
           )}
@@ -350,18 +347,6 @@ function EventsTab({
    ゲームタブ
    ═══════════════════════════════════════════ */
 
-const GAME_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  upcoming:         { label: "募集中",   color: "bg-blue-100 text-blue-700" },
-  ongoing:          { label: "開催中",   color: "bg-green-100 text-green-700" },
-  awaiting_results: { label: "結果待ち", color: "bg-amber-100 text-amber-700" },
-  completed:        { label: "完了",     color: "bg-gray-100 text-gray-500" },
-};
-
-function getGameCategoryLabel(category: string, categoryLabel?: string): string {
-  if (category === "other" && categoryLabel) return categoryLabel;
-  return GAME_CATEGORIES.find((c) => c.id === category)?.label ?? category;
-}
-
 interface RankingUser {
   rank: number;
   lineUserId: string;
@@ -371,54 +356,27 @@ interface RankingUser {
   playedCount: number;
 }
 
-function GamesTab({
-  games,
-  router,
-}: {
-  games: Game[];
-  router: ReturnType<typeof useRouter>;
-}) {
-  const [subTab, setSubTab] = useState<"games" | "ranking" | "cs">("games");
-  const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
-
-  // ランキングデータ
-  const [ranking, setRanking] = useState<RankingUser[]>([]);
+function GamesTab() {
+  const [subTab, setSubTab] = useState<"ranking" | "cs">("ranking");
   const [gameCategory, setGameCategory] = useState<ScoreboardGameId>("mahjong");
+  const [csCategory, setCsCategory] = useState<ScoreboardGameId>("mahjong");
+
+  // 麻雀以外のランキング
+  const [ranking, setRanking] = useState<RankingUser[]>([]);
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
   const [yearMonth, setYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [rankingLoading, setRankingLoading] = useState(false);
 
-  // CSデータ
-  interface CsEventPublic {
-    csEventId: string;
-    title: string;
-    description: string;
-    startAt: string;
-    endAt: string;
-    location: string;
-    status: string;
-    candidates: { gameCategory: string; annualRank: number; displayName: string; pictureUrl: string }[];
-    myCandidacies: { gameCategory: string; annualRank: number; status: string }[];
-  }
-  const [csEvents, setCsEvents] = useState<CsEventPublic[]>([]);
-  const [csLoading, setCsLoading] = useState(false);
-
-  // 月送り
   function shiftMonth(delta: number) {
     const [y, m] = yearMonth.split("-").map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
 
-  // ランキング取得
   useEffect(() => {
-    if (subTab !== "ranking") return;
+    if (subTab !== "ranking" || gameCategory === "mahjong") return;
     setRankingLoading(true);
-    const params = new URLSearchParams({
-      gameCategory,
-      period,
-      yearMonth,
-    });
+    const params = new URLSearchParams({ gameCategory, period, yearMonth });
     fetch(`/api/games/ranking?${params}`)
       .then((r) => r.json())
       .then((d) => setRanking(d.ranking ?? []))
@@ -426,82 +384,25 @@ function GamesTab({
       .finally(() => setRankingLoading(false));
   }, [subTab, gameCategory, period, yearMonth]);
 
-  // CS取得
-  useEffect(() => {
-    if (subTab !== "cs") return;
-    setCsLoading(true);
-    fetch("/api/games/cs")
-      .then((r) => r.json())
-      .then((d) => setCsEvents(d.csEvents ?? []))
-      .catch(() => setCsEvents([]))
-      .finally(() => setCsLoading(false));
-  }, [subTab]);
-
-  const filtered = useMemo(() => {
-    let list = games;
-    if (filter === "upcoming") {
-      list = games.filter((g) => g.status === "upcoming" || g.status === "ongoing");
-    } else if (filter === "past") {
-      list = games.filter((g) => g.status === "completed" || g.status === "awaiting_results");
-    }
-    return list.sort((a, b) => {
-      if (filter === "upcoming") return new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
-      return new Date(b.startAt).getTime() - new Date(a.startAt).getTime();
-    });
-  }, [games, filter]);
-
   return (
     <div>
-      {/* 麻雀リーグ（ピラミッド）への導線 */}
-      <button
-        onClick={() => router.push("/games/mahjong")}
-        className="w-full mb-4 flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3.5 active:scale-[0.98] transition-transform text-left"
-      >
-        <span className="w-10 h-10 rounded-xl bg-[#A5C1C8]/15 flex items-center justify-center shrink-0">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <polygon points="12,3 7,11 17,11" fill="#E4007F" />
-            <polygon points="7,11 17,11 19,16 5,16" fill="#00A0E9" />
-            <polygon points="5,16 19,16 21,21 3,21" fill="#F5B400" />
-          </svg>
-        </span>
-        <span className="flex-1">
-          <span className="block text-sm font-bold text-[#231714]">麻雀リーグ</span>
-          <span className="block text-[11px] text-[#231714]/45 mt-0.5">
-            リーグ順位・参加表明・スコア申告
-          </span>
-        </span>
-        <span className="text-[#231714]/30">›</span>
-      </button>
-
-      {/* サブタブ */}
+      {/* サブタブ: ランキング / CS */}
       <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1">
-        <button
-          onClick={() => setSubTab("games")}
-          className={clsx(
-            "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
-            subTab === "games" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-          )}
-        >
-          ゲーム
-        </button>
-        <button
-          onClick={() => setSubTab("ranking")}
-          className={clsx(
-            "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
-            subTab === "ranking" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-          )}
-        >
-          ランキング
-        </button>
-        <button
-          onClick={() => setSubTab("cs")}
-          className={clsx(
-            "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
-            subTab === "cs" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-          )}
-        >
-          CS
-        </button>
+        {([
+          { id: "ranking" as const, label: "ランキング" },
+          { id: "cs" as const, label: "CS" },
+        ]).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setSubTab(t.id)}
+            className={clsx(
+              "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
+              subTab === t.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── ランキングタブ ── */}
@@ -523,304 +424,125 @@ function GamesTab({
             ))}
           </div>
 
-          {/* 麻雀はリーグ（ピラミッド）へ誘導 */}
-          {gameCategory === "mahjong" && (
-            <button
-              onClick={() => router.push("/games/mahjong")}
-              className="w-full mb-4 flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3.5 active:scale-[0.98] transition-transform text-left"
-            >
-              <span className="w-10 h-10 rounded-xl bg-[#A5C1C8]/15 flex items-center justify-center shrink-0">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <polygon points="12,3 7,11 17,11" fill="#E4007F" />
-                  <polygon points="7,11 17,11 19,16 5,16" fill="#00A0E9" />
-                  <polygon points="5,16 19,16 21,21 3,21" fill="#F5B400" />
-                </svg>
-              </span>
-              <span className="flex-1">
-                <span className="block text-sm font-bold text-[#231714]">麻雀リーグ（M.LEAGUE）</span>
-                <span className="block text-[11px] text-[#231714]/45 mt-0.5">
-                  ピラミッド順位・参加表明・スコア申告へ
-                </span>
-              </span>
-              <span className="text-[#231714]/30">›</span>
-            </button>
-          )}
-
-          {/* 期間切替 + 月ナビ */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex gap-0.5 bg-[#231714]/5 rounded-lg p-0.5">
-              <button
-                onClick={() => setPeriod("monthly")}
-                className={clsx(
-                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
-                  period === "monthly" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-                )}
-              >
-                月間
-              </button>
-              <button
-                onClick={() => setPeriod("annual")}
-                className={clsx(
-                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
-                  period === "annual" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-                )}
-              >
-                年間
-              </button>
-            </div>
-            {period === "monthly" && (
-              <div className="flex items-center gap-1.5 ml-auto">
-                <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/40 hover:text-[#231714] rounded">
-                  ←
-                </button>
-                <span className="text-xs font-medium text-[#231714] min-w-[70px] text-center">
-                  {yearMonth.replace("-", "年") + "月"}
-                </span>
-                <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/40 hover:text-[#231714] rounded">
-                  →
-                </button>
-              </div>
-            )}
-          </div>
-
-          {rankingLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : ranking.length === 0 ? (
-            <EmptyState message="まだランキングデータがありません" />
+          {gameCategory === "mahjong" ? (
+            <MahjongLeagueView />
           ) : (
-            <div className="space-y-2">
-              {ranking.map((user) => {
-                const maxScore = ranking[0]?.totalScore || 1;
-                const pct = Math.round((user.totalScore / maxScore) * 100);
-                return (
-                  <div key={user.lineUserId} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-3">
-                      <span className={clsx(
-                        "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                        user.rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                        user.rank === 2 ? "bg-gray-100 text-gray-600" :
-                        user.rank === 3 ? "bg-orange-100 text-orange-600" :
-                        "bg-gray-50 text-gray-400"
-                      )}>
-                        {user.rank}
-                      </span>
-                      {user.pictureUrl ? (
-                        <img src={user.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-xs font-bold text-[#A5C1C8] shrink-0">
-                          {user.displayName.charAt(0)}
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-[#231714] truncate">{user.displayName}</span>
-                          <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalScore.toLocaleString()}</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full rounded-full bg-[#A5C1C8] transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/40">
-                          <span>{user.playedCount}回参加</span>
+            <>
+              {/* 期間切替 + 月ナビ */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex gap-0.5 bg-[#231714]/5 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setPeriod("monthly")}
+                    className={clsx(
+                      "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                      period === "monthly" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+                    )}
+                  >
+                    月間
+                  </button>
+                  <button
+                    onClick={() => setPeriod("annual")}
+                    className={clsx(
+                      "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                      period === "annual" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+                    )}
+                  >
+                    年間
+                  </button>
+                </div>
+                {period === "monthly" && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/40 hover:text-[#231714] rounded">
+                      ←
+                    </button>
+                    <span className="text-xs font-medium text-[#231714] min-w-[70px] text-center">
+                      {yearMonth.replace("-", "年") + "月"}
+                    </span>
+                    <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/40 hover:text-[#231714] rounded">
+                      →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {rankingLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : ranking.length === 0 ? (
+                <EmptyState message="まだランキングデータがありません" />
+              ) : (
+                <div className="space-y-2">
+                  {ranking.map((user) => {
+                    const maxScore = ranking[0]?.totalScore || 1;
+                    const pct = Math.round((user.totalScore / maxScore) * 100);
+                    return (
+                      <div key={user.lineUserId} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <span className={clsx(
+                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                            user.rank === 1 ? "bg-yellow-100 text-yellow-700" :
+                            user.rank === 2 ? "bg-gray-100 text-gray-600" :
+                            user.rank === 3 ? "bg-orange-100 text-orange-600" :
+                            "bg-gray-50 text-gray-400"
+                          )}>
+                            {user.rank}
+                          </span>
+                          {user.pictureUrl ? (
+                            <img src={user.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-xs font-bold text-[#A5C1C8] shrink-0">
+                              {user.displayName.charAt(0)}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-[#231714] truncate">{user.displayName}</span>
+                              <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalScore.toLocaleString()}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                              <div className="h-full rounded-full bg-[#A5C1C8] transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/40">
+                              <span>{user.playedCount}回参加</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {/* ── CSタブ ── */}
+      {/* ── CSタブ（4種目） ── */}
       {subTab === "cs" && (
         <div>
-          {csLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : csEvents.length === 0 ? (
-            <EmptyState message="現在開催予定のCSはありません" />
-          ) : (
-            <div className="space-y-4">
-              {csEvents.map((ev) => {
-                const isMyCs = ev.myCandidacies.length > 0;
-                const gameLabelMap: Record<string, string> = {
-                  mahjong: "麻雀", poker: "ポーカー", billiards: "ビリヤード", darts: "ダーツ",
-                };
-                return (
-                  <div key={ev.csEventId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    {/* ヘッダー */}
-                    <div className="p-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-bold text-[#231714]">{ev.title}</h3>
-                        {isMyCs && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#B0E401] text-[#231714]">
-                            選出
-                          </span>
-                        )}
-                      </div>
-                      {ev.description && (
-                        <p className="text-xs text-[#231714]/60 mb-2">{ev.description}</p>
-                      )}
-                      <div className="flex gap-3 text-[10px] text-[#231714]/40">
-                        <span>{ev.startAt}</span>
-                        <span>{ev.location}</span>
-                      </div>
-                    </div>
-
-                    {/* 自分の選出情報 */}
-                    {isMyCs && (
-                      <div className="mx-4 mb-3 p-3 rounded-lg bg-[#B0E401]/10 border border-[#B0E401]/30">
-                        <p className="text-xs font-medium text-[#231714] mb-1">あなたは以下の種目でCS候補に選出されています</p>
-                        <div className="flex flex-wrap gap-2">
-                          {ev.myCandidacies.map((c) => (
-                            <span
-                              key={c.gameCategory}
-                              className={clsx(
-                                "px-2 py-0.5 rounded-full text-[10px] font-medium",
-                                c.status === "declined"
-                                  ? "bg-red-100 text-red-600"
-                                  : "bg-[#B0E401]/20 text-[#231714]"
-                              )}
-                            >
-                              {gameLabelMap[c.gameCategory] ?? c.gameCategory} ({c.annualRank}位)
-                              {c.status === "declined" && " 辞退済"}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 候補者一覧 */}
-                    {ev.candidates.length > 0 && (
-                      <div className="border-t border-gray-100 p-4">
-                        <p className="text-[10px] font-medium text-[#231714]/40 mb-2">CS出場者</p>
-                        <div className="space-y-1">
-                          {ev.candidates.map((c, i) => (
-                            <div key={`${c.displayName}-${i}`} className="flex items-center gap-2 py-1">
-                              <span className="text-[10px] text-[#231714]/30 w-4 text-right shrink-0">{c.annualRank}</span>
-                              {c.pictureUrl ? (
-                                <img src={c.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[9px] font-bold text-[#A5C1C8] shrink-0">
-                                  {c.displayName.charAt(0)}
-                                </div>
-                              )}
-                              <span className="text-xs text-[#231714]">{c.displayName}</span>
-                              <span className="text-[10px] text-[#231714]/30 ml-auto">
-                                {gameLabelMap[c.gameCategory] ?? c.gameCategory}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── ゲーム一覧タブ ── */}
-      {subTab === "games" && (
-        <>
-          {/* フィルター */}
-          <div className="flex gap-1.5 mb-4">
-            {([
-              { key: "upcoming" as const, label: "開催予定" },
-              { key: "past" as const, label: "過去" },
-              { key: "all" as const, label: "すべて" },
-            ]).map((f) => (
+          <div className="flex gap-1 mb-3 bg-[#231714]/5 rounded-xl p-1 overflow-x-auto">
+            {GAME_CATEGORIES.map((cat) => (
               <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
+                key={cat.id}
+                onClick={() => setCsCategory(cat.id as ScoreboardGameId)}
                 className={clsx(
-                  "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                  filter === f.key
-                    ? "bg-[#231714] text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
+                  csCategory === cat.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
                 )}
               >
-                {f.label}
+                {cat.label}
               </button>
             ))}
           </div>
-
-          {filtered.length === 0 ? (
-            <EmptyState message={filter === "upcoming" ? "開催予定のゲームはありません" : "該当するゲームはありません"} />
+          {csCategory === "mahjong" ? (
+            <MahjongCsView />
           ) : (
-            <div className="space-y-3">
-              {filtered.map((g) => {
-                const isPast = g.status === "completed" || g.status === "awaiting_results";
-                const isFull = (g.participantCount ?? 0) >= g.maxParticipants;
-                const isDeadlinePassed = new Date(g.deadline) < new Date();
-                const statusCfg = GAME_STATUS_CONFIG[g.status] ?? GAME_STATUS_CONFIG.upcoming;
-
-                return (
-                  <div
-                    key={g.gameId}
-                    onClick={() => router.push(`/games/${g.gameId}`)}
-                    className={clsx(
-                      "bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer",
-                      isPast && "opacity-70"
-                    )}
-                  >
-                    <div className="flex">
-                      <div className={clsx(
-                        "w-20 flex-shrink-0 flex flex-col items-center justify-center py-3",
-                        isPast ? "bg-gray-100" : "bg-gradient-to-b from-[#A5C1C8] to-[#8BA8AF]"
-                      )}>
-                        <span className={clsx("text-[10px] font-bold", isPast ? "text-gray-400" : "text-white/70")}>
-                          {dayjs(g.startAt).format("M月")}
-                        </span>
-                        <span className={clsx("text-2xl font-bold leading-none", isPast ? "text-gray-500" : "text-white")}>
-                          {dayjs(g.startAt).format("D")}
-                        </span>
-                        <span className={clsx("text-[10px]", isPast ? "text-gray-400" : "text-white/70")}>
-                          {dayjs(g.startAt).format("ddd")}
-                        </span>
-                      </div>
-                      <div className="flex-1 p-3 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-bold", statusCfg.color)}>
-                            {statusCfg.label}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70">
-                            {getGameCategoryLabel(g.category, g.categoryLabel)}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-[#231714] leading-snug line-clamp-2">{g.title}</h3>
-                        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-[#231714]/40">
-                          <span>{dayjs(g.startAt).format("HH:mm")}〜</span>
-                          <span>📍 {g.location}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <span className={clsx("text-[11px] font-medium", isFull ? "text-red-500" : "text-[#231714]/60")}>
-                            👥 {g.participantCount ?? 0}/{g.maxParticipants}名
-                          </span>
-                          {isFull && <span className="text-[10px] text-red-400">満員</span>}
-                          {!isFull && isDeadlinePassed && g.status === "upcoming" && (
-                            <span className="text-[10px] text-amber-500">締切済</span>
-                          )}
-                          {!isFull && !isDeadlinePassed && g.status === "upcoming" && (
-                            <span className="text-[10px] text-[#231714]/30">
-                              締切 {dayjs(g.deadline).format("M/D HH:mm")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+              準備中です
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
