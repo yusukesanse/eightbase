@@ -8,7 +8,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { MahjongStanding, MahjongTable } from "@/types";
+import type { MahjongTable } from "@/types";
+import { LeaguePyramid } from "@/components/LeaguePyramid";
 import { MOCK_STANDINGS, MOCK_TABLES, MOCK_ME } from "../mock";
 
 type Tab = "league" | "tables";
@@ -61,7 +62,9 @@ export default function DemoMiniAppPage() {
         </div>
 
         {tab === "league" ? (
-          <LeaguePyramid standings={MOCK_STANDINGS} />
+          <div className="px-4 mt-4">
+            <LeaguePyramid standings={MOCK_STANDINGS} currentUserId={MOCK_ME.lineUserId} />
+          </div>
         ) : (
           <TablesSection
             tables={tables}
@@ -98,98 +101,6 @@ export default function DemoMiniAppPage() {
             }}
           />
         )}
-      </div>
-    </div>
-  );
-}
-
-/* ───────── ピラミッド（Jリーグ式） ───────── */
-
-function LeaguePyramid({ standings }: { standings: MahjongStanding[] }) {
-  const m1 = standings.filter((s) => s.tier === "M1");
-  const m2 = standings.filter((s) => s.tier === "M2");
-  const m3 = standings.filter((s) => s.tier === "M3");
-
-  return (
-    <div className="px-4 mt-4 space-y-4">
-      <TierBlock
-        label="M1"
-        sub="トップリーグ"
-        color="bg-gradient-to-b from-yellow-50 to-white border-yellow-300"
-        badge="bg-yellow-400 text-white"
-        players={m1}
-        narrow
-      />
-      <TierBlock
-        label="M2"
-        sub="セカンドリーグ"
-        color="bg-gradient-to-b from-gray-50 to-white border-gray-300"
-        badge="bg-gray-400 text-white"
-        players={m2}
-        narrow={false}
-      />
-      <TierBlock
-        label="M3"
-        sub="チャレンジリーグ"
-        color="bg-gradient-to-b from-orange-50 to-white border-orange-200"
-        badge="bg-orange-300 text-white"
-        players={m3}
-        narrow={false}
-        wide
-      />
-      <p className="text-[11px] text-[#231714]/40 text-center pb-2">
-        順位はシーズン通算アベレージ（最終持ち点の平均）。毎月のリーグ戦後に入れ替えがあります。
-      </p>
-    </div>
-  );
-}
-
-function TierBlock({
-  label,
-  sub,
-  color,
-  badge,
-  players,
-  narrow,
-  wide,
-}: {
-  label: string;
-  sub: string;
-  color: string;
-  badge: string;
-  players: MahjongStanding[];
-  narrow?: boolean;
-  wide?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border ${color} p-3 ${
-        narrow ? "mx-6" : wide ? "" : "mx-3"
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold ${badge}`}>
-          {label}
-        </span>
-        <span className="text-[11px] text-[#231714]/40">{sub}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {players.map((p) => (
-          <div
-            key={p.lineUserId}
-            className={`rounded-xl px-3 py-2 flex items-center gap-2 ${
-              p.lineUserId === MOCK_ME.lineUserId
-                ? "bg-[#A5C1C8]/20 ring-1 ring-[#A5C1C8]"
-                : "bg-white border border-[#231714]/5"
-            }`}
-          >
-            <span className="text-xs font-bold text-[#231714]/40 w-6">{p.rank}位</span>
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-[#231714] truncate">{p.displayName}</div>
-              <div className="text-[10px] text-[#231714]/50">{p.average.toLocaleString()}</div>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

@@ -21,13 +21,13 @@ export async function GET(req: NextRequest) {
     if (!seasonId) {
       const season = await getActiveSeason();
       if (!season) {
-        return NextResponse.json({ standings: [], seasonId: null });
+        return NextResponse.json({ standings: [], seasonId: null, currentUserId: userId });
       }
       seasonId = season.seasonId;
     }
 
     const standings = await computeStandings(seasonId);
-    return NextResponse.json({ standings, seasonId });
+    return NextResponse.json({ standings, seasonId, currentUserId: userId });
   } catch (error) {
     console.error("[mahjong/standings] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
