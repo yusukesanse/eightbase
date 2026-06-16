@@ -73,11 +73,7 @@ export default function MahjongLeaguePage() {
             <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : tab === "league" ? (
-          standings.length === 0 ? (
-            <EmptyCard text="まだ成績が登録されていません" />
-          ) : (
-            <LeaguePyramid standings={standings} currentUserId={currentUserId} />
-          )
+          <LeaguePyramid standings={standings} currentUserId={currentUserId} />
         ) : tab === "entry" ? (
           <EntryScoreTab currentUserId={currentUserId} />
         ) : (
