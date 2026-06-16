@@ -31,6 +31,12 @@ export function getDb(): Firestore {
   if (db) return db;
   getAdminApp();
   db = getFirestore();
+  // undefined のフィールドを書き込み時に無視（任意項目が undefined でも例外にしない）
+  try {
+    db.settings({ ignoreUndefinedProperties: true });
+  } catch {
+    // 既に settings 済みの場合は無視
+  }
   return db;
 }
 

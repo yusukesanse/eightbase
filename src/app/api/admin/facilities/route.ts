@@ -116,26 +116,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: scheduleError }, { status: 400 });
   }
 
-  const facility = await createFacility({
-    name,
-    calendarId,
-    type: type as FacilityType,
-    capacity: Number(capacity),
-    active: body.active ?? true,
-    order: body.order,
-    openTime: body.openTime ?? "09:00",
-    closeTime: body.closeTime ?? "18:00",
-    availableDays: body.availableDays ?? [1, 2, 3, 4, 5],
-    minDuration: body.minDuration,
-    fixedDuration: body.fixedDuration,
-    prepTime: body.prepTime,
-    requireTerms: body.requireTerms,
-    termsContent: body.termsContent,
-    requirePayment: body.requirePayment,
-    hourlyRate: body.hourlyRate ? Number(body.hourlyRate) : undefined,
-  });
-
-  return NextResponse.json({ facility }, { status: 201 });
+  try {
+    const facility = await createFacility({
+      name,
+      calendarId,
+      type: type as FacilityType,
+      capacity: Number(capacity),
+      active: body.active ?? true,
+      order: body.order,
+      openTime: body.openTime ?? "09:00",
+      closeTime: body.closeTime ?? "18:00",
+      availableDays: body.availableDays ?? [1, 2, 3, 4, 5],
+      minDuration: body.minDuration,
+      fixedDuration: body.fixedDuration,
+      prepTime: body.prepTime,
+      requireTerms: body.requireTerms,
+      termsContent: body.termsContent,
+      requirePayment: body.requirePayment,
+      hourlyRate: body.hourlyRate ? Number(body.hourlyRate) : undefined,
+    });
+    return NextResponse.json({ facility }, { status: 201 });
+  } catch (error) {
+    console.error("[admin/facilities] POST error:", error);
+    return NextResponse.json({ error: "施設の作成に失敗しました" }, { status: 500 });
+  }
 }
 
 /**
@@ -187,8 +191,13 @@ export async function PUT(req: NextRequest) {
     updateData.hourlyRate = Number(updateData.hourlyRate);
   }
 
-  await updateFacility(id, updateData);
-  return NextResponse.json({ success: true });
+  try {
+    await updateFacility(id, updateData);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[admin/facilities] PUT error:", error);
+    return NextResponse.json({ error: "施設の更新に失敗しました" }, { status: 500 });
+  }
 }
 
 /**
