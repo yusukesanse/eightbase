@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { MahjongEntry, MahjongTable } from "@/types";
+import type { MahjongEntry, MahjongTable, MahjongScheduleEntry } from "@/types";
 
 interface AdminUser {
   lineUserId: string | null;
@@ -18,6 +18,7 @@ export default function SeasonMatchingPage() {
   const [entries, setEntries] = useState<MahjongEntry[]>([]);
   const [tables, setTables] = useState<MahjongTable[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [leagueDates, setLeagueDates] = useState<MahjongScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [lastSpectators, setLastSpectators] = useState<{ displayName: string }[] | null>(null);
@@ -58,6 +59,15 @@ export default function SeasonMatchingPage() {
               displayName: u.lineDisplayName || u.displayName,
               pictureUrl: u.pictureUrl,
             }))
+        )
+      )
+      .catch(() => {});
+
+    fetch(`/api/admin/mahjong/schedule`, { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((d) =>
+        setLeagueDates(
+          (d.schedule ?? []).filter((s: MahjongScheduleEntry) => s.type === "league")
         )
       )
       .catch(() => {});
@@ -115,14 +125,34 @@ export default function SeasonMatchingPage() {
   return (
     <div className="p-4 sm:p-8 space-y-8">
       {/* 開催日選択 */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-[#231714]">開催日</label>
-        <input
-          type="date"
-          value={eventDate}
-          onChange={(e) => setEventDate(e.target.value)}
-          className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
-        />
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-[#231714]">開催日</label>
+          <input
+            type="date"
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+            className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
+          />
+        </div>
+        {leagueDates.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs text-[#231714]/40 self-center mr-1">リーグ戦日:</span>
+            {leagueDates.map((s) => (
+              <button
+                key={s.scheduleId}
+                onClick={() => setEventDate(s.date)}
+                className={`px-2.5 py-1 text-xs rounded-lg border ${
+                  eventDate === s.date
+                    ? "bg-[#231714] text-white border-[#231714]"
+                    : "bg-white text-[#231714]/60 border-[#231714]/10 hover:bg-gray-50"
+                }`}
+              >
+                {s.date.slice(5)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (

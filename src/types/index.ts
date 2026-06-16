@@ -477,3 +477,39 @@ export interface MahjongCsEvent {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── 麻雀スケジュール ─────────────────────────────────────────────────────────
+
+export type MahjongScheduleType = "league" | "championship";
+
+/** 麻雀の開催日（リーグ戦 / チャンピオンシップ） */
+export interface MahjongScheduleEntry {
+  scheduleId: string;
+  seasonId: string;
+  date: string;        // YYYY-MM-DD
+  startTime: string;   // HH:MM
+  endTime: string;     // HH:MM
+  type: MahjongScheduleType;
+  createdAt: string;
+}
+
+/** 資料準拠の年間日程テンプレート（2026/07〜2027/06） */
+export const MAHJONG_SCHEDULE_TEMPLATE: {
+  date: string;
+  startTime: string;
+  endTime: string;
+  type: MahjongScheduleType;
+}[] = [
+  { date: "2026-07-11", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2026-08-08", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2026-09-05", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2026-10-10", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2026-11-14", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2026-12-19", startTime: "10:00", endTime: "18:00", type: "championship" },
+  { date: "2027-01-16", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2027-02-13", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2027-03-13", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2027-04-17", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2027-05-15", startTime: "12:00", endTime: "18:00", type: "league" },
+  { date: "2027-06-12", startTime: "12:00", endTime: "18:00", type: "league" },
+];
