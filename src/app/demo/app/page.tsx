@@ -2,20 +2,21 @@
 
 /**
  * ミニアプリ デモ（認証不要・モックデータ）
- * 麻雀リーグ: ピラミッド順位表 / 卓作成 / スコア申告
+ * 麻雀リーグ: ピラミッド順位表 / 参加表明・スコア申告
+ * ※卓は管理者が自動で組む運用（利用者は参加表明と申告のみ）
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { MahjongStanding, MahjongTable } from "@/types";
-import { MOCK_STANDINGS, MOCK_TABLES, MOCK_MEMBERS, MOCK_ME } from "../mock";
+import { MOCK_STANDINGS, MOCK_TABLES, MOCK_ME } from "../mock";
 
 type Tab = "league" | "tables";
 
 export default function DemoMiniAppPage() {
   const [tab, setTab] = useState<Tab>("league");
   const [tables, setTables] = useState<MahjongTable[]>(MOCK_TABLES);
-  const [showCreate, setShowCreate] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [reportTable, setReportTable] = useState<MahjongTable | null>(null);
 
   return (
@@ -41,7 +42,7 @@ export default function DemoMiniAppPage() {
             {(
               [
                 { id: "league", label: "リーグ順位" },
-                { id: "tables", label: "卓・スコア申告" },
+                { id: "tables", label: "参加・スコア申告" },
               ] as { id: Tab; label: string }[]
             ).map((t) => (
               <button
@@ -64,7 +65,8 @@ export default function DemoMiniAppPage() {
         ) : (
           <TablesSection
             tables={tables}
-            onCreate={() => setShowCreate(true)}
+            entered={entered}
+            onToggleEntry={() => setEntered((v) => !v)}
             onReport={(t) => setReportTable(t)}
           />
         )}
@@ -84,15 +86,6 @@ export default function DemoMiniAppPage() {
           ))}
         </nav>
 
-        {showCreate && (
-          <CreateTableModal
-            onClose={() => setShowCreate(false)}
-            onCreated={(table) => {
-              setTables((prev) => [table, ...prev]);
-              setShowCreate(false);
-            }}
-          />
-        )}
         {reportTable && (
           <ReportModal
             table={reportTable}
@@ -206,21 +199,30 @@ function TierBlock({
 
 function TablesSection({
   tables,
-  onCreate,
+  entered,
+  onToggleEntry,
   onReport,
 }: {
   tables: MahjongTable[];
-  onCreate: () => void;
+  entered: boolean;
+  onToggleEntry: () => void;
   onReport: (t: MahjongTable) => void;
 }) {
   return (
     <div className="px-4 mt-4 space-y-3">
       <button
-        onClick={onCreate}
-        className="w-full py-3 rounded-xl bg-[#B0E401] text-sm font-bold text-[#231714] hover:opacity-90"
+        onClick={onToggleEntry}
+        className={`w-full py-3 rounded-xl text-sm font-bold transition-colors ${
+          entered
+            ? "bg-[#231714]/5 text-[#231714]/60 border border-[#231714]/10"
+            : "bg-[#B0E401] text-[#231714] hover:opacity-90"
+        }`}
       >
-        ＋ 卓を作成する（代表者）
+        {entered ? "参加表明済み（取り消す）" : "今回のリーグ戦に参加表明する"}
       </button>
+      <p className="text-[11px] text-[#231714]/40 px-1">
+        卓は参加表明者をもとに管理者が自動で組みます。組まれた卓が下に表示されます。
+      </p>
 
       {tables.map((t) => {
         const me = t.members.find((m) => m.lineUserId === MOCK_ME.lineUserId);
@@ -275,105 +277,6 @@ function TablesSection({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-/* ───────── 卓作成モーダル ───────── */
-
-function CreateTableModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (t: MahjongTable) => void;
-}) {
-  const [selected, setSelected] = useState<string[]>([]);
-  const candidates = useMemo(
-    () => MOCK_MEMBERS.filter((m) => m.lineUserId !== MOCK_ME.lineUserId),
-    []
-  );
-
-  function toggle(id: string) {
-    setSelected((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length < 3
-          ? [...prev, id]
-          : prev
-    );
-  }
-
-  function create() {
-    const memberIds = [MOCK_ME.lineUserId, ...selected];
-    const table: MahjongTable = {
-      tableId: `demo-${Date.now()}`,
-      seasonId: "demo",
-      eventDate: new Date().toISOString().slice(0, 10),
-      createdBy: MOCK_ME.lineUserId,
-      memberIds,
-      members: memberIds.map((id) => ({
-        lineUserId: id,
-        displayName:
-          MOCK_MEMBERS.find((m) => m.lineUserId === id)?.displayName ?? "ユーザー",
-        points: null,
-        rank: null,
-        reportedAt: null,
-      })),
-      status: "reporting",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    onCreated(table);
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 max-h-[80vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-base font-bold text-[#231714]">卓を作成</h3>
-        <p className="text-xs text-[#231714]/50 mt-1 mb-4">
-          自分以外の3人を選んでください（{selected.length}/3）
-        </p>
-
-        <div className="space-y-2">
-          {candidates.map((m) => {
-            const active = selected.includes(m.lineUserId);
-            return (
-              <button
-                key={m.lineUserId}
-                onClick={() => toggle(m.lineUserId)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left ${
-                  active
-                    ? "border-[#A5C1C8] bg-[#A5C1C8]/10"
-                    : "border-[#231714]/10 bg-white"
-                }`}
-              >
-                <span
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] ${
-                    active
-                      ? "bg-[#A5C1C8] border-[#A5C1C8] text-white"
-                      : "border-[#231714]/20 text-transparent"
-                  }`}
-                >
-                  ✓
-                </span>
-                <span className="text-sm text-[#231714]">{m.displayName}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={create}
-          disabled={selected.length !== 3}
-          className="mt-5 w-full py-3 rounded-xl bg-[#B0E401] text-sm font-bold text-[#231714] disabled:opacity-40"
-        >
-          この4人で卓を作成
-        </button>
-      </div>
     </div>
   );
 }

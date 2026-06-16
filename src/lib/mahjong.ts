@@ -100,11 +100,10 @@ export function tierForRank(rank: number): MahjongLeagueTier {
 
 /**
  * シーズンの完了済み卓から通算アベレージ順位表を計算する。
- * 並び順（確定仕様）:
+ * 並び順（公式ルール準拠）:
  *   1. アベレージ降順
- *   2. 1位率降順（タイブレーク第1キー）
- *   3. 連対率降順（1位または2位の率。タイブレーク第2キー）
- *   4. 試合数降順 → 名前順（最終フォールバック）
+ *   2. 連対率降順（1位または2位の割合。アベレージ同点時のタイブレーク）
+ *   3. 試合数降順 → 名前順（連対率も同じ場合の決定的フォールバック）
  */
 export async function computeStandings(
   seasonId: string
@@ -169,7 +168,6 @@ export async function computeStandings(
   standings.sort(
     (a, b) =>
       b.average - a.average ||
-      b.firstRate - a.firstRate ||
       b.top2Rate - a.top2Rate ||
       b.gamesPlayed - a.gamesPlayed ||
       a.displayName.localeCompare(b.displayName, "ja")

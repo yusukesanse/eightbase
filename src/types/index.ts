@@ -418,3 +418,62 @@ export interface MahjongLeagueAssignment {
   /** 集計に含めた完了卓の数（参考） */
   tableCount: number;
 }
+
+// ─── 麻雀チャンピオンシップ（CS / トーナメント） ───────────────────────────────
+
+export type MahjongCsRoundType = "prelim" | "semi" | "final";
+export type MahjongCsStatus = "setup" | "running" | "finished";
+export type MahjongCsMatchStatus = "reporting" | "completed";
+
+/** CS参戦者（出場資格者でエントリーした人） */
+export interface MahjongCsEntrant {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  tier: MahjongLeagueTier;
+  /** リーグ確定時の順位（シード判定・並びに使用） */
+  rank: number;
+  /** M1のシード権（予選免除→準決から） */
+  seed: boolean;
+}
+
+/** CSの1試合の中の1人 */
+export interface MahjongCsMatchPlayer {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  points: number | null;
+  rank: number | null;
+}
+
+/** CSの1試合（1卓=1半荘） */
+export interface MahjongCsMatch {
+  matchId: string;
+  label: string;            // 例: 予選A, 準決1, 決勝
+  players: MahjongCsMatchPlayer[];
+  status: MahjongCsMatchStatus;
+}
+
+/** CSの1ラウンド（予選/準決/決勝） */
+export interface MahjongCsRound {
+  type: MahjongCsRoundType;
+  label: string;            // 例: 予選, 準決勝, 決勝
+  /** 各試合から勝ち上がる人数（予選=1, 準決=2, 決勝=1） */
+  advanceCount: number;
+  matches: MahjongCsMatch[];
+}
+
+/** CSイベント（年1回のチャンピオンシップ） */
+export interface MahjongCsEvent {
+  csEventId: string;
+  seasonId: string;
+  name: string;
+  eventDate: string;        // YYYY-MM-DD
+  status: MahjongCsStatus;
+  /** 参戦者（資格者でエントリー済み） */
+  entrants: MahjongCsEntrant[];
+  rounds: MahjongCsRound[];
+  championId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
