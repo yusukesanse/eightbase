@@ -371,3 +371,35 @@ export interface MahjongStanding {
   rank: number;            // 1始まり
   tier: MahjongLeagueTier; // 1-4位=M1, 5-8位=M2, 9位〜=M3
 }
+
+/** リーグ編成のスナップショット項目（確定時点の1人分） */
+export interface MahjongLeagueAssignmentEntry {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  rank: number;
+  tier: MahjongLeagueTier;
+  average: number;
+  gamesPlayed: number;
+  firstRate: number;
+  top2Rate: number;
+  csEligible: boolean;
+}
+
+/**
+ * リーグ編成スナップショット
+ * 管理者が開催日終了後に「確定」した時点の順位・所属リーグを固定保存する。
+ * 次回リーグ戦の卓組みと CS シードの基準になる。
+ */
+export interface MahjongLeagueAssignment {
+  assignmentId: string;
+  seasonId: string;
+  /** 確定対象の開催日（YYYY-MM-DD）。どの開催日終了後の編成か */
+  eventDate: string;
+  /** 確定時刻 */
+  confirmedAt: string;
+  confirmedBy: string;       // 管理者メール
+  entries: MahjongLeagueAssignmentEntry[];
+  /** 集計に含めた完了卓の数（参考） */
+  tableCount: number;
+}

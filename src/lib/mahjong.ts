@@ -8,6 +8,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import {
   MAHJONG_CS_MIN_GAMES,
   MAHJONG_TABLE_TOTAL,
+  type MahjongLeagueAssignmentEntry,
   type MahjongLeagueTier,
   type MahjongStanding,
   type MahjongTable,
@@ -178,6 +179,40 @@ export async function computeStandings(
     ...s,
     rank: i + 1,
     tier: tierForRank(i + 1),
+  }));
+}
+
+/** シーズンの完了済み卓の数を返す（編成スナップショットの参考値） */
+export async function countCompletedTables(seasonId: string): Promise<number> {
+  const db = getDb();
+  const snap = await db
+    .collection("mahjongTables")
+    .where("seasonId", "==", seasonId)
+    .get();
+  return snap.docs.filter(
+    (d) => (d.data() as MahjongTable).status === "completed"
+  ).length;
+}
+
+/**
+ * 現時点の standings からリーグ編成スナップショットの entries を生成する。
+ * 確定APIから呼び、確定時刻・対象開催日などを付けて保存する。
+ */
+export async function buildLeagueAssignmentEntries(
+  seasonId: string
+): Promise<MahjongLeagueAssignmentEntry[]> {
+  const standings = await computeStandings(seasonId);
+  return standings.map((s) => ({
+    lineUserId: s.lineUserId,
+    displayName: s.displayName,
+    pictureUrl: s.pictureUrl,
+    rank: s.rank,
+    tier: s.tier,
+    average: s.average,
+    gamesPlayed: s.gamesPlayed,
+    firstRate: s.firstRate,
+    top2Rate: s.top2Rate,
+    csEligible: s.csEligible,
   }));
 }
 

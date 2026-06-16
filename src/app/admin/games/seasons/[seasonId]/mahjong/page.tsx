@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import type { MahjongStanding, MahjongTable, MahjongLeagueTier } from "@/types";
+import type {
+  MahjongStanding,
+  MahjongTable,
+  MahjongLeagueTier,
+  MahjongLeagueAssignment,
+} from "@/types";
 
 /* ───────── 定数 ───────── */
 
@@ -18,24 +23,31 @@ export default function SeasonMahjongPage() {
   const { seasonId } = useParams<{ seasonId: string }>();
   const [standings, setStandings] = useState<MahjongStanding[]>([]);
   const [tables, setTables] = useState<MahjongTable[]>([]);
+  const [assignments, setAssignments] = useState<MahjongLeagueAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [editTable, setEditTable] = useState<MahjongTable | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!seasonId) return;
     setLoading(true);
     try {
-      const [sRes, tRes] = await Promise.all([
+      const [sRes, tRes, lRes] = await Promise.all([
         fetch(`/api/admin/mahjong/standings?seasonId=${seasonId}`, { credentials: "same-origin" }),
         fetch(`/api/admin/mahjong/tables?seasonId=${seasonId}`, { credentials: "same-origin" }),
+        fetch(`/api/admin/mahjong/leagues?seasonId=${seasonId}`, { credentials: "same-origin" }),
       ]);
       const sData = await sRes.json();
       const tData = await tRes.json();
+      const lData = await lRes.json();
       setStandings(sData.standings ?? []);
       setTables(tData.tables ?? []);
+      setAssignments(lData.assignments ?? []);
     } catch {
       setStandings([]);
       setTables([]);
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
@@ -44,6 +56,41 @@ export default function SeasonMahjongPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  async function confirmLeague() {
+    if (
+      !confirm(
+        "現時点の通算順位でリーグ編成（M1/M2/M3）を確定します。\n確定内容は履歴として保存され、次回の卓組み・CSシードの基準になります。よろしいですか？"
+      )
+    )
+      return;
+    setConfirming(true);
+    try {
+      const res = await fetch(`/api/admin/mahjong/leagues`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) alert(data.error ?? "確定に失敗しました");
+      else fetchAll();
+    } catch {
+      alert("確定に失敗しました");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  async function deleteAssignment(assignmentId: string) {
+    if (!confirm("この確定済みリーグ編成を取り消しますか？")) return;
+    const res = await fetch(`/api/admin/mahjong/leagues/${assignmentId}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (res.ok) fetchAll();
+    else alert("取消に失敗しました");
+  }
 
   async function deleteTable(tableId: string) {
     if (!confirm("この卓を削除しますか？（集計からも除外されます）")) return;
@@ -67,9 +114,18 @@ export default function SeasonMahjongPage() {
     <div className="p-4 sm:p-8 space-y-8">
       {/* ───── 通算アベレージ順位表 ───── */}
       <section>
-        <h2 className="text-sm font-bold text-[#231714] mb-3">
-          通算アベレージ順位表（リーグ別）
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-[#231714]">
+            通算アベレージ順位表（リーグ別）
+          </h2>
+          <button
+            onClick={confirmLeague}
+            disabled={confirming || standings.length === 0}
+            className="px-4 py-2 text-xs font-bold text-[#231714] bg-[#B0E401] rounded-lg hover:opacity-90 disabled:opacity-40"
+          >
+            {confirming ? "確定中..." : "この順位でリーグを確定"}
+          </button>
+        </div>
         {standings.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
             集計済みの卓がまだありません
@@ -180,6 +236,61 @@ export default function SeasonMahjongPage() {
         )}
       </section>
 
+      {/* ───── リーグ確定履歴 ───── */}
+      <section>
+        <h2 className="text-sm font-bold text-[#231714] mb-3">
+          リーグ確定履歴
+        </h2>
+        {assignments.length === 0 ? (
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+            まだリーグが確定されていません
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {assignments.map((a) => {
+              const counts = a.entries.reduce(
+                (acc, e) => {
+                  acc[e.tier] += 1;
+                  return acc;
+                },
+                { M1: 0, M2: 0, M3: 0 } as Record<MahjongLeagueTier, number>
+              );
+              return (
+                <div
+                  key={a.assignmentId}
+                  className="bg-white rounded-xl border border-[#231714]/10 p-4 flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-[#231714]">
+                      {a.eventDate} 終了時点で確定
+                    </div>
+                    <div className="text-xs text-[#231714]/50 mt-0.5">
+                      M1 {counts.M1}名 / M2 {counts.M2}名 / M3 {counts.M3}名・
+                      対象{a.tableCount}卓・
+                      {new Date(a.confirmedAt).toLocaleString("ja-JP")}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setViewAssignment(a)}
+                      className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                    >
+                      内容
+                    </button>
+                    <button
+                      onClick={() => deleteAssignment(a.assignmentId)}
+                      className="px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {editTable && (
         <EditTableModal
           table={editTable}
@@ -190,6 +301,58 @@ export default function SeasonMahjongPage() {
           }}
         />
       )}
+
+      {viewAssignment && (
+        <AssignmentModal
+          assignment={viewAssignment}
+          onClose={() => setViewAssignment(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────── 編成スナップショット閲覧モーダル ───────── */
+
+function AssignmentModal({
+  assignment,
+  onClose,
+}: {
+  assignment: MahjongLeagueAssignment;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl w-full max-w-md p-5 max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-[#231714] mb-1">確定リーグ編成</h3>
+        <p className="text-xs text-[#231714]/50 mb-4">
+          {assignment.eventDate} 終了時点 /{" "}
+          {new Date(assignment.confirmedAt).toLocaleString("ja-JP")}
+        </p>
+        <div className="space-y-1.5">
+          {assignment.entries.map((e) => (
+            <div key={e.lineUserId} className="flex items-center gap-3 text-sm">
+              <span className="w-7 text-right text-[#231714]/40 text-xs">{e.rank}</span>
+              <span
+                className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold ${TIER_STYLES[e.tier]}`}
+              >
+                {e.tier}
+              </span>
+              <span className="flex-1 text-[#231714] truncate">{e.displayName}</span>
+              <span className="text-[#231714]/60 text-xs">{e.average.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-5 w-full py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
+        >
+          閉じる
+        </button>
+      </div>
     </div>
   );
 }
