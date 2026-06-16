@@ -4,8 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 const TABS = [
-  { href: "/admin/games", label: "ゲーム管理", exact: true },
-  { href: "/admin/games/seasons", label: "シーズン" },
+  { href: "/admin/games/seasons", label: "シーズン", exact: false },
 ];
 
 export default function GamesLayout({ children }: { children: React.ReactNode }) {
