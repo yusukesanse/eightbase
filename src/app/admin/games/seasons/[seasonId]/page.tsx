@@ -14,7 +14,6 @@ const GAME_LABELS: Record<ScoreboardGameId, string> = {
   darts: "ダーツ",
 };
 
-const GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
 
 /* ───────── メインコンポーネント ───────── */
 
@@ -32,10 +31,6 @@ export default function SeasonOverviewPage() {
     name: "",
     startDate: "",
     endDate: "",
-    csConfigMahjong: "3",
-    csConfigPoker: "3",
-    csConfigBilliards: "3",
-    csConfigDarts: "3",
   });
   const [saving, setSaving] = useState(false);
 
@@ -79,10 +74,6 @@ export default function SeasonOverviewPage() {
       name: season.name,
       startDate: season.startDate,
       endDate: season.endDate,
-      csConfigMahjong: String(season.csConfig?.mahjong?.topN ?? 3),
-      csConfigPoker: String(season.csConfig?.poker?.topN ?? 3),
-      csConfigBilliards: String(season.csConfig?.billiards?.topN ?? 3),
-      csConfigDarts: String(season.csConfig?.darts?.topN ?? 3),
     });
     setModalOpen(true);
   }
@@ -92,18 +83,10 @@ export default function SeasonOverviewPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const csConfig: Record<string, { topN: number }> = {
-        mahjong: { topN: Number(form.csConfigMahjong) || 3 },
-        poker: { topN: Number(form.csConfigPoker) || 3 },
-        billiards: { topN: Number(form.csConfigBilliards) || 3 },
-        darts: { topN: Number(form.csConfigDarts) || 3 },
-      };
-
       const payload = {
         name: form.name,
         startDate: form.startDate,
         endDate: form.endDate,
-        csConfig,
       };
 
       const res = await fetch(
@@ -285,36 +268,6 @@ export default function SeasonOverviewPage() {
         </div>
       </div>
 
-      {/* ── CS設定カード ── */}
-      <div className="bg-white rounded-xl border border-[#231714]/10 p-6">
-        <h2 className="text-lg font-bold text-[#231714] mb-1">
-          CS候補者設定
-        </h2>
-        <p className="text-xs text-[#231714]/40 mb-4">
-          各種目の年間ランキング上位何名をCS候補とするかの設定
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {GAME_IDS.map((gid) => (
-            <div
-              key={gid}
-              className="flex items-center justify-between rounded-lg border border-[#231714]/5 bg-[#A5C1C8]/5 px-4 py-3"
-            >
-              <span className="text-sm font-medium text-[#231714]">
-                {GAME_LABELS[gid]}
-              </span>
-              <span className="text-sm text-[#231714]/70">
-                上位{" "}
-                <span className="font-bold text-[#231714]">
-                  {season.csConfig?.[gid]?.topN ?? 3}
-                </span>{" "}
-                名
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ── メタ情報 ── */}
       <div className="bg-white rounded-xl border border-[#231714]/10 p-6">
         <h2 className="text-lg font-bold text-[#231714] mb-3">
@@ -427,37 +380,6 @@ export default function SeasonOverviewPage() {
                 </div>
               </div>
 
-              {/* CS候補者数 */}
-              <div>
-                <label className={labelClass}>CS候補者数（種目別）</label>
-                <p className="text-[10px] text-[#231714]/40 mb-2">
-                  各種目で年間ランキング上位何名をCS候補とするか設定
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {GAME_IDS.map((gid) => {
-                    const key =
-                      `csConfig${gid.charAt(0).toUpperCase() + gid.slice(1)}` as keyof typeof form;
-                    return (
-                      <div key={gid} className="flex items-center gap-2">
-                        <span className="text-xs text-[#231714]/60 w-20">
-                          {GAME_LABELS[gid]}
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={form[key]}
-                          onChange={(e) =>
-                            setForm({ ...form, [key]: e.target.value })
-                          }
-                          className={`${inputClass} w-20 text-center`}
-                        />
-                        <span className="text-xs text-[#231714]/40">名</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">

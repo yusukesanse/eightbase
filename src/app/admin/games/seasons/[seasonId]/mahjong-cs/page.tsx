@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import DatePicker from "@/components/ui/DatePicker";
 import type { MahjongCsEvent, MahjongCsMatch, MahjongLeagueTier } from "@/types";
 
 const TIER_STYLES: Record<MahjongLeagueTier, string> = {
@@ -114,7 +115,7 @@ export default function SeasonMahjongCsPage() {
       <section className="bg-white rounded-xl border border-[#231714]/10 p-4">
         <h2 className="text-sm font-bold text-[#231714] mb-3">チャンピオンシップを作成</h2>
         <p className="text-xs text-[#231714]/50 mb-3">
-          最新の確定リーグ編成から、出場資格者（リーグ戦5試合以上）を参戦者として取り込みます（M1=シード）。
+          CSは誰でも参加可。最新の確定リーグ編成にいる全員を参戦候補として取り込みます（M1はシード権で有利になるだけ）。
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -125,14 +126,9 @@ export default function SeasonMahjongCsPage() {
               className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
             />
           </div>
-          <div>
+          <div className="w-40">
             <label className="block text-xs text-[#231714]/60 mb-1">開催日</label>
-            <input
-              type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-              className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
-            />
+            <DatePicker value={eventDate} onChange={setEventDate} placeholder="開催日を選択" />
           </div>
           <button
             onClick={createEvent}

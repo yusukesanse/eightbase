@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import DatePicker from "@/components/ui/DatePicker";
+import TimePicker from "@/components/ui/TimePicker";
 import type { MahjongScheduleEntry } from "@/types";
 
 function todayJst(): string {
@@ -13,7 +15,6 @@ export default function SeasonSchedulePage() {
   const [date, setDate] = useState(todayJst());
   const [startTime, setStartTime] = useState("12:00");
   const [endTime, setEndTime] = useState("18:00");
-  const [type, setType] = useState<"league" | "championship">("league");
 
   const fetchSchedule = useCallback(async () => {
     setLoading(true);
@@ -37,7 +38,7 @@ export default function SeasonSchedulePage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ date, startTime, endTime, type }),
+      body: JSON.stringify({ date, startTime, endTime, type: "league" }),
     });
     if (res.ok) fetchSchedule();
     else alert((await res.json()).error ?? "追加に失敗しました");
@@ -81,43 +82,17 @@ export default function SeasonSchedulePage() {
           </button>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <div>
+          <div className="w-40">
             <label className="block text-xs text-[#231714]/60 mb-1">日付</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
-            />
+            <DatePicker value={date} onChange={setDate} placeholder="日付を選択" />
           </div>
-          <div>
+          <div className="w-28">
             <label className="block text-xs text-[#231714]/60 mb-1">開始</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
-            />
+            <TimePicker value={startTime} onChange={setStartTime} />
           </div>
-          <div>
+          <div className="w-28">
             <label className="block text-xs text-[#231714]/60 mb-1">終了</label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[#231714]/60 mb-1">種別</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as "league" | "championship")}
-              className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg bg-white"
-            >
-              <option value="league">リーグ戦</option>
-              <option value="championship">チャンピオンシップ</option>
-            </select>
+            <TimePicker value={endTime} onChange={setEndTime} />
           </div>
           <button
             onClick={addEntry}
@@ -144,7 +119,6 @@ export default function SeasonSchedulePage() {
               <tr className="bg-gray-50 border-b border-[#231714]/5">
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">日付</th>
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">時間</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">種別</th>
                 <th className="px-4 py-2.5 w-16"></th>
               </tr>
             </thead>
@@ -153,17 +127,6 @@ export default function SeasonSchedulePage() {
                 <tr key={s.scheduleId} className="border-b border-[#231714]/5">
                   <td className="px-4 py-3 text-[#231714]">{s.date}</td>
                   <td className="px-4 py-3 text-[#231714]/70">{s.startTime}〜{s.endTime}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        s.type === "championship"
-                          ? "bg-red-50 text-red-600"
-                          : "bg-sky-50 text-sky-700"
-                      }`}
-                    >
-                      {s.type === "championship" ? "CS" : "リーグ戦"}
-                    </span>
-                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => deleteEntry(s.scheduleId)}

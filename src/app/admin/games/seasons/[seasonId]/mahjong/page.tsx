@@ -28,6 +28,7 @@ export default function SeasonMahjongPage() {
   const [editTable, setEditTable] = useState<MahjongTable | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
+  const [tab, setTab] = useState<"standings" | "tables" | "history">("standings");
 
   const fetchAll = useCallback(async () => {
     if (!seasonId) return;
@@ -110,10 +111,33 @@ export default function SeasonMahjongPage() {
     );
   }
 
+  const TABS = [
+    { id: "standings" as const, label: "通算アベレージ順位表" },
+    { id: "tables" as const, label: "卓一覧" },
+    { id: "history" as const, label: "リーグ確定履歴" },
+  ];
+
   return (
-    <div className="p-4 sm:p-8 space-y-8">
+    <div className="p-4 sm:p-8 space-y-6">
+      {/* ───── 内部タブ切替 ───── */}
+      <div className="flex gap-1 border-b border-[#231714]/10">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === t.id
+                ? "border-[#231714] text-[#231714]"
+                : "border-transparent text-[#231714]/40 hover:text-[#231714]/70"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* ───── 通算アベレージ順位表 ───── */}
-      <section>
+      <section className={tab === "standings" ? "" : "hidden"}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-[#231714]">
             通算アベレージ順位表（リーグ別）
@@ -178,7 +202,7 @@ export default function SeasonMahjongPage() {
       </section>
 
       {/* ───── 卓一覧 ───── */}
-      <section>
+      <section className={tab === "tables" ? "" : "hidden"}>
         <h2 className="text-sm font-bold text-[#231714] mb-3">卓一覧（申告状況）</h2>
         {tables.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
@@ -237,10 +261,15 @@ export default function SeasonMahjongPage() {
       </section>
 
       {/* ───── リーグ確定履歴 ───── */}
-      <section>
-        <h2 className="text-sm font-bold text-[#231714] mb-3">
-          リーグ確定履歴
-        </h2>
+      <section className={tab === "history" ? "" : "hidden"}>
+        <div className="mb-3">
+          <h2 className="text-sm font-bold text-[#231714]">
+            リーグ確定履歴
+          </h2>
+          <p className="text-xs text-[#231714]/50 mt-1">
+            「リーグを確定」した時点の順位（M1/M2/M3）をスナップショットとして記録します。次回の卓組みやCSのシード権の基準になります。
+          </p>
+        </div>
         {assignments.length === 0 ? (
           <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
             まだリーグが確定されていません

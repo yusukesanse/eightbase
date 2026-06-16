@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import DatePicker from "@/components/ui/DatePicker";
 import type { MahjongEntry, MahjongTable, MahjongScheduleEntry } from "@/types";
 
 interface AdminUser {
@@ -128,12 +129,9 @@ export default function SeasonMatchingPage() {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-[#231714]">開催日</label>
-          <input
-            type="date"
-            value={eventDate}
-            onChange={(e) => setEventDate(e.target.value)}
-            className="px-3 py-2 text-sm border border-[#231714]/10 rounded-lg"
-          />
+          <div className="w-40">
+            <DatePicker value={eventDate} onChange={setEventDate} placeholder="開催日を選択" />
+          </div>
         </div>
         {leagueDates.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

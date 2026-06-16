@@ -21,10 +21,6 @@ const EMPTY_FORM = {
   gameCategory: "mahjong" as ScoreboardGameId,
   startDate: "",
   endDate: "",
-  csConfigMahjong: "3",
-  csConfigPoker: "3",
-  csConfigBilliards: "3",
-  csConfigDarts: "3",
 };
 
 /* ───────── メインコンポーネント ───────── */
@@ -78,10 +74,6 @@ export default function SeasonsPage() {
       gameCategory: s.gameCategory ?? "mahjong",
       startDate: s.startDate,
       endDate: s.endDate,
-      csConfigMahjong: String(s.csConfig?.mahjong?.topN ?? 3),
-      csConfigPoker: String(s.csConfig?.poker?.topN ?? 3),
-      csConfigBilliards: String(s.csConfig?.billiards?.topN ?? 3),
-      csConfigDarts: String(s.csConfig?.darts?.topN ?? 3),
     });
     setModalOpen(true);
   }
@@ -91,19 +83,11 @@ export default function SeasonsPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const csConfig: Record<string, { topN: number }> = {
-        mahjong: { topN: Number(form.csConfigMahjong) || 3 },
-        poker: { topN: Number(form.csConfigPoker) || 3 },
-        billiards: { topN: Number(form.csConfigBilliards) || 3 },
-        darts: { topN: Number(form.csConfigDarts) || 3 },
-      };
-
       const payload = {
         name: form.name,
         gameCategory: form.gameCategory,
         startDate: form.startDate,
         endDate: form.endDate,
-        csConfig,
       };
 
       const url = editing
@@ -354,33 +338,6 @@ export default function SeasonsPage() {
                     placeholder="終了日を選択"
                     required
                   />
-                </div>
-              </div>
-
-              {/* CS候補者数 */}
-              <div>
-                <label className={labelClass}>CS候補者数（種目別）</label>
-                <p className="text-[10px] text-[#231714]/40 mb-2">
-                  各種目で年間ランキング上位何名をCS候補とするか設定
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {GAME_IDS.map((gid) => {
-                    const key = `csConfig${gid.charAt(0).toUpperCase() + gid.slice(1)}` as keyof typeof form;
-                    return (
-                      <div key={gid} className="flex items-center gap-2">
-                        <span className="text-xs text-[#231714]/60 w-20">{GAME_LABELS[gid]}</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={form[key]}
-                          onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                          className={`${inputClass} w-20 text-center`}
-                        />
-                        <span className="text-xs text-[#231714]/40">名</span>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>

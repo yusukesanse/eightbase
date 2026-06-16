@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       const batch = db.batch();
       let added = 0;
       for (const t of MAHJONG_SCHEDULE_TEMPLATE) {
+        if (t.type !== "league") continue; // 日程はリーグ戦のみ（CSは麻雀CSで管理）
         if (existingDates.has(t.date)) continue;
         const ref = db.collection("mahjongSchedule").doc();
         batch.set(ref, { ...t, seasonId: season.seasonId, createdAt: now });

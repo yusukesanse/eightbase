@@ -465,7 +465,7 @@ function CsTab({ currentUserId }: { currentUserId?: string }) {
           <span className="text-[11px] text-[#231714]/40">{formatJpDate(event.eventDate)}</span>
         </div>
         <p className="text-[11px] text-[#231714]/50 mt-1">
-          {entered ? "あなたは出場資格者です" : "出場資格はリーグ戦5試合以上です"}
+          {entered ? "あなたはエントリー済みです" : "CSは誰でも参加できます（リーグ上位はシード権で有利）"}
         </p>
       </div>
 

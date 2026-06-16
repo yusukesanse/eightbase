@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { MAHJONG_CS_MIN_GAMES } from "@/types";
 import type {
   MahjongCsEntrant,
   MahjongCsEvent,
@@ -41,8 +40,8 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/mahjong/cs
- * CSイベントを作成。最新の確定リーグ編成から出場資格者（5試合以上）を
- * 参戦者として取り込み（M1=シード）。status=setup
+ * CSイベントを作成。CSは誰でも参加可。最新の確定リーグ編成にいる全員を
+ * 参戦候補として取り込み（M1=シード権で有利になるだけ）。status=setup
  * body: { name: string, eventDate: string }
  */
 export async function POST(req: NextRequest) {
@@ -77,8 +76,8 @@ export async function POST(req: NextRequest) {
 
     let entrants: MahjongCsEntrant[] = [];
     if (assignments.length > 0) {
+      // CSは誰でも参加可。確定編成にいる全員を取り込み（M1のみシード）
       entrants = assignments[0].entries
-        .filter((e) => e.gamesPlayed >= MAHJONG_CS_MIN_GAMES)
         .map((e) => ({
           lineUserId: e.lineUserId,
           displayName: e.displayName,
