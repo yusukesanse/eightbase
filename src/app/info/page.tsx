@@ -523,6 +523,29 @@ function GamesTab({
             ))}
           </div>
 
+          {/* 麻雀はリーグ（ピラミッド）へ誘導 */}
+          {gameCategory === "mahjong" && (
+            <button
+              onClick={() => router.push("/games/mahjong")}
+              className="w-full mb-4 flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3.5 active:scale-[0.98] transition-transform text-left"
+            >
+              <span className="w-10 h-10 rounded-xl bg-[#A5C1C8]/15 flex items-center justify-center shrink-0">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <polygon points="12,3 7,11 17,11" fill="#E4007F" />
+                  <polygon points="7,11 17,11 19,16 5,16" fill="#00A0E9" />
+                  <polygon points="5,16 19,16 21,21 3,21" fill="#F5B400" />
+                </svg>
+              </span>
+              <span className="flex-1">
+                <span className="block text-sm font-bold text-[#231714]">麻雀リーグ（M.LEAGUE）</span>
+                <span className="block text-[11px] text-[#231714]/45 mt-0.5">
+                  ピラミッド順位・参加表明・スコア申告へ
+                </span>
+              </span>
+              <span className="text-[#231714]/30">›</span>
+            </button>
+          )}
+
           {/* 期間切替 + 月ナビ */}
           <div className="flex items-center gap-2 mb-4">
             <div className="flex gap-0.5 bg-[#231714]/5 rounded-lg p-0.5">
