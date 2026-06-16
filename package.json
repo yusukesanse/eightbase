@@ -27,9 +27,11 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "square": "^44.1.0",
+    "three": "^0.160.1",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "@types/three": "^0.160.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

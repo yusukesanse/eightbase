@@ -21,8 +21,8 @@ export default function DemoMiniAppPage() {
   const [reportTable, setReportTable] = useState<MahjongTable | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2]">
-      <div className="max-w-md mx-auto min-h-screen bg-[#FAF7F2] pb-24 relative">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-md mx-auto min-h-screen bg-gray-50 pb-24 relative">
         {/* デモバナー */}
         <div className="bg-[#231714] text-white text-center text-[11px] py-1.5">
           デモ画面（サンプルデータ） —{" "}

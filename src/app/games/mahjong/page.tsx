@@ -26,8 +26,8 @@ export default function MahjongLeaguePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2]">
-      <header className="px-4 pt-5 pb-3 flex items-center gap-2">
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <header className="bg-white px-5 pt-12 pb-4 flex items-center gap-2">
         <Link href="/games" className="text-sm text-[#231714]/50 hover:text-[#231714]/80">
           ←
         </Link>
