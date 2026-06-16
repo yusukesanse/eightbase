@@ -213,6 +213,15 @@ export default function SeasonOverviewPage() {
             <div className="space-y-3">
               <div>
                 <span className="text-xs font-medium text-[#231714]/50">
+                  種目
+                </span>
+                <p className="text-sm font-semibold text-[#231714] mt-0.5">
+                  {GAME_LABELS[season.gameCategory ?? "mahjong"]}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-xs font-medium text-[#231714]/50">
                   シーズン名
                 </span>
                 <p className="text-sm font-semibold text-[#231714] mt-0.5">

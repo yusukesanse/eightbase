@@ -13,6 +13,7 @@ import {
   type MahjongStanding,
   type MahjongTable,
   type MahjongTableMember,
+  type ScoreboardGameId,
 } from "@/types";
 
 // ─── 検証 ─────────────────────────────────────────────────────────────────────
@@ -214,17 +215,28 @@ export async function buildLeagueAssignmentEntries(
   }));
 }
 
-/** アクティブなシーズンを1件取得（なければ null） */
-export async function getActiveSeason(): Promise<
-  ({ seasonId: string } & FirebaseFirestore.DocumentData) | null
-> {
+/**
+ * 指定種目のアクティブなシーズンを1件取得（なければ null）。
+ * シーズンは種目別（gameCategory）。既定は麻雀。
+ * gameCategory 未設定の旧シーズンは、麻雀指定時のフォールバックとして採用する。
+ */
+export async function getActiveSeason(
+  category: ScoreboardGameId = "mahjong"
+): Promise<({ seasonId: string } & FirebaseFirestore.DocumentData) | null> {
   const db = getDb();
-  const snap = await db
-    .collection("seasons")
-    .where("active", "==", true)
-    .limit(1)
-    .get();
+  const snap = await db.collection("seasons").where("active", "==", true).get();
   if (snap.empty) return null;
-  const doc = snap.docs[0];
-  return { ...doc.data(), seasonId: doc.id };
+  const docs = snap.docs.map(
+    (d) =>
+      ({ ...d.data(), seasonId: d.id }) as { seasonId: string; gameCategory?: string } & FirebaseFirestore.DocumentData
+  );
+  // 種目一致を優先
+  const exact = docs.find((d) => d.gameCategory === category);
+  if (exact) return exact;
+  // 旧データ（gameCategory なし）は麻雀として扱う
+  if (category === "mahjong") {
+    const legacy = docs.find((d) => !d.gameCategory);
+    if (legacy) return legacy;
+  }
+  return null;
 }

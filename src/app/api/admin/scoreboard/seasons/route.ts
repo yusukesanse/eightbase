@@ -52,6 +52,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { name, startDate, endDate, csConfig } = body;
+    const gameCategory: ScoreboardGameId = GAME_IDS.includes(body.gameCategory)
+      ? body.gameCategory
+      : "mahjong";
 
     // バリデーション
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest) {
 
     const data = {
       name: name.trim(),
+      gameCategory,
       startDate,
       endDate,
       active: true,

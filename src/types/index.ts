@@ -158,6 +158,7 @@ export interface GameParticipant {
 export interface Season {
   seasonId: string;
   name: string;
+  gameCategory: ScoreboardGameId; // 種目別シーズン（麻雀/ポーカー/ビリヤード/ダーツ）
   startDate: string;      // YYYY-MM-DD
   endDate: string;        // YYYY-MM-DD
   active: boolean;

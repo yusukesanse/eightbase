@@ -18,6 +18,7 @@ const GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
 
 const EMPTY_FORM = {
   name: "",
+  gameCategory: "mahjong" as ScoreboardGameId,
   startDate: "",
   endDate: "",
   csConfigMahjong: "3",
@@ -74,6 +75,7 @@ export default function SeasonsPage() {
     setEditing(s);
     setForm({
       name: s.name,
+      gameCategory: s.gameCategory ?? "mahjong",
       startDate: s.startDate,
       endDate: s.endDate,
       csConfigMahjong: String(s.csConfig?.mahjong?.topN ?? 3),
@@ -98,6 +100,7 @@ export default function SeasonsPage() {
 
       const payload = {
         name: form.name,
+        gameCategory: form.gameCategory,
         startDate: form.startDate,
         endDate: form.endDate,
         csConfig,
@@ -208,6 +211,9 @@ export default function SeasonsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5">
+                    <span className="px-2 py-0.5 rounded bg-[#231714] text-white text-[10px] font-bold shrink-0">
+                      {GAME_LABELS[s.gameCategory ?? "mahjong"]}
+                    </span>
                     <h3 className="text-base font-semibold text-[#231714] truncate">{s.name}</h3>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -223,14 +229,9 @@ export default function SeasonsPage() {
                     {s.startDate} 〜 {s.endDate}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {GAME_IDS.map((gid) => (
-                      <span
-                        key={gid}
-                        className="px-2 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70"
-                      >
-                        {GAME_LABELS[gid]} CS上位{s.csConfig?.[gid]?.topN ?? 3}名
-                      </span>
-                    ))}
+                    <span className="px-2 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70">
+                      CS上位{s.csConfig?.[s.gameCategory ?? "mahjong"]?.topN ?? 3}名
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -300,6 +301,28 @@ export default function SeasonsPage() {
             </div>
 
             <div className="px-6 py-5 space-y-4">
+              {/* 種目 */}
+              <div>
+                <label className={labelClass}>種目 *</label>
+                <select
+                  value={form.gameCategory}
+                  onChange={(e) =>
+                    setForm({ ...form, gameCategory: e.target.value as ScoreboardGameId })
+                  }
+                  disabled={!!editing}
+                  className={inputClass}
+                >
+                  {GAME_IDS.map((gid) => (
+                    <option key={gid} value={gid}>
+                      {GAME_LABELS[gid]}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[#231714]/40 mt-1">
+                  シーズンは種目ごとに作成します（麻雀・ダーツ・ビリヤード・ポーカー）。
+                </p>
+              </div>
+
               {/* シーズン名 */}
               <div>
                 <label className={labelClass}>シーズン名 *</label>
