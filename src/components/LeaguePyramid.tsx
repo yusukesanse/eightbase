@@ -20,9 +20,9 @@ const TIER_META: Record<
   MahjongLeagueTier,
   { label: string; color: string; soft: string }
 > = {
-  M1: { label: "M1.LEAGUE", color: "#7C4A63", soft: "#F3EAEF" }, // プラム
-  M2: { label: "M2.LEAGUE", color: "#3E6B7A", soft: "#E8F0F2" }, // ティール
-  M3: { label: "M3.LEAGUE", color: "#9C7B3C", soft: "#F5EEDF" }, // ブロンズ
+  M1: { label: "M1.LEAGUE", color: "#E4007F", soft: "#FCE4F1" }, // マゼンタ
+  M2: { label: "M2.LEAGUE", color: "#00A0E9", soft: "#E0F4FD" }, // シアン
+  M3: { label: "M3.LEAGUE", color: "#F5B400", soft: "#FCF2D9" }, // イエロー
 };
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];

@@ -12,28 +12,63 @@ import type { MahjongStanding, MahjongLeagueTier } from "@/types";
  */
 
 const TIER_3D: Record<MahjongLeagueTier, number> = {
-  M1: 0x7c4a63, // プラム
-  M2: 0x3e6b7a, // ティール
-  M3: 0x9c7b3c, // ブロンズ
+  M1: 0xe4007f, // マゼンタ（画像準拠）
+  M2: 0x00a0e9, // シアン
+  M3: 0xffcb05, // イエロー
 };
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
 
-function initialTexture(name: string, ring: string): THREE.CanvasTexture {
-  const c = document.createElement("canvas");
-  c.width = 128;
-  c.height = 128;
-  const x = c.getContext("2d")!;
-  x.beginPath();
-  x.arc(64, 64, 62, 0, Math.PI * 2);
-  x.fillStyle = "#ECE6DA";
-  x.fill();
-  x.fillStyle = ring;
-  x.font = "600 60px sans-serif";
-  x.textAlign = "center";
-  x.textBaseline = "middle";
-  x.fillText((name.trim().charAt(0) || "?"), 64, 70);
-  return new THREE.CanvasTexture(c);
+/** 丸く切り抜いたアバターを生成（四角い背景なし・周囲は透明） */
+function makeCircleCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+  const canvas = document.createElement("canvas");
+  canvas.width = 160;
+  canvas.height = 160;
+  const ctx = canvas.getContext("2d")!;
+  return { canvas, ctx };
+}
+
+function drawInitial(ctx: CanvasRenderingContext2D, name: string, ringColor: string) {
+  ctx.clearRect(0, 0, 160, 160);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(80, 80, 74, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = "#ECE6DA";
+  ctx.fillRect(0, 0, 160, 160);
+  ctx.fillStyle = "#8C7A4E";
+  ctx.font = "600 72px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(name.trim().charAt(0) || "?", 80, 86);
+  ctx.restore();
+  // 丸い縁取り
+  ctx.beginPath();
+  ctx.arc(80, 80, 74, 0, Math.PI * 2);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = ringColor;
+  ctx.stroke();
+}
+
+function drawImageCircle(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  ringColor: string
+) {
+  ctx.clearRect(0, 0, 160, 160);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(80, 80, 74, 0, Math.PI * 2);
+  ctx.clip();
+  // 中央クロップで円に画像を敷き詰める
+  const s = Math.min(img.width, img.height);
+  ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 6, 6, 148, 148);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(80, 80, 74, 0, Math.PI * 2);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = ringColor;
+  ctx.stroke();
 }
 
 function flagTexture(text: string): THREE.CanvasTexture {
@@ -158,36 +193,31 @@ export function LeaguePyramid3D({
     grp.position.y = -1.0;
     scene.add(grp);
 
-    // 自分のアバター（浮遊・上下アニメーション）
+    // 自分のアバター（丸アイコンのみ・四角背景なし・浮遊アニメーション）
     let avatarSprite: THREE.Sprite | null = null;
     const meGrp = new THREE.Group();
     if (me) {
       const tierDef = tiers.find((x) => x.t === me.tier)!;
       const ringColorHex = "#" + TIER_3D[me.tier].toString(16).padStart(6, "0");
 
-      const ringMat = new THREE.SpriteMaterial({ color: 0xcbb26b });
-      const ring = new THREE.Sprite(ringMat);
-      ring.scale.set(0.94, 0.94, 1);
-      meGrp.add(ring);
-      disposables.push(ringMat);
-
-      const avMat = new THREE.SpriteMaterial({
-        map: initialTexture(me.displayName, ringColorHex),
-        transparent: true,
-      });
+      const { canvas: avCanvas, ctx: avCtx } = makeCircleCanvas();
+      drawInitial(avCtx, me.displayName, ringColorHex);
+      const avTex = new THREE.CanvasTexture(avCanvas);
+      const avMat = new THREE.SpriteMaterial({ map: avTex, transparent: true });
       avatarSprite = new THREE.Sprite(avMat);
-      avatarSprite.scale.set(0.82, 0.82, 1);
+      avatarSprite.scale.set(0.9, 0.9, 1);
       meGrp.add(avatarSprite);
-      disposables.push(avMat);
+      disposables.push(avTex, avMat);
 
-      // 本番 LINE 画像があれば差し替え
+      // 本番 LINE 画像があれば丸く切り抜いて差し替え（同一オリジンプロキシ経由）
       if (me.pictureUrl) {
-        const loader = new THREE.TextureLoader();
-        loader.setCrossOrigin("anonymous");
-        loader.load(me.pictureUrl, (tex) => {
-          avMat.map = tex;
-          avMat.needsUpdate = true;
-        });
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          drawImageCircle(avCtx, img, ringColorHex);
+          avTex.needsUpdate = true;
+        };
+        img.src = `/api/avatar?url=${encodeURIComponent(me.pictureUrl)}`;
       }
 
       const flagTex = flagTexture("あなた");
@@ -211,9 +241,7 @@ export function LeaguePyramid3D({
       grp.rotation.y = Math.sin(t0 * 0.5) * 0.16;
       meGrp.rotation.y = grp.rotation.y;
       if (avatarSprite) {
-        const bob = Math.sin(t0 * 1.6) * 0.07;
-        avatarSprite.position.y = bob;
-        (meGrp.children[0] as THREE.Sprite).position.y = bob; // ring
+        avatarSprite.position.y = Math.sin(t0 * 1.6) * 0.07;
       }
       renderer.render(scene, cam);
       raf = requestAnimationFrame(animate);
