@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
       pictureUrl: userData.pictureUrl || "",
       catchphrase: memberProfile.catchphrase || "",
       skills: memberProfile.skills || [],
+      companyUrl: memberProfile.companyUrl || "",
       postCount,
       reservationCount,
     });

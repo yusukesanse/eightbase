@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
+import Link from "next/link";
+import { INDUSTRY_OPTIONS } from "@/types";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -61,7 +62,7 @@ const EMPTY_FORM: FormData = {
   socialLinks: { instagram: "", x: "", facebook: "", other: "" },
 };
 
-type EditSection = "name" | "contact" | "work" | "address" | "profile" | null;
+type EditSection = "name" | "contact" | "work" | "address" | null;
 
 const INPUT_EDIT = "w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10";
 
@@ -90,8 +91,6 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [editing, setEditing] = useState<EditSection>(null);
-  const [customSkill, setCustomSkill] = useState("");
-  const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -142,21 +141,6 @@ export default function ProfilePage() {
 
   function cancelEdit() { setForm({ ...original }); setEditing(null); setError(null); }
 
-  function toggleSkill(skill: string) {
-    setForm((prev) => ({
-      ...prev,
-      skills: prev.skills.includes(skill) ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill],
-    }));
-  }
-
-  function addCustomSkill() {
-    const trimmed = customSkill.trim();
-    if (trimmed && !form.skills.includes(trimmed)) {
-      setForm((prev) => ({ ...prev, skills: [...prev.skills, trimmed] }));
-      setCustomSkill("");
-    }
-  }
-
   function validate(): string | null {
     if (!form.lastName.trim() || !form.firstName.trim()) return "氏名を入力してください";
     if (!form.lastNameKana.trim() || !form.firstNameKana.trim()) return "氏名（カナ）を入力してください";
@@ -175,8 +159,6 @@ export default function ProfilePage() {
     if (!form.prefecture) return "都道府県を選択してください";
     if (!form.city.trim()) return "市区町村を入力してください";
     if (!form.address.trim()) return "番地を入力してください";
-    if (form.skills.length === 0) return "スキルを1つ以上選択してください";
-    if (!form.bio.trim()) return "自己紹介を入力してください";
     return null;
   }
 
@@ -343,73 +325,24 @@ export default function ProfilePage() {
           )}
         </Section>
 
-        {/* ===== プロフィール ===== */}
-        <Section title="プロフィール" icon="star" editing={editing === "profile"} onEdit={() => { setEditing("profile"); setError(null); }}>
-          {editing === "profile" ? (
-            <>
-              {/* スキル */}
-              <div>
-                <label className="block text-[11px] text-[#231714]/40 mb-1">スキル・得意分野</label>
-                {form.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {form.skills.map((skill) => (
-                      <button key={skill} onClick={() => toggleSkill(skill)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/15 text-[#A5C1C8] font-medium">
-                        {skill}
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {SKILL_CATEGORIES.map((cat) => (
-                  <div key={cat.id} className="mb-1">
-                    <button onClick={() => setOpenCategory(openCategory === cat.id ? null : cat.id)} className="w-full flex items-center justify-between py-1.5 text-xs font-medium text-[#231714]/70">
-                      {cat.label}
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${openCategory === cat.id ? "rotate-90" : ""}`}><path d="M4 3l3 3-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                    {openCategory === cat.id && (
-                      <div className="flex flex-wrap gap-1.5 pb-2">
-                        {cat.skills.map((skill) => (
-                          <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`px-2.5 py-1.5 text-[11px] rounded-xl border transition-colors ${form.skills.includes(skill) ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{skill}</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <div className="flex gap-2 mt-1">
-                  <input type="text" value={customSkill} onChange={(e) => setCustomSkill(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSkill())} placeholder="その他のスキルを追加" className={`flex-1 ${INPUT_EDIT}`} />
-                  <button type="button" onClick={addCustomSkill} disabled={!customSkill.trim()} className="px-3 py-2 text-xs bg-[#231714]/5 text-[#231714]/60 rounded-xl hover:bg-[#231714]/10 disabled:opacity-30 transition-colors">追加</button>
-                </div>
-              </div>
-
-              {/* 自己紹介 */}
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">自己紹介・PR</label>
-                <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="事業内容やアピールを自由に記入してください" rows={3} className={`${INPUT_EDIT} resize-y`} />
-              </div>
-
-              {/* SNS */}
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">SNSアカウント <span className="text-[#231714]/20">任意</span></label>
-                <div className="space-y-2">
-                  {[{ key: "x" as const, label: "𝕏" }, { key: "instagram" as const, label: "IG" }, { key: "facebook" as const, label: "FB" }, { key: "other" as const, label: "他" }].map(({ key, label }) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <span className="w-7 text-center text-[12px] text-[#231714]/50">{label}</span>
-                      <input type="text" value={form.socialLinks[key]} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, [key]: e.target.value } }))} placeholder={key === "facebook" ? "https://facebook.com/..." : "@username"} className={`flex-1 ${INPUT_EDIT}`} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <SaveButtons />
-            </>
-          ) : (
-            <>
-              <ReadOnlyRow label="スキル" value={form.skills.length > 0 ? form.skills.join("、") : "未設定"} />
-              <ReadOnlyRow label="自己紹介" value={form.bio} />
-              {(form.socialLinks.x || form.socialLinks.instagram || form.socialLinks.facebook || form.socialLinks.other) && (
-                <ReadOnlyRow label="SNS" value={[form.socialLinks.x && `𝕏: ${form.socialLinks.x}`, form.socialLinks.instagram && `IG: ${form.socialLinks.instagram}`, form.socialLinks.facebook && `FB`, form.socialLinks.other].filter(Boolean).join(", ")} />
-              )}
-            </>
+        {/* ===== スキル・プロフィール（読み取り専用 → スキル設定で変更） ===== */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l1.76 3.52 3.84.56-2.8 2.72.64 3.84L8 10.44l-3.44 1.8.64-3.84-2.8-2.72 3.84-.56L8 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" /></svg>
+              スキル・プロフィール
+            </h3>
+            <Link href="/mypage/skills" className="text-xs text-[#A5C1C8] hover:underline">
+              変更する
+            </Link>
+          </div>
+          <ReadOnlyRow label="スキル" value={form.skills.length > 0 ? form.skills.join("、") : "未設定"} />
+          <ReadOnlyRow label="自己紹介" value={form.bio} />
+          {form.companyUrl && <ReadOnlyRow label="会社URL" value={form.companyUrl} />}
+          {(form.socialLinks.x || form.socialLinks.instagram || form.socialLinks.facebook || form.socialLinks.other) && (
+            <ReadOnlyRow label="SNS" value={[form.socialLinks.x && `𝕏: ${form.socialLinks.x}`, form.socialLinks.instagram && `IG: ${form.socialLinks.instagram}`, form.socialLinks.facebook && `FB`, form.socialLinks.other].filter(Boolean).join(", ")} />
           )}
-        </Section>
+        </div>
       </div>
     </div>
   );
