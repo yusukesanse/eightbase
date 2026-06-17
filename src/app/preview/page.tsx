@@ -121,17 +121,43 @@ export default function PreviewPage() {
 
   // ミニアプリ iframe 表示モード (iPhone 17 フレーム)
   if (viewMode === "miniapp") {
+    const frameW = IPHONE_WIDTH + FRAME_PADDING * 2;
+    const frameH = IPHONE_HEIGHT + FRAME_PADDING * 2;
+
     return (
-      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center p-4 gap-4">
-        {/* iPhone フレーム */}
-        <div className="relative">
+      <div className="h-screen bg-[#1a1a2e] flex flex-col items-center justify-center p-4 gap-3 overflow-hidden">
+        {/* iPhone フレーム（ビューポートに収まるよう縮小） */}
+        <div
+          className="relative"
+          style={{
+            width: frameW,
+            height: frameH,
+            maxHeight: "calc(100vh - 80px)",
+            aspectRatio: `${frameW} / ${frameH}`,
+          }}
+        >
           <div
-            className="relative bg-[#1c1c1e] shadow-2xl"
+            className="absolute inset-0 bg-[#1c1c1e] shadow-2xl origin-top-left"
             style={{
-              width: IPHONE_WIDTH + FRAME_PADDING * 2,
-              height: IPHONE_HEIGHT + FRAME_PADDING * 2,
+              width: frameW,
+              height: frameH,
               borderRadius: FRAME_RADIUS,
               padding: FRAME_PADDING,
+              transform: `scale(var(--phone-scale))`,
+            }}
+            ref={(el) => {
+              if (!el) return;
+              const parent = el.parentElement!;
+              const update = () => {
+                const maxH = window.innerHeight - 80;
+                const scale = Math.min(1, maxH / frameH, parent.clientWidth / frameW);
+                el.style.setProperty("--phone-scale", String(scale));
+                parent.style.width = `${frameW * scale}px`;
+                parent.style.height = `${frameH * scale}px`;
+              };
+              update();
+              window.addEventListener("resize", update);
+              return () => window.removeEventListener("resize", update);
             }}
           >
             {/* Dynamic Island */}

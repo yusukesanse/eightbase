@@ -12,6 +12,9 @@ export function PreviewBanner() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // iframe 内では表示しない（プレビューのiPhoneフレーム内など）
+    if (window.self !== window.top) return;
+
     let cancelled = false;
     fetch("/api/preview/activate", { credentials: "include" })
       .then((res) => res.json())
