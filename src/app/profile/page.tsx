@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -25,25 +26,44 @@ const GENDER_OPTIONS = [
 ];
 
 interface FormData {
-  lastName: string; firstName: string;
-  lastNameKana: string; firstNameKana: string;
-  phone: string; birthday: string; gender: string;
-  occupation: string; purpose: string;
-  postalCode: string; prefecture: string; city: string;
-  address: string; building: string; addressType: string;
+  lastName: string;
+  firstName: string;
+  lastNameKana: string;
+  firstNameKana: string;
+  email: string;
+  phone: string;
+  birthday: string;
+  gender: string;
+  companyName: string;
+  jobTitle: string;
+  industry: string;
+  purpose: string;
+  postalCode: string;
+  prefecture: string;
+  city: string;
+  address: string;
+  building: string;
+  addressType: string;
+  skills: string[];
+  companyUrl: string;
+  bio: string;
+  socialLinks: { instagram: string; x: string; facebook: string; other: string };
 }
 
 const EMPTY_FORM: FormData = {
   lastName: "", firstName: "",
   lastNameKana: "", firstNameKana: "",
-  phone: "", birthday: "", gender: "",
-  occupation: "", purpose: "",
+  email: "", phone: "", birthday: "", gender: "",
+  companyName: "", jobTitle: "", industry: "", purpose: "",
   postalCode: "", prefecture: "", city: "",
   address: "", building: "", addressType: "home",
+  skills: [], companyUrl: "", bio: "",
+  socialLinks: { instagram: "", x: "", facebook: "", other: "" },
 };
 
-// 編集可能セクションの型
-type EditSection = "name" | "contact" | "work" | "address" | null;
+type EditSection = "name" | "contact" | "work" | "address" | "profile" | null;
+
+const INPUT_EDIT = "w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10";
 
 const EditIcon = ({ onClick }: { onClick: () => void }) => (
   <button type="button" onClick={onClick} className="p-1.5 rounded-lg hover:bg-[#231714]/5 transition-colors text-[#231714]/30 hover:text-[#231714]/60">
@@ -53,15 +73,12 @@ const EditIcon = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
-function genderLabel(val: string) {
-  return GENDER_OPTIONS.find((o) => o.value === val)?.label ?? val;
-}
-
+function genderLabel(val: string) { return GENDER_OPTIONS.find((o) => o.value === val)?.label ?? val; }
 function formatBirthday(val: string) {
   if (!val) return "未設定";
-  const parts = val.split("-");
-  if (parts.length !== 3 || !parts[0]) return "未設定";
-  return `${parts[0]}年${Number(parts[1])}月${Number(parts[2])}日`;
+  const p = val.split("-");
+  if (p.length !== 3 || !p[0]) return "未設定";
+  return `${p[0]}年${Number(p[1])}月${Number(p[2])}日`;
 }
 
 export default function ProfilePage() {
@@ -73,6 +90,8 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [editing, setEditing] = useState<EditSection>(null);
+  const [customSkill, setCustomSkill] = useState("");
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -81,7 +100,19 @@ export default function ProfilePage() {
         if (!res.ok) { router.replace("/login"); return; }
         const data = await res.json();
         if (data.profile) {
-          const loaded = { ...EMPTY_FORM, ...data.profile };
+          const p = data.profile;
+          const loaded: FormData = {
+            ...EMPTY_FORM,
+            ...p,
+            companyName: p.companyName || p.occupation || "",
+            jobTitle: p.jobTitle || "",
+            industry: p.industry || "",
+            email: p.email || "",
+            skills: p.skills || [],
+            companyUrl: p.companyUrl || "",
+            bio: p.bio || "",
+            socialLinks: { ...EMPTY_FORM.socialLinks, ...(p.socialLinks || {}) },
+          };
           setForm(loaded);
           setOriginal(loaded);
         }
@@ -109,10 +140,21 @@ export default function ProfilePage() {
     setSuccess(false);
   }
 
-  function cancelEdit() {
-    setForm({ ...original });
-    setEditing(null);
-    setError(null);
+  function cancelEdit() { setForm({ ...original }); setEditing(null); setError(null); }
+
+  function toggleSkill(skill: string) {
+    setForm((prev) => ({
+      ...prev,
+      skills: prev.skills.includes(skill) ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill],
+    }));
+  }
+
+  function addCustomSkill() {
+    const trimmed = customSkill.trim();
+    if (trimmed && !form.skills.includes(trimmed)) {
+      setForm((prev) => ({ ...prev, skills: [...prev.skills, trimmed] }));
+      setCustomSkill("");
+    }
   }
 
   function validate(): string | null {
@@ -120,15 +162,21 @@ export default function ProfilePage() {
     if (!form.lastNameKana.trim() || !form.firstNameKana.trim()) return "氏名（カナ）を入力してください";
     const kanaRegex = /^[\u30A0-\u30FF\u3000\s]+$/;
     if (!kanaRegex.test(form.lastNameKana) || !kanaRegex.test(form.firstNameKana)) return "氏名（カナ）はカタカナで入力してください";
+    if (!form.email.trim()) return "メールアドレスを入力してください";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "メールアドレスの形式が正しくありません";
     if (!form.phone.trim()) return "電話番号を入力してください";
     if (!form.birthday) return "生年月日を入力してください";
     if (!form.gender) return "性別を選択してください";
-    if (!form.occupation.trim()) return "職業・会社名を入力してください";
+    if (!form.companyName.trim()) return "会社名を入力してください";
+    if (!form.jobTitle.trim()) return "職種を入力してください";
+    if (!form.industry) return "業種を選択してください";
     if (!form.purpose) return "利用目的を選択してください";
     if (!form.postalCode.trim()) return "郵便番号を入力してください";
     if (!form.prefecture) return "都道府県を選択してください";
     if (!form.city.trim()) return "市区町村を入力してください";
     if (!form.address.trim()) return "番地を入力してください";
+    if (form.skills.length === 0) return "スキルを1つ以上選択してください";
+    if (!form.bio.trim()) return "自己紹介を入力してください";
     return null;
   }
 
@@ -137,7 +185,6 @@ export default function ProfilePage() {
     setSuccess(false);
     const err = validate();
     if (err) { setError(err); return; }
-
     setSubmitting(true);
     try {
       const res = await fetch("/api/auth/profile", {
@@ -155,11 +202,8 @@ export default function ProfilePage() {
       } else {
         setError(data.error || "保存に失敗しました");
       }
-    } catch {
-      setError("通信エラーが発生しました");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setError("通信エラーが発生しました"); }
+    finally { setSubmitting(false); }
   }
 
   if (loading) {
@@ -173,7 +217,6 @@ export default function ProfilePage() {
     );
   }
 
-  // --- 読み取り専用の表示値 ---
   const ReadOnlyRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-start justify-between py-1.5">
       <span className="text-[11px] text-[#231714]/40 min-w-[70px] shrink-0">{label}</span>
@@ -181,261 +224,218 @@ export default function ProfilePage() {
     </div>
   );
 
+  const SaveButtons = () => (
+    <div className="flex gap-2 mt-3">
+      <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">キャンセル</button>
+      <button type="button" onClick={handleSave} disabled={submitting} className="flex-1 py-2 text-xs bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">{submitting ? "保存中..." : "保存"}</button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      {/* ヘッダー */}
       <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
         <h1 className="text-[15px] font-medium leading-tight text-[#231714]">マイプロフィール</h1>
         <p className="text-[11px] text-[#231714]/50 mt-0.5">登録情報の確認・編集</p>
       </header>
 
       <div className="flex-1 px-4 pt-5 pb-4 space-y-4">
-        {/* メッセージ */}
-        {error && (
-          <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-            <p className="text-xs text-red-600">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="bg-[#B0E401]/20 border border-[#B0E401]/40 rounded-xl px-4 py-3">
-            <p className="text-xs text-[#231714]">プロフィールを更新しました</p>
-          </div>
-        )}
+        {error && <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3"><p className="text-xs text-red-600">{error}</p></div>}
+        {success && <div className="bg-[#B0E401]/20 border border-[#B0E401]/40 rounded-xl px-4 py-3"><p className="text-xs text-[#231714]">プロフィールを更新しました</p></div>}
 
-        {/* ===== 氏名セクション ===== */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" />
-                <path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" />
-              </svg>
-              氏名
-            </h3>
-            {editing !== "name" && <EditIcon onClick={() => { setEditing("name"); setError(null); }} />}
-          </div>
-
+        {/* ===== 氏名 ===== */}
+        <Section title="氏名" icon="person" editing={editing === "name"} onEdit={() => { setEditing("name"); setError(null); }}>
           {editing === "name" ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] text-[#231714]/40 mb-1">姓</label>
-                  <input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[#231714]/40 mb-1">名</label>
-                  <input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-                </div>
+                <div><label className="block text-[11px] text-[#231714]/40 mb-1">姓</label><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_EDIT} /></div>
+                <div><label className="block text-[11px] text-[#231714]/40 mb-1">名</label><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_EDIT} /></div>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <div>
-                  <label className="block text-[11px] text-[#231714]/40 mb-1">セイ</label>
-                  <input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[#231714]/40 mb-1">メイ</label>
-                  <input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ"
-                    className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-                </div>
+                <div><label className="block text-[11px] text-[#231714]/40 mb-1">セイ</label><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_EDIT} /></div>
+                <div><label className="block text-[11px] text-[#231714]/40 mb-1">メイ</label><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_EDIT} /></div>
               </div>
-              <div className="flex gap-2 mt-3">
-                <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">キャンセル</button>
-                <button type="button" onClick={handleSave} disabled={submitting} className="flex-1 py-2 text-xs bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">{submitting ? "保存中..." : "保存"}</button>
-              </div>
+              <SaveButtons />
             </>
           ) : (
-            <div className="space-y-0.5">
-              <ReadOnlyRow label="氏名" value={`${form.lastName} ${form.firstName}`} />
-              <ReadOnlyRow label="カナ" value={`${form.lastNameKana} ${form.firstNameKana}`} />
-            </div>
+            <><ReadOnlyRow label="氏名" value={`${form.lastName} ${form.firstName}`} /><ReadOnlyRow label="カナ" value={`${form.lastNameKana} ${form.firstNameKana}`} /></>
           )}
-        </div>
+        </Section>
 
-        {/* ===== 連絡先・基本情報セクション ===== */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" />
-                <rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" />
-              </svg>
-              連絡先・基本情報
-            </h3>
-            {editing !== "contact" && <EditIcon onClick={() => { setEditing("contact"); setError(null); }} />}
-          </div>
-
+        {/* ===== 連絡先・基本情報 ===== */}
+        <Section title="連絡先・基本情報" icon="clipboard" editing={editing === "contact"} onEdit={() => { setEditing("contact"); setError(null); }}>
           {editing === "contact" ? (
             <>
-              <div>
-                <label className="block text-[11px] text-[#231714]/40 mb-1">電話番号</label>
-                <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-              </div>
-              <div className="mt-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">生年月日</label>
+              <div><label className="block text-[11px] text-[#231714]/40 mb-1">メールアドレス</label><input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">電話番号</label><input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">生年月日</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <select value={form.birthday ? form.birthday.split("-")[0] : ""}
-                    onChange={(e) => { const p = (form.birthday || "--").split("-"); p[0] = e.target.value; updateForm("birthday", p.join("-")); }}
-                    className="w-full px-2 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10">
-                    <option value="">年</option>
-                    {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}年</option>)}
-                  </select>
-                  <select value={form.birthday ? form.birthday.split("-")[1] : ""}
-                    onChange={(e) => { const p = (form.birthday || "--").split("-"); p[1] = e.target.value; updateForm("birthday", p.join("-")); }}
-                    className="w-full px-2 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10">
-                    <option value="">月</option>
-                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}月</option>)}
-                  </select>
-                  <select value={form.birthday ? form.birthday.split("-")[2] : ""}
-                    onChange={(e) => { const p = (form.birthday || "--").split("-"); p[2] = e.target.value; updateForm("birthday", p.join("-")); }}
-                    className="w-full px-2 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10">
-                    <option value="">日</option>
-                    {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => <option key={d} value={d}>{Number(d)}日</option>)}
-                  </select>
+                  {[{ idx: 0, label: "年", count: 80, fmt: (i: number) => new Date().getFullYear() - i }, { idx: 1, label: "月", count: 12, fmt: (i: number) => i + 1 }, { idx: 2, label: "日", count: 31, fmt: (i: number) => i + 1 }].map(({ idx, label, count, fmt }) => (
+                    <select key={idx} value={form.birthday ? form.birthday.split("-")[idx] : ""} onChange={(e) => { const p = (form.birthday || "--").split("-"); p[idx] = e.target.value; updateForm("birthday", p.join("-")); }} className={INPUT_EDIT}>
+                      <option value="">{label}</option>
+                      {Array.from({ length: count }, (_, i) => { const v = idx === 0 ? String(fmt(i)) : String(fmt(i)).padStart(2, "0"); return <option key={v} value={v}>{idx === 0 ? `${v}年` : `${Number(v)}${label}`}</option>; })}
+                    </select>
+                  ))}
                 </div>
               </div>
-              <div className="mt-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">性別</label>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">性別</label>
                 <div className="grid grid-cols-4 gap-2">
                   {GENDER_OPTIONS.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => updateForm("gender", opt.value)}
-                      className={`py-2 text-xs rounded-xl border transition-colors ${form.gender === opt.value ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10 hover:border-[#231714]/30"}`}>
-                      {opt.label}
-                    </button>
+                    <button key={opt.value} type="button" onClick={() => updateForm("gender", opt.value)} className={`py-2 text-xs rounded-xl border transition-colors ${form.gender === opt.value ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{opt.label}</button>
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2 mt-3">
-                <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">キャンセル</button>
-                <button type="button" onClick={handleSave} disabled={submitting} className="flex-1 py-2 text-xs bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">{submitting ? "保存中..." : "保存"}</button>
-              </div>
+              <SaveButtons />
             </>
           ) : (
-            <div className="space-y-0.5">
-              <ReadOnlyRow label="電話番号" value={form.phone} />
-              <ReadOnlyRow label="生年月日" value={formatBirthday(form.birthday)} />
-              <ReadOnlyRow label="性別" value={genderLabel(form.gender)} />
-            </div>
+            <><ReadOnlyRow label="メール" value={form.email} /><ReadOnlyRow label="電話番号" value={form.phone} /><ReadOnlyRow label="生年月日" value={formatBirthday(form.birthday)} /><ReadOnlyRow label="性別" value={genderLabel(form.gender)} /></>
           )}
-        </div>
+        </Section>
 
-        {/* ===== ご利用についてセクション ===== */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" />
-                <path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" />
-              </svg>
-              ご利用について
-            </h3>
-            {editing !== "work" && <EditIcon onClick={() => { setEditing("work"); setError(null); }} />}
-          </div>
-
+        {/* ===== お仕事について ===== */}
+        <Section title="お仕事について" icon="briefcase" editing={editing === "work"} onEdit={() => { setEditing("work"); setError(null); }}>
           {editing === "work" ? (
             <>
-              <div>
-                <label className="block text-[11px] text-[#231714]/40 mb-1">職業・会社名</label>
-                <input type="text" value={form.occupation} onChange={(e) => updateForm("occupation", e.target.value)} placeholder="例: 株式会社〇〇 / 〇〇事務所"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
+              <div><label className="block text-[11px] text-[#231714]/40 mb-1">会社名・屋号</label><input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / フリーランス" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">職種</label><input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 営業" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">業種</label>
+                <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_EDIT} ${!form.industry ? "text-[#231714]/30" : ""}`}>
+                  <option value="">選択してください</option>
+                  {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
               </div>
-              <div className="mt-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">利用目的</label>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">利用目的</label>
                 <div className="flex flex-wrap gap-2">
                   {PURPOSE_OPTIONS.map((opt) => (
-                    <button key={opt} type="button" onClick={() => updateForm("purpose", opt)}
-                      className={`px-3 py-2 text-xs rounded-xl border transition-colors ${form.purpose === opt ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10 hover:border-[#231714]/30"}`}>
-                      {opt}
-                    </button>
+                    <button key={opt} type="button" onClick={() => updateForm("purpose", opt)} className={`px-3 py-2 text-xs rounded-xl border transition-colors ${form.purpose === opt ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{opt}</button>
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2 mt-3">
-                <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">キャンセル</button>
-                <button type="button" onClick={handleSave} disabled={submitting} className="flex-1 py-2 text-xs bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">{submitting ? "保存中..." : "保存"}</button>
-              </div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">会社URL <span className="text-[#231714]/20">任意</span></label><input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={INPUT_EDIT} /></div>
+              <SaveButtons />
             </>
           ) : (
-            <div className="space-y-0.5">
-              <ReadOnlyRow label="職業" value={form.occupation} />
-              <ReadOnlyRow label="利用目的" value={form.purpose} />
-            </div>
+            <><ReadOnlyRow label="会社名" value={form.companyName} /><ReadOnlyRow label="職種" value={form.jobTitle} /><ReadOnlyRow label="業種" value={form.industry} /><ReadOnlyRow label="利用目的" value={form.purpose} />{form.companyUrl && <ReadOnlyRow label="URL" value={form.companyUrl} />}</>
           )}
-        </div>
+        </Section>
 
-        {/* ===== 住所セクション ===== */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" />
-                <path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" />
-              </svg>
-              住所
-            </h3>
-            {editing !== "address" && <EditIcon onClick={() => { setEditing("address"); setError(null); }} />}
-          </div>
-
+        {/* ===== 住所 ===== */}
+        <Section title="住所" icon="home" editing={editing === "address"} onEdit={() => { setEditing("address"); setError(null); }}>
           {editing === "address" ? (
             <>
-              <div className="mb-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">住所種別</label>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">住所種別</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => updateForm("addressType", "home")}
-                    className={`py-2.5 text-xs rounded-xl border transition-colors ${form.addressType === "home" ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>自宅住所</button>
-                  <button type="button" onClick={() => updateForm("addressType", "office")}
-                    className={`py-2.5 text-xs rounded-xl border transition-colors ${form.addressType === "office" ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>会社住所</button>
+                  {["home", "office"].map((t) => (
+                    <button key={t} type="button" onClick={() => updateForm("addressType", t)} className={`py-2.5 text-xs rounded-xl border transition-colors ${form.addressType === t ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{t === "home" ? "自宅住所" : "会社住所"}</button>
+                  ))}
                 </div>
               </div>
-              <div className="mb-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">郵便番号</label>
-                <div className="flex gap-2">
-                  <input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8}
-                    className="flex-1 px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-                  <button type="button" onClick={lookupPostalCode}
-                    className="px-4 py-2.5 text-xs bg-[#A5C1C8]/30 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap">住所検索</button>
-                </div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">郵便番号</label>
+                <div className="flex gap-2"><input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8} className={`flex-1 ${INPUT_EDIT}`} /><button type="button" onClick={lookupPostalCode} className="px-4 py-2.5 text-xs bg-[#A5C1C8]/30 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap">住所検索</button></div>
               </div>
-              <div className="mb-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">都道府県</label>
-                <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)}
-                  className={`w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10 ${!form.prefecture ? "text-[#231714]/30" : "text-[#231714]"}`}>
-                  <option value="">選択してください</option>
-                  {PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">市区町村</label>
-                <input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-              </div>
-              <div className="mb-3">
-                <label className="block text-[11px] text-[#231714]/40 mb-1">番地</label>
-                <input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-              </div>
-              <div>
-                <label className="block text-[11px] text-[#231714]/40 mb-1">建物名・部屋番号 <span className="text-[#231714]/20">任意</span></label>
-                <input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室"
-                  className="w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10" />
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">キャンセル</button>
-                <button type="button" onClick={handleSave} disabled={submitting} className="flex-1 py-2 text-xs bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">{submitting ? "保存中..." : "保存"}</button>
-              </div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">都道府県</label><select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_EDIT} ${!form.prefecture ? "text-[#231714]/30" : ""}`}><option value="">選択してください</option>{PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">市区町村</label><input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={INPUT_EDIT} /></div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">番地</label><input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={INPUT_EDIT} /></div>
+              <div><label className="block text-[11px] text-[#231714]/40 mb-1">建物名 <span className="text-[#231714]/20">任意</span></label><input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={INPUT_EDIT} /></div>
+              <SaveButtons />
             </>
           ) : (
-            <div className="space-y-0.5">
-              <ReadOnlyRow label="種別" value={form.addressType === "home" ? "自宅住所" : "会社住所"} />
-              <ReadOnlyRow label="郵便番号" value={form.postalCode} />
-              <ReadOnlyRow label="住所" value={`${form.prefecture} ${form.city} ${form.address}${form.building ? ` ${form.building}` : ""}`} />
-            </div>
+            <><ReadOnlyRow label="種別" value={form.addressType === "home" ? "自宅住所" : "会社住所"} /><ReadOnlyRow label="郵便番号" value={form.postalCode} /><ReadOnlyRow label="住所" value={`${form.prefecture} ${form.city} ${form.address}${form.building ? ` ${form.building}` : ""}`} /></>
           )}
-        </div>
+        </Section>
+
+        {/* ===== プロフィール ===== */}
+        <Section title="プロフィール" icon="star" editing={editing === "profile"} onEdit={() => { setEditing("profile"); setError(null); }}>
+          {editing === "profile" ? (
+            <>
+              {/* スキル */}
+              <div>
+                <label className="block text-[11px] text-[#231714]/40 mb-1">スキル・得意分野</label>
+                {form.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {form.skills.map((skill) => (
+                      <button key={skill} onClick={() => toggleSkill(skill)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/15 text-[#A5C1C8] font-medium">
+                        {skill}
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {SKILL_CATEGORIES.map((cat) => (
+                  <div key={cat.id} className="mb-1">
+                    <button onClick={() => setOpenCategory(openCategory === cat.id ? null : cat.id)} className="w-full flex items-center justify-between py-1.5 text-xs font-medium text-[#231714]/70">
+                      {cat.label}
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${openCategory === cat.id ? "rotate-90" : ""}`}><path d="M4 3l3 3-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                    {openCategory === cat.id && (
+                      <div className="flex flex-wrap gap-1.5 pb-2">
+                        {cat.skills.map((skill) => (
+                          <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`px-2.5 py-1.5 text-[11px] rounded-xl border transition-colors ${form.skills.includes(skill) ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{skill}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="flex gap-2 mt-1">
+                  <input type="text" value={customSkill} onChange={(e) => setCustomSkill(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSkill())} placeholder="その他のスキルを追加" className={`flex-1 ${INPUT_EDIT}`} />
+                  <button type="button" onClick={addCustomSkill} disabled={!customSkill.trim()} className="px-3 py-2 text-xs bg-[#231714]/5 text-[#231714]/60 rounded-xl hover:bg-[#231714]/10 disabled:opacity-30 transition-colors">追加</button>
+                </div>
+              </div>
+
+              {/* 自己紹介 */}
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">自己紹介・PR</label>
+                <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="事業内容やアピールを自由に記入してください" rows={3} className={`${INPUT_EDIT} resize-y`} />
+              </div>
+
+              {/* SNS */}
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">SNSアカウント <span className="text-[#231714]/20">任意</span></label>
+                <div className="space-y-2">
+                  {[{ key: "x" as const, label: "𝕏" }, { key: "instagram" as const, label: "IG" }, { key: "facebook" as const, label: "FB" }, { key: "other" as const, label: "他" }].map(({ key, label }) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="w-7 text-center text-[12px] text-[#231714]/50">{label}</span>
+                      <input type="text" value={form.socialLinks[key]} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, [key]: e.target.value } }))} placeholder={key === "facebook" ? "https://facebook.com/..." : "@username"} className={`flex-1 ${INPUT_EDIT}`} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <SaveButtons />
+            </>
+          ) : (
+            <>
+              <ReadOnlyRow label="スキル" value={form.skills.length > 0 ? form.skills.join("、") : "未設定"} />
+              <ReadOnlyRow label="自己紹介" value={form.bio} />
+              {(form.socialLinks.x || form.socialLinks.instagram || form.socialLinks.facebook || form.socialLinks.other) && (
+                <ReadOnlyRow label="SNS" value={[form.socialLinks.x && `𝕏: ${form.socialLinks.x}`, form.socialLinks.instagram && `IG: ${form.socialLinks.instagram}`, form.socialLinks.facebook && `FB`, form.socialLinks.other].filter(Boolean).join(", ")} />
+              )}
+            </>
+          )}
+        </Section>
       </div>
+    </div>
+  );
+}
+
+/* ═══ セクションコンポーネント ═══ */
+
+function Section({ title, icon, editing, onEdit, children }: { title: string; icon: string; editing: boolean; onEdit: () => void; children: React.ReactNode }) {
+  const icons: Record<string, React.ReactNode> = {
+    person: <><path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" /><path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" /></>,
+    clipboard: <><path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" /><rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" /></>,
+    briefcase: <><rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" /><path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" /></>,
+    home: <><path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" /><path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" /></>,
+    star: <><path d="M8 1.5l1.76 3.52 3.84.56-2.8 2.72.64 3.84L8 10.44l-3.44 1.8.64-3.84-2.8-2.72 3.84-.56L8 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" /></>,
+  };
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">{icons[icon]}</svg>
+          {title}
+        </h3>
+        {!editing && <EditIcon onClick={onEdit} />}
+      </div>
+      {children}
     </div>
   );
 }
