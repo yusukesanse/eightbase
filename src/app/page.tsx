@@ -240,6 +240,34 @@ export default function HomePage() {
           console.warn("[HomePage] liff.getProfile() failed:", e);
         }
 
+        // 招待トークンがURLパラメータにあるか確認
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get("invite");
+
+        if (inviteToken) {
+          // ── 招待フロー: accessToken を直接渡してサーバー側で LINE ID を検証 ──
+          setStatusText("アカウントを作成中...");
+          const inviteRes = await fetch("/api/auth/invite", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: inviteToken, accessToken }),
+            credentials: "include",
+          });
+          if (cancelled) return;
+          const inviteData = await inviteRes.json();
+          if (inviteRes.ok && inviteData.success) {
+            router.replace("/setup-profile");
+          } else if (inviteData.alreadyLinked) {
+            // 既に登録済み → 通常ログインを試行
+            router.replace("/reservation");
+          } else {
+            setStatusText(inviteData.error || "招待URLが無効です");
+            setPhase("error");
+          }
+          return;
+        }
+
+        // ── 通常フロー: liff-login でセッション作成 ──
         const res = await fetch("/api/auth/liff-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -249,55 +277,14 @@ export default function HomePage() {
 
         if (cancelled) return;
 
-        // 招待トークンがURLパラメータにあるか確認
-        const urlParams = new URLSearchParams(window.location.search);
-        const inviteToken = urlParams.get("invite");
-
         if (res.ok) {
           const data = await res.json().catch(() => ({}));
           if (data.success) {
-            // 既に登録済みのユーザー
             router.replace("/reservation");
-          } else if (inviteToken) {
-            // 未登録だが招待トークンあり → 招待連携を実行
-            setStatusText("アカウントを作成中...");
-            const inviteRes = await fetch("/api/auth/invite", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token: inviteToken }),
-              credentials: "include",
-            });
-            if (cancelled) return;
-            const inviteData = await inviteRes.json();
-            if (inviteRes.ok && inviteData.success) {
-              router.replace("/setup-profile");
-            } else {
-              setStatusText(inviteData.error || "招待URLが無効です");
-              setPhase("error");
-            }
           } else {
-            // 未連携・未登録・招待なし → アカウントなし画面
             setPhase("no-account");
           }
-        } else if (inviteToken) {
-          // liff-login が失敗してもセッションは作成されている場合がある → 招待連携を試行
-          setStatusText("アカウントを作成中...");
-          const inviteRes = await fetch("/api/auth/invite", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: inviteToken }),
-            credentials: "include",
-          });
-          if (cancelled) return;
-          const inviteData = await inviteRes.json();
-          if (inviteRes.ok && inviteData.success) {
-            router.replace("/setup-profile");
-          } else {
-            setStatusText(inviteData.error || "招待URLが無効です");
-            setPhase("error");
-          }
         } else {
-          // 401 / 500 など
           setPhase("no-account");
         }
       } catch (err) {

@@ -927,8 +927,7 @@ function InviteModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
 
-      const baseUrl = window.location.origin;
-      setInviteUrl(`${baseUrl}/invite/${data.token}`);
+      setInviteUrl(data.inviteUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {

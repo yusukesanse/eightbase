@@ -29,12 +29,14 @@ export async function GET(req: NextRequest) {
       .get();
 
     const now = Date.now();
+    const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || "";
     const invitations = snap.docs.map((doc) => {
       const d = doc.data();
       const createdAt = d.createdAt as string;
       const expiresAt = d.expiresAt as string;
       const usedAt = d.usedAt as string | null;
       const lineUserId = d.lineUserId as string | null;
+      const token = d.token as string;
 
       let status: "unused" | "used" | "expired" = "unused";
       if (usedAt || lineUserId) {
@@ -43,10 +45,15 @@ export async function GET(req: NextRequest) {
         status = "expired";
       }
 
+      // 未使用の招待のみ URL を返す（使用済み・期限切れには不要）
+      const inviteUrl = status === "unused" && token
+        ? `${portalUrl}/invite/${token}`
+        : null;
+
       return {
         id: doc.id,
         displayName: d.displayName || "",
-        token: d.token || "",
+        inviteUrl,
         status,
         createdAt,
         expiresAt,
@@ -114,10 +121,11 @@ export async function POST(req: NextRequest) {
       invitationId: inviteRef.id,
     });
 
+    const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || "";
     return NextResponse.json({
       success: true,
       id: inviteRef.id,
-      token,
+      inviteUrl: `${portalUrl}/invite/${token}`,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
@@ -165,9 +173,10 @@ export async function PATCH(req: NextRequest) {
       expiresAt: expiresAt.toISOString(),
     });
 
+    const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || "";
     return NextResponse.json({
       success: true,
-      token,
+      inviteUrl: `${portalUrl}/invite/${token}`,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
