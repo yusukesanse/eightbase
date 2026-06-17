@@ -280,10 +280,13 @@ export default function PreviewPage() {
         {/* 管理画面 */}
         <Section title="管理画面（運営向け）">
           <NavLink href="/admin" label="ダッシュボード" desc="管理トップ" />
+          <NavLink href="/admin/users" label="ユーザー管理" desc="UIのみ表示（データは非公開）" />
           <NavLink href="/admin/reservations" label="予約管理" desc="予約の確認・管理" />
+          <NavLink href="/admin/calendars" label="カレンダー管理" desc="UIのみ表示（データは非公開）" />
           <NavLink href="/admin/events" label="イベント管理" desc="イベントの作成・編集" />
           <NavLink href="/admin/games" label="ゲーム/シーズン" desc="シーズン一覧・管理" />
           <NavLink href="/admin/news" label="ニュース管理" desc="お知らせの作成・編集" />
+          <NavLink href="/admin/admin-users" label="管理者設定" desc="UIのみ表示（データは非公開）" />
         </Section>
 
         <p className="mt-8 text-[10px] text-[#231714]/30 text-center">

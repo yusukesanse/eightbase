@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
+import { isPreviewMode } from "@/lib/preview";
 import {
   getAllFacilities,
   createFacility,
@@ -63,6 +64,11 @@ export async function GET(req: NextRequest) {
   const isAdmin = await checkAdminAuth(req);
   if (!isAdmin) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  // プレビューモード: カレンダーID等の機密情報を返さない
+  if (await isPreviewMode(req)) {
+    return NextResponse.json({ facilities: [], _preview: true });
   }
 
   // マイグレーション実行（初回のみ）
