@@ -135,7 +135,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode, accessToken }),
+        body: JSON.stringify({ passcode: passcode.trim().toUpperCase(), accessToken }),
         credentials: "include",
       });
 
@@ -232,11 +232,15 @@ export default function LoginPage() {
                 <input
                   type="text"
                   value={passcode}
-                  onChange={(e) => setPasscode(e.target.value.toUpperCase())}
+                  onChange={(e) => setPasscode(e.target.value)}
+                  onBlur={() => setPasscode((v) => v.toUpperCase())}
                   placeholder="例: EB-A3X9K2"
                   required
                   autoComplete="off"
-                  className="w-full px-3 py-3 text-base font-mono tracking-widest text-center border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
+                  autoCapitalize="characters"
+                  inputMode="text"
+                  spellCheck={false}
+                  className="w-full px-3 py-3 text-base font-mono tracking-widest text-center uppercase border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
                 />
               </div>
 
