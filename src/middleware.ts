@@ -35,7 +35,6 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/preview") ||
-    pathname.startsWith("/invite") ||
     pathname.includes(".")
   ) {
     return NextResponse.next();

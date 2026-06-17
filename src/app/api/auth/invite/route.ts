@@ -6,20 +6,21 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/auth/invite
- * ワンタイム招待トークンで LINE ID を紐づける
+ * ワンタイムパスワードで LINE ID を紐づける
  *
- * Body: { token: string, accessToken: string }
+ * Body: { passcode: string, accessToken: string }
  *
- * accessToken を LINE API で検証してサーバー側で lineUserId を取得する。
- * liff-login のセッションには依存しない。
+ * 1. accessToken を LINE API で検証し lineUserId をサーバー側で確定
+ * 2. Firestore transaction でパスワード消費 + ユーザー作成を原子的に実行
+ * 3. セッション Cookie を発行
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token, accessToken } = body;
+    const { passcode, accessToken } = body;
 
-    if (!token || typeof token !== "string") {
-      return NextResponse.json({ error: "招待トークンが必要です" }, { status: 400 });
+    if (!passcode || typeof passcode !== "string") {
+      return NextResponse.json({ error: "ワンタイムパスワードを入力してください" }, { status: 400 });
     }
     if (!accessToken || typeof accessToken !== "string") {
       return NextResponse.json({ error: "LINEアクセストークンが必要です" }, { status: 400 });
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "LINEアクセストークンの有効期限が切れています" }, { status: 401 });
     }
 
-    // ── LINE API でプロフィール取得（サーバー側で lineUserId を確定） ──
+    // ── LINE API でプロフィール取得 ──
     const profileRes = await fetch("https://api.line.me/v2/profile", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -54,37 +55,36 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
+    const normalizedPasscode = passcode.trim().toUpperCase();
 
-    // ── トークンで招待を検索 ──
+    // ── パスコードで招待を検索 ──
     const inviteSnap = await db
       .collection("invitations")
-      .where("token", "==", token)
+      .where("passcode", "==", normalizedPasscode)
       .limit(1)
       .get();
 
     if (inviteSnap.empty) {
-      return NextResponse.json({ error: "無効な招待URLです" }, { status: 404 });
+      return NextResponse.json({ error: "ワンタイムパスワードが正しくありません" }, { status: 404 });
     }
 
     const inviteDocRef = inviteSnap.docs[0].ref;
 
-    // ── Firestore transaction で招待消費 + ユーザー作成を原子的に実行 ──
+    // ── Firestore transaction ──
     const result = await db.runTransaction(async (tx) => {
       const inviteDoc = await tx.get(inviteDocRef);
       if (!inviteDoc.exists) {
-        return { error: "無効な招待URLです", status: 404 };
+        return { error: "ワンタイムパスワードが正しくありません", status: 404 };
       }
 
       const invite = inviteDoc.data()!;
 
-      // 使用済みチェック
       if (invite.usedAt || invite.lineUserId) {
-        return { error: "この招待URLは既に使用されています", status: 410 };
+        return { error: "このワンタイムパスワードは既に使用されています", status: 410 };
       }
 
-      // 有効期限チェック
       if (new Date(invite.expiresAt).getTime() < Date.now()) {
-        return { error: "この招待URLの有効期限が切れています。管理者に再発行を依頼してください", status: 410 };
+        return { error: "このワンタイムパスワードの有効期限が切れています。管理者に再発行を依頼してください", status: 410 };
       }
 
       // 既にこの LINE ID で登録済みか確認
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
       const now = new Date().toISOString();
 
-      // 招待時に作成済みの authorizedUsers を検索して LINE ID を紐づけ
+      // 招待時に作成済みの authorizedUsers を LINE ID で紐づけ
       const authSnap = await db
         .collection("authorizedUsers")
         .where("invitationId", "==", inviteDoc.id)
@@ -108,12 +108,8 @@ export async function POST(req: NextRequest) {
         .get();
 
       if (!authSnap.empty) {
-        tx.update(authSnap.docs[0].ref, {
-          lineUserId,
-          lastLoginAt: now,
-        });
+        tx.update(authSnap.docs[0].ref, { lineUserId, lastLoginAt: now });
       } else {
-        // フォールバック: 旧招待データ等で authorizedUsers がない場合
         const newRef = db.collection("authorizedUsers").doc();
         tx.set(newRef, {
           displayName: invite.displayName || lineDisplayName,
@@ -129,26 +125,19 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 招待を使用済みに更新
-      tx.update(inviteDocRef, {
-        usedAt: now,
-        lineUserId,
-      });
+      tx.update(inviteDocRef, { usedAt: now, lineUserId });
 
       return { success: true, displayName: invite.displayName || lineDisplayName, now };
     });
 
-    // トランザクション結果を確認
     if ("error" in result) {
-      const status = result.status || 500;
       const resp: Record<string, unknown> = { error: result.error };
       if (result.alreadyLinked) resp.alreadyLinked = true;
-      return NextResponse.json(resp, { status });
+      return NextResponse.json(resp, { status: result.status || 500 });
     }
 
-    // users コレクションにも登録（トランザクション外で OK）
-    const userRef = db.collection("users").doc(lineUserId);
-    await userRef.set(
+    // users コレクションにも登録
+    await db.collection("users").doc(lineUserId).set(
       {
         lineUserId,
         displayName: result.displayName,
@@ -160,13 +149,13 @@ export async function POST(req: NextRequest) {
       { merge: true }
     );
 
-    // セッション Cookie を発行（プロフィール登録画面で認証が必要なため）
+    // セッション Cookie を発行
     const sessionToken = await signSession(lineUserId);
     const res = NextResponse.json({ success: true, needsProfile: true });
     setSessionCookie(res, sessionToken);
     return res;
   } catch (error) {
     console.error("[auth/invite] POST error:", error);
-    return NextResponse.json({ error: "招待の処理に失敗しました" }, { status: 500 });
+    return NextResponse.json({ error: "認証処理に失敗しました" }, { status: 500 });
   }
 }

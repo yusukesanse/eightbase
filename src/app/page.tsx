@@ -240,34 +240,6 @@ export default function HomePage() {
           console.warn("[HomePage] liff.getProfile() failed:", e);
         }
 
-        // 招待トークンがURLパラメータにあるか確認
-        const urlParams = new URLSearchParams(window.location.search);
-        const inviteToken = urlParams.get("invite");
-
-        if (inviteToken) {
-          // ── 招待フロー: accessToken を直接渡してサーバー側で LINE ID を検証 ──
-          setStatusText("アカウントを作成中...");
-          const inviteRes = await fetch("/api/auth/invite", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: inviteToken, accessToken }),
-            credentials: "include",
-          });
-          if (cancelled) return;
-          const inviteData = await inviteRes.json();
-          if (inviteRes.ok && inviteData.success) {
-            router.replace("/setup-profile");
-          } else if (inviteData.alreadyLinked) {
-            // 既に登録済み → 通常ログインを試行
-            router.replace("/reservation");
-          } else {
-            setStatusText(inviteData.error || "招待URLが無効です");
-            setPhase("error");
-          }
-          return;
-        }
-
-        // ── 通常フロー: liff-login でセッション作成 ──
         const res = await fetch("/api/auth/liff-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

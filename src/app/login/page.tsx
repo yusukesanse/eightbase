@@ -28,10 +28,8 @@ export default function LoginPage() {
     pictureUrl: string;
   } | null>(null);
 
-  // メール+パスワードフォーム
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  // ワンタイムパスワードフォーム
+  const [passcode, setPasscode] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -117,7 +115,7 @@ export default function LoginPage() {
     };
   }, [router]);
 
-  // メール+パスワードで認証 → LINE ID 連携
+  // ワンタイムパスワードで認証 → LINE ID 連携
   async function handleLinkSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!lineInfo) return;
@@ -134,25 +132,19 @@ export default function LoginPage() {
         return;
       }
 
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          accessToken,
-        }),
+        body: JSON.stringify({ passcode, accessToken }),
         credentials: "include",
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
-        if (data.profileComplete) {
-          router.replace("/reservation");
-        } else {
-          router.replace("/setup-profile");
-        }
+        router.replace("/setup-profile");
+      } else if (data.alreadyLinked) {
+        router.replace("/reservation");
       } else {
         setLinkError(data.error || "認証に失敗しました");
         setStatus("needs-linking");
@@ -224,62 +216,28 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* メール+パスワードフォーム */}
+          {/* ワンタイムパスワードフォーム */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h2 className="text-base font-semibold text-[#231714] mb-1">本人確認</h2>
+            <h2 className="text-base font-semibold text-[#231714] mb-1">ワンタイムパスワード</h2>
             <p className="text-xs text-[#231714]/50 mb-4 leading-relaxed">
-              管理者から通知されたメールアドレスとパスワードを入力してください。
+              管理者から提供されたワンタイムパスワードを入力してください。
               初回のみの操作です。
             </p>
 
             <form onSubmit={handleLinkSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[#231714]/60 mb-1">
-                  メールアドレス
+                  ワンタイムパスワード
                 </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@email.com"
+                  type="text"
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value.toUpperCase())}
+                  placeholder="例: EB-A3X9K2"
                   required
-                  autoComplete="email"
-                  className="w-full px-3 py-3 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
+                  autoComplete="off"
+                  className="w-full px-3 py-3 text-base font-mono tracking-widest text-center border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">
-                  パスワード
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="パスワードを入力"
-                    required
-                    autoComplete="current-password"
-                    className="w-full px-3 py-3 pr-10 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#231714]/30 hover:text-[#231714]/60"
-                  >
-                    {showPassword ? (
-                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M2 2l14 14M7.5 7.5a2.12 2.12 0 003 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                        <path d="M3 9s2.5-5 6-5c1 0 1.9.3 2.7.7M15 9s-1.2 2.4-3 3.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M9 5C5.5 5 3 9 3 9s2.5 4 6 4 6-4 6-4-2.5-4-6-4z" stroke="currentColor" strokeWidth="1.3"/>
-                        <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.3"/>
-                      </svg>
-                    )}
-                  </button>
-                </div>
               </div>
 
               {linkError && (
@@ -292,13 +250,13 @@ export default function LoginPage() {
                 type="submit"
                 className="w-full py-3 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors mt-2"
               >
-                アカウントを連携する
+                登録する
               </button>
             </form>
           </div>
 
           <p className="text-xs text-[#231714]/30 text-center mt-4 leading-relaxed">
-            メールアドレスとパスワードがわからない場合は<br />管理者にお問い合わせください
+            ワンタイムパスワードがわからない場合は<br />管理者にお問い合わせください
           </p>
         </div>
       </div>

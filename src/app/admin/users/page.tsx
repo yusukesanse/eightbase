@@ -107,13 +107,13 @@ function UserDetailPanel({
   user,
   onClose,
   onToggleActive,
-  onResetPassword,
+  onReissuePasscode,
   onDelete,
 }: {
   user: User;
   onClose: () => void;
   onToggleActive: (user: User) => void;
-  onResetPassword: (user: User) => void;
+  onReissuePasscode: (user: User) => void;
   onDelete: (user: User) => void;
 }) {
   const p = user.profile;
@@ -275,12 +275,14 @@ function UserDetailPanel({
             >
               {user.active ? "アカウントを無効化" : "アカウントを有効化"}
             </button>
-            <button
-              onClick={() => onResetPassword(user)}
-              className="flex-1 py-2.5 text-sm border border-[#A5C1C8]/40 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/20 transition-colors"
-            >
-              パスワードリセット
-            </button>
+            {!user.lineUserId && (
+              <button
+                onClick={() => onReissuePasscode(user)}
+                className="flex-1 py-2.5 text-sm border border-[#A5C1C8]/40 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/20 transition-colors"
+              >
+                パスワード再発行
+              </button>
+            )}
           </div>
 
           {/* 完全削除ボタン */}
@@ -327,10 +329,8 @@ export default function AdminUsersPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  // パスワードリセット
+  // パスコード再発行
   const [resetTarget, setResetTarget] = useState<User | null>(null);
-  const [resetPassword, setResetPassword] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
   // アクション確認
@@ -505,31 +505,6 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleResetPassword(e: React.FormEvent) {
-    e.preventDefault();
-    if (!resetTarget) return;
-    setResetError(null);
-    setResetLoading(true);
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ id: resetTarget.id, newPassword: resetPassword }),
-      });
-      if (!res.ok) throw new Error();
-      setResetTarget(null);
-      setResetPassword("");
-      setSelectedUser(null);
-      setActionMsg(`${resetTarget.displayName} のパスワードをリセットしました`);
-      await fetchUsers();
-    } catch {
-      setResetError("パスワードリセットに失敗しました");
-    } finally {
-      setResetLoading(false);
-    }
-  }
-
   async function handleDeleteUser() {
     if (!deleteTarget) return;
     setDeleteLoading(true);
@@ -694,46 +669,16 @@ export default function AdminUsersPage() {
         />
       )}
 
-      {/* パスワードリセットモーダル */}
+      {/* パスコード再発行モーダル */}
       {resetTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードをリセット</h3>
-            <p className="text-sm text-[#231714]/60 mb-4">{resetTarget.displayName}（{resetTarget.email}）</p>
-            <form onSubmit={handleResetPassword} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">新しいパスワード</label>
-                <input
-                  type="password"
-                  value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                  placeholder="新しいパスワードを入力"
-                  required
-                  minLength={4}
-                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
-                />
-              </div>
-              <p className="text-xs text-[#231714]/40">※ リセット後、LINE ID 連携も解除されます</p>
-              {resetError && <p className="text-xs text-red-600">{resetError}</p>}
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setResetTarget(null); setResetPassword(""); setResetError(null); }}
-                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5"
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetLoading}
-                  className="flex-1 py-2.5 text-sm bg-[#C5D94A] text-[#231714] rounded-xl hover:bg-[#B0E401] disabled:opacity-50"
-                >
-                  {resetLoading ? "リセット中..." : "リセット"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ReissuePasscodeModal
+          user={resetTarget}
+          onClose={() => { setResetTarget(null); setResetError(null); }}
+          onReissued={(msg) => {
+            setResetTarget(null);
+            setActionMsg(msg);
+          }}
+        />
       )}
 
       {/* 削除確認モーダル */}
@@ -794,7 +739,7 @@ export default function AdminUsersPage() {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
           onToggleActive={handleToggleActive}
-          onResetPassword={(u) => { setResetTarget(u); }}
+          onReissuePasscode={(u) => { setResetTarget(u); }}
           onDelete={(u) => { setDeleteTarget(u); }}
         />
       )}
@@ -910,7 +855,7 @@ function InviteModal({
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [passcode, setPasscode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function handleCreate(e: React.FormEvent) {
@@ -926,8 +871,7 @@ function InviteModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
-
-      setInviteUrl(data.inviteUrl);
+      setPasscode(data.passcode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -935,9 +879,9 @@ function InviteModal({
     }
   }
 
-  async function copyUrl() {
-    if (!inviteUrl) return;
-    await navigator.clipboard.writeText(inviteUrl);
+  async function copyPasscode() {
+    if (!passcode) return;
+    await navigator.clipboard.writeText(passcode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -945,8 +889,7 @@ function InviteModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        {inviteUrl ? (
-          // URL発行完了
+        {passcode ? (
           <>
             <div className="text-center mb-4">
               <div className="w-12 h-12 rounded-full bg-[#B0E401]/20 flex items-center justify-center mx-auto mb-3">
@@ -954,38 +897,23 @@ function InviteModal({
                   <path d="M6 12l4 4 8-8" stroke="#B0E401" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <h3 className="text-base font-semibold text-[#231714]">招待URLを発行しました</h3>
-              <p className="text-xs text-[#231714]/50 mt-1">{name} さんにこのURLを共有してください（有効期限: 7日間）</p>
+              <h3 className="text-base font-semibold text-[#231714]">ワンタイムパスワードを発行しました</h3>
+              <p className="text-xs text-[#231714]/50 mt-1">{name} さんにこのパスワードを伝えてください（有効期限: 7日間）</p>
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-3 mb-4">
-              <p className="text-xs text-[#231714]/60 break-all font-mono">{inviteUrl}</p>
+            <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
             </div>
 
             <div className="flex gap-2">
               <button
-                onClick={copyUrl}
-                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors flex items-center justify-center gap-2"
+                onClick={copyPasscode}
+                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
               >
-                {copied ? (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M3 7l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    コピーしました
-                  </>
-                ) : (
-                  <>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-                      <path d="M10 4V2.5A1.5 1.5 0 008.5 1h-6A1.5 1.5 0 001 2.5v6A1.5 1.5 0 002.5 10H4" stroke="currentColor" strokeWidth="1.3" />
-                    </svg>
-                    URLをコピー
-                  </>
-                )}
+                {copied ? "コピーしました" : "コピー"}
               </button>
               <button
-                onClick={() => onCreated(`${name} さんの招待URLを発行しました`)}
+                onClick={() => onCreated(`${name} さんのワンタイムパスワードを発行しました`)}
                 className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
               >
                 閉じる
@@ -993,10 +921,9 @@ function InviteModal({
             </div>
           </>
         ) : (
-          // 名前入力
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">ユーザーを招待</h3>
-            <p className="text-xs text-[#231714]/50 mb-4">招待URLを発行します。URLを受け取った方がLINEでアクセスすると、自動的にアカウントが作成されます。</p>
+            <p className="text-xs text-[#231714]/50 mb-4">ワンタイムパスワードを発行します。利用者はLINEのログイン画面でこのパスワードを入力してアカウントを作成します。</p>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[#231714]/60 mb-1">名前</label>
@@ -1015,22 +942,118 @@ function InviteModal({
                 </div>
               )}
               <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
-                >
+                <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">
                   キャンセル
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors"
-                >
-                  {loading ? "発行中..." : "招待URLを発行"}
+                <button type="submit" disabled={loading} className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">
+                  {loading ? "発行中..." : "パスワードを発行"}
                 </button>
               </div>
             </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══ パスコード再発行モーダル ═══ */
+
+function ReissuePasscodeModal({
+  user,
+  onClose,
+  onReissued,
+}: {
+  user: User;
+  onClose: () => void;
+  onReissued: (msg: string) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [passcode, setPasscode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleReissue() {
+    setError(null);
+    setLoading(true);
+    try {
+      // invitationId から招待を特定して再発行
+      const listRes = await fetch("/api/admin/invitations", { credentials: "same-origin" });
+      const listData = await listRes.json();
+      const invitations = listData.invitations || [];
+      // このユーザーの招待を探す（displayName一致 + 未使用/期限切れ）
+      const inv = invitations.find((i: { displayName: string; status: string }) =>
+        i.displayName === user.displayName && (i.status === "unused" || i.status === "expired")
+      );
+
+      if (!inv) {
+        // 招待が見つからない場合は新規作成
+        const createRes = await fetch("/api/admin/invitations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ displayName: user.displayName }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) throw new Error(createData.error);
+        setPasscode(createData.passcode);
+        return;
+      }
+
+      const res = await fetch("/api/admin/invitations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ id: inv.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPasscode(data.passcode);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "再発行に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        {passcode ? (
+          <>
+            <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードを再発行しました</h3>
+            <p className="text-xs text-[#231714]/50 mb-4">{user.displayName} さんに新しいパスワードを伝えてください</p>
+            <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => { await navigator.clipboard.writeText(passcode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
+              >
+                {copied ? "コピーしました" : "コピー"}
+              </button>
+              <button
+                onClick={() => onReissued(`${user.displayName} さんのパスワードを再発行しました`)}
+                className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードを再発行</h3>
+            <p className="text-sm text-[#231714]/60 mb-4">{user.displayName} さんのワンタイムパスワードを再発行します。以前のパスワードは無効になります。</p>
+            {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5">
+                キャンセル
+              </button>
+              <button onClick={handleReissue} disabled={loading} className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50">
+                {loading ? "再発行中..." : "再発行する"}
+              </button>
+            </div>
           </>
         )}
       </div>
