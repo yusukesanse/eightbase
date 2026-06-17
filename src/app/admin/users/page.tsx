@@ -37,6 +37,8 @@ interface User {
   createdAt: string;
   lastLoginAt: string | null;
   profileUpdatedAt: string | null;
+  invitationId: string | null;
+  inviteStatus: "pending" | "linked" | "expired" | null;
 }
 
 type SortKey = "displayName" | "email" | "tenantName" | "lineUserId" | "lastLoginAt" | "active" | "createdAt";
@@ -184,6 +186,16 @@ function UserDetailPanel({
                 ) : (
                   <span className="inline-flex items-center px-2 py-0.5 bg-orange-50 text-orange-500 text-xs rounded-full">
                     プロフィール未登録
+                  </span>
+                )}
+                {user.inviteStatus === "pending" && (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-600 text-xs rounded-full">
+                    招待中
+                  </span>
+                )}
+                {user.inviteStatus === "expired" && !user.lineUserId && (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-red-50 text-red-500 text-xs rounded-full">
+                    招待期限切れ
                   </span>
                 )}
               </div>
@@ -977,38 +989,29 @@ function ReissuePasscodeModal({
     setError(null);
     setLoading(true);
     try {
-      // invitationId から招待を特定して再発行
-      const listRes = await fetch("/api/admin/invitations", { credentials: "same-origin" });
-      const listData = await listRes.json();
-      const invitations = listData.invitations || [];
-      // このユーザーの招待を探す（displayName一致 + 未使用/期限切れ）
-      const inv = invitations.find((i: { displayName: string; status: string }) =>
-        i.displayName === user.displayName && (i.status === "unused" || i.status === "expired")
-      );
-
-      if (!inv) {
-        // 招待が見つからない場合は新規作成
-        const createRes = await fetch("/api/admin/invitations", {
+      if (user.invitationId) {
+        // invitationId で直接再発行
+        const res = await fetch("/api/admin/invitations", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ id: user.invitationId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setPasscode(data.passcode);
+      } else {
+        // invitationId がない旧ユーザー → 新規招待作成
+        const res = await fetch("/api/admin/invitations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
           body: JSON.stringify({ displayName: user.displayName }),
         });
-        const createData = await createRes.json();
-        if (!createRes.ok) throw new Error(createData.error);
-        setPasscode(createData.passcode);
-        return;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setPasscode(data.passcode);
       }
-
-      const res = await fetch("/api/admin/invitations", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ id: inv.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setPasscode(data.passcode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "再発行に失敗しました");
     } finally {

@@ -239,7 +239,7 @@ export async function DELETE(req: NextRequest) {
 export async function GET(req: NextRequest) {
   // プレビューモード: 認証OKを返す
   if (await isPreviewMode(req)) {
-    return NextResponse.json({ authenticated: true, email: PREVIEW_ADMIN_EMAIL });
+    return NextResponse.json({ authenticated: true, email: PREVIEW_ADMIN_EMAIL, preview: true, readOnly: true });
   }
 
   const cookie = req.cookies.get("__admin_session")?.value;

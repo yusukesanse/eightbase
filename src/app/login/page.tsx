@@ -6,13 +6,13 @@ import Image from "next/image";
 import { initLiff } from "@/lib/liff";
 
 /**
- * ログインページ — ハイブリッド認証フロー
+ * ログインページ — LIFF + ワンタイムパスワード認証フロー
  *
  * 1. LIFF 初期化 → LINE ログイン
  * 2. /api/auth/liff-login で authorizedUsers を照合
  *    - 連携済み → セッション発行 → /reservation (or /setup-profile)
- *    - 未連携 → メール+パスワードフォームを表示
- * 3. メール+パスワード認証成功 → LINE ID 連携 → /setup-profile or /reservation
+ *    - 未連携 → ワンタイムパスワードフォームを表示
+ * 3. ワンタイムパスワード認証成功 → LINE ID 連携 → /setup-profile
  */
 export default function LoginPage() {
   const router = useRouter();

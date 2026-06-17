@@ -2,26 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isPreviewMode } from "@/lib/preview";
 import { getDb } from "@/lib/firebaseAdmin";
-import crypto from "crypto";
+import { generatePasscode, hashPasscode } from "@/lib/passcode";
 
 export const dynamic = "force-dynamic";
 
 const INVITATION_EXPIRY_DAYS = 7;
-
-/** ワンタイムパスコード生成（例: EB-A3X9K2） */
-function generatePasscode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  const bytes = crypto.randomBytes(6);
-  for (let i = 0; i < 6; i++) {
-    code += chars[bytes[i] % chars.length];
-  }
-  return `EB-${code.slice(0, 3)}${code.slice(3)}`;
-}
+const MAX_PASSCODE_ATTEMPTS = 5;
 
 /**
  * GET /api/admin/invitations
- * 招待一覧（ステータス付き）
+ * 招待一覧（ステータス付き、パスコードは返さない）
  */
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
@@ -52,7 +42,6 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         displayName: d.displayName || "",
-        passcode: status === "unused" ? (d.passcode as string) : null,
         status,
         createdAt: d.createdAt as string,
         expiresAt,
@@ -70,6 +59,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/admin/invitations
  * 新規招待を作成（ワンタイムパスコード発行）
+ * パスコードはハッシュで保存し、平文はこのレスポンスでのみ返却
  *
  * Body: { displayName: string }
  */
@@ -84,16 +74,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
     }
 
-    const passcode = generatePasscode();
+    const db = getDb();
+
+    // 重複チェック付きパスコード生成（最大5回）
+    let passcode = "";
+    let pHash = "";
+    for (let i = 0; i < MAX_PASSCODE_ATTEMPTS; i++) {
+      passcode = generatePasscode();
+      pHash = hashPasscode(passcode);
+      const dup = await db
+        .collection("invitations")
+        .where("passcodeHash", "==", pHash)
+        .where("usedAt", "==", null)
+        .limit(1)
+        .get();
+      if (dup.empty) break;
+      if (i === MAX_PASSCODE_ATTEMPTS - 1) {
+        return NextResponse.json({ error: "パスコード生成に失敗しました。再試行してください" }, { status: 500 });
+      }
+    }
+
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     const nowStr = now.toISOString();
 
-    const db = getDb();
-
     const inviteRef = await db.collection("invitations").add({
       displayName: displayName.trim(),
-      passcode,
+      passcodeHash: pHash,
       createdAt: nowStr,
       expiresAt: expiresAt.toISOString(),
       usedAt: null,
@@ -112,6 +119,7 @@ export async function POST(req: NextRequest) {
       createdAt: nowStr,
       lastLoginAt: null,
       invitationId: inviteRef.id,
+      inviteStatus: "pending",
     });
 
     return NextResponse.json({
@@ -128,7 +136,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * PATCH /api/admin/invitations
- * パスコードを再発行
+ * パスコードを再発行（新ハッシュで上書き、有効期限リセット）
  *
  * Body: { id: string }
  */
@@ -157,11 +165,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     const passcode = generatePasscode();
+    const pHash = hashPasscode(passcode);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
     await docRef.update({
-      passcode,
+      passcodeHash: pHash,
       expiresAt: expiresAt.toISOString(),
     });
 

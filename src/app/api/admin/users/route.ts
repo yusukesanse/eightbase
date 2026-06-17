@@ -108,9 +108,26 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // 招待ステータス算出用
+    const invitationsSnap = await db.collection("invitations").get();
+    const invMap: Record<string, { usedAt: string | null; expiresAt: string; lineUserId: string | null }> = {};
+    invitationsSnap.docs.forEach((doc) => {
+      const d = doc.data();
+      invMap[doc.id] = { usedAt: d.usedAt ?? null, expiresAt: d.expiresAt ?? "", lineUserId: d.lineUserId ?? null };
+    });
+
     const users = snap.docs.map((doc) => {
       const d = doc.data();
       const lineData = d.lineUserId ? usersMap[d.lineUserId] : null;
+      const invId = d.invitationId ?? null;
+      const inv = invId ? invMap[invId] : null;
+      let inviteStatus: "pending" | "linked" | "expired" | null = d.inviteStatus ?? null;
+      if (inv && !inviteStatus) {
+        if (inv.usedAt || inv.lineUserId) inviteStatus = "linked";
+        else if (new Date(inv.expiresAt).getTime() < Date.now()) inviteStatus = "expired";
+        else inviteStatus = "pending";
+      }
+
       return {
         id: doc.id,
         email: d.email,
@@ -125,6 +142,8 @@ export async function GET(req: NextRequest) {
         createdAt: d.createdAt,
         lastLoginAt: d.lastLoginAt ?? null,
         profileUpdatedAt: d.profileUpdatedAt ?? null,
+        invitationId: invId,
+        inviteStatus,
       };
     });
 
