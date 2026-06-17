@@ -12,10 +12,20 @@ import { NextRequest, NextResponse } from "next/server";
 const CUSTOMER_DOMAIN = process.env.CUSTOMER_DOMAIN || "";
 const ADMIN_DOMAIN = process.env.ADMIN_DOMAIN || "";
 
+/** プレビューモードでアクセスを禁止するパス（セキュリティ上の理由） */
+const PREVIEW_BLOCKED_PREFIXES = [
+  "/admin/users",
+  "/admin/calendars",
+  "/admin/admin-users",
+  "/api/admin/users",
+  "/api/admin/admin-users",
+];
+
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
   const pathname = req.nextUrl.pathname;
 
+  // プレビューモード: 書き込み API をブロック
   if (
     pathname.startsWith("/api/") &&
     !pathname.startsWith("/api/preview/activate") &&
@@ -26,6 +36,14 @@ export function middleware(req: NextRequest) {
       { error: "Preview mode is read-only" },
       { status: 403 }
     );
+  }
+
+  // プレビューモード: セキュリティ上ブロックするページ/API
+  if (req.cookies.has("__preview") && PREVIEW_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "この情報はプレビューモードでは閲覧できません" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/preview", req.url));
   }
 
   // 静的ファイル・API・_next・プレビュー は常に通す
