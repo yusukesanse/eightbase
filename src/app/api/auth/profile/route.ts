@@ -12,6 +12,7 @@ interface ProfileData {
   firstName: string;        // 名
   lastNameKana: string;     // セイ
   firstNameKana: string;    // メイ
+  email: string;            // メールアドレス
   phone: string;            // 電話番号
   birthday: string;         // 生年月日 (YYYY-MM-DD)
   gender: string;           // 性別
@@ -44,6 +45,7 @@ const REQUIRED_FIELDS: (keyof ProfileData)[] = [
   "firstName",
   "lastNameKana",
   "firstNameKana",
+  "email",
   "phone",
   "birthday",
   "gender",
@@ -169,6 +171,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // メールアドレスのバリデーション
+    if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) {
+      return NextResponse.json(
+        { error: "メールアドレスの形式が正しくありません" },
+        { status: 400 }
+      );
+    }
+
     const db = getDb();
 
     // authorizedUsers から lineUserId で検索
@@ -203,6 +213,7 @@ export async function POST(req: NextRequest) {
       firstName: profile.firstName.trim(),
       lastNameKana: profile.lastNameKana.trim(),
       firstNameKana: profile.firstNameKana.trim(),
+      email: profile.email.trim().toLowerCase(),
       phone: phoneClean,
       birthday: profile.birthday.trim(),
       gender: profile.gender.trim(),

@@ -35,6 +35,7 @@ interface FormData {
   firstName: string;
   lastNameKana: string;
   firstNameKana: string;
+  email: string;
   phone: string;
   birthday: string;
   gender: string;
@@ -65,6 +66,7 @@ const EMPTY_FORM: FormData = {
   firstName: "",
   lastNameKana: "",
   firstNameKana: "",
+  email: "",
   phone: "",
   birthday: "",
   gender: "",
@@ -147,6 +149,8 @@ export default function SetupProfilePage() {
     if (!form.lastNameKana.trim() || !form.firstNameKana.trim()) return "氏名（カナ）を入力してください";
     const kanaRegex = /^[\u30A0-\u30FF\u3000\s]+$/;
     if (!kanaRegex.test(form.lastNameKana) || !kanaRegex.test(form.firstNameKana)) return "氏名（カナ）はカタカナで入力してください";
+    if (!form.email.trim()) return "メールアドレスを入力してください";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "メールアドレスの形式が正しくありません";
     if (!form.phone.trim()) return "電話番号を入力してください";
     if (!form.birthday) return "生年月日を入力してください";
     if (!form.gender) return "性別を選択してください";
@@ -190,7 +194,15 @@ export default function SetupProfilePage() {
     }
   }
 
+  function validateStep3(): string | null {
+    if (form.skills.length === 0) return "スキルを1つ以上選択してください";
+    if (!form.bio.trim()) return "自己紹介を入力してください";
+    return null;
+  }
+
   async function handleSubmit() {
+    const err = validateStep3();
+    if (err) { setError(err); return; }
     setError(null);
     setSubmitting(true);
     try {
@@ -272,9 +284,14 @@ export default function SetupProfilePage() {
 
             {/* 連絡先・基本情報 */}
             <Card title="連絡先・基本情報" icon="clipboard" required>
+              <Field label="メールアドレス">
+                <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" autoComplete="email" className={INPUT_CLASS} />
+              </Field>
+              <div className="mt-3">
               <Field label="電話番号">
                 <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={INPUT_CLASS} />
               </Field>
+              </div>
               <div className="mt-3">
                 <Field label="生年月日">
                   <BirthdaySelect value={form.birthday} onChange={(v) => updateForm("birthday", v)} />
@@ -376,12 +393,12 @@ export default function SetupProfilePage() {
           <div className="space-y-4">
             <div className="bg-[#A5C1C8]/10 rounded-xl px-4 py-3">
               <p className="text-xs text-[#231714]/60">
-                この項目は任意です。メンバー同士のコミュニティを広げるために、できるだけ入力をお願いします。あとから変更もできます。
+                メンバー同士のコミュニティを広げるための情報です。スキルと自己紹介は必須です。あとから変更もできます。
               </p>
             </div>
 
             {/* スキル */}
-            <Card title="スキル・得意分野" icon="star">
+            <Card title="スキル・得意分野" icon="star" required>
               <p className="text-[10px] text-[#231714]/40 mb-3">メンバー検索であなたが見つけてもらいやすくなります</p>
               {form.skills.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
@@ -446,7 +463,7 @@ export default function SetupProfilePage() {
             </Card>
 
             {/* 自己紹介 */}
-            <Card title="自己紹介・PR" icon="edit">
+            <Card title="自己紹介・PR" icon="edit" required>
               <p className="text-[10px] text-[#231714]/40 mb-2">事業内容やアピールを自由に記入してください</p>
               <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="例: Webサイトのデザイン・制作を行っています。お気軽にお声がけください。" rows={4} className={`${INPUT_CLASS} resize-y`} />
             </Card>
@@ -461,9 +478,6 @@ export default function SetupProfilePage() {
                 {submitting ? "登録中..." : "登録して利用開始"}
               </button>
             </div>
-            <button type="button" onClick={handleSubmit} disabled={submitting} className="w-full py-2 text-xs text-[#231714]/40 hover:text-[#231714]/60 transition-colors">
-              スキップして登録
-            </button>
           </div>
         )}
       </div>
