@@ -249,13 +249,52 @@ export default function HomePage() {
 
         if (cancelled) return;
 
+        // 招待トークンがURLパラメータにあるか確認
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get("invite");
+
         if (res.ok) {
           const data = await res.json().catch(() => ({}));
           if (data.success) {
+            // 既に登録済みのユーザー
             router.replace("/reservation");
+          } else if (inviteToken) {
+            // 未登録だが招待トークンあり → 招待連携を実行
+            setStatusText("アカウントを作成中...");
+            const inviteRes = await fetch("/api/auth/invite", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: inviteToken }),
+              credentials: "include",
+            });
+            if (cancelled) return;
+            const inviteData = await inviteRes.json();
+            if (inviteRes.ok && inviteData.success) {
+              router.replace("/setup-profile");
+            } else {
+              setStatusText(inviteData.error || "招待URLが無効です");
+              setPhase("error");
+            }
           } else {
-            // 未連携・未登録・削除済み → すべてアカウントなし画面
+            // 未連携・未登録・招待なし → アカウントなし画面
             setPhase("no-account");
+          }
+        } else if (inviteToken) {
+          // liff-login が失敗してもセッションは作成されている場合がある → 招待連携を試行
+          setStatusText("アカウントを作成中...");
+          const inviteRes = await fetch("/api/auth/invite", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: inviteToken }),
+            credentials: "include",
+          });
+          if (cancelled) return;
+          const inviteData = await inviteRes.json();
+          if (inviteRes.ok && inviteData.success) {
+            router.replace("/setup-profile");
+          } else {
+            setStatusText(inviteData.error || "招待URLが無効です");
+            setPhase("error");
           }
         } else {
           // 401 / 500 など

@@ -3,190 +3,83 @@
 /**
  * /invite/[token] — ワンタイム招待URLのランディングページ
  *
- * フロー:
- * 1. LIFF 初期化 → LINE ログイン
- * 2. セッション作成（liff-login）
- * 3. 招待トークンで LINE ID 紐づけ（/api/auth/invite）
- * 4. プロフィール登録画面へリダイレクト
+ * どこからでも開ける（ブラウザ、メール、Slack等）。
+ * 「LINEで登録する」ボタンを押すと LIFF URL に遷移し、
+ * LINEアプリ内でアカウント連携が完了する。
  */
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { initLiff } from "@/lib/liff";
+import { useParams } from "next/navigation";
 
-type Phase = "loading" | "linking" | "error" | "expired" | "already";
-
-export default function InvitePage() {
-  const router = useRouter();
+export default function InviteLandingPage() {
   const params = useParams();
   const token = params.token as string;
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [statusText, setStatusText] = useState("初期化中...");
 
-  useEffect(() => {
-    let cancelled = false;
+  // LIFF URL を構築: エンドポイントURL に ?invite=<token> を付与
+  // LIFF の Endpoint URL が https://customer-domain.com に設定されている前提
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID_PROD
+    || process.env.NEXT_PUBLIC_LIFF_ID_REVIEW
+    || process.env.NEXT_PUBLIC_LIFF_ID
+    || "";
+  const liffUrl = liffId
+    ? `https://liff.line.me/${liffId}?invite=${encodeURIComponent(token)}`
+    : "";
 
-    async function boot() {
-      try {
-        // 1. LIFF 初期化
-        setStatusText("LIFF初期化中...");
-        const liff = await initLiff();
-        if (cancelled) return;
-
-        // 2. LINE ログイン
-        if (!liff.isLoggedIn()) {
-          setStatusText("LINEログイン中...");
-          liff.login({ redirectUri: window.location.href });
-          return;
-        }
-
-        // 3. セッション作成
-        setStatusText("認証中...");
-        const accessToken = liff.getAccessToken();
-        if (!accessToken) {
-          setStatusText("アクセストークンを取得できませんでした");
-          setPhase("error");
-          return;
-        }
-
-        let liffProfile: { userId?: string; displayName?: string; pictureUrl?: string } = {};
-        try {
-          const p = await liff.getProfile();
-          liffProfile = { userId: p.userId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" };
-        } catch { /* ignore */ }
-
-        const loginRes = await fetch("/api/auth/liff-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken, liffProfile }),
-          credentials: "include",
-        });
-
-        if (cancelled) return;
-
-        if (loginRes.ok) {
-          const loginData = await loginRes.json().catch(() => ({}));
-          if (loginData.success) {
-            // 既にアカウント連携済み → そのまま予約画面へ
-            router.replace("/reservation");
-            return;
-          }
-        }
-
-        // 4. 招待トークンで紐づけ
-        setPhase("linking");
-        setStatusText("アカウントを作成中...");
-
-        const inviteRes = await fetch("/api/auth/invite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-          credentials: "include",
-        });
-
-        if (cancelled) return;
-
-        const inviteData = await inviteRes.json();
-
-        if (inviteRes.ok && inviteData.success) {
-          // プロフィール登録へ
-          router.replace("/setup-profile");
-          return;
-        }
-
-        if (inviteData.alreadyLinked) {
-          setPhase("already");
-          return;
-        }
-
-        if (inviteRes.status === 410) {
-          setPhase("expired");
-          setStatusText(inviteData.error || "この招待URLは無効です");
-          return;
-        }
-
-        setStatusText(inviteData.error || "エラーが発生しました");
-        setPhase("error");
-      } catch (err) {
-        console.error("[InvitePage] error:", err);
-        if (!cancelled) {
-          setStatusText("エラーが発生しました。ページを再読み込みしてください。");
-          setPhase("error");
-        }
-      }
-    }
-
-    boot();
-    return () => { cancelled = true; };
-  }, [router, token]);
-
-  if (phase === "already") {
-    return (
-      <CenterLayout>
-        <StatusIcon type="success" />
-        <p className="text-sm font-medium text-[#231714] mt-4">既に登録済みです</p>
-        <p className="text-xs text-[#231714]/50 mt-1">このLINEアカウントは既に登録されています。</p>
-        <button
-          onClick={() => router.replace("/reservation")}
-          className="mt-6 px-6 py-3 text-sm font-medium bg-[#231714] text-white rounded-xl"
-        >
-          アプリを開く
-        </button>
-      </CenterLayout>
-    );
-  }
-
-  if (phase === "expired") {
-    return (
-      <CenterLayout>
-        <StatusIcon type="expired" />
-        <p className="text-sm font-medium text-[#231714] mt-4">招待URLが無効です</p>
-        <p className="text-xs text-[#231714]/50 mt-2 text-center max-w-xs">{statusText}</p>
-      </CenterLayout>
-    );
-  }
-
-  if (phase === "error") {
-    return (
-      <CenterLayout>
-        <StatusIcon type="error" />
-        <p className="text-sm text-[#231714]/50 mt-4 text-center">{statusText}</p>
-      </CenterLayout>
-    );
-  }
-
-  // loading / linking
   return (
-    <CenterLayout>
-      <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm text-[#231714]/50 mt-4">{statusText}</p>
-    </CenterLayout>
-  );
-}
+    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-6">
+      <div className="w-full max-w-sm text-center">
+        {/* ロゴ */}
+        <div className="w-16 h-16 rounded-2xl bg-[#231714] flex items-center justify-center mx-auto mb-5">
+          <div className="grid grid-cols-2 gap-0.5">
+            <div className="w-3 h-3 rounded-sm bg-white/90" />
+            <div className="w-3 h-3 rounded-sm bg-white/50" />
+            <div className="w-3 h-3 rounded-sm bg-white/50" />
+            <div className="w-3 h-3 rounded-sm bg-white/30" />
+          </div>
+        </div>
 
-function CenterLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-      {children}
+        <h1 className="text-xl font-bold text-[#231714]">EIGHT BASE UNGA</h1>
+        <p className="text-sm text-[#231714]/50 mt-2">
+          シェアオフィスへご招待いただきました
+        </p>
+
+        <div className="mt-8 space-y-3">
+          {liffUrl ? (
+            <a
+              href={liffUrl}
+              className="block w-full py-3.5 text-sm font-bold text-white rounded-xl transition-colors text-center"
+              style={{ backgroundColor: "#06C755" }}
+            >
+              LINEで登録する
+            </a>
+          ) : (
+            <p className="text-xs text-red-500">
+              LIFF ID が設定されていません。管理者にお問い合わせください。
+            </p>
+          )}
+        </div>
+
+        <div className="mt-6 bg-white rounded-xl border border-[#231714]/10 p-4 text-left">
+          <h2 className="text-xs font-semibold text-[#231714]/70 mb-2">登録の流れ</h2>
+          <ol className="text-xs text-[#231714]/50 space-y-1.5">
+            <li className="flex gap-2">
+              <span className="w-5 h-5 rounded-full bg-[#231714]/5 flex items-center justify-center text-[10px] font-bold text-[#231714]/60 shrink-0">1</span>
+              <span>上のボタンをタップしてLINEを開く</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="w-5 h-5 rounded-full bg-[#231714]/5 flex items-center justify-center text-[10px] font-bold text-[#231714]/60 shrink-0">2</span>
+              <span>LINEアカウントでログイン</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="w-5 h-5 rounded-full bg-[#231714]/5 flex items-center justify-center text-[10px] font-bold text-[#231714]/60 shrink-0">3</span>
+              <span>プロフィール情報を入力して完了</span>
+            </li>
+          </ol>
+        </div>
+
+        <p className="mt-6 text-[10px] text-[#231714]/30">
+          この招待URLの有効期限は7日間です
+        </p>
+      </div>
     </div>
-  );
-}
-
-function StatusIcon({ type }: { type: "success" | "expired" | "error" }) {
-  const colors = {
-    success: "text-[#B0E401]",
-    expired: "text-orange-400",
-    error: "text-red-400",
-  };
-  const paths = {
-    success: <path d="M6 12l4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
-    expired: <><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" fill="none" /><path d="M12 7v6M12 16v.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
-    error: <><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" fill="none" /><path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
-  };
-
-  return (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className={colors[type]}>
-      {paths[type]}
-    </svg>
   );
 }
