@@ -3,19 +3,32 @@
 /**
  * プレビューモード ランディングページ
  * トークンを入力してプレビューを有効化 → 各画面へのリンク一覧を表示
+ * ミニアプリ画面はiPhoneフレーム内にiframeで表示
  */
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+
+type ViewMode = "list" | "miniapp";
 
 export default function PreviewPage() {
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [activating, setActivating] = useState(false);
   const [active, setActive] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // ミニアプリ iframe 表示
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [iframeSrc, setIframeSrc] = useState("");
+  const [iframeLabel, setIframeLabel] = useState("");
 
   useEffect(() => {
-    setActive(document.cookie.includes("__preview="));
+    fetch("/api/preview/activate", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setActive(data.active === true))
+      .catch(() => setActive(false))
+      .finally(() => setChecking(false));
   }, []);
 
   async function activate() {
@@ -45,6 +58,20 @@ export default function PreviewPage() {
     setActive(false);
   }
 
+  function openMiniApp(href: string, label: string) {
+    setIframeSrc(href);
+    setIframeLabel(label);
+    setViewMode("miniapp");
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#231714] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!active) {
     return (
       <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-6">
@@ -67,9 +94,7 @@ export default function PreviewPage() {
               placeholder="アクセストークン"
               className="w-full px-4 py-3 text-sm border border-[#231714]/15 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#B0E401]"
             />
-            {error && (
-              <p className="text-xs text-red-500 px-1">{error}</p>
-            )}
+            {error && <p className="text-xs text-red-500 px-1">{error}</p>}
             <button
               onClick={activate}
               disabled={activating || !token}
@@ -80,16 +105,77 @@ export default function PreviewPage() {
           </div>
 
           <p className="mt-6 text-[10px] text-[#231714]/30 text-center">
-            本番データへの書き込みが発生する可能性があります。
-            <br />
-            閲覧のみを推奨します。
+            閲覧専用のプレビューモードです。
           </p>
         </div>
       </div>
     );
   }
 
-  // プレビュー有効時: 全画面へのナビゲーション
+  // ミニアプリ iframe 表示モード
+  if (viewMode === "miniapp") {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center p-4">
+        {/* ヘッダー */}
+        <div className="w-full max-w-2xl flex items-center justify-between mb-4">
+          <button
+            onClick={() => setViewMode("list")}
+            className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            一覧に戻る
+          </button>
+          <span className="text-sm text-white/40">{iframeLabel}</span>
+        </div>
+
+        {/* iPhone フレーム */}
+        <div className="relative">
+          {/* 外枠 */}
+          <div
+            className="relative bg-[#1c1c1e] rounded-[3rem] p-3 shadow-2xl"
+            style={{ width: 393, height: 852 }}
+          >
+            {/* ノッチ */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[126px] h-[34px] bg-[#1c1c1e] rounded-b-2xl z-10" />
+
+            {/* ステータスバー風 */}
+            <div className="absolute top-[12px] left-[40px] right-[40px] h-[22px] z-20 flex items-center justify-between px-2">
+              <span className="text-white text-[12px] font-semibold">9:41</span>
+              <div className="flex items-center gap-1">
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="white">
+                  <rect x="0" y="3" width="3" height="9" rx="0.5" opacity="0.3" />
+                  <rect x="4.5" y="2" width="3" height="10" rx="0.5" opacity="0.5" />
+                  <rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7" />
+                  <rect x="13.5" y="0" width="3" height="12" rx="0.5" />
+                </svg>
+                <svg width="24" height="12" viewBox="0 0 24 12" fill="white">
+                  <rect x="0" y="1" width="20" height="10" rx="2" stroke="white" strokeWidth="1" fill="none" />
+                  <rect x="2" y="3" width="14" height="6" rx="1" />
+                  <rect x="21" y="4" width="2" height="4" rx="0.5" />
+                </svg>
+              </div>
+            </div>
+
+            {/* 画面 */}
+            <div className="w-full h-full rounded-[2.4rem] overflow-hidden bg-white">
+              <iframe
+                src={iframeSrc}
+                className="w-full h-full border-0"
+                title={iframeLabel}
+              />
+            </div>
+
+            {/* ホームインジケーター */}
+            <div className="absolute bottom-[8px] left-1/2 -translate-x-1/2 w-[134px] h-[5px] bg-white/30 rounded-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 一覧表示
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
       <div className="max-w-2xl mx-auto p-6">
@@ -112,15 +198,15 @@ export default function PreviewPage() {
 
         {/* ミニアプリ（利用者向け） */}
         <Section title="ミニアプリ（利用者向け）">
-          <NavLink href="/info" label="総合情報ページ" desc="施設情報・麻雀リーグ・CS" />
-          <NavLink href="/reservation" label="予約" desc="施設の予約フロー" />
-          <NavLink href="/my-reservations" label="予約履歴" desc="自分の予約一覧" />
-          <NavLink href="/mypage" label="マイページ" desc="プロフィール・設定" />
-          <NavLink href="/games" label="ゲーム一覧" desc="参加可能なゲーム" />
-          <NavLink href="/events" label="イベント" desc="イベント一覧" />
-          <NavLink href="/news" label="ニュース" desc="お知らせ一覧" />
-          <NavLink href="/members" label="メンバー" desc="メンバー一覧" />
-          <NavLink href="/timeline" label="タイムライン" desc="投稿一覧" />
+          <MiniAppLink onClick={() => openMiniApp("/info", "総合情報ページ")} label="総合情報ページ" desc="施設情報・麻雀リーグ・CS" />
+          <MiniAppLink onClick={() => openMiniApp("/reservation", "予約")} label="予約" desc="施設の予約フロー" />
+          <MiniAppLink onClick={() => openMiniApp("/my-reservations", "予約履歴")} label="予約履歴" desc="自分の予約一覧" />
+          <MiniAppLink onClick={() => openMiniApp("/mypage", "マイページ")} label="マイページ" desc="プロフィール・設定" />
+          <MiniAppLink onClick={() => openMiniApp("/games", "ゲーム一覧")} label="ゲーム一覧" desc="参加可能なゲーム" />
+          <MiniAppLink onClick={() => openMiniApp("/events", "イベント")} label="イベント" desc="イベント一覧" />
+          <MiniAppLink onClick={() => openMiniApp("/news", "ニュース")} label="ニュース" desc="お知らせ一覧" />
+          <MiniAppLink onClick={() => openMiniApp("/members", "メンバー")} label="メンバー" desc="メンバー一覧" />
+          <MiniAppLink onClick={() => openMiniApp("/timeline", "タイムライン")} label="タイムライン" desc="投稿一覧" />
         </Section>
 
         {/* 管理画面 */}
@@ -137,8 +223,8 @@ export default function PreviewPage() {
 
         {/* デモ（モックデータ） */}
         <Section title="デモ（モックデータのみ）">
-          <NavLink href="/demo/app" label="ミニアプリ デモ" desc="麻雀リーグUI（サンプルデータ）" />
-          <NavLink href="/demo/admin" label="管理画面 デモ" desc="管理UIプレビュー（サンプルデータ）" />
+          <MiniAppLink onClick={() => openMiniApp("/demo/app", "ミニアプリ デモ")} label="ミニアプリ デモ" desc="麻雀リーグUI（サンプルデータ）" />
+          <MiniAppLink onClick={() => openMiniApp("/demo/admin", "管理画面 デモ")} label="管理画面 デモ" desc="管理UIプレビュー（サンプルデータ）" />
         </Section>
 
         <p className="mt-8 text-[10px] text-[#231714]/30 text-center">
@@ -149,13 +235,9 @@ export default function PreviewPage() {
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+/* ───────── 共通コンポーネント ───────── */
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-6">
       <h2 className="text-sm font-bold text-[#231714] mb-2">{title}</h2>
@@ -166,15 +248,7 @@ function Section({
   );
 }
 
-function NavLink({
-  href,
-  label,
-  desc,
-}: {
-  href: string;
-  label: string;
-  desc: string;
-}) {
+function NavLink({ href, label, desc }: { href: string; label: string; desc: string }) {
   return (
     <Link
       href={href}
@@ -184,21 +258,34 @@ function NavLink({
         <div className="text-sm font-medium text-[#231714]">{label}</div>
         <div className="text-[11px] text-[#231714]/40 mt-0.5">{desc}</div>
       </div>
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        className="shrink-0 text-[#231714]/20"
-      >
-        <path
-          d="M6 4l4 4-4 4"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#231714]/20">
+        <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </Link>
+  );
+}
+
+function MiniAppLink({ onClick, label, desc }: { onClick: () => void; label: string; desc: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#231714]/[0.02] transition-colors text-left"
+    >
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-[#A5C1C8]/20">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="1" y="2.5" width="10" height="7" rx="1" stroke="#A5C1C8" strokeWidth="1.2" />
+              <path d="M4 1.5h4" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+          </span>
+          <span className="text-sm font-medium text-[#231714]">{label}</span>
+        </div>
+        <div className="text-[11px] text-[#231714]/40 mt-0.5 ml-7">{desc}</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#231714]/20">
+        <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   );
 }

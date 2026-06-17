@@ -39,6 +39,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // プレビューモード: ドメイン制限をスキップ（全画面閲覧可能）
+  if (req.cookies.has("__preview")) {
+    return NextResponse.next();
+  }
+
   // 開発環境・Vercelプレビューは制限なし
   if (
     host.includes("localhost") ||

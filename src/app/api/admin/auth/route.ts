@@ -6,6 +6,7 @@ import {
   clearAdminCookie,
 } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
+import { isPreviewMode, PREVIEW_ADMIN_EMAIL } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -236,6 +237,11 @@ export async function DELETE(req: NextRequest) {
  * セッション確認: Cookie の JWT が有効かチェック
  */
 export async function GET(req: NextRequest) {
+  // プレビューモード: 認証OKを返す
+  if (await isPreviewMode(req)) {
+    return NextResponse.json({ authenticated: true, email: PREVIEW_ADMIN_EMAIL });
+  }
+
   const cookie = req.cookies.get("__admin_session")?.value;
 
   if (!cookie) {
