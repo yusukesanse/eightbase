@@ -323,52 +323,9 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [lineFilter, setLineFilter] = useState<LineFilter>("all");
 
-  // 追加フォーム
+  // 招待モーダル
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ email: "", displayName: "", tenantName: "", password: "" });
-  const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [copiedPassword, setCopiedPassword] = useState(false);
-
-  const generatePassword = () => {
-    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    const lower = "abcdefghjkmnpqrstuvwxyz";
-    const digits = "23456789";
-    const symbols = "!@#$%&*";
-    const all = upper + lower + digits + symbols;
-    let pw = "";
-    pw += upper[Math.floor(Math.random() * upper.length)];
-    pw += lower[Math.floor(Math.random() * lower.length)];
-    pw += digits[Math.floor(Math.random() * digits.length)];
-    pw += symbols[Math.floor(Math.random() * symbols.length)];
-    for (let i = 4; i < 12; i++) {
-      pw += all[Math.floor(Math.random() * all.length)];
-    }
-    pw = pw.split("").sort(() => Math.random() - 0.5).join("");
-    setAddForm((prev) => ({ ...prev, password: pw }));
-    setShowPassword(true);
-    setCopiedPassword(false);
-  };
-
-  const copyPassword = async () => {
-    if (!addForm.password) return;
-    try {
-      await navigator.clipboard.writeText(addForm.password);
-      setCopiedPassword(true);
-      setTimeout(() => setCopiedPassword(false), 2000);
-    } catch {
-      // fallback
-      const el = document.createElement("textarea");
-      el.value = addForm.password;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-      setCopiedPassword(true);
-      setTimeout(() => setCopiedPassword(false), 2000);
-    }
-  };
 
   // パスワードリセット
   const [resetTarget, setResetTarget] = useState<User | null>(null);
@@ -531,32 +488,6 @@ export default function AdminUsersPage() {
 
   useEffect(() => { fetchUsers(); }, []); // eslint-disable-line
 
-  async function handleAddUser(e: React.FormEvent) {
-    e.preventDefault();
-    setAddError(null);
-    setAddLoading(true);
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(addForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
-      setAddForm({ email: "", displayName: "", tenantName: "", password: "" });
-      setShowAddForm(false);
-      setShowPassword(false);
-      setCopiedPassword(false);
-      setActionMsg("ユーザーを追加しました");
-      await fetchUsers();
-    } catch (err) {
-      setAddError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setAddLoading(false);
-    }
-  }
-
   async function handleToggleActive(user: User) {
     try {
       const res = await fetch("/api/admin/users", {
@@ -675,7 +606,7 @@ export default function AdminUsersPage() {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
-            ユーザーを追加
+            ユーザーを招待
           </button>
         </div>
       </div>
@@ -751,98 +682,16 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* ユーザー追加フォーム */}
+      {/* ユーザー招待モーダル */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-base font-semibold text-[#231714] mb-4">ユーザーを追加</h3>
-            <form onSubmit={handleAddUser} className="space-y-3">
-              {[
-                { field: "email", label: "メールアドレス", type: "email", placeholder: "user@example.com", required: true },
-                { field: "displayName", label: "氏名", type: "text", placeholder: "山田 太郎", required: true },
-                { field: "tenantName", label: "テナント名", type: "text", placeholder: "株式会社〇〇", required: false },
-              ].map(({ field, label, type, placeholder, required }) => (
-                <div key={field}>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">{label}</label>
-                  <input
-                    type={type}
-                    value={addForm[field as keyof typeof addForm]}
-                    onChange={(e) => setAddForm({ ...addForm, [field]: e.target.value })}
-                    placeholder={placeholder}
-                    required={required}
-                    className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
-                  />
-                </div>
-              ))}
-              {/* 初期パスワード（生成・コピー・表示切替付き） */}
-              <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">初期パスワード</label>
-                <div className="flex gap-1.5">
-                  <div className="relative flex-1">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={addForm.password}
-                      onChange={(e) => { setAddForm({ ...addForm, password: e.target.value }); setCopiedPassword(false); }}
-                      placeholder="8文字以上推奨"
-                      required
-                      className="w-full px-3 py-2.5 pr-9 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#231714]/40 hover:text-[#231714] transition-colors"
-                      title={showPassword ? "パスワードを隠す" : "パスワードを表示"}
-                    >
-                      {showPassword ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      )}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={generatePassword}
-                    className="px-3 py-2.5 text-xs font-medium bg-[#A5C1C8]/30 text-[#231714] border border-[#A5C1C8]/40 rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap"
-                    title="パスワードを自動生成"
-                  >
-                    生成
-                  </button>
-                  <button
-                    type="button"
-                    onClick={copyPassword}
-                    disabled={!addForm.password}
-                    className="px-3 py-2.5 text-xs font-medium bg-[#231714]/5 text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-[#231714]/10 disabled:opacity-30 transition-colors whitespace-nowrap"
-                    title="パスワードをコピー"
-                  >
-                    {copiedPassword ? "✓" : "コピー"}
-                  </button>
-                </div>
-              </div>
-              {addError && (
-                <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
-                  <p className="text-xs text-red-600">{addError}</p>
-                </div>
-              )}
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowAddForm(false); setAddError(null); setShowPassword(false); setCopiedPassword(false); }}
-                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  disabled={addLoading}
-                  className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors"
-                >
-                  {addLoading ? "追加中..." : "追加する"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <InviteModal
+          onClose={() => { setShowAddForm(false); setAddError(null); }}
+          onCreated={(msg) => {
+            setShowAddForm(false);
+            setActionMsg(msg);
+            fetchUsers();
+          }}
+        />
       )}
 
       {/* パスワードリセットモーダル */}
@@ -1045,6 +894,147 @@ export default function AdminUsersPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ═══ 招待URL発行モーダル ═══ */
+
+function InviteModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (msg: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ displayName: name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
+
+      const baseUrl = window.location.origin;
+      setInviteUrl(`${baseUrl}/invite/${data.token}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyUrl() {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        {inviteUrl ? (
+          // URL発行完了
+          <>
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-[#B0E401]/20 flex items-center justify-center mx-auto mb-3">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 12l4 4 8-8" stroke="#B0E401" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-[#231714]">招待URLを発行しました</h3>
+              <p className="text-xs text-[#231714]/50 mt-1">{name} さんにこのURLを共有してください（有効期限: 7日間）</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3 mb-4">
+              <p className="text-xs text-[#231714]/60 break-all font-mono">{inviteUrl}</p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={copyUrl}
+                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors flex items-center justify-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M3 7l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    コピーしました
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+                      <path d="M10 4V2.5A1.5 1.5 0 008.5 1h-6A1.5 1.5 0 001 2.5v6A1.5 1.5 0 002.5 10H4" stroke="currentColor" strokeWidth="1.3" />
+                    </svg>
+                    URLをコピー
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => onCreated(`${name} さんの招待URLを発行しました`)}
+                className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </>
+        ) : (
+          // 名前入力
+          <>
+            <h3 className="text-base font-semibold text-[#231714] mb-1">ユーザーを招待</h3>
+            <p className="text-xs text-[#231714]/50 mb-4">招待URLを発行します。URLを受け取った方がLINEでアクセスすると、自動的にアカウントが作成されます。</p>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">名前</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="山田 太郎"
+                  required
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
+                />
+              </div>
+              {error && (
+                <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-red-600">{error}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? "発行中..." : "招待URLを発行"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
     </div>
   );
 }
