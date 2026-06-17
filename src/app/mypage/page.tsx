@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { MemberProfile } from "@/types";
+import { clearAuthCache } from "@/components/AuthGuard";
 
 interface UserData {
   displayName: string;
@@ -150,6 +151,7 @@ export default function MyPage() {
           label="ログアウト"
           onClick={async () => {
             await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+            clearAuthCache();
             router.replace("/");
           }}
           danger

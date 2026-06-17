@@ -47,14 +47,12 @@ npm install
 
 ### 2. 環境変数
 
+環境変数は Vercel のプロジェクト設定で管理しています。
+ローカル開発時は Vercel CLI でプルするか、`.env.local` を手動作成してください。
+
 ```bash
-cp .env.local.example .env.local
+npx vercel env pull .env.local
 ```
-
-`.env.local` を開き、各サービスの認証情報を設定してください。
-必要な変数は `.env.local.example` にカテゴリ別でまとまっています。
-
-> `.env.local` は `.gitignore` 済みです。絶対にコミットしないでください。
 
 ### 3. 開発サーバー
 
@@ -68,7 +66,7 @@ npm run dev
 ### 4. デプロイ
 
 現在は Vercel を使用しており、`main` ブランチへの push で自動デプロイされます。
-ホスティング先の環境変数設定に `.env.local` と同じ変数を登録してください。
+Vercel のプロジェクト設定で環境変数が登録済みであれば、追加作業は不要です。
 
 > Next.js アプリのため、Vercel 以外（Cloudflare Pages、AWS Amplify 等）にも対応可能です。
 
@@ -171,7 +169,7 @@ npx tsc --noEmit     # TypeScript 型チェック
 
 - 環境変数の実値、本番 URL、LIFF ID、トークン等をソースコードやドキュメントに記載しないでください
 - `.env.local` は `.gitignore` に含まれています
-- 新しい環境変数を追加した場合は `.env.local.example` にプレースホルダーを追加してください
+- 環境変数は Vercel のプロジェクト設定で一元管理してください
 
 ## ライセンス
 

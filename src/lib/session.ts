@@ -7,19 +7,11 @@
 
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
+import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
+import { getSessionSecret } from "./secrets";
 
 const COOKIE_NAME = "__session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30日
-
-function getSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error(
-      "SESSION_SECRET environment variable is missing or too short (min 32 chars)"
-    );
-  }
-  return new TextEncoder().encode(secret);
-}
 
 // ─── トークン生成 ─────────────────────────────────────────────────────────────
 
@@ -28,7 +20,7 @@ export async function signSession(lineUserId: string): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(getSecret());
+    .sign(getSessionSecret());
 }
 
 // ─── トークン検証 ─────────────────────────────────────────────────────────────
@@ -37,7 +29,7 @@ export async function verifySession(
   token: string
 ): Promise<{ lineUserId: string } | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSessionSecret());
     const lineUserId = payload.lineUserId;
     if (typeof lineUserId !== "string") return null;
     return { lineUserId };
@@ -77,6 +69,12 @@ export function clearSessionCookie(res: NextResponse): void {
 export async function getSessionUserId(
   req: NextRequest
 ): Promise<string | null> {
+  // プレビューモードは読み取り専用。書き込み系 API では認証扱いにしない。
+  if (await isPreviewMode(req)) {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return PREVIEW_USER_ID;
+    return null;
+  }
+
   const token = getSessionCookie(req);
   if (!token) return null;
   const session = await verifySession(token);

@@ -20,12 +20,42 @@ function hashPassword(
     .toString("hex");
 }
 
+async function getLineProfileFromAccessToken(accessToken: string): Promise<{
+  lineUserId: string;
+  lineDisplayName?: string;
+  linePictureUrl?: string;
+} | null> {
+  try {
+    const verifyRes = await fetch(
+      `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
+    );
+    if (!verifyRes.ok) return null;
+    const verifyData = await verifyRes.json();
+    if (!verifyData.expires_in || verifyData.expires_in <= 0) return null;
+
+    const profileRes = await fetch("https://api.line.me/v2/profile", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!profileRes.ok) return null;
+    const profile = await profileRes.json();
+    if (!profile.userId || typeof profile.userId !== "string") return null;
+    return {
+      lineUserId: profile.userId,
+      lineDisplayName: profile.displayName,
+      linePictureUrl: profile.pictureUrl ?? "",
+    };
+  } catch (error) {
+    console.warn("[auth/login] LINE profile fetch failed:", error);
+    return null;
+  }
+}
+
 /**
  * POST /api/auth/login
  * ハイブリッド認証: メールアドレス+パスワードで認証し、
  * lineUserId を紐づけてセッション Cookie を発行する。
  *
- * Body: { email, password, lineUserId, lineDisplayName?, linePictureUrl? }
+ * Body: { email, password, accessToken }
  */
 export async function POST(req: NextRequest) {
   // ─── レートリミット（1IP あたり 10回/5分） ────────────────────────────
@@ -42,15 +72,11 @@ export async function POST(req: NextRequest) {
     const {
       email,
       password,
-      lineUserId,
-      lineDisplayName,
-      linePictureUrl,
+      accessToken,
     } = body as {
       email: string;
       password: string;
-      lineUserId: string;
-      lineDisplayName?: string;
-      linePictureUrl?: string;
+      accessToken: string;
     };
 
     if (!email || !password) {
@@ -60,12 +86,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!lineUserId) {
+    if (!accessToken || typeof accessToken !== "string") {
       return NextResponse.json(
         { error: "LINE アカウント情報がありません。LINEミニアプリからアクセスしてください" },
         { status: 400 }
       );
     }
+
+    const lineProfile = await getLineProfileFromAccessToken(accessToken);
+    if (!lineProfile) {
+      return NextResponse.json(
+        { error: "LINE アカウントを確認できませんでした。もう一度お試しください" },
+        { status: 401 }
+      );
+    }
+
+    const { lineUserId, lineDisplayName, linePictureUrl } = lineProfile;
 
     const db = getDb();
     const snap = await db

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
@@ -20,7 +20,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     return "loading";
   });
-  const checkingRef = useRef(false);
 
   const isPublicPath =
     PUBLIC_PATHS.includes(pathname) ||
@@ -47,11 +46,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 同時リクエスト防止
-    if (checkingRef.current) return;
-    checkingRef.current = true;
+    setStatus("loading");
+    const controller = new AbortController();
 
-    fetch("/api/auth/check", { credentials: "include" })
+    fetch("/api/auth/check", {
+      credentials: "include",
+      signal: controller.signal,
+    })
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
@@ -76,14 +77,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           router.replace("/login");
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         authCache = null;
         setStatus("unauthorized");
         router.replace("/login");
-      })
-      .finally(() => {
-        checkingRef.current = false;
       });
+
+    return () => {
+      controller.abort();
+    };
   }, [isPublicPath, pathname, router]);
 
   if (status === "loading" && !isPublicPath) {

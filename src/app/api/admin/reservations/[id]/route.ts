@@ -5,6 +5,15 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
+function buildReservationSlotKey(
+  facilityId: string,
+  date: string,
+  startTime: string,
+  endTime: string
+): string {
+  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
+}
+
 /**
  * DELETE /api/admin/reservations/[id]
  * 予約をキャンセルする（Google Calendar のイベントも削除）。
@@ -46,7 +55,18 @@ export async function DELETE(
       }
     }
 
-    await docRef.update({ status: "cancelled", cancelledAt: new Date().toISOString() });
+    const slotRef = db
+      .collection("reservationLocks")
+      .doc(buildReservationSlotKey(
+        data.facilityId,
+        data.date,
+        data.startTime,
+        data.endTime
+      ));
+    await db.runTransaction(async (tx) => {
+      tx.update(docRef, { status: "cancelled", cancelledAt: new Date().toISOString() });
+      tx.delete(slotRef);
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

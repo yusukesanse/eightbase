@@ -8,6 +8,15 @@ import type { Reservation } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+function buildReservationSlotKey(
+  facilityId: string,
+  date: string,
+  startTime: string,
+  endTime: string
+): string {
+  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
+}
+
 // ─── DELETE: 予約キャンセル ────────────────────────────────────────────────────
 export async function DELETE(
   req: NextRequest,
@@ -71,7 +80,18 @@ export async function DELETE(
   }
 
   // Firestore のステータスを cancelled に更新
-  await docRef.update({ status: "cancelled" });
+  const slotRef = db
+    .collection("reservationLocks")
+    .doc(buildReservationSlotKey(
+      reservation.facilityId,
+      reservation.date,
+      reservation.startTime,
+      reservation.endTime
+    ));
+  await db.runTransaction(async (tx) => {
+    tx.update(docRef, { status: "cancelled" });
+    tx.delete(slotRef);
+  });
 
   // LINE 通知送信
   try {

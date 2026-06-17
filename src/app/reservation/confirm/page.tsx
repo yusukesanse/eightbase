@@ -21,9 +21,8 @@ function ConfirmContent() {
   const startTime   = params.get("startTime") ?? "";
   const endTime     = params.get("endTime") ?? "";
   const termsAgreed = params.get("termsAgreed") === "true";
-  const sourceId    = params.get("sourceId") ?? "";      // Square 決済トークン
   const amount      = Number(params.get("amount") ?? "0");
-  const hasPayment  = !!(sourceId && amount > 0);
+  const hasPayment  = amount > 0;
 
   const [facility, setFacility] = useState<Facility | null>(null);
   const dateLabel = dayjs(date).format("M月D日（ddd）");
@@ -67,6 +66,13 @@ function ConfirmContent() {
 
       // ── 決済が必要な場合、先に Square 決済を実行 ──
       if (hasPayment) {
+        const sourceId = sessionStorage.getItem("squareSourceId");
+        if (!sourceId) {
+          setErrorMsg("決済情報が見つかりません。カード情報をもう一度入力してください。");
+          setStep("error");
+          return;
+        }
+
         const payRes = await fetch("/api/payments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -74,7 +80,7 @@ function ConfirmContent() {
           body: JSON.stringify({
             sourceId,
             amount,
-            facilityName: facility?.name ?? "",
+            facilityId,
             date,
             startTime,
             endTime,
@@ -90,6 +96,7 @@ function ConfirmContent() {
         }
 
         paymentId = payData.paymentId;
+        sessionStorage.removeItem("squareSourceId");
       }
 
       // ── 予約を作成 ──

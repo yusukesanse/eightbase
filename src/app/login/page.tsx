@@ -126,15 +126,21 @@ export default function LoginPage() {
     setStatus("linking");
 
     try {
+      const liff = await initLiff();
+      const accessToken = liff.getAccessToken();
+      if (!accessToken) {
+        setLinkError("LINE アカウント情報を確認できませんでした。もう一度お試しください。");
+        setStatus("needs-linking");
+        return;
+      }
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           password,
-          lineUserId: lineInfo.lineUserId,
-          lineDisplayName: lineInfo.displayName,
-          linePictureUrl: lineInfo.pictureUrl,
+          accessToken,
         }),
         credentials: "include",
       });

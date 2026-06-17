@@ -8,6 +8,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { SignJWT, jwtVerify } from "jose";
+import { getSessionSecret } from "./secrets";
 
 /* ───────── 定数 ───────── */
 
@@ -40,11 +41,6 @@ const ALLOWED_ORIGINS: string[] = (() => {
 
 /* ───────── JWT 秘密鍵（SESSION_SECRET を使用） ───────── */
 
-function getSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET ?? "";
-  return new TextEncoder().encode(secret);
-}
-
 /* ───────── JWT 生成・検証 ───────── */
 
 /**
@@ -56,7 +52,7 @@ export async function signAdminToken(email: string): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("1d")
-    .sign(getSecret());
+    .sign(getSessionSecret());
 }
 
 /**
@@ -65,7 +61,7 @@ export async function signAdminToken(email: string): Promise<string> {
  */
 export async function verifyAdminToken(token: string): Promise<string | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSessionSecret());
     if (payload.role !== "admin") return null;
     return (payload.email as string) || "admin";
   } catch {
@@ -106,18 +102,18 @@ function checkCsrf(req: NextRequest): boolean {
   // Origin ヘッダーがない場合（same-origin fetch は Origin を送る）
   if (!origin) {
     const referer = req.headers.get("referer");
-    if (!referer) return true;
+      if (!referer) return false;
     try {
       const refOrigin = new URL(referer).origin;
-      return ALLOWED_ORIGINS.some((ao) => ao === refOrigin)
-        || refOrigin.endsWith(".vercel.app");
+        return ALLOWED_ORIGINS.some((ao) => ao === refOrigin)
+          || (process.env.NODE_ENV !== "production" && refOrigin.endsWith(".vercel.app"));
     } catch {
       return false;
     }
   }
 
   return ALLOWED_ORIGINS.some((ao) => ao === origin)
-    || origin.endsWith(".vercel.app");
+    || (process.env.NODE_ENV !== "production" && origin.endsWith(".vercel.app"));
 }
 
 /* ───────── 総合認証チェック ───────── */

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
+import { isPreviewMode, PREVIEW_USER_ID } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,15 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    // プレビューモード: 即座に認証OKを返す
+    if (await isPreviewMode(req)) {
+      return NextResponse.json({
+        authorized: true,
+        lineUserId: PREVIEW_USER_ID,
+        profileComplete: true,
+      });
+    }
+
     const lineUserId = await getSessionUserId(req);
 
     if (!lineUserId) {

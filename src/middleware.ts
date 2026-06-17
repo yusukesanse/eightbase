@@ -16,11 +16,24 @@ export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
   const pathname = req.nextUrl.pathname;
 
-  // 静的ファイル・API・_next は常に通す
+  if (
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/preview/activate") &&
+    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    req.cookies.has("__preview")
+  ) {
+    return NextResponse.json(
+      { error: "Preview mode is read-only" },
+      { status: 403 }
+    );
+  }
+
+  // 静的ファイル・API・_next・プレビュー は常に通す
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/favicon") ||
+    pathname.startsWith("/preview") ||
     pathname.includes(".")
   ) {
     return NextResponse.next();

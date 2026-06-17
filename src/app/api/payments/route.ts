@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
-import { getSquareClient, getSquareLocationId } from "@/lib/square";
+import { getFacilityById } from "@/lib/facilities";
+import { calculateReservationAmount, getSquareClient, getSquareLocationId } from "@/lib/square";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +12,7 @@ export const dynamic = "force-dynamic";
  *
  * Body: {
  *   sourceId: string,      // Square Web Payments SDK が生成したトークン
- *   amount: number,         // 決済金額（円）
- *   facilityName: string,   // 施設名（明細用）
+ *   facilityId: string,     // 施設ID
  *   date: string,           // 予約日
  *   startTime: string,      // 開始時刻
  *   endTime: string,        // 終了時刻
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { sourceId, amount, facilityName, date, startTime, endTime } = body;
+    const { sourceId, amount, facilityId, date, startTime, endTime } = body;
 
     // バリデーション
     if (!sourceId || typeof sourceId !== "string") {
@@ -38,13 +38,45 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (!amount || typeof amount !== "number" || amount <= 0) {
+    if (!facilityId || typeof facilityId !== "string") {
       return NextResponse.json(
-        { error: "決済金額が不正です" },
+        { error: "施設情報が不正です" },
         { status: 400 }
       );
     }
-    if (amount > 1000000) {
+    if (
+      typeof date !== "string" ||
+      typeof startTime !== "string" ||
+      typeof endTime !== "string" ||
+      !date ||
+      !startTime ||
+      !endTime
+    ) {
+      return NextResponse.json(
+        { error: "予約日時が不正です" },
+        { status: 400 }
+      );
+    }
+
+    const facility = await getFacilityById(facilityId);
+    if (!facility) {
+      return NextResponse.json({ error: "施設が見つかりません" }, { status: 404 });
+    }
+    if (!facility.requirePayment) {
+      return NextResponse.json(
+        { error: "この施設は決済が不要です" },
+        { status: 400 }
+      );
+    }
+
+    const expectedAmount = calculateReservationAmount(facility, startTime, endTime);
+    if (typeof amount === "number" && amount !== expectedAmount) {
+      return NextResponse.json(
+        { error: "決済金額が予約内容と一致しません" },
+        { status: 400 }
+      );
+    }
+    if (expectedAmount <= 0 || expectedAmount > 1000000) {
       return NextResponse.json(
         { error: "決済金額が上限を超えています" },
         { status: 400 }
@@ -55,18 +87,21 @@ export async function POST(req: NextRequest) {
     const locationId = getSquareLocationId();
 
     // 冪等キー（同じリクエストの二重課金を防止）
-    const idempotencyKey = crypto.randomUUID();
+    const idempotencyKey = crypto
+      .createHash("sha256")
+      .update(`${userId}:${facilityId}:${date}:${startTime}:${endTime}:${sourceId}`)
+      .digest("hex");
 
     // Square Payments API で決済実行
     const response = await client.payments.create({
       sourceId,
       idempotencyKey,
       amountMoney: {
-        amount: BigInt(amount),  // 円単位（日本円は小数なし）
+        amount: BigInt(expectedAmount),  // 円単位（日本円は小数なし）
         currency: "JPY",
       },
       locationId,
-      note: `${facilityName} ${date} ${startTime}〜${endTime}`,
+      note: `${facility.name} ${date} ${startTime}〜${endTime}`,
       referenceId: userId.substring(0, 40),  // Square の referenceId は 40 文字制限
     });
 
@@ -84,12 +119,12 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(
-      `[payments] Success: paymentId=${payment.id}, amount=${amount}JPY, user=${userId}`
+      `[payments] Success: paymentId=${payment.id}, amount=${expectedAmount}JPY, user=${userId}`
     );
 
     return NextResponse.json({
       paymentId: payment.id,
-      amount,
+      amount: expectedAmount,
       status: payment.status,
     });
   } catch (error: unknown) {

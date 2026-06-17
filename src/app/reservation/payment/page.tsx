@@ -89,6 +89,14 @@ function PaymentContent() {
     }
 
     initSquare();
+    return () => {
+      const card = cardRef.current as { destroy?: () => Promise<void> | void } | null;
+      if (card?.destroy) {
+        void card.destroy();
+      }
+      cardRef.current = null;
+      setCardReady(false);
+    };
   }, [sdkLoaded, squareConfig]);
 
   // カード情報からトークンを取得して確認画面へ遷移
@@ -101,14 +109,13 @@ function PaymentContent() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (cardRef.current as any).tokenize();
       if (result.status === "OK" && result.token) {
-        // トークンを持って確認画面へ
+        sessionStorage.setItem("squareSourceId", result.token);
         const confirmParams = new URLSearchParams({
           facilityId,
           date,
           startTime,
           endTime,
           amount: String(amount),
-          sourceId: result.token,
         });
         if (termsAgreed) confirmParams.set("termsAgreed", "true");
         router.push(`/reservation/confirm?${confirmParams.toString()}`);

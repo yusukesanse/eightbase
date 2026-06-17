@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const { accessToken, liffProfile } = await req.json();
+    const { accessToken } = await req.json();
 
     if (!accessToken || typeof accessToken !== "string") {
       return NextResponse.json(
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       console.log("[liff-login] review mode: skipping token verification");
     }
 
-    // ── 2. LINE API でユーザープロフィールを取得（失敗時はクライアント側プロフィールをフォールバック）──
+    // ── 2. LINE API でユーザープロフィールを取得 ──
     let lineUserId = "";
     let displayName = "";
     let pictureUrl = "";
@@ -84,12 +84,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // サーバー側で取得できなかった場合、クライアント側プロフィールをフォールバック
-    if (!lineUserId && liffProfile?.userId) {
-      console.log("[liff-login] using client-side profile as fallback");
-      lineUserId = liffProfile.userId;
-      displayName = liffProfile.displayName ?? "";
-      pictureUrl = liffProfile.pictureUrl ?? "";
+    if (!lineUserId && isReviewMode) {
+      lineUserId = process.env.REVIEW_LINE_USER_ID ?? "review-user";
+      displayName = process.env.REVIEW_LINE_DISPLAY_NAME ?? "LINE審査ユーザー";
+      pictureUrl = "";
     }
 
     if (!lineUserId) {

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
 import { broadcastContentPublished } from "@/lib/line";
+import { checkCronAuth } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
-
-const CRON_SECRET = process.env.CRON_SECRET;
 
 /**
  * GET /api/cron/publish
@@ -14,12 +13,8 @@ const CRON_SECRET = process.env.CRON_SECRET;
  * ※ 複合インデックス不要: published==false のみでクエリし、scheduledAt はコード側でフィルタ
  */
 export async function GET(req: NextRequest) {
-  if (CRON_SECRET) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authError = checkCronAuth(req);
+  if (authError) return authError;
 
   const now = new Date().toISOString();
   const db = getDb();

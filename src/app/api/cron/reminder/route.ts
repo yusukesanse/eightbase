@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { sendReservationReminder } from "@/lib/line";
+import { checkCronAuth } from "@/lib/cronAuth";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -9,8 +10,6 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 export const dynamic = "force-dynamic";
-
-const CRON_SECRET = process.env.CRON_SECRET;
 
 /**
  * GET /api/cron/reminder
@@ -21,12 +20,8 @@ const CRON_SECRET = process.env.CRON_SECRET;
  */
 export async function GET(req: NextRequest) {
   // Cron 認証
-  if (CRON_SECRET) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authError = checkCronAuth(req);
+  if (authError) return authError;
 
   const now = dayjs().tz("Asia/Tokyo");
   // 25〜30分後の範囲（5分間隔で実行されるため）

@@ -11,10 +11,11 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
   const isDemo = pathname.startsWith("/demo");
-  const showNav = !NO_NAV_PATHS.includes(pathname) && !isAdmin && !isDemo;
+  const isPreview = pathname.startsWith("/preview");
+  const showNav = !NO_NAV_PATHS.includes(pathname) && !isAdmin && !isDemo && !isPreview;
 
-  // デモ画面: 認証なし・モックデータのみ（関係者への共有用）
-  if (isDemo) {
+  // デモ・プレビューランディング: 認証なし
+  if (isDemo || isPreview) {
     return <main className="flex-1 w-full">{children}</main>;
   }
 
