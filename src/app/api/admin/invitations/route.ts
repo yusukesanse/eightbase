@@ -88,18 +88,35 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
     const db = getDb();
-    const docRef = await db.collection("invitations").add({
+    const nowStr = now.toISOString();
+
+    // 招待レコード作成
+    const inviteRef = await db.collection("invitations").add({
       displayName: displayName.trim(),
       token,
-      createdAt: now.toISOString(),
+      createdAt: nowStr,
       expiresAt: expiresAt.toISOString(),
       usedAt: null,
       lineUserId: null,
     });
 
+    // authorizedUsers にも即時作成（ユーザー一覧に表示するため）
+    await db.collection("authorizedUsers").add({
+      displayName: displayName.trim(),
+      email: "",
+      passwordHash: "",
+      salt: "",
+      lineUserId: null,
+      active: true,
+      profileComplete: false,
+      createdAt: nowStr,
+      lastLoginAt: null,
+      invitationId: inviteRef.id,
+    });
+
     return NextResponse.json({
       success: true,
-      id: docRef.id,
+      id: inviteRef.id,
       token,
       expiresAt: expiresAt.toISOString(),
     });

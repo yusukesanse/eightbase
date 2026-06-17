@@ -63,19 +63,34 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // authorizedUsers に新規ユーザーを作成
-    await db.collection("authorizedUsers").add({
-      displayName: invite.displayName || "",
-      lineUserId,
-      active: true,
-      profileComplete: false,
-      createdAt: now,
-      lastLoginAt: now,
-      // 旧方式のフィールドは空にしておく（後方互換）
-      email: "",
-      passwordHash: "",
-      salt: "",
-    });
+    // 招待時に作成済みの authorizedUsers を検索して LINE ID を紐づけ
+    const authSnap = await db
+      .collection("authorizedUsers")
+      .where("invitationId", "==", inviteDoc.id)
+      .limit(1)
+      .get();
+
+    if (!authSnap.empty) {
+      // 招待時に作成されたエントリを更新
+      await authSnap.docs[0].ref.update({
+        lineUserId,
+        lastLoginAt: now,
+      });
+    } else {
+      // フォールバック: 旧招待データ等で authorizedUsers がない場合は新規作成
+      await db.collection("authorizedUsers").add({
+        displayName: invite.displayName || "",
+        lineUserId,
+        active: true,
+        profileComplete: false,
+        createdAt: now,
+        lastLoginAt: now,
+        email: "",
+        passwordHash: "",
+        salt: "",
+        invitationId: inviteDoc.id,
+      });
+    }
 
     // 招待を使用済みに更新
     await inviteDoc.ref.update({
