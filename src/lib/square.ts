@@ -94,3 +94,34 @@ export async function verifySquarePayment({
     throw new Error("決済ユーザーが一致しません");
   }
 }
+
+/**
+ * Square 決済の返金を実行
+ * @returns 返金ID（成功時）
+ * @throws 返金失敗時にエラー
+ */
+export async function refundSquarePayment(
+  paymentId: string,
+  amountYen: number
+): Promise<string> {
+  const client = getSquareClient();
+  const crypto = await import("crypto");
+  const idempotencyKey = crypto.randomUUID();
+
+  const response = await client.refunds.refundPayment({
+    idempotencyKey,
+    paymentId,
+    amountMoney: {
+      amount: BigInt(amountYen),
+      currency: "JPY",
+    },
+    reason: "予約作成失敗のため自動返金",
+  });
+
+  const refund = response.refund;
+  if (!refund || !refund.id) {
+    throw new Error("返金レスポンスが不正です");
+  }
+
+  return refund.id;
+}

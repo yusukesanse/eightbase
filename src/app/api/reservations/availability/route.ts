@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, getBookedSlots } from "@/lib/googleCalendar";
+import { requireActiveUser } from "@/lib/auth";
 import type { AvailabilityResponse } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const userId = await requireActiveUser(req);
+  if (!userId) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
   const { searchParams } = req.nextUrl;
   const facilityId = searchParams.get("facilityId");
   const date       = searchParams.get("date");
@@ -38,14 +44,14 @@ export async function GET(req: NextRequest) {
   }
 
   // 過去日チェック
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
   if (date < today) {
     const res: AvailabilityResponse = { available: false, reason: "PAST_DATE" };
     return NextResponse.json(res);
   }
 
   // 利用可能曜日チェック
-  const dayOfWeek = new Date(date).getDay();
+  const dayOfWeek = new Date(date + "T00:00:00+09:00").getDay();
   if (!availableDays.includes(dayOfWeek)) {
     const res: AvailabilityResponse = { available: false, reason: "OUT_OF_HOURS" };
     return NextResponse.json(res);

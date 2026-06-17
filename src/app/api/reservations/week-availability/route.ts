@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFacilityById } from "@/lib/facilities";
 import { getBookedSlots } from "@/lib/googleCalendar";
+import { requireActiveUser } from "@/lib/auth";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,11 @@ export const dynamic = "force-dynamic";
  * Response: { [date: string]: { start: string; end: string }[] }
  */
 export async function GET(req: NextRequest) {
+  const userId = await requireActiveUser(req);
+  if (!userId) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
   const { searchParams } = req.nextUrl;
   const facilityId = searchParams.get("facilityId");
   const weekStart  = searchParams.get("weekStart"); // YYYY-MM-DD (月曜)

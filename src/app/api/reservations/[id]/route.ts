@@ -3,7 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationCancelled } from "@/lib/line";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import type { Reservation } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +22,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const userId = await getSessionUserId(req);
+  const userId = await requireActiveUser(req);
   if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
   const reservationId = params.id;

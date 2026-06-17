@@ -3,8 +3,9 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed } from "@/lib/line";
+import { requireActiveUser } from "@/lib/auth";
 import { getSessionUserId } from "@/lib/session";
-import { calculateReservationAmount, verifySquarePayment } from "@/lib/square";
+import { calculateReservationAmount, verifySquarePayment, refundSquarePayment } from "@/lib/square";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
@@ -56,9 +57,9 @@ export async function GET(req: NextRequest) {
 // ─── POST: 予約登録 ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getSessionUserId(req);
+    const userId = await requireActiveUser(req);
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -249,7 +250,18 @@ export async function POST(req: NextRequest) {
           paymentRef?.delete() ?? Promise.resolve(),
         ]);
       }
-      if (paymentId) {
+      if (paymentId && expectedPaymentAmount > 0) {
+        // 決済済みで予約失敗 → 自動返金を試行
+        let refundId: string | null = null;
+        let refundError: string | null = null;
+        try {
+          refundId = await refundSquarePayment(paymentId, expectedPaymentAmount);
+          console.log(`[reservations] Auto-refund success: ${refundId} for payment ${paymentId}`);
+        } catch (refErr) {
+          refundError = refErr instanceof Error ? refErr.message : String(refErr);
+          console.error(`[reservations] Auto-refund failed for payment ${paymentId}:`, refErr);
+        }
+        // 返金結果に関わらず pendingPayments に記録（管理者追跡用）
         await db.collection("pendingPayments").add({
           paymentId,
           lineUserId: userId,
@@ -259,6 +271,9 @@ export async function POST(req: NextRequest) {
           startTime,
           endTime,
           reason: error instanceof Error ? error.message : String(error),
+          refundId,
+          refundError,
+          refundStatus: refundId ? "refunded" : "pending",
           createdAt: dayjs().toISOString(),
         });
       }

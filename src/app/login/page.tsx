@@ -45,7 +45,7 @@ export default function LoginPage() {
         if (!liff.isLoggedIn()) {
           if (isInClient) {
             setMessage("LINEログイン中...");
-            liff.login({ redirectUri: window.location.origin });
+            liff.login({ redirectUri: window.location.href });
             return;
           }
           setStatus("no-access");

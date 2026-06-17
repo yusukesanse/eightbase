@@ -1,74 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/games/[gameId]/join
- * ゲームに参加申込
+ * ゲームに参加申込（トランザクションで定員管理）
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const userId = await getSessionUserId(req);
+    const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
     const { gameId } = await params;
     const db = getDb();
-
-    // ゲーム存在＋公開チェック
     const gameRef = db.collection("games").doc(gameId);
-    const gameDoc = await gameRef.get();
-    if (!gameDoc.exists || !gameDoc.data()?.published) {
-      return NextResponse.json({ error: "ゲームが見つかりません" }, { status: 404 });
-    }
-
-    const game = gameDoc.data()!;
-
-    // ステータスチェック
-    if (game.status !== "upcoming") {
-      return NextResponse.json({ error: "このゲームは現在募集していません" }, { status: 400 });
-    }
-
-    // 締切チェック
-    if (new Date(game.deadline) < new Date()) {
-      return NextResponse.json({ error: "申込締切を過ぎています" }, { status: 400 });
-    }
-
-    // 定員チェック
-    const currentCount = game.participantCount ?? 0;
-    if (currentCount >= game.maxParticipants) {
-      return NextResponse.json({ error: "定員に達しています" }, { status: 400 });
-    }
-
-    // 重複チェック
     const partRef = gameRef.collection("participants").doc(userId);
-    const partDoc = await partRef.get();
-    if (partDoc.exists) {
-      return NextResponse.json({ error: "既に参加申込済みです" }, { status: 409 });
+
+    const result = await db.runTransaction(async (tx) => {
+      const gameDoc = await tx.get(gameRef);
+      if (!gameDoc.exists || !gameDoc.data()?.published) {
+        return { error: "ゲームが見つかりません", status: 404 };
+      }
+
+      const game = gameDoc.data()!;
+
+      if (game.status !== "upcoming") {
+        return { error: "このゲームは現在募集していません", status: 400 };
+      }
+      if (new Date(game.deadline) < new Date()) {
+        return { error: "申込締切を過ぎています", status: 400 };
+      }
+
+      const currentCount = game.participantCount ?? 0;
+      if (currentCount >= game.maxParticipants) {
+        return { error: "定員に達しています", status: 400 };
+      }
+
+      const partDoc = await tx.get(partRef);
+      if (partDoc.exists) {
+        return { error: "既に参加申込済みです", status: 409 };
+      }
+
+      // ユーザー情報取得（transaction外で読んでも問題ない補助データ）
+      const userDoc = await db.collection("users").doc(userId).get();
+      const userData = userDoc.data() || {};
+
+      tx.set(partRef, {
+        lineUserId: userId,
+        displayName: userData.displayName || "ユーザー",
+        pictureUrl: userData.pictureUrl || "",
+        joinedAt: new Date().toISOString(),
+      });
+
+      tx.update(gameRef, { participantCount: currentCount + 1 });
+
+      return { success: true };
+    });
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status || 500 });
     }
-
-    // ユーザー情報取得
-    const userDoc = await db.collection("users").doc(userId).get();
-    const userData = userDoc.data() || {};
-
-    // 参加登録
-    await partRef.set({
-      lineUserId: userId,
-      displayName: userData.displayName || "ユーザー",
-      pictureUrl: userData.pictureUrl || "",
-      joinedAt: new Date().toISOString(),
-    });
-
-    // 参加者数を更新
-    await gameRef.update({
-      participantCount: currentCount + 1,
-    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -79,46 +77,48 @@ export async function POST(
 
 /**
  * DELETE /api/games/[gameId]/join
- * ゲーム参加取消
+ * ゲーム参加取消（トランザクションでカウント整合）
  */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const userId = await getSessionUserId(req);
+    const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
     const { gameId } = await params;
     const db = getDb();
-
     const gameRef = db.collection("games").doc(gameId);
-    const gameDoc = await gameRef.get();
-    if (!gameDoc.exists) {
-      return NextResponse.json({ error: "ゲームが見つかりません" }, { status: 404 });
-    }
-
-    const game = gameDoc.data()!;
-
-    // 締切前のみキャンセル可能
-    if (new Date(game.deadline) < new Date()) {
-      return NextResponse.json({ error: "申込締切を過ぎているためキャンセルできません" }, { status: 400 });
-    }
-
     const partRef = gameRef.collection("participants").doc(userId);
-    const partDoc = await partRef.get();
-    if (!partDoc.exists) {
-      return NextResponse.json({ error: "参加していません" }, { status: 404 });
-    }
 
-    await partRef.delete();
+    const result = await db.runTransaction(async (tx) => {
+      const gameDoc = await tx.get(gameRef);
+      if (!gameDoc.exists) {
+        return { error: "ゲームが見つかりません", status: 404 };
+      }
 
-    const currentCount = game.participantCount ?? 0;
-    await gameRef.update({
-      participantCount: Math.max(0, currentCount - 1),
+      const game = gameDoc.data()!;
+      if (new Date(game.deadline) < new Date()) {
+        return { error: "申込締切を過ぎているためキャンセルできません", status: 400 };
+      }
+
+      const partDoc = await tx.get(partRef);
+      if (!partDoc.exists) {
+        return { error: "参加していません", status: 404 };
+      }
+
+      tx.delete(partRef);
+      tx.update(gameRef, { participantCount: Math.max(0, (game.participantCount ?? 0) - 1) });
+
+      return { success: true };
     });
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status || 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

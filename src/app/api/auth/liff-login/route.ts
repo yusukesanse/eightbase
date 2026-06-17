@@ -25,14 +25,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 審査モードを先に取得（トークン検証失敗時のフォールバック判定に使用）──
+    // ── 審査モードを取得（本番では環境変数で明示的に許可しない限り無効）──
     const db = getDb();
     let isReviewMode = false;
-    try {
-      const settingsDoc = await db.collection("settings").doc("app").get();
-      isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
-    } catch (e) {
-      console.warn("[liff-login] settings fetch error:", e);
+    if (process.env.NODE_ENV !== "production" || process.env.ALLOW_REVIEW_MODE === "true") {
+      try {
+        const settingsDoc = await db.collection("settings").doc("app").get();
+        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
+      } catch (e) {
+        console.warn("[liff-login] settings fetch error:", e);
+      }
     }
 
     // ── 1. LINE API でアクセストークンを検証 ──

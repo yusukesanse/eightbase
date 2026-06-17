@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireActiveUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -44,9 +44,14 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const userRef = db.collection("users").doc(lineUserId);
 
+    // 既存 memberProfile を読み取ってマージ（他フィールドを消さないため）
+    const existingDoc = await userRef.get();
+    const existingMp = existingDoc.exists ? (existingDoc.data()?.memberProfile || {}) : {};
+
     await userRef.set(
       {
         memberProfile: {
+          ...existingMp,
           skills: cleanSkills,
           catchphrase: cleanCatchphrase,
         },

@@ -1,54 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+import { requireActiveUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/events/[eventId]/good
- * 匿名グッド: action = "add" で +1、"remove" で -1
+ * イベントへのグッド（1ユーザー1回、トランザクションで整合）
+ *
+ * Body: { action: "add" | "remove" }
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const { eventId } = params;
+  const userId = await requireActiveUser(req);
+  if (!userId) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  const { eventId } = await params;
 
   let action: string;
   try {
     const body = await req.json();
     action = body.action;
   } catch {
-    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+    return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
   }
 
   if (action !== "add" && action !== "remove") {
-    return NextResponse.json({ error: "action must be 'add' or 'remove'" }, { status: 400 });
+    return NextResponse.json({ error: "action は 'add' または 'remove' を指定してください" }, { status: 400 });
   }
 
   const db = getDb();
   const eventRef = db.collection("events").doc(eventId);
+  const goodRef = eventRef.collection("goods").doc(userId);
 
-  // ドキュメント存在チェック
-  const doc = await eventRef.get();
-  if (!doc.exists) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  }
+  const result = await db.runTransaction(async (tx) => {
+    const eventDoc = await tx.get(eventRef);
+    if (!eventDoc.exists) {
+      return { error: "イベントが見つかりません", status: 404 };
+    }
 
-  const delta = action === "add" ? 1 : -1;
+    const goodDoc = await tx.get(goodRef);
+    const currentCount = eventDoc.data()?.goodCount ?? 0;
 
-  await eventRef.update({
-    goodCount: FieldValue.increment(delta),
+    if (action === "add") {
+      if (goodDoc.exists) {
+        return { goodCount: currentCount }; // 既にgood済み、カウント変更なし
+      }
+      tx.set(goodRef, { userId, createdAt: new Date().toISOString() });
+      tx.update(eventRef, { goodCount: currentCount + 1 });
+      return { goodCount: currentCount + 1 };
+    } else {
+      if (!goodDoc.exists) {
+        return { goodCount: currentCount }; // good していない
+      }
+      tx.delete(goodRef);
+      tx.update(eventRef, { goodCount: Math.max(0, currentCount - 1) });
+      return { goodCount: Math.max(0, currentCount - 1) };
+    }
   });
 
-  // 更新後の値を返す（最小 0 に補正）
-  const updated = await eventRef.get();
-  const goodCount = Math.max(0, updated.data()?.goodCount ?? 0);
-
-  // 万が一マイナスになった場合は 0 に修正
-  if ((updated.data()?.goodCount ?? 0) < 0) {
-    await eventRef.update({ goodCount: 0 });
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: result.status || 500 });
   }
 
-  return NextResponse.json({ eventId, goodCount });
+  return NextResponse.json({ eventId, goodCount: result.goodCount });
 }

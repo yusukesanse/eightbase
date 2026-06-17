@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import { getFacilityById } from "@/lib/facilities";
 import { calculateReservationAmount, getSquareClient, getSquareLocationId } from "@/lib/square";
 import crypto from "crypto";
@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     // 認証チェック
-    const userId = await getSessionUserId(req);
+    const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

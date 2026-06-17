@@ -36,14 +36,16 @@ export async function GET(req: NextRequest) {
       .get();
 
     if (snap.empty) {
-      // authorizedUsers に存在しない → 審査モードを確認
+      // authorizedUsers に存在しない → 審査モードを確認（本番では明示許可なしで無効）
       let isReviewMode = false;
+      if (process.env.NODE_ENV !== "production" || process.env.ALLOW_REVIEW_MODE === "true") {
       try {
         const settingsDoc = await db.collection("settings").doc("app").get();
         isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
       } catch (e) {
         console.warn("[auth/check] settings fetch error:", e);
       }
+      } // end ALLOW_REVIEW_MODE guard
 
       if (!isReviewMode) {
         return NextResponse.json({ authorized: false });

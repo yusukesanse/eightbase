@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import type { MahjongTable, MahjongTableMember } from "@/types";
 
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getSessionUserId(req);
+    const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -53,13 +53,11 @@ export async function GET(req: NextRequest) {
  * 卓を作成（代表者）
  * body: { memberIds: string[4] }  ※作成者自身を含む4人
  */
-export async function POST(req: NextRequest) {
-  try {
-    const userId = await getSessionUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
+export async function POST() {
+  // 卓作成は管理者のみ（利用者向けUIでは「運営が自動で組みます」と案内）
+  return NextResponse.json({ error: "卓の作成は管理者のみ可能です" }, { status: 403 });
 
+  /* 以下は管理者API（/api/admin/mahjong/matching）で実装済み
     const body = await req.json().catch(() => null);
     const memberIds: unknown = body?.memberIds;
 
@@ -139,4 +137,5 @@ export async function POST(req: NextRequest) {
     console.error("[mahjong/tables] POST error:", error);
     return NextResponse.json({ error: "卓の作成に失敗しました" }, { status: 500 });
   }
+  */
 }

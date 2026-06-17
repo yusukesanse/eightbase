@@ -311,7 +311,7 @@ export default function SetupProfilePage() {
             {/* 会社・職種・業種 */}
             <Card title="お仕事について" icon="briefcase" required>
               <Field label="会社名・屋号">
-                <input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 株式会社エイトデザイン / フリーランス" className={INPUT_CLASS} />
+                <input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / 〇〇事務所 / フリーランス" className={INPUT_CLASS} />
               </Field>
               <div className="mt-3">
                 <Field label="職種">

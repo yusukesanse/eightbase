@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { requireActiveUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,8 +8,13 @@ export const dynamic = "force-dynamic";
  * GET /api/games
  * 公開済みゲーム一覧を取得（ユーザー向け）
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const userId = await requireActiveUser(req);
+    if (!userId) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
     const db = getDb();
     // 複合インデックス不要: published フィルタのみで取得し、ソートは JS 側で行う
     const snap = await db

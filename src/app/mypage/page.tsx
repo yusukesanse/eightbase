@@ -152,6 +152,11 @@ export default function MyPage() {
           onClick={async () => {
             await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
             clearAuthCache();
+            // LIFF セッションもクリア（再アクセス時に自動ログインしないように）
+            try {
+              const liff = (await import("@line/liff")).default;
+              if (liff.isLoggedIn()) liff.logout();
+            } catch { /* LIFF未初期化時は無視 */ }
             router.replace("/");
           }}
           danger

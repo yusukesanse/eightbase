@@ -114,7 +114,11 @@ function ConfirmContent() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMsg(data.message ?? "予約に失敗しました。もう一度お試しください。");
+        setErrorMsg(
+          hasPayment
+            ? (data.message ?? "予約に失敗しました。決済は自動返金されます（数日かかる場合があります）。")
+            : (data.message ?? "予約に失敗しました。もう一度お試しください。")
+        );
         setStep("error");
         return;
       }
