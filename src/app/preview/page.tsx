@@ -3,13 +3,20 @@
 /**
  * プレビューモード ランディングページ
  * トークンを入力してプレビューを有効化 → 各画面へのリンク一覧を表示
- * ミニアプリ画面はiPhoneフレーム内にiframeで表示
+ * ミニアプリ画面はiPhone 17フレーム内にiframeで表示
  */
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type ViewMode = "list" | "miniapp";
+
+/* iPhone 17 の画面サイズ (6.3インチ / 論理解像度) */
+const IPHONE_WIDTH = 402;
+const IPHONE_HEIGHT = 874;
+const FRAME_PADDING = 12;
+const FRAME_RADIUS = "3.2rem";
+const SCREEN_RADIUS = "2.6rem";
 
 export default function PreviewPage() {
   const [token, setToken] = useState("");
@@ -112,54 +119,71 @@ export default function PreviewPage() {
     );
   }
 
-  // ミニアプリ iframe 表示モード
+  // ミニアプリ iframe 表示モード (iPhone 17 フレーム)
   if (viewMode === "miniapp") {
     return (
-      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center p-4">
-        {/* ヘッダー */}
-        <div className="w-full max-w-2xl flex items-center justify-between mb-4">
-          <button
-            onClick={() => setViewMode("list")}
-            className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M10 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            一覧に戻る
-          </button>
-          <span className="text-sm text-white/40">{iframeLabel}</span>
-        </div>
-
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center p-4 gap-4">
         {/* iPhone フレーム */}
         <div className="relative">
-          {/* 外枠 */}
           <div
-            className="relative bg-[#1c1c1e] rounded-[3rem] p-3 shadow-2xl"
-            style={{ width: 393, height: 852 }}
+            className="relative bg-[#1c1c1e] shadow-2xl"
+            style={{
+              width: IPHONE_WIDTH + FRAME_PADDING * 2,
+              height: IPHONE_HEIGHT + FRAME_PADDING * 2,
+              borderRadius: FRAME_RADIUS,
+              padding: FRAME_PADDING,
+            }}
           >
-            {/* ノッチ */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[126px] h-[34px] bg-[#1c1c1e] rounded-b-2xl z-10" />
+            {/* Dynamic Island */}
+            <div
+              className="absolute z-10 bg-[#1c1c1e] left-1/2 -translate-x-1/2"
+              style={{
+                top: FRAME_PADDING + 10,
+                width: 126,
+                height: 37,
+                borderRadius: 20,
+              }}
+            />
 
-            {/* ステータスバー風 */}
-            <div className="absolute top-[12px] left-[40px] right-[40px] h-[22px] z-20 flex items-center justify-between px-2">
-              <span className="text-white text-[12px] font-semibold">9:41</span>
-              <div className="flex items-center gap-1">
-                <svg width="16" height="12" viewBox="0 0 16 12" fill="white">
-                  <rect x="0" y="3" width="3" height="9" rx="0.5" opacity="0.3" />
-                  <rect x="4.5" y="2" width="3" height="10" rx="0.5" opacity="0.5" />
-                  <rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7" />
-                  <rect x="13.5" y="0" width="3" height="12" rx="0.5" />
+            {/* ステータスバー */}
+            <div
+              className="absolute z-20 flex items-center justify-between px-6"
+              style={{
+                top: FRAME_PADDING + 12,
+                left: FRAME_PADDING + 4,
+                right: FRAME_PADDING + 4,
+                height: 22,
+              }}
+            >
+              <span className="text-white text-[13px] font-semibold">9:41</span>
+              <div className="flex items-center gap-[5px]">
+                {/* 電波 */}
+                <svg width="17" height="12" viewBox="0 0 17 12" fill="white">
+                  <rect x="0" y="8" width="3" height="4" rx="0.7" opacity="0.4" />
+                  <rect x="4.5" y="5.5" width="3" height="6.5" rx="0.7" opacity="0.6" />
+                  <rect x="9" y="2.5" width="3" height="9.5" rx="0.7" opacity="0.8" />
+                  <rect x="13.5" y="0" width="3" height="12" rx="0.7" />
                 </svg>
-                <svg width="24" height="12" viewBox="0 0 24 12" fill="white">
-                  <rect x="0" y="1" width="20" height="10" rx="2" stroke="white" strokeWidth="1" fill="none" />
-                  <rect x="2" y="3" width="14" height="6" rx="1" />
-                  <rect x="21" y="4" width="2" height="4" rx="0.5" />
+                {/* WiFi */}
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="white">
+                  <path d="M8 10.5a1.2 1.2 0 100-2.4 1.2 1.2 0 000 2.4z" />
+                  <path d="M4.5 7.2a5 5 0 017 0" stroke="white" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+                  <path d="M2 4.5a8.5 8.5 0 0112 0" stroke="white" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+                </svg>
+                {/* バッテリー */}
+                <svg width="27" height="13" viewBox="0 0 27 13" fill="none">
+                  <rect x="0.5" y="1" width="22" height="11" rx="2.5" stroke="white" strokeWidth="1" />
+                  <rect x="2.5" y="3" width="16" height="7" rx="1.2" fill="white" />
+                  <rect x="23.5" y="4.5" width="2.5" height="4" rx="0.8" fill="white" opacity="0.4" />
                 </svg>
               </div>
             </div>
 
             {/* 画面 */}
-            <div className="w-full h-full rounded-[2.4rem] overflow-hidden bg-white">
+            <div
+              className="w-full h-full overflow-hidden bg-white"
+              style={{ borderRadius: SCREEN_RADIUS }}
+            >
               <iframe
                 src={iframeSrc}
                 className="w-full h-full border-0"
@@ -168,9 +192,27 @@ export default function PreviewPage() {
             </div>
 
             {/* ホームインジケーター */}
-            <div className="absolute bottom-[8px] left-1/2 -translate-x-1/2 w-[134px] h-[5px] bg-white/30 rounded-full" />
+            <div
+              className="absolute left-1/2 -translate-x-1/2 bg-white/30 rounded-full"
+              style={{
+                bottom: FRAME_PADDING + 6,
+                width: 140,
+                height: 5,
+              }}
+            />
           </div>
         </div>
+
+        {/* 戻るボタン（フレーム外・下） */}
+        <button
+          onClick={() => setViewMode("list")}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white text-sm font-medium transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          プレビュー一覧に戻る
+        </button>
       </div>
     );
   }
@@ -219,12 +261,6 @@ export default function PreviewPage() {
           <NavLink href="/admin/games" label="ゲーム/シーズン" desc="シーズン一覧・管理" />
           <NavLink href="/admin/news" label="ニュース管理" desc="お知らせの作成・編集" />
           <NavLink href="/admin/admin-users" label="管理者設定" desc="管理者アカウント管理" />
-        </Section>
-
-        {/* デモ（モックデータ） */}
-        <Section title="デモ（モックデータのみ）">
-          <MiniAppLink onClick={() => openMiniApp("/demo/app", "ミニアプリ デモ")} label="ミニアプリ デモ" desc="麻雀リーグUI（サンプルデータ）" />
-          <MiniAppLink onClick={() => openMiniApp("/demo/admin", "管理画面 デモ")} label="管理画面 デモ" desc="管理UIプレビュー（サンプルデータ）" />
         </Section>
 
         <p className="mt-8 text-[10px] text-[#231714]/30 text-center">
