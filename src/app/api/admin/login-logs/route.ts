@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { isPreviewMode } from "@/lib/preview";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ export async function GET(req: NextRequest) {
   const email = await checkAdminAuth(req);
   if (!email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (await isPreviewMode(req)) {
+    return NextResponse.json({ logs: [], _preview: true });
   }
 
   try {
