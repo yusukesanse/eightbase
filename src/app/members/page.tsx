@@ -10,6 +10,8 @@ interface MemberItem {
   pictureUrl: string;
   catchphrase: string;
   skills: string[];
+  companyName: string;
+  jobTitle: string;
 }
 
 export default function MembersPage() {
@@ -170,6 +172,7 @@ export default function MembersPage() {
         (m) =>
           kanaIncludes(m.displayName, q) ||
           kanaIncludes(m.catchphrase, q) ||
+          kanaIncludes(m.companyName || "", q) ||
           m.skills.some((s) => kanaIncludes(s, q))
       );
     }
@@ -226,7 +229,7 @@ export default function MembersPage() {
               if (search.trim()) setShowSuggestions(true);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="名前やスキルで検索..."
+            placeholder="名前・スキル・会社名で検索..."
             className="w-full pl-9 pr-4 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8] transition-colors"
           />
 
@@ -408,8 +411,15 @@ function MemberCard({
         <p className="text-[14px] font-medium text-[#231714] truncate">
           {member.displayName}
         </p>
+        {(member.companyName || member.jobTitle) && (
+          <p className="text-[12px] text-[#231714]/60 mt-0.5 truncate">
+            {member.companyName && member.jobTitle
+              ? `${member.companyName} の ${member.jobTitle}`
+              : member.companyName || member.jobTitle}
+          </p>
+        )}
         {member.catchphrase && (
-          <p className="text-[11px] text-[#231714]/50 mt-0.5 truncate">
+          <p className="text-[11px] text-[#231714]/40 mt-0.5 truncate">
             {member.catchphrase}
           </p>
         )}

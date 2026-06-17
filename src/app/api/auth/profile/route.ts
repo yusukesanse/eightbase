@@ -15,7 +15,9 @@ interface ProfileData {
   phone: string;            // 電話番号
   birthday: string;         // 生年月日 (YYYY-MM-DD)
   gender: string;           // 性別
-  occupation: string;       // 職業 or 会社名
+  companyName: string;      // 会社名
+  jobTitle: string;         // 職種
+  industry: string;         // 業種
   purpose: string;          // 利用目的
   postalCode: string;       // 郵便番号
   prefecture: string;       // 都道府県
@@ -23,6 +25,18 @@ interface ProfileData {
   address: string;          // 番地
   building: string;         // 建物名
   addressType: string;      // 住所種別: "home" | "office"
+  // Step 3（任意）
+  skills?: string[];        // スキル
+  companyUrl?: string;      // 会社URL
+  bio?: string;             // 自己紹介
+  socialLinks?: {           // SNSリンク
+    instagram?: string;
+    x?: string;
+    facebook?: string;
+    other?: string;
+  };
+  // 後方互換（旧データ）
+  occupation?: string;
 }
 
 const REQUIRED_FIELDS: (keyof ProfileData)[] = [
@@ -33,7 +47,9 @@ const REQUIRED_FIELDS: (keyof ProfileData)[] = [
   "phone",
   "birthday",
   "gender",
-  "occupation",
+  "companyName",
+  "jobTitle",
+  "industry",
   "purpose",
   "postalCode",
   "prefecture",
@@ -123,8 +139,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const profile = body as ProfileData;
 
-    // バリデーション
-    const missing = REQUIRED_FIELDS.filter((f) => !profile[f]?.trim());
+    // バリデーション（必須フィールドは全て string 型）
+    const missing = REQUIRED_FIELDS.filter((f) => {
+      const v = profile[f];
+      return typeof v !== "string" || !v.trim();
+    });
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `入力が不足しています: ${missing.join(", ")}` },
@@ -179,7 +198,7 @@ export async function POST(req: NextRequest) {
     const docRef = snap.docs[0].ref;
 
     // プロフィールを保存
-    const cleanProfile: ProfileData = {
+    const cleanProfile: Record<string, unknown> = {
       lastName: profile.lastName.trim(),
       firstName: profile.firstName.trim(),
       lastNameKana: profile.lastNameKana.trim(),
@@ -187,7 +206,9 @@ export async function POST(req: NextRequest) {
       phone: phoneClean,
       birthday: profile.birthday.trim(),
       gender: profile.gender.trim(),
-      occupation: profile.occupation.trim(),
+      companyName: profile.companyName.trim(),
+      jobTitle: profile.jobTitle.trim(),
+      industry: profile.industry.trim(),
       purpose: profile.purpose.trim(),
       postalCode: profile.postalCode.trim(),
       prefecture: profile.prefecture.trim(),
@@ -197,22 +218,59 @@ export async function POST(req: NextRequest) {
       addressType: profile.addressType.trim(),
     };
 
+    // Step 3 の任意フィールド
+    if (profile.companyUrl?.trim()) {
+      cleanProfile.companyUrl = profile.companyUrl.trim();
+    }
+    if (profile.bio?.trim()) {
+      cleanProfile.bio = profile.bio.trim();
+    }
+    if (profile.socialLinks) {
+      const sl: Record<string, string> = {};
+      if (profile.socialLinks.instagram?.trim()) sl.instagram = profile.socialLinks.instagram.trim();
+      if (profile.socialLinks.x?.trim()) sl.x = profile.socialLinks.x.trim();
+      if (profile.socialLinks.facebook?.trim()) sl.facebook = profile.socialLinks.facebook.trim();
+      if (profile.socialLinks.other?.trim()) sl.other = profile.socialLinks.other.trim();
+      if (Object.keys(sl).length > 0) cleanProfile.socialLinks = sl;
+    }
+
+    const displayName = `${cleanProfile.lastName} ${cleanProfile.firstName}`;
+
+    // memberProfile にも会社名・職種・スキルを同期（メンバー検索用）
+    const memberProfileUpdate: Record<string, unknown> = {
+      companyName: cleanProfile.companyName,
+      jobTitle: cleanProfile.jobTitle,
+      industry: cleanProfile.industry,
+    };
+    if (profile.companyUrl?.trim()) memberProfileUpdate.companyUrl = cleanProfile.companyUrl;
+    if (profile.bio?.trim()) memberProfileUpdate.bio = cleanProfile.bio;
+    if (profile.socialLinks) memberProfileUpdate.socialLinks = cleanProfile.socialLinks;
+
     await docRef.update({
       profile: cleanProfile,
       profileComplete: true,
-      displayName: `${cleanProfile.lastName} ${cleanProfile.firstName}`,
+      displayName,
       profileUpdatedAt: new Date().toISOString(),
     });
 
-    // users コレクションにも氏名を同期
+    // users コレクションにも氏名・メンバー情報を同期
     const userRef = db.collection("users").doc(userId);
-    await userRef.set(
-      {
-        displayName: `${cleanProfile.lastName} ${cleanProfile.firstName}`,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    const userUpdateData: Record<string, unknown> = {
+      displayName,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // skills は Step 3 で設定された場合に同期
+    if (Array.isArray(profile.skills) && profile.skills.length > 0) {
+      memberProfileUpdate.skills = profile.skills;
+    }
+
+    // 既存の memberProfile とマージ
+    const existingUser = await userRef.get();
+    const existingMp = existingUser.exists ? (existingUser.data()?.memberProfile || {}) : {};
+    userUpdateData.memberProfile = { ...existingMp, ...memberProfileUpdate };
+
+    await userRef.set(userUpdateData, { merge: true });
 
     return NextResponse.json({ success: true });
   } catch (error) {

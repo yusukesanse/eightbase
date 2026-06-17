@@ -20,6 +20,8 @@ export interface MemberListItem {
   pictureUrl: string;
   catchphrase: string;
   skills: string[];
+  companyName: string;
+  jobTitle: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -61,8 +63,10 @@ export async function GET(req: NextRequest) {
 
       const displayName = data.displayName || data.lineDisplayName || "";
       const catchphrase: string = mp.catchphrase || "";
+      const companyName: string = mp.companyName || "";
+      const jobTitle: string = mp.jobTitle || "";
 
-      // キーワード検索（名前 or キャッチコピー or スキルに部分一致）
+      // キーワード検索（名前 or キャッチコピー or スキル or 会社名に部分一致）
       if (query) {
         const q = query.toLowerCase();
         const nameMatch = displayName.toLowerCase().includes(q);
@@ -70,7 +74,8 @@ export async function GET(req: NextRequest) {
         const skillMatch = skills.some((s: string) =>
           s.toLowerCase().includes(q)
         );
-        if (!nameMatch && !catchMatch && !skillMatch) continue;
+        const companyMatch = companyName.toLowerCase().includes(q);
+        if (!nameMatch && !catchMatch && !skillMatch && !companyMatch) continue;
       }
 
       members.push({
@@ -79,6 +84,8 @@ export async function GET(req: NextRequest) {
         pictureUrl: data.pictureUrl || "",
         catchphrase,
         skills,
+        companyName,
+        jobTitle,
       });
     }
 

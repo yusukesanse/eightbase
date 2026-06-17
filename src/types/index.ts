@@ -282,11 +282,44 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
 
 export const ALL_PRESET_SKILLS = SKILL_CATEGORIES.flatMap((c) => c.skills);
 
+/** 業種選択肢 */
+export const INDUSTRY_OPTIONS = [
+  "IT・通信",
+  "建築・不動産",
+  "デザイン・クリエイティブ",
+  "映像・メディア",
+  "広告・マーケティング",
+  "コンサルティング",
+  "士業（税理士・弁護士等）",
+  "教育・研修",
+  "飲食・フード",
+  "小売・EC",
+  "製造・メーカー",
+  "医療・ヘルスケア",
+  "金融・保険",
+  "人材・採用",
+  "NPO・公共",
+  "その他",
+] as const;
+
+export type Industry = (typeof INDUSTRY_OPTIONS)[number];
+
 export interface MemberProfile {
   catchphrase: string;
   skills: string[];
   services: string[];
   contactInfo: string;
+  companyName?: string;
+  jobTitle?: string;
+  industry?: string;
+  companyUrl?: string;
+  bio?: string;
+  socialLinks?: {
+    instagram?: string;
+    x?: string;
+    facebook?: string;
+    other?: string;
+  };
 }
 
 // ─── 掲示板投稿 ─────────────────────────────────────────────────────────────
