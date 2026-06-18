@@ -865,9 +865,11 @@ function InviteModal({
   onCreated: (msg: string) => void;
 }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passcode, setPasscode] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleCreate(e: React.FormEvent) {
@@ -879,11 +881,12 @@ function InviteModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ displayName: name }),
+        body: JSON.stringify({ displayName: name, email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
       setPasscode(data.passcode);
+      setEmailSent(data.emailSent ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -910,7 +913,14 @@ function InviteModal({
                 </svg>
               </div>
               <h3 className="text-base font-semibold text-[#231714]">ワンタイムパスワードを発行しました</h3>
-              <p className="text-xs text-[#231714]/50 mt-1">{name} さんにこのパスワードを伝えてください（有効期限: 7日間）</p>
+              <p className="text-xs text-[#231714]/50 mt-1">
+                {emailSent
+                  ? `${email} 宛にパスワードをメール送信しました（有効期限: 7日間）`
+                  : `${name} さんにこのパスワードを伝えてください（有効期限: 7日間）`}
+              </p>
+              {!emailSent && (
+                <p className="text-xs text-orange-500 mt-1">※ メール送信に失敗しました。手動でパスワードをお伝えください。</p>
+              )}
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
@@ -944,6 +954,17 @@ function InviteModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="山田 太郎"
+                  required
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">メールアドレス</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="taro@example.com"
                   required
                   className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
@@ -983,6 +1004,7 @@ function ReissuePasscodeModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passcode, setPasscode] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleReissue() {
@@ -1000,17 +1022,19 @@ function ReissuePasscodeModal({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setPasscode(data.passcode);
+        setEmailSent(data.emailSent ?? false);
       } else {
         // invitationId がない旧ユーザー → 新規招待作成
         const res = await fetch("/api/admin/invitations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ displayName: user.displayName }),
+          body: JSON.stringify({ displayName: user.displayName, email: user.email }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setPasscode(data.passcode);
+        setEmailSent(data.emailSent ?? false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "再発行に失敗しました");
@@ -1025,7 +1049,14 @@ function ReissuePasscodeModal({
         {passcode ? (
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードを再発行しました</h3>
-            <p className="text-xs text-[#231714]/50 mb-4">{user.displayName} さんに新しいパスワードを伝えてください</p>
+            <p className="text-xs text-[#231714]/50 mb-4">
+              {emailSent
+                ? `${user.email} 宛にパスワードをメール送信しました`
+                : `${user.displayName} さんに新しいパスワードを伝えてください`}
+            </p>
+            {!emailSent && user.email && (
+              <p className="text-xs text-orange-500 mb-2">※ メール送信に失敗しました。手動でパスワードをお伝えください。</p>
+            )}
             <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
               <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
             </div>

@@ -3,6 +3,7 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { isPreviewMode } from "@/lib/preview";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
+import { sendPasscodeEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         displayName: d.displayName || "",
+        email: (d.email as string) || "",
         status,
         createdAt: d.createdAt as string,
         expiresAt,
@@ -69,9 +71,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { displayName } = await req.json();
+    const { displayName, email } = await req.json();
     if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
       return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
+    }
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return NextResponse.json({ error: "メールアドレスを入力してください" }, { status: 400 });
     }
 
     const db = getDb();
@@ -98,8 +103,11 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     const nowStr = now.toISOString();
 
+    const trimmedEmail = email.trim().toLowerCase();
+
     const inviteRef = await db.collection("invitations").add({
       displayName: displayName.trim(),
+      email: trimmedEmail,
       passcodeHash: pHash,
       createdAt: nowStr,
       expiresAt: expiresAt.toISOString(),
@@ -110,7 +118,7 @@ export async function POST(req: NextRequest) {
     // authorizedUsers にも即時作成（ユーザー一覧に表示するため）
     await db.collection("authorizedUsers").add({
       displayName: displayName.trim(),
-      email: "",
+      email: trimmedEmail,
       passwordHash: "",
       salt: "",
       lineUserId: null,
@@ -122,10 +130,20 @@ export async function POST(req: NextRequest) {
       inviteStatus: "pending",
     });
 
+    // メールでパスコードを送信
+    let emailSent = false;
+    try {
+      await sendPasscodeEmail(trimmedEmail, displayName.trim(), passcode);
+      emailSent = true;
+    } catch (emailError) {
+      console.error("[admin/invitations] Email send error:", emailError);
+    }
+
     return NextResponse.json({
       success: true,
       id: inviteRef.id,
       passcode,
+      emailSent,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
@@ -174,9 +192,22 @@ export async function PATCH(req: NextRequest) {
       expiresAt: expiresAt.toISOString(),
     });
 
+    // メールでパスコードを再送
+    let emailSent = false;
+    const savedEmail = data.email as string | undefined;
+    if (savedEmail) {
+      try {
+        await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
+        emailSent = true;
+      } catch (emailError) {
+        console.error("[admin/invitations] Email resend error:", emailError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       passcode,
+      emailSent,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
