@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { initLiff } from "@/lib/liff";
@@ -32,6 +32,25 @@ export default function LoginPage() {
   // ワンタイムパスワードフォーム
   const [passcode, setPasscode] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
+  const passcodeRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
+
+  const formatPasscode = useCallback((raw: string): string => {
+    let v = raw.toUpperCase();
+    if (v.length >= 2 && v.startsWith("EB") && (v.length === 2 || v[2] !== "-")) {
+      v = "EB-" + v.slice(v[2] === "-" ? 3 : 2);
+    }
+    return v.slice(0, 9);
+  }, []);
+
+  const handlePasscodeInput = useCallback(() => {
+    if (composingRef.current) return;
+    const el = passcodeRef.current;
+    if (!el) return;
+    const formatted = formatPasscode(el.value);
+    el.value = formatted;
+    setPasscode(formatted);
+  }, [formatPasscode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,18 +253,12 @@ export default function LoginPage() {
                   ワンタイムパスワード
                 </label>
                 <input
+                  ref={passcodeRef}
                   type="text"
-                  value={passcode}
-                  onChange={(e) => {
-                    let v = e.target.value.toUpperCase();
-                    // "EB" の後に自動でハイフンを挿入
-                    if (v.length === 2 && v === "EB") {
-                      v = "EB-";
-                    } else if (v.length > 2 && v.startsWith("EB") && v[2] !== "-") {
-                      v = "EB-" + v.slice(2);
-                    }
-                    setPasscode(v);
-                  }}
+                  defaultValue=""
+                  onInput={handlePasscodeInput}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={() => { composingRef.current = false; handlePasscodeInput(); }}
                   placeholder="EB-A3X9K2"
                   maxLength={9}
                   required
