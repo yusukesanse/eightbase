@@ -273,7 +273,8 @@ export default function LoginPage() {
                   required
                   autoComplete="off"
                   autoCapitalize="characters"
-                  inputMode="text"
+                  inputMode="url"
+                  lang="en"
                   spellCheck={false}
                   className="w-full px-3 py-3 text-base font-mono tracking-widest text-center uppercase border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
                 />
