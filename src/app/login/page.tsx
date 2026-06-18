@@ -263,17 +263,15 @@ export default function LoginPage() {
                 </label>
                 <input
                   ref={passcodeRef}
-                  type="text"
+                  type="email"
                   defaultValue=""
                   onInput={handlePasscodeInput}
                   onCompositionStart={() => { composingRef.current = true; }}
                   onCompositionEnd={() => { composingRef.current = false; handlePasscodeInput(); }}
                   placeholder="EB-A3X9K2"
                   maxLength={9}
-                  required
                   autoComplete="off"
                   autoCapitalize="characters"
-                  inputMode="url"
                   lang="en"
                   spellCheck={false}
                   className="w-full px-3 py-3 text-base font-mono tracking-widest text-center uppercase border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
