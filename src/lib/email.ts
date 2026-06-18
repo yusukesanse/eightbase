@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM_ADDRESS = "EIGHT BASE <noreply@eightbase.net>";
+const FROM_ADDRESS = `EIGHT BASE <${process.env.RESEND_FROM_ADDRESS ?? "noreply@eightbase.net"}>`;
 
 let resendClient: Resend | null = null;
 
@@ -15,6 +15,15 @@ function getResend(): Resend {
   return resendClient;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendPasscodeEmail(
   to: string,
   displayName: string,
@@ -22,7 +31,10 @@ export async function sendPasscodeEmail(
 ): Promise<void> {
   const resend = getResend();
 
-  await resend.emails.send({
+  const safeName = escapeHtml(displayName);
+  const safePasscode = escapeHtml(passcode);
+
+  const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to,
     subject: "【EIGHT BASE】ワンタイムパスワードのお知らせ",
@@ -33,7 +45,7 @@ export async function sendPasscodeEmail(
         </div>
 
         <p style="font-size: 14px; color: #231714; line-height: 1.6;">
-          ${displayName} 様
+          ${safeName} 様
         </p>
         <p style="font-size: 14px; color: #231714; line-height: 1.6;">
           EIGHT BASE へようこそ。<br />
@@ -43,7 +55,7 @@ export async function sendPasscodeEmail(
         <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
           <p style="font-size: 12px; color: #231714; opacity: 0.5; margin: 0 0 8px;">ワンタイムパスワード</p>
           <p style="font-size: 28px; font-weight: bold; font-family: monospace; letter-spacing: 0.15em; color: #231714; margin: 0;">
-            ${passcode}
+            ${safePasscode}
           </p>
         </div>
 
@@ -60,4 +72,8 @@ export async function sendPasscodeEmail(
       </div>
     `,
   });
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { initLiff } from "@/lib/liff";
+import { clearAuthCache } from "@/components/AuthGuard";
 
 /**
  * ログインページ — LIFF + ワンタイムパスワード認証フロー
@@ -84,6 +85,7 @@ export default function LoginPage() {
 
         if (data.success) {
           // 連携済み → プロフィール完了チェック
+          clearAuthCache();
           if (data.profileComplete) {
             router.replace("/reservation");
           } else {
@@ -142,8 +144,10 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
+        clearAuthCache();
         router.replace("/setup-profile");
       } else if (data.alreadyLinked) {
+        clearAuthCache();
         router.replace("/reservation");
       } else {
         setLinkError(data.error || "認証に失敗しました");

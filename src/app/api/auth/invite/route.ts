@@ -103,8 +103,11 @@ export async function POST(req: NextRequest) {
 
       const invite = inviteDoc.data()!;
 
-      // 使用済み or 期限切れ → 統一メッセージ
+      // 使用済み / 無効化 / 期限切れ → 統一メッセージ
       if (invite.usedAt || invite.lineUserId) {
+        return { error: INVALID_MSG, status: 400 };
+      }
+      if (invite.revokedAt) {
         return { error: INVALID_MSG, status: 400 };
       }
       if (new Date(invite.expiresAt).getTime() < Date.now()) {
@@ -127,6 +130,11 @@ export async function POST(req: NextRequest) {
       );
 
       if (!authSnap.empty) {
+        const authData = authSnap.docs[0].data();
+        // active=false のユーザーは連携を拒否
+        if (authData.active === false) {
+          return { error: INVALID_MSG, status: 400 };
+        }
         tx.update(authSnap.docs[0].ref, {
           lineUserId,
           lastLoginAt: now,

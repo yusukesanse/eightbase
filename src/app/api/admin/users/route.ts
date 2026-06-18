@@ -230,8 +230,21 @@ export async function DELETE(req: NextRequest) {
 
     const userData = authDoc.data()!;
     const lineUserId = userData.lineUserId as string | null;
+    const invitationId = userData.invitationId as string | null;
 
-    // 2. 関連する予約データを削除
+    // 2. 紐づく招待を無効化（期限内OTPが残らないようにする）
+    if (invitationId) {
+      const invDocRef = db.collection("invitations").doc(invitationId);
+      const invDoc = await invDocRef.get();
+      if (invDoc.exists) {
+        const invData = invDoc.data()!;
+        if (!invData.usedAt && !invData.revokedAt) {
+          await invDocRef.update({ revokedAt: new Date().toISOString() });
+        }
+      }
+    }
+
+    // 3. 関連する予約データ・usersを削除
     let deletedReservations = 0;
     if (lineUserId) {
       const reservationsSnap = await db
@@ -257,7 +270,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 3. authorizedUsers ドキュメントを削除
+    // 4. authorizedUsers ドキュメントを削除
     await authDocRef.delete();
 
     return NextResponse.json({

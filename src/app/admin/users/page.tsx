@@ -855,7 +855,7 @@ export default function AdminUsersPage() {
   );
 }
 
-/* ═══ 招待URL発行モーダル ═══ */
+/* ═══ 招待モーダル（メール送信 + ワンタイムパスワード） ═══ */
 
 function InviteModal({
   onClose,
@@ -885,7 +885,7 @@ function InviteModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
-      setPasscode(data.passcode);
+      setPasscode(data.passcode ?? null);
       setEmailSent(data.emailSent ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -901,18 +901,30 @@ function InviteModal({
     setTimeout(() => setCopied(false), 2000);
   }
 
+  // 完了画面（emailSent=true or passcode取得済み）
+  const showResult = emailSent || passcode;
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        {passcode ? (
+        {showResult ? (
           <>
             <div className="text-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-[#B0E401]/20 flex items-center justify-center mx-auto mb-3">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 12l4 4 8-8" stroke="#B0E401" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+              <div className={`w-12 h-12 rounded-full ${emailSent ? "bg-[#B0E401]/20" : "bg-orange-100"} flex items-center justify-center mx-auto mb-3`}>
+                {emailSent ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 12l4 4 8-8" stroke="#B0E401" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 9v4M12 17h.01" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F59E0B" strokeWidth="1.5" />
+                  </svg>
+                )}
               </div>
-              <h3 className="text-base font-semibold text-[#231714]">ワンタイムパスワードを発行しました</h3>
+              <h3 className="text-base font-semibold text-[#231714]">
+                {emailSent ? "招待メールを送信しました" : "ワンタイムパスワードを発行しました"}
+              </h3>
               <p className="text-xs text-[#231714]/50 mt-1">
                 {emailSent
                   ? `${email} 宛にパスワードをメール送信しました（有効期限: 7日間）`
@@ -923,20 +935,25 @@ function InviteModal({
               )}
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
-            </div>
+            {/* メール送信失敗時のみ平文パスコードを表示 */}
+            {passcode && (
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+                <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
+              </div>
+            )}
 
             <div className="flex gap-2">
+              {passcode && (
+                <button
+                  onClick={copyPasscode}
+                  className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
+                >
+                  {copied ? "コピーしました" : "コピー"}
+                </button>
+              )}
               <button
-                onClick={copyPasscode}
-                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
-              >
-                {copied ? "コピーしました" : "コピー"}
-              </button>
-              <button
-                onClick={() => onCreated(`${name} さんのワンタイムパスワードを発行しました`)}
-                className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+                onClick={() => onCreated(`${name} さん${emailSent ? "に招待メールを送信" : "のワンタイムパスワードを発行"}しました`)}
+                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>
@@ -1012,7 +1029,6 @@ function ReissuePasscodeModal({
     setLoading(true);
     try {
       if (user.invitationId) {
-        // invitationId で直接再発行
         const res = await fetch("/api/admin/invitations", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -1021,10 +1037,13 @@ function ReissuePasscodeModal({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setPasscode(data.passcode);
+        setPasscode(data.passcode ?? null);
         setEmailSent(data.emailSent ?? false);
       } else {
-        // invitationId がない旧ユーザー → 新規招待作成
+        // invitationId がない旧ユーザー → 新規招待作成（emailが必要）
+        if (!user.email) {
+          throw new Error("メールアドレスが未登録のため再発行できません");
+        }
         const res = await fetch("/api/admin/invitations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1033,7 +1052,7 @@ function ReissuePasscodeModal({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setPasscode(data.passcode);
+        setPasscode(data.passcode ?? null);
         setEmailSent(data.emailSent ?? false);
       }
     } catch (err) {
@@ -1046,9 +1065,11 @@ function ReissuePasscodeModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        {passcode ? (
+        {(emailSent || passcode) ? (
           <>
-            <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードを再発行しました</h3>
+            <h3 className="text-base font-semibold text-[#231714] mb-1">
+              {emailSent ? "招待メールを再送しました" : "パスワードを再発行しました"}
+            </h3>
             <p className="text-xs text-[#231714]/50 mb-4">
               {emailSent
                 ? `${user.email} 宛にパスワードをメール送信しました`
@@ -1057,19 +1078,23 @@ function ReissuePasscodeModal({
             {!emailSent && user.email && (
               <p className="text-xs text-orange-500 mb-2">※ メール送信に失敗しました。手動でパスワードをお伝えください。</p>
             )}
-            <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
-            </div>
+            {passcode && (
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+                <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
+              </div>
+            )}
             <div className="flex gap-2">
+              {passcode && (
+                <button
+                  onClick={async () => { await navigator.clipboard.writeText(passcode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
+                >
+                  {copied ? "コピーしました" : "コピー"}
+                </button>
+              )}
               <button
-                onClick={async () => { await navigator.clipboard.writeText(passcode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
-              >
-                {copied ? "コピーしました" : "コピー"}
-              </button>
-              <button
-                onClick={() => onReissued(`${user.displayName} さんのパスワードを再発行しました`)}
-                className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+                onClick={() => onReissued(`${user.displayName} さん${emailSent ? "に招待メールを再送" : "のパスワードを再発行"}しました`)}
+                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>

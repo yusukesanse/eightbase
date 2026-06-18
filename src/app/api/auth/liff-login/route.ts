@@ -111,25 +111,26 @@ export async function POST(req: NextRequest) {
       .get();
 
     if (snap.empty && !isReviewMode) {
-      // lineUserId が未連携 → 連携可能なアカウントが存在するか確認
-      const unlinkedSnap = await db
+      // lineUserId が未連携 → 招待済み(pending)のアカウントが存在するか確認
+      // inviteStatus="pending" に限定し、未招待ユーザーに総当たり用OTP画面を出さない
+      const pendingSnap = await db
         .collection("authorizedUsers")
         .where("lineUserId", "==", null)
         .where("active", "==", true)
+        .where("inviteStatus", "==", "pending")
         .limit(1)
         .get();
 
-      if (unlinkedSnap.empty) {
-        // 連携可能なアカウントが存在しない → アカウントなし
-        console.log(`[liff-login] no linkable account for: ${lineUserId}`);
+      if (pendingSnap.empty) {
+        console.log(`[liff-login] no pending invitation for: ${lineUserId}`);
         return NextResponse.json({
           success: false,
           noAccount: true,
         });
       }
 
-      // 連携可能なアカウントが存在する → 連携フォームへ
-      console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
+      // 招待済みアカウントが存在する → OTP連携フォームへ
+      console.log(`[liff-login] lineUserId not linked, pending invitation exists: ${lineUserId}`);
       return NextResponse.json({
         success: false,
         needsLinking: true,

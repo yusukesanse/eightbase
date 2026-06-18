@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
+import { clearAuthCache } from "@/components/AuthGuard";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -214,6 +215,7 @@ export default function SetupProfilePage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        clearAuthCache();
         router.replace("/reservation");
       } else {
         setError(data.error || "保存に失敗しました");
