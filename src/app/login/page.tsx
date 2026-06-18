@@ -236,9 +236,18 @@ export default function LoginPage() {
                 <input
                   type="text"
                   value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  onBlur={() => setPasscode((v) => v.toUpperCase())}
-                  placeholder="例: EB-A3X9K2"
+                  onChange={(e) => {
+                    let v = e.target.value.toUpperCase();
+                    // "EB" の後に自動でハイフンを挿入
+                    if (v.length === 2 && v === "EB") {
+                      v = "EB-";
+                    } else if (v.length > 2 && v.startsWith("EB") && v[2] !== "-") {
+                      v = "EB-" + v.slice(2);
+                    }
+                    setPasscode(v);
+                  }}
+                  placeholder="EB-A3X9K2"
+                  maxLength={9}
                   required
                   autoComplete="off"
                   autoCapitalize="characters"
