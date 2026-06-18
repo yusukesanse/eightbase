@@ -33,6 +33,7 @@
 | カレンダー | Google Calendar API v3 |
 | 認証（顧客） | LIFF + ワンタイムパスワード招待（Resend メール送信） |
 | 認証（管理者） | JWT (jose) + httpOnly Cookie + CSRF 保護 |
+| 決済 | Square Web Payments SDK（**現在無効** — 将来有効化予定） |
 | ホスティング | Vercel |
 
 ## クイックスタート

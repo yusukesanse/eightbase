@@ -1,10 +1,13 @@
+/**
+ * Square 決済ユーティリティ
+ *
+ * 現在未使用 — オンライン決済は無効化されています。
+ * 将来決済を有効化する際にこのファイルを再利用してください。
+ * 参照: reservations/route.ts の requirePayment ガード
+ */
+
 import { SquareClient, SquareEnvironment } from "square";
 import type { Facility } from "@/types";
-
-/**
- * Square クライアントのシングルトン
- * 環境変数で sandbox / production を切り替え
- */
 let _client: SquareClient | null = null;
 
 export function getSquareClient(): SquareClient {

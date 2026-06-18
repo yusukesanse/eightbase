@@ -21,8 +21,8 @@ function ConfirmContent() {
   const startTime   = params.get("startTime") ?? "";
   const endTime     = params.get("endTime") ?? "";
   const termsAgreed = params.get("termsAgreed") === "true";
-  const amount      = Number(params.get("amount") ?? "0");
-  const hasPayment  = amount > 0;
+  // Square決済は現在無効
+  const hasPayment  = false;
 
   const [facility, setFacility] = useState<Facility | null>(null);
   const dateLabel = dayjs(date).format("M月D日（ddd）");
@@ -62,63 +62,20 @@ function ConfirmContent() {
     setStep("loading");
 
     try {
-      let paymentId: string | undefined;
-
-      // ── 決済が必要な場合、先に Square 決済を実行 ──
-      if (hasPayment) {
-        const sourceId = sessionStorage.getItem("squareSourceId");
-        if (!sourceId) {
-          setErrorMsg("決済情報が見つかりません。カード情報をもう一度入力してください。");
-          setStep("error");
-          return;
-        }
-
-        const payRes = await fetch("/api/payments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            sourceId,
-            amount,
-            facilityId,
-            date,
-            startTime,
-            endTime,
-          }),
-        });
-
-        const payData = await payRes.json();
-
-        if (!payRes.ok) {
-          setErrorMsg(payData.error ?? "決済に失敗しました。カード情報をご確認ください。");
-          setStep("error");
-          return;
-        }
-
-        paymentId = payData.paymentId;
-        sessionStorage.removeItem("squareSourceId");
-      }
-
-      // ── 予約を作成 ──
+      // ── 予約を作成（決済なし） ──
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           facilityId, date, startTime, endTime, displayName, termsAgreed,
-          paymentId,
-          paymentAmount: hasPayment ? amount : undefined,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMsg(
-          hasPayment
-            ? (data.message ?? "予約に失敗しました。決済は自動返金されます（数日かかる場合があります）。")
-            : (data.message ?? "予約に失敗しました。もう一度お試しください。")
-        );
+        setErrorMsg(data.message ?? "予約に失敗しました。もう一度お試しください。");
         setStep("error");
         return;
       }
