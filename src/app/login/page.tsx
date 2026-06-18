@@ -34,23 +34,32 @@ export default function LoginPage() {
   const [linkError, setLinkError] = useState<string | null>(null);
   const passcodeRef = useRef<HTMLInputElement>(null);
   const composingRef = useRef(false);
-
-  const formatPasscode = useCallback((raw: string): string => {
-    let v = raw.toUpperCase();
-    if (v.length >= 2 && v.startsWith("EB") && (v.length === 2 || v[2] !== "-")) {
-      v = "EB-" + v.slice(v[2] === "-" ? 3 : 2);
-    }
-    return v.slice(0, 9);
-  }, []);
+  const prevValueRef = useRef("");
 
   const handlePasscodeInput = useCallback(() => {
     if (composingRef.current) return;
     const el = passcodeRef.current;
     if (!el) return;
-    const formatted = formatPasscode(el.value);
-    el.value = formatted;
-    setPasscode(formatted);
-  }, [formatPasscode]);
+
+    const prev = prevValueRef.current;
+    let v = el.value.toUpperCase();
+    const isDeleting = v.length < prev.length;
+
+    // 削除操作時はフォーマットせずそのまま受け入れる
+    if (!isDeleting) {
+      // "EB" の直後にハイフンを自動挿入（追加時のみ）
+      if (v.length === 2 && v === "EB") {
+        v = "EB-";
+      } else if (v.length > 2 && v.startsWith("EB") && v[2] !== "-") {
+        v = "EB-" + v.slice(2);
+      }
+      v = v.slice(0, 9);
+    }
+
+    el.value = v;
+    prevValueRef.current = v;
+    setPasscode(v);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
