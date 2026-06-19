@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
+import { openExternalUrl } from "@/lib/liff";
 import { BottomSheet } from "@/components/ui/Sheet";
 import {
   Avatar,
@@ -12,8 +13,6 @@ import {
   InstagramGlyph,
   FacebookGlyph,
   SheetButton,
-  LineComposeSheet,
-  LineSentSheet,
 } from "@/components/ui/LineContact";
 
 interface SocialLinks {
@@ -34,6 +33,7 @@ interface MemberItem {
   bio: string;
   companyUrl: string;
   socialLinks: SocialLinks;
+  lineUrl: string;
 }
 
 const EMPTY_MEMBERS: MemberItem[] = [];
@@ -75,8 +75,6 @@ function snsHref(kind: "x" | "instagram" | "facebook" | "other", value: string) 
   return ensureUrl(v);
 }
 
-type Step = "profile" | "compose" | "sent";
-
 export default function MembersPage() {
   const router = useRouter();
 
@@ -93,10 +91,8 @@ export default function MembersPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("すべて");
 
-  // LINE連絡フロー
+  // 詳細シート対象
   const [open, setOpen] = useState<MemberItem | null>(null);
-  const [step, setStep] = useState<Step>("profile");
-  const [draft, setDraft] = useState("");
 
   // スキルチップ（出現頻度順）
   const skillChips = useMemo(() => {
@@ -123,18 +119,9 @@ export default function MembersPage() {
 
   function openMember(m: MemberItem) {
     setOpen(m);
-    setStep("profile");
-    setDraft("");
-  }
-  function startLine() {
-    if (!open) return;
-    setDraft(`${open.displayName}さん、はじめまして。EIGHT BASE UNGA で拝見しました。`);
-    setStep("compose");
   }
   function closeAll() {
     setOpen(null);
-    setStep("profile");
-    setDraft("");
   }
 
   return (
@@ -187,13 +174,19 @@ export default function MembersPage() {
 
       {/* 詳細シート */}
       <BottomSheet
-        open={!!open && step === "profile"}
+        open={!!open}
         title={open?.displayName ?? ""}
         onClose={closeAll}
         footer={
           <>
             <SheetButton variant="secondary" onClick={closeAll}>閉じる</SheetButton>
-            <SheetButton line onClick={startLine}>LINEで連絡</SheetButton>
+            <SheetButton
+              line
+              disabled={!open?.lineUrl}
+              onClick={() => open?.lineUrl && openExternalUrl(open.lineUrl)}
+            >
+              LINEで連絡
+            </SheetButton>
           </>
         }
       >
@@ -224,24 +217,15 @@ export default function MembersPage() {
             )}
 
             <MemberLinks companyUrl={open.companyUrl} sns={open.socialLinks} />
+
+            {!open.lineUrl && (
+              <p className="text-[12px] text-[#97999d] leading-relaxed">
+                この方はLINE連絡先（友だち追加URL）を未登録のため、「LINEで連絡」はご利用いただけません。
+              </p>
+            )}
           </div>
         )}
       </BottomSheet>
-
-      {/* LINE連絡シート */}
-      <LineComposeSheet
-        open={!!open && step === "compose"}
-        name={open?.displayName ?? ""}
-        photo={open?.pictureUrl}
-        subtitle="LINEのトークに送信されます"
-        value={draft}
-        onChange={setDraft}
-        onBack={() => setStep("profile")}
-        onSend={() => setStep("sent")}
-      />
-
-      {/* 送信完了シート */}
-      <LineSentSheet open={!!open && step === "sent"} name={open?.displayName ?? ""} onClose={closeAll} />
     </div>
   );
 }

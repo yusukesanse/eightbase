@@ -32,6 +32,7 @@ export interface MemberListItem {
   bio: string;
   companyUrl: string;
   socialLinks: MemberSocialLinks;
+  lineUrl: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest) {
       const bio: string = mp.bio || "";
       const companyUrl: string = mp.companyUrl || "";
       const socialLinks: MemberSocialLinks = mp.socialLinks || {};
+      const lineUrl: string = mp.lineUrl || "";
 
       // キーワード検索（名前 or キャッチコピー or スキル or 会社名に部分一致）
       if (query) {
@@ -102,6 +104,7 @@ export async function GET(req: NextRequest) {
         bio,
         companyUrl,
         socialLinks,
+        lineUrl,
       });
     }
 

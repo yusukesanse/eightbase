@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    const { skills, catchphrase, companyUrl, socialLinks } = await req.json();
+    const { skills, catchphrase, companyUrl, socialLinks, lineUrl } = await req.json();
 
     if (!Array.isArray(skills)) {
       return NextResponse.json({ error: "skills は配列で指定してください" }, { status: 400 });
@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
 
     const cleanCompanyUrl =
       typeof companyUrl === "string" ? companyUrl.trim() : "";
+
+    // LINE 友だち追加URL（メンバー同士の直接連絡に使う）
+    const cleanLineUrl =
+      typeof lineUrl === "string" ? lineUrl.trim().slice(0, 300) : "";
 
     // SNS（入力された項目のみ保持。各200文字まで）
     const cleanSocialLinks: Record<string, string> = {};
@@ -66,6 +70,7 @@ export async function POST(req: NextRequest) {
           catchphrase: cleanCatchphrase,
           companyUrl: cleanCompanyUrl,
           socialLinks: cleanSocialLinks,
+          lineUrl: cleanLineUrl,
         },
         updatedAt: now,
       },

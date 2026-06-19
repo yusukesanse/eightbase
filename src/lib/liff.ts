@@ -208,6 +208,22 @@ export async function runLiffServerLogin(): Promise<LiffLoginResult> {
 }
 
 /**
+ * 外部URL（相手の LINE 友だち追加URL など）を開く。
+ * LIFF 環境では liff.openWindow({ external:true }) で LINE アプリ側に遷移させ、
+ * それ以外（外部ブラウザ）では通常の window.open でフォールバックする。
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+  try {
+    const liff = await initLiff();
+    liff.openWindow({ url, external: true });
+  } catch {
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
+}
+
+/**
  * LINE プロフィールを取得する（ログイン必須）。
  */
 export async function getLineProfile() {

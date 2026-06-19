@@ -7,25 +7,15 @@ import {
   readPostsCache,
   writePostsCache,
 } from "@/lib/timelineCache";
+import { openExternalUrl } from "@/lib/liff";
 import { BottomSheet } from "@/components/ui/Sheet";
-import {
-  Avatar,
-  SheetButton,
-  LineComposeSheet,
-  LineSentSheet,
-} from "@/components/ui/LineContact";
+import { Avatar, SheetButton } from "@/components/ui/LineContact";
 
 const TABS = [
   { id: "all", label: "すべて" },
   { id: "offer", label: "できます" },
   { id: "request", label: "探してます" },
 ] as const;
-
-type Step = "detail" | "line" | "sent";
-
-function trim(s: string, n: number) {
-  return s.length > n ? s.slice(0, n) + "…" : s;
-}
 
 export default function TimelinePage() {
   const router = useRouter();
@@ -53,10 +43,8 @@ export default function TimelinePage() {
     setDraftTags((prev) => prev.filter((x) => x !== t));
   }
 
-  // 詳細 → LINE連絡フロー
+  // 詳細シート対象
   const [open, setOpen] = useState<Post | null>(null);
-  const [step, setStep] = useState<Step>("detail");
-  const [msg, setMsg] = useState("");
 
   const postsRef = useRef<Post[]>([]);
   useEffect(() => {
@@ -192,22 +180,9 @@ export default function TimelinePage() {
 
   function openPost(p: Post) {
     setOpen(p);
-    setStep("detail");
-    setMsg("");
-  }
-  function startLine() {
-    if (!open) return;
-    const lead =
-      open.type === "offer"
-        ? "の投稿を拝見しました。ぜひお願いしたいです。"
-        : "の投稿を拝見しました。お力になれそうです。";
-    setMsg(`${open.authorName}さん、「${trim(open.content, 16)}」${lead}`);
-    setStep("line");
   }
   function closeAll() {
     setOpen(null);
-    setStep("detail");
-    setMsg("");
   }
 
   const filtered = activeTab === "all" ? posts : posts.filter((p) => p.type === activeTab);
@@ -370,13 +345,19 @@ export default function TimelinePage() {
 
       {/* 投稿詳細シート */}
       <BottomSheet
-        open={!!open && step === "detail"}
+        open={!!open}
         title="投稿の詳細"
         onClose={closeAll}
         footer={
           <>
             <SheetButton variant="secondary" onClick={closeAll}>閉じる</SheetButton>
-            <SheetButton line onClick={startLine}>LINEで連絡</SheetButton>
+            <SheetButton
+              line
+              disabled={!open?.authorLineUrl}
+              onClick={() => open?.authorLineUrl && openExternalUrl(open.authorLineUrl)}
+            >
+              LINEで連絡
+            </SheetButton>
           </>
         }
       >
@@ -394,6 +375,12 @@ export default function TimelinePage() {
             <div className="flex items-center gap-[18px] pt-3 border-t border-[#eceff1]">
               <LikeStat count={open.likes.length} active={open.likes.includes(currentUserId)} />
             </div>
+            {!open.authorLineUrl && (
+              <p className="text-[12px] text-[#97999d] leading-relaxed">
+                投稿者がLINE連絡先（友だち追加URL）を未登録のため、「LINEで連絡」はご利用いただけません。
+              </p>
+            )}
+
             {currentUserId && open.authorId === currentUserId && (
               <button
                 onClick={() => handleDelete(open.postId)}
@@ -405,21 +392,6 @@ export default function TimelinePage() {
           </div>
         )}
       </BottomSheet>
-
-      {/* LINE連絡シート */}
-      <LineComposeSheet
-        open={!!open && step === "line"}
-        name={open?.authorName ?? ""}
-        photo={open?.authorPictureUrl}
-        subtitle="この投稿についてLINEで連絡します"
-        value={msg}
-        onChange={setMsg}
-        onBack={() => setStep("detail")}
-        onSend={() => setStep("sent")}
-      />
-
-      {/* 送信完了シート */}
-      <LineSentSheet open={!!open && step === "sent"} name={open?.authorName ?? ""} onClose={closeAll} />
     </div>
   );
 }

@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
         skills: memberProfile.skills || [],
         companyUrl: memberProfile.companyUrl || "",
         socialLinks: memberProfile.socialLinks || {},
+        lineUrl: memberProfile.lineUrl || "",
         postCount,
         reservationCount,
       },

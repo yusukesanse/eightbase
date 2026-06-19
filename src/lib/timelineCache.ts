@@ -10,6 +10,7 @@ export interface CachedPost {
   authorId: string;
   authorName: string;
   authorPictureUrl: string;
+  authorLineUrl?: string;
   type: "offer" | "request";
   content: string;
   tags: string[];
