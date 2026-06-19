@@ -7,6 +7,13 @@ import {
   readPostsCache,
   writePostsCache,
 } from "@/lib/timelineCache";
+import { BottomSheet } from "@/components/ui/Sheet";
+import {
+  Avatar,
+  SheetButton,
+  LineComposeSheet,
+  LineSentSheet,
+} from "@/components/ui/LineContact";
 
 const TABS = [
   { id: "all", label: "すべて" },
@@ -14,32 +21,41 @@ const TABS = [
   { id: "request", label: "探してます" },
 ] as const;
 
+type Step = "detail" | "line" | "sent";
+
+function trim(s: string, n: number) {
+  return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
 export default function TimelinePage() {
   const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [currentUserId, setCurrentUserId] = useState("");
-  const [hasNew, setHasNew] = useState(false);
 
-  // 表示中の一覧を同期参照するためのref（再取得時の比較に使う）
+  // 新規投稿シート
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [draftType, setDraftType] = useState<"offer" | "request">("offer");
+  const [draftBody, setDraftBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // 詳細 → LINE連絡フロー
+  const [open, setOpen] = useState<Post | null>(null);
+  const [step, setStep] = useState<Step>("detail");
+  const [msg, setMsg] = useState("");
+
   const postsRef = useRef<Post[]>([]);
-  // 新着がある場合に差し替え待ちの最新一覧を保持
-  const pendingRef = useRef<Post[] | null>(null);
-
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
 
-  // 最新一覧を取得して、状況に応じて即時反映 or 新着バナー表示する
+  // 最新一覧を取得（前回表示を消さず裏で差し替え）
   const refresh = useCallback(
     async (force = false) => {
       let fresh: Post[];
       try {
-        const res = await fetch("/api/posts", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await fetch("/api/posts", { credentials: "include", cache: "no-store" });
         if (res.status === 401) {
           router.replace("/login");
           return;
@@ -49,60 +65,23 @@ export default function TimelinePage() {
       } catch {
         return;
       }
-
       writePostsCache(fresh);
-      const prev = postsRef.current;
-
-      // 初回 or 一覧が空のときは無条件で反映（バナーは出さない）
-      if (force || prev.length === 0) {
-        pendingRef.current = null;
-        setHasNew(false);
-        setPosts(fresh);
-        setLoading(false);
-        return;
-      }
-
-      // 先頭に未表示の新しい投稿があるか
-      const hasNewTop =
-        fresh[0] &&
-        prev[0] &&
-        fresh[0].postId !== prev[0].postId &&
-        new Date(fresh[0].createdAt).getTime() >
-          new Date(prev[0].createdAt).getTime();
-
-      if (hasNewTop) {
-        // 既存一覧は消さず、バナーで通知（押すと差し替え）
-        pendingRef.current = fresh;
-        setHasNew(true);
-      } else {
-        // 新着なし: いいね数・コメント数・削除などを裏で静かに反映
-        setPosts(fresh);
-      }
+      setPosts(fresh);
       setLoading(false);
+      void force;
     },
     [router]
   );
 
-  function showLatest() {
-    if (pendingRef.current) {
-      setPosts(pendingRef.current);
-      pendingRef.current = null;
-    }
-    setHasNew(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  // 初回マウント: キャッシュを即表示しつつ裏で最新取得
+  // 初回: キャッシュ即表示しつつ裏で取得
   useEffect(() => {
     const cached = readPostsCache();
-    const hasCache = !!(cached && cached.length);
-    if (hasCache) {
-      setPosts(cached!);
+    if (cached && cached.length) {
+      setPosts(cached);
       setLoading(false);
     }
-    refresh(!hasCache);
+    refresh(!(cached && cached.length));
 
-    // 自分のuserIdを取得
     fetch("/api/auth/check", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => c?.lineUserId && setCurrentUserId(c.lineUserId))
@@ -132,7 +111,6 @@ export default function TimelinePage() {
       });
       if (!res.ok) return;
       const { liked } = await res.json();
-
       const next = postsRef.current.map((p) => {
         if (p.postId !== postId) return p;
         const newLikes = liked
@@ -144,6 +122,34 @@ export default function TimelinePage() {
       writePostsCache(next);
     } catch {
       // ignore
+    }
+  }
+
+  async function submitPost() {
+    if (!draftBody.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: draftType, content: draftBody.trim(), tags: [] }),
+      });
+      if (res.ok) {
+        setComposeOpen(false);
+        setDraftBody("");
+        setDraftType("offer");
+        await refresh(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || "投稿に失敗しました");
+      }
+    } catch {
+      alert("通信エラーが発生しました");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -159,6 +165,7 @@ export default function TimelinePage() {
         const next = postsRef.current.filter((p) => p.postId !== postId);
         setPosts(next);
         writePostsCache(next);
+        closeAll();
       } else {
         const data = await res.json();
         alert(data.error || "削除に失敗しました");
@@ -168,216 +175,288 @@ export default function TimelinePage() {
     }
   }
 
-  const filtered =
-    activeTab === "all" ? posts : posts.filter((p) => p.type === activeTab);
+  function openPost(p: Post) {
+    setOpen(p);
+    setStep("detail");
+    setMsg("");
+  }
+  function startLine() {
+    if (!open) return;
+    const lead =
+      open.type === "offer"
+        ? "の投稿を拝見しました。ぜひお願いしたいです。"
+        : "の投稿を拝見しました。お力になれそうです。";
+    setMsg(`${open.authorName}さん、「${trim(open.content, 16)}」${lead}`);
+    setStep("line");
+  }
+  function closeAll() {
+    setOpen(null);
+    setStep("detail");
+    setMsg("");
+  }
+
+  const filtered = activeTab === "all" ? posts : posts.filter((p) => p.type === activeTab);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white pt-12 pb-0 px-5">
-        <h1 className="text-[17px] font-medium text-[#231714]">掲示板</h1>
-      </header>
-
-      {/* タブ */}
-      <div className="bg-white border-b border-gray-100 flex sticky top-0 z-10">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-3 text-xs font-medium text-center relative transition-colors ${
-              activeTab === tab.id
-                ? "text-[#A5C1C8]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-[20%] right-[20%] h-[2px] bg-[#A5C1C8] rounded-full" />
-            )}
-          </button>
-        ))}
+    <div className="min-h-screen pb-20" style={{ background: "#f3f5f6" }}>
+      {/* 見出し */}
+      <div className="px-5 pt-12 pb-2.5">
+        <h1 className="text-[22px] font-bold text-[#1c1f21]">掲示板</h1>
       </div>
 
-      {/* 新着バナー */}
-      {hasNew && (
-        <button
-          onClick={showLatest}
-          className="fixed top-[92px] left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[#A5C1C8] text-white text-xs font-medium shadow-lg flex items-center gap-1.5"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 11V3M3.5 6.5L7 3l3.5 3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          新しい投稿があります
-        </button>
-      )}
+      {/* タブ（下線） */}
+      <div className="flex gap-5 px-5 border-b border-[#eceff1] bg-[#f3f5f6] sticky top-0 z-10">
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative py-3 text-[14px] font-medium transition-colors ${
+                active ? "text-[#1c1f21]" : "text-[#97999d]"
+              }`}
+            >
+              {tab.label}
+              {active && <span className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full bg-[#a5c1c7]" />}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* 投稿一覧 */}
+      {/* 一覧 */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#a5c1c7] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="mb-3 text-gray-200">
-            <path d="M5 7h30a2 2 0 012 2v18a2 2 0 01-2 2H11l-6 6V9a2 2 0 012-2z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-            <path d="M12 16h16M12 21h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          <p className="text-sm text-gray-400">まだ投稿がありません</p>
-          <p className="text-xs text-gray-300 mt-1">最初の投稿をしてみましょう</p>
+          <p className="text-[14px] text-[#97999d]">まだ投稿がありません</p>
+          <p className="text-[12px] text-[#c3c7cc] mt-1">最初の投稿をしてみましょう</p>
         </div>
       ) : (
-        <div className="p-4 space-y-3">
+        <div className="px-5 pt-4 pb-7 flex flex-col gap-3">
           {filtered.map((post) => (
             <PostCard
               key={post.postId}
               post={post}
-              currentUserId={currentUserId}
+              liked={post.likes.includes(currentUserId)}
               onLike={() => toggleLike(post.postId)}
-              onClick={() => router.push(`/timeline/${post.postId}`)}
-              onDelete={() => handleDelete(post.postId)}
+              onOpen={() => openPost(post)}
             />
           ))}
         </div>
       )}
 
-      {/* 投稿FAB */}
+      {/* FAB */}
       <button
-        onClick={() => router.push("/timeline/new")}
-        className="fixed bottom-24 right-5 w-14 h-14 rounded-full bg-[#A5C1C8] text-white shadow-lg flex items-center justify-center hover:shadow-xl transition-shadow z-20"
+        onClick={() => {
+          setDraftType("offer");
+          setDraftBody("");
+          setComposeOpen(true);
+        }}
+        aria-label="投稿する"
+        className="fixed right-5 w-14 h-14 rounded-full text-white flex items-center justify-center z-20 active:scale-[0.92] transition-transform"
+        style={{ bottom: "calc(var(--bottom-nav-height) + 16px)", background: "#a5c1c7", boxShadow: "0 6px 16px rgba(28,31,33,.18)" }}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
+
+      {/* 新規投稿シート */}
+      <BottomSheet
+        open={composeOpen}
+        title="新規投稿"
+        onClose={() => setComposeOpen(false)}
+        footer={
+          <>
+            <SheetButton variant="secondary" onClick={() => setComposeOpen(false)}>キャンセル</SheetButton>
+            <SheetButton onClick={submitPost} disabled={!draftBody.trim() || submitting}>
+              {submitting ? "投稿中…" : "投稿する"}
+            </SheetButton>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3.5">
+          <div className="flex gap-1 p-1 rounded-xl bg-[#f6f8f9]">
+            {([
+              { id: "offer", label: "できます" },
+              { id: "request", label: "探してます" },
+            ] as const).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setDraftType(s.id)}
+                className={`flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                  draftType === s.id ? "bg-white text-[#1c1f21] shadow-sm" : "text-[#6d6f74]"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            rows={3}
+            value={draftBody}
+            onChange={(e) => setDraftBody(e.target.value)}
+            maxLength={500}
+            placeholder="いまできること・探していることを書こう"
+            style={{ fontSize: "16px" }}
+            className="w-full px-3 py-2.5 text-[15px] leading-relaxed text-[#1c1f21] bg-white rounded-[10px] border border-[#e4e7e9] focus:outline-none focus:border-[#a5c1c7] resize-none"
+          />
+        </div>
+      </BottomSheet>
+
+      {/* 投稿詳細シート */}
+      <BottomSheet
+        open={!!open && step === "detail"}
+        title="投稿の詳細"
+        onClose={closeAll}
+        footer={
+          <>
+            <SheetButton variant="secondary" onClick={closeAll}>閉じる</SheetButton>
+            <SheetButton line onClick={startLine}>LINEで連絡</SheetButton>
+          </>
+        }
+      >
+        {open && (
+          <div className="flex flex-col gap-3.5">
+            <PostHeader post={open} large />
+            <div className="text-[15px] text-[#40434a] leading-[1.75] whitespace-pre-wrap">{open.content}</div>
+            {open.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2.5">
+                {open.tags.map((t) => (
+                  <span key={t} className="text-[13px] font-medium text-[#3f7c98]">#{t}</span>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-[18px] pt-3 border-t border-[#eceff1]">
+              <StatIcon kind="heart" count={open.likes.length} active={open.likes.includes(currentUserId)} />
+              <StatIcon kind="comment" count={open.commentCount} />
+            </div>
+            {currentUserId && open.authorId === currentUserId && (
+              <button
+                onClick={() => handleDelete(open.postId)}
+                className="self-start text-[12px] text-[#d82328] mt-1"
+              >
+                この投稿を削除
+              </button>
+            )}
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* LINE連絡シート */}
+      <LineComposeSheet
+        open={!!open && step === "line"}
+        name={open?.authorName ?? ""}
+        photo={open?.authorPictureUrl}
+        subtitle="この投稿についてLINEで連絡します"
+        value={msg}
+        onChange={setMsg}
+        onBack={() => setStep("detail")}
+        onSend={() => setStep("sent")}
+      />
+
+      {/* 送信完了シート */}
+      <LineSentSheet open={!!open && step === "sent"} name={open?.authorName ?? ""} onClose={closeAll} />
     </div>
   );
 }
 
+/* ── 投稿ヘッダー（アバター + 氏名 + 状態バッジ + 時刻） ── */
+function PostHeader({ post, large }: { post: Post; large?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar src={post.authorPictureUrl} name={post.authorName} size={large ? "md" : "sm"} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className={`font-bold text-[#1c1f21] ${large ? "text-[16px]" : "text-[15px]"}`}>{post.authorName}</span>
+          <StatusBadge type={post.type} />
+        </div>
+        <div className="text-[12px] text-[#97999d]">{getRelativeTime(post.createdAt)}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ type }: { type: "offer" | "request" }) {
+  const offer = type === "offer";
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold"
+      style={offer ? { background: "#eef4dd", color: "#6f9023" } : { background: "#eef4f5", color: "#5f7a80" }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: offer ? "#8aab36" : "#a5c1c7" }} />
+      {offer ? "できます" : "探してます"}
+    </span>
+  );
+}
+
+/* ── 投稿カード ── */
 function PostCard({
   post,
-  currentUserId,
+  liked,
   onLike,
-  onClick,
-  onDelete,
+  onOpen,
 }: {
   post: Post;
-  currentUserId: string;
+  liked: boolean;
   onLike: () => void;
-  onClick: () => void;
-  onDelete: () => void;
+  onOpen: () => void;
 }) {
-  const liked = post.likes.includes(currentUserId);
-  const isOwner = currentUserId === post.authorId;
-  const timeAgo = getRelativeTime(post.createdAt);
-
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <button onClick={onClick} className="w-full text-left p-4 pb-2">
-        {/* ヘッダー */}
-        <div className="flex items-center gap-2.5 mb-2">
-          {post.authorPictureUrl ? (
-            <img
-              src={post.authorPictureUrl}
-              alt=""
-              className="w-9 h-9 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
-                <path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
-              </svg>
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-[#231714] truncate">
-              {post.authorName}
-            </p>
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  post.type === "offer"
-                    ? "bg-[#B0E401]/15 text-[#7A9E00]"
-                    : "bg-[#F5A623]/15 text-[#C4841D]"
-                }`}
-              >
-                {post.type === "offer" ? "できます" : "探してます"}
-              </span>
-              <span className="text-[10px] text-gray-300">{timeAgo}</span>
-            </div>
-          </div>
+    <div
+      onClick={onOpen}
+      className="bg-white rounded-[18px] p-4 cursor-pointer active:scale-[0.99] transition-transform"
+      style={{ boxShadow: "0 1px 3px rgba(28,31,33,.05), 0 6px 16px rgba(28,31,33,.05)" }}
+    >
+      <PostHeader post={post} />
+      <div className="text-[15px] text-[#40434a] leading-[1.7] mt-2.5 whitespace-pre-wrap line-clamp-4">
+        {post.content}
+      </div>
+      {post.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2.5 mt-2">
+          {post.tags.map((t) => (
+            <span key={t} className="text-[13px] font-medium text-[#3f7c98]">#{t}</span>
+          ))}
         </div>
-
-        {/* 本文 */}
-        <p className="text-[13px] text-[#231714] leading-relaxed whitespace-pre-wrap line-clamp-4">
-          {post.content}
-        </p>
-
-        {/* タグ */}
-        {post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {post.tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-[10px] text-[#A5C1C8] px-1.5 py-0.5"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </button>
-
-      {/* アクションバー */}
-      <div className="flex items-center border-t border-gray-50 px-4 py-2">
+      )}
+      <div className="flex items-center gap-[18px] mt-3">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onLike();
           }}
-          className="flex items-center gap-1.5 mr-5"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill={liked ? "#F56565" : "none"}>
-            <path
-              d="M8 14s-5.5-3.5-5.5-7A3 3 0 018 4.5 3 3 0 0113.5 7C13.5 10.5 8 14 8 14z"
-              stroke={liked ? "#F56565" : "#ccc"}
-              strokeWidth="1.2"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className={`text-[11px] ${liked ? "text-red-400" : "text-gray-400"}`}>
-            {post.likes.length}
-          </span>
+          <StatIcon kind="heart" count={post.likes.length} active={liked} />
         </button>
-        <button
-          onClick={onClick}
-          className="flex items-center gap-1.5"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V4a1 1 0 011-1z"
-              stroke="#ccc"
-              strokeWidth="1.2"
-              strokeLinejoin="round"
-            />
+        <StatIcon kind="comment" count={post.commentCount} />
+        <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-[#97999d]">
+          詳細
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 6l6 6-6 6" />
           </svg>
-          <span className="text-[11px] text-gray-400">{post.commentCount}</span>
-        </button>
-        {isOwner && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="flex items-center gap-1 ml-auto"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path d="M3 5h10M6 5V3.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V5M5 5v8.5a.5.5 0 00.5.5h5a.5.5 0 00.5-.5V5" stroke="#ccc" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="text-[11px] text-gray-300">削除</span>
-          </button>
-        )}
+        </span>
       </div>
     </div>
+  );
+}
+
+function StatIcon({ kind, count, active }: { kind: "heart" | "comment"; count: number; active?: boolean }) {
+  const color = active ? "#e5484d" : "#6d6f74";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color }}>
+      {kind === "heart" ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "#e5484d" : "none"} stroke={active ? "#e5484d" : "#97999d"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.5 1.2 5.5 3.5 2-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#97999d" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12a8 8 0 01-11.5 7.2L4 20l1.2-4.5A8 8 0 1121 12z" />
+        </svg>
+      )}
+      <span>{count}</span>
+    </span>
   );
 }
 
@@ -390,8 +469,5 @@ function getRelativeTime(isoString: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}時間前`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}日前`;
-  return new Date(isoString).toLocaleDateString("ja-JP", {
-    month: "short",
-    day: "numeric",
-  });
+  return new Date(isoString).toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
 }
