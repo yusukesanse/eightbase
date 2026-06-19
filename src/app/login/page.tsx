@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { initLiff } from "@/lib/liff";
+import { initLiff, runLiffServerLogin } from "@/lib/liff";
 import { clearAuthCache } from "@/components/AuthGuard";
 
 /**
@@ -66,70 +66,36 @@ export default function LoginPage() {
 
     async function tryLiffLogin() {
       try {
-        const liff = await initLiff();
-        if (cancelled) return;
-
-        const isInClient = liff.isInClient();
-
-        if (!liff.isLoggedIn()) {
-          if (isInClient) {
-            setMessage("LINEログイン中...");
-            liff.login({ redirectUri: window.location.href });
-            return;
-          }
-          setStatus("no-access");
-          return;
-        }
-
-        // LINE ログイン済み → LIFF ログイン API
-        setStatus("liff-login");
+        // `/` と共通の LIFF→サーバーセッション発行フロー
         setMessage("認証中...");
-
-        const accessToken = liff.getAccessToken();
-        if (!accessToken) {
-          setStatus("no-access");
-          return;
-        }
-
-        // クライアント側でプロフィールを取得（サーバー側 LINE API 失敗時のフォールバック）
-        let liffProfile: { userId?: string; displayName?: string; pictureUrl?: string } = {};
-        try {
-          const p = await liff.getProfile();
-          liffProfile = { userId: p.userId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" };
-        } catch (e) {
-          console.warn("[LoginPage] liff.getProfile() failed:", e);
-        }
-
-        const res = await fetch("/api/auth/liff-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken, liffProfile }),
-          credentials: "include",
-        });
-
+        const result = await runLiffServerLogin();
         if (cancelled) return;
 
-        const data = await res.json();
-
-        if (data.success) {
-          // 連携済み → プロフィール完了チェック
-          clearAuthCache();
-          if (data.profileComplete) {
-            router.replace("/reservation");
-          } else {
-            router.replace("/setup-profile");
-          }
-        } else if (data.needsLinking) {
-          // 未連携 → メール+パスワードフォーム表示
-          setLineInfo({
-            lineUserId: data.lineUserId,
-            displayName: data.displayName,
-            pictureUrl: data.pictureUrl || "",
-          });
-          setStatus("needs-linking");
-        } else {
-          if (data.error) setMessage(data.error);
-          setStatus("no-access");
+        switch (result.kind) {
+          case "redirecting":
+            setStatus("liff-login");
+            setMessage("LINEログイン中...");
+            return;
+          case "needs-line-login":
+            setStatus("no-access");
+            return;
+          case "linked":
+            // セッション切替後は表示キャッシュを破棄。プロフィール未完了は /setup-profile へ
+            clearAuthCache();
+            router.replace(result.profileComplete ? "/reservation" : "/setup-profile");
+            return;
+          case "needs-linking":
+            setLineInfo({
+              lineUserId: result.lineUserId,
+              displayName: result.displayName,
+              pictureUrl: result.pictureUrl || "",
+            });
+            setStatus("needs-linking");
+            return;
+          case "no-access":
+            if (result.error) setMessage(result.error);
+            setStatus("no-access");
+            return;
         }
       } catch (err) {
         console.error("[LoginPage] LIFF error:", err);

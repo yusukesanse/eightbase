@@ -4,7 +4,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { initLiff } from "@/lib/liff";
+import { runLiffServerLogin } from "@/lib/liff";
+import { clearAuthCache } from "@/components/AuthGuard";
 
 // ── 柴犬ドット絵ゲーム コンポーネント ──
 function ShibaGame() {
@@ -210,54 +211,29 @@ export default function HomePage() {
 
     async function boot() {
       try {
-        // ── Step 1: LIFF SDK 初期化 ──
-        const liff = await initLiff();
-        if (cancelled) return;
-
-        // ── Step 2: LINE ログイン状態確認 ──
-        if (!liff.isLoggedIn()) {
-          setStatusText("LINEログイン中...");
-          liff.login({ redirectUri: window.location.href });
-          return;
-        }
-
-        // ── Step 3: LIFF アクセストークンでサーバーセッション作成 ──
+        // `/` と `/login` で共通の LIFF→サーバーセッション発行フロー
         setStatusText("認証中...");
-        const accessToken = liff.getAccessToken();
-
-        if (!accessToken) {
-          setStatusText("アクセストークンを取得できませんでした");
-          setPhase("error");
-          return;
-        }
-
-        // クライアント側でプロフィールを取得（サーバー側 LINE API 失敗時のフォールバック）
-        let liffProfile: { userId?: string; displayName?: string; pictureUrl?: string } = {};
-        try {
-          const p = await liff.getProfile();
-          liffProfile = { userId: p.userId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" };
-        } catch (e) {
-          console.warn("[HomePage] liff.getProfile() failed:", e);
-        }
-
-        const res = await fetch("/api/auth/liff-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken, liffProfile }),
-          credentials: "include",
-        });
-
+        const result = await runLiffServerLogin();
         if (cancelled) return;
 
-        if (res.ok) {
-          const data = await res.json().catch(() => ({}));
-          if (data.success) {
-            router.replace("/reservation");
-          } else {
+        switch (result.kind) {
+          case "redirecting":
+            setStatusText("LINEログイン中...");
+            return;
+          case "linked":
+            // セッションが切り替わったので表示キャッシュを破棄し、
+            // プロフィール未完了なら直接 /setup-profile へ（/reservation との往復を防ぐ）
+            clearAuthCache();
+            router.replace(result.profileComplete ? "/reservation" : "/setup-profile");
+            return;
+          case "needs-linking":
+            // 招待済み・未連携 → OTP 入力のあるログイン画面へ
+            router.replace("/login");
+            return;
+          case "needs-line-login":
+          case "no-access":
             setPhase("no-account");
-          }
-        } else {
-          setPhase("no-account");
+            return;
         }
       } catch (err) {
         console.error("[HomePage] boot error:", err);

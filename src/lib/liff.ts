@@ -21,33 +21,56 @@ const LIFF_ID_MAP: Record<string, string | undefined> = {
   prod: process.env.NEXT_PUBLIC_LIFF_ID_PROD,
 };
 
-/** env パラメータがない場合のデフォルト環境 */
-const DEFAULT_ENV = "dev";
+type LiffEnv = "dev" | "review" | "prod";
+
+/** env を判定できない場合のデフォルト（SSR時のみ使用） */
+const DEFAULT_ENV: LiffEnv = "dev";
 
 /**
- * 現在の URL の ?env= クエリパラメータから環境を判定し、
- * 対応する LIFF ID を返す。
+ * 環境を判定する。
+ * 1. URL の ?env= が dev/review/prod のいずれかなら最優先（チャネル別エンドポイントの明示指定）。
+ * 2. なければホスト名から推定する:
+ *      localhost / 127.0.0.1 / *.local → dev
+ *      *.vercel.app（プレビュー）       → review
+ *      それ以外（本番ドメイン）          → prod
+ * これにより ?env を付け忘れた本番URLで dev 用 LIFF ID が使われるのを防ぐ。
+ */
+function detectEnv(): LiffEnv {
+  if (typeof window === "undefined") return DEFAULT_ENV;
+
+  const explicit = new URLSearchParams(window.location.search).get("env");
+  if (explicit === "dev" || explicit === "review" || explicit === "prod") {
+    return explicit;
+  }
+
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".local")) {
+    return "dev";
+  }
+  if (host.endsWith(".vercel.app")) {
+    return "review";
+  }
+  return "prod";
+}
+
+/**
+ * 判定した環境に対応する LIFF ID を返す。
+ * prod 環境では dev 用 LIFF ID へフォールバックしない（本番で dev LIFF ID を使わない）。
  */
 function detectLiffId(): string {
-  if (typeof window === "undefined") {
-    const id = LIFF_ID_MAP[DEFAULT_ENV];
-    if (!id) throw new Error("[LIFF] NEXT_PUBLIC_LIFF_ID is not set");
-    return id;
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const env = params.get("env") || DEFAULT_ENV;
+  const env = detectEnv();
   const liffId = LIFF_ID_MAP[env];
+  if (liffId) return liffId;
 
-  if (!liffId) {
-    console.error(`[LIFF] No LIFF ID configured for env="${env}". Check environment variables.`);
-    // フォールバック: dev 用を試す
-    const fallback = LIFF_ID_MAP[DEFAULT_ENV];
-    if (!fallback) throw new Error("[LIFF] No LIFF ID configured. Set NEXT_PUBLIC_LIFF_ID in environment variables.");
-    return fallback;
+  // dev/review は未設定時に dev 用へフォールバック可。prod はフォールバックさせない。
+  if (env !== "prod") {
+    const devId = LIFF_ID_MAP.dev;
+    if (devId) {
+      console.warn(`[LIFF] env="${env}" の LIFF ID 未設定のため dev 用にフォールバックします。`);
+      return devId;
+    }
   }
-
-  return liffId;
+  throw new Error(`[LIFF] No LIFF ID configured for env="${env}". 環境変数を確認してください。`);
 }
 
 /**
@@ -104,6 +127,84 @@ export async function loginWithLine(): Promise<void> {
   if (!liff.isLoggedIn()) {
     liff.login({ redirectUri: window.location.href });
   }
+}
+
+/** /api/auth/liff-login のレスポンス形 */
+interface LiffLoginApiResponse {
+  success?: boolean;
+  profileComplete?: boolean;
+  needsLinking?: boolean;
+  lineUserId?: string;
+  displayName?: string;
+  pictureUrl?: string;
+  error?: string;
+}
+
+export type LiffLoginResult =
+  | { kind: "redirecting" } // LINE ログインへリダイレクトした
+  | { kind: "needs-line-login" } // 外部ブラウザ等でログイン不可
+  | { kind: "linked"; profileComplete: boolean } // サーバーセッション発行済み
+  | { kind: "needs-linking"; lineUserId: string; displayName: string; pictureUrl: string }
+  | { kind: "no-access"; error?: string };
+
+/**
+ * LIFF を初期化し、LINE ログイン状態を確認して /api/auth/liff-login で
+ * サーバーセッションを発行する共通フロー（`/` と `/login` で共用）。
+ *
+ * - LINE 未ログイン & LINE アプリ内 → LINE ログインへリダイレクト（"redirecting"）
+ * - LINE 未ログイン & 外部ブラウザ → "needs-line-login"
+ * - セッション発行成功 → "linked"（profileComplete 付き）
+ * - 招待済みだが未連携 → "needs-linking"（OTP 入力へ）
+ * - それ以外 → "no-access"
+ *
+ * セッション切替後の表示キャッシュ破棄（clearAuthCache）と画面遷移は呼び出し側で行う。
+ */
+export async function runLiffServerLogin(): Promise<LiffLoginResult> {
+  const liff = await initLiff();
+
+  if (!liff.isLoggedIn()) {
+    if (liff.isInClient()) {
+      liff.login({ redirectUri: window.location.href });
+      return { kind: "redirecting" };
+    }
+    return { kind: "needs-line-login" };
+  }
+
+  const accessToken = liff.getAccessToken();
+  if (!accessToken) {
+    return { kind: "no-access", error: "アクセストークンを取得できませんでした" };
+  }
+
+  // クライアント側プロフィール（サーバー側 LINE API 失敗時のフォールバック）
+  let liffProfile: { userId?: string; displayName?: string; pictureUrl?: string } = {};
+  try {
+    const p = await liff.getProfile();
+    liffProfile = { userId: p.userId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" };
+  } catch (e) {
+    console.warn("[liff] getProfile() failed:", e);
+  }
+
+  const res = await fetch("/api/auth/liff-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken, liffProfile }),
+    credentials: "include",
+  });
+
+  const data: LiffLoginApiResponse = await res.json().catch(() => ({}));
+
+  if (res.ok && data.success) {
+    return { kind: "linked", profileComplete: !!data.profileComplete };
+  }
+  if (data.needsLinking) {
+    return {
+      kind: "needs-linking",
+      lineUserId: data.lineUserId ?? "",
+      displayName: data.displayName ?? "",
+      pictureUrl: data.pictureUrl ?? "",
+    };
+  }
+  return { kind: "no-access", error: data.error };
 }
 
 /**
