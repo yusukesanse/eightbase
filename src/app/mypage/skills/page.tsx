@@ -4,11 +4,21 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES, ALL_PRESET_SKILLS } from "@/types";
 
+interface SocialLinks {
+  instagram: string;
+  x: string;
+  facebook: string;
+  other: string;
+}
+
 interface SkillsData {
   skills: string[];
   catchphrase: string;
   companyUrl: string;
+  socialLinks?: Partial<SocialLinks>;
 }
+
+const EMPTY_SOCIAL: SocialLinks = { instagram: "", x: "", facebook: "", other: "" };
 
 export default function SkillsSettingsPage() {
   const router = useRouter();
@@ -18,6 +28,7 @@ export default function SkillsSettingsPage() {
   const [customSkill, setCustomSkill] = useState("");
   const [catchphrase, setCatchphrase] = useState("");
   const [companyUrl, setCompanyUrl] = useState("");
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>(EMPTY_SOCIAL);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,6 +43,12 @@ export default function SkillsSettingsPage() {
         setSelectedSkills(data.skills || []);
         setCatchphrase(data.catchphrase || "");
         setCompanyUrl(data.companyUrl || "");
+        setSocialLinks({
+          instagram: data.socialLinks?.instagram || "",
+          x: data.socialLinks?.x || "",
+          facebook: data.socialLinks?.facebook || "",
+          other: data.socialLinks?.other || "",
+        });
       } catch {
         router.replace("/login");
       } finally {
@@ -64,7 +81,7 @@ export default function SkillsSettingsPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skills: selectedSkills, catchphrase, companyUrl }),
+        body: JSON.stringify({ skills: selectedSkills, catchphrase, companyUrl, socialLinks }),
       });
       if (res.ok) {
         router.push("/mypage");
@@ -210,6 +227,54 @@ export default function SkillsSettingsPage() {
           className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
         />
         <p className="text-[10px] text-gray-300 mt-1">URLを登録すると、メンバーページからあなたの事業が見つけやすくなります</p>
+      </div>
+
+      {/* SNS・リンク */}
+      <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
+        <label className="block text-[12px] text-[#231714]/50 mb-2">SNS・リンク</label>
+        <p className="text-[10px] text-gray-300 mb-3">メンバーとの交流のきっかけになります</p>
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="w-8 text-center text-sm">𝕏</span>
+            <input
+              type="text"
+              value={socialLinks.x}
+              onChange={(e) => setSocialLinks((p) => ({ ...p, x: e.target.value }))}
+              placeholder="@username"
+              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-8 text-center text-[13px]">IG</span>
+            <input
+              type="text"
+              value={socialLinks.instagram}
+              onChange={(e) => setSocialLinks((p) => ({ ...p, instagram: e.target.value }))}
+              placeholder="@username"
+              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-8 text-center text-[13px]">FB</span>
+            <input
+              type="text"
+              value={socialLinks.facebook}
+              onChange={(e) => setSocialLinks((p) => ({ ...p, facebook: e.target.value }))}
+              placeholder="https://facebook.com/..."
+              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-8 text-center text-[11px] text-[#231714]/40">他</span>
+            <input
+              type="text"
+              value={socialLinks.other}
+              onChange={(e) => setSocialLinks((p) => ({ ...p, other: e.target.value }))}
+              placeholder="その他のURL"
+              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+            />
+          </div>
+        </div>
       </div>
 
       {/* 保存ボタン */}

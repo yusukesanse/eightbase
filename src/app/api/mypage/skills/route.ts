@@ -6,10 +6,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mypage/skills
- * スキル・キャッチコピー・会社URLを保存する。
+ * スキル・キャッチコピー・会社URL・SNSを保存する。
  * users.memberProfile と authorizedUsers.profile の両方に同期。
  *
- * Body: { skills: string[], catchphrase: string, companyUrl?: string }
+ * Body: { skills: string[], catchphrase: string, companyUrl?: string,
+ *         socialLinks?: { instagram?, x?, facebook?, other? } }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    const { skills, catchphrase, companyUrl } = await req.json();
+    const { skills, catchphrase, companyUrl, socialLinks } = await req.json();
 
     if (!Array.isArray(skills)) {
       return NextResponse.json({ error: "skills は配列で指定してください" }, { status: 400 });
@@ -38,6 +39,17 @@ export async function POST(req: NextRequest) {
     const cleanCompanyUrl =
       typeof companyUrl === "string" ? companyUrl.trim() : "";
 
+    // SNS（入力された項目のみ保持。各200文字まで）
+    const cleanSocialLinks: Record<string, string> = {};
+    if (socialLinks && typeof socialLinks === "object") {
+      for (const key of ["instagram", "x", "facebook", "other"] as const) {
+        const v = (socialLinks as Record<string, unknown>)[key];
+        if (typeof v === "string" && v.trim()) {
+          cleanSocialLinks[key] = v.trim().slice(0, 200);
+        }
+      }
+    }
+
     const db = getDb();
     const now = new Date().toISOString();
 
@@ -53,6 +65,7 @@ export async function POST(req: NextRequest) {
           skills: cleanSkills,
           catchphrase: cleanCatchphrase,
           companyUrl: cleanCompanyUrl,
+          socialLinks: cleanSocialLinks,
         },
         updatedAt: now,
       },
