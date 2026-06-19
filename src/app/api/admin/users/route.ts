@@ -99,12 +99,16 @@ export async function GET(req: NextRequest) {
 
     // users コレクションから LINE プロフィール画像を取得
     const usersSnap = await db.collection("users").get();
-    const usersMap: Record<string, { pictureUrl?: string; lineDisplayName?: string }> = {};
+    const usersMap: Record<
+      string,
+      { pictureUrl?: string | null; lineDisplayName?: string | null; memberProfile?: Record<string, unknown> | null }
+    > = {};
     usersSnap.docs.forEach((doc) => {
       const d = doc.data();
       usersMap[doc.id] = {
         pictureUrl: d.pictureUrl ?? null,
         lineDisplayName: d.lineDisplayName ?? d.displayName ?? null,
+        memberProfile: d.memberProfile ?? null,
       };
     });
 
@@ -139,6 +143,7 @@ export async function GET(req: NextRequest) {
         profile: d.profile ?? null,
         pictureUrl: lineData?.pictureUrl ?? null,
         lineDisplayName: lineData?.lineDisplayName ?? null,
+        memberProfile: lineData?.memberProfile ?? null,
         createdAt: d.createdAt,
         lastLoginAt: d.lastLoginAt ?? null,
         profileUpdatedAt: d.profileUpdatedAt ?? null,

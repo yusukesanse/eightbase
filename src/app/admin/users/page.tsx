@@ -5,15 +5,26 @@ import dayjs from "dayjs";
 
 /* ─── 型定義 ─── */
 
+interface SocialLinksData {
+  instagram?: string;
+  x?: string;
+  facebook?: string;
+  other?: string;
+}
+
 interface UserProfile {
   lastName: string;
   firstName: string;
   lastNameKana: string;
   firstNameKana: string;
+  email?: string;
   phone: string;
   birthday: string;
   gender: string;
-  occupation: string;
+  companyName?: string;
+  jobTitle?: string;
+  industry?: string;
+  occupation?: string; // 旧データ（後方互換）
   purpose: string;
   postalCode: string;
   prefecture: string;
@@ -21,6 +32,23 @@ interface UserProfile {
   address: string;
   building: string;
   addressType: string;
+  companyUrl?: string;
+  bio?: string;
+  lineUrl?: string;
+  socialLinks?: SocialLinksData;
+}
+
+/** users.memberProfile（スキル・キャッチコピー等。LINE連携ユーザーのみ） */
+interface MemberProfileData {
+  skills?: string[];
+  catchphrase?: string;
+  companyName?: string;
+  jobTitle?: string;
+  industry?: string;
+  companyUrl?: string;
+  bio?: string;
+  socialLinks?: SocialLinksData;
+  lineUrl?: string;
 }
 
 interface User {
@@ -32,6 +60,7 @@ interface User {
   active: boolean;
   profileComplete: boolean;
   profile: UserProfile | null;
+  memberProfile: MemberProfileData | null;
   pictureUrl: string | null;
   lineDisplayName: string | null;
   createdAt: string;
@@ -119,6 +148,27 @@ function UserDetailPanel({
   onDelete: (user: User) => void;
 }) {
   const p = user.profile;
+  const mp = user.memberProfile;
+
+  // profile（authorizedUsers）優先、memberProfile（users）/旧occupation でフォールバック
+  const companyName = p?.companyName || p?.occupation || mp?.companyName || "";
+  const jobTitle = p?.jobTitle || mp?.jobTitle || "";
+  const industry = p?.industry || mp?.industry || "";
+  const companyUrl = p?.companyUrl || mp?.companyUrl || "";
+  const bio = p?.bio || mp?.bio || "";
+  const lineUrl = p?.lineUrl || mp?.lineUrl || "";
+  const catchphrase = mp?.catchphrase || "";
+  const skills = mp?.skills || [];
+  const sns = p?.socialLinks || mp?.socialLinks || {};
+  const snsText =
+    [
+      sns.x && `X: ${sns.x}`,
+      sns.instagram && `Instagram: ${sns.instagram}`,
+      sns.facebook && `Facebook: ${sns.facebook}`,
+      sns.other && `その他: ${sns.other}`,
+    ]
+      .filter(Boolean)
+      .join("  /  ") || "";
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-end z-50">
@@ -163,7 +213,7 @@ function UserDetailPanel({
                   {p.lastNameKana} {p.firstNameKana}
                 </p>
               )}
-              <p className="text-sm text-[#231714]/60 mt-1">{p?.occupation || user.tenantName || "—"}</p>
+              <p className="text-sm text-[#231714]/60 mt-1">{[companyName, jobTitle].filter(Boolean).join(" / ") || user.tenantName || "—"}</p>
 
               <div className="flex items-center gap-2 mt-3">
                 <Badge active={user.active} />
@@ -235,8 +285,28 @@ function UserDetailPanel({
             <div className="bg-[#231714]/[0.02] rounded-xl px-4">
               <InfoRow label="生年月日" value={p?.birthday ? dayjs(p.birthday).format("YYYY年M月D日") : null} />
               <InfoRow label="性別" value={p?.gender ? GENDER_LABELS[p.gender] || p.gender : null} />
-              <InfoRow label="職業・会社名" value={p?.occupation} />
+              <InfoRow label="会社名・屋号" value={companyName} />
+              <InfoRow label="職種" value={jobTitle} />
+              <InfoRow label="業種" value={industry} />
               <InfoRow label="利用目的" value={p?.purpose} />
+            </div>
+          </section>
+
+          {/* プロフィール・スキル */}
+          <section>
+            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1.5l1.6 3.3 3.6.5-2.6 2.5.6 3.6L7 9.7 3.8 11.4l.6-3.6L1.8 5.3l3.6-.5L7 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
+              </svg>
+              プロフィール・スキル
+            </h3>
+            <div className="bg-[#231714]/[0.02] rounded-xl px-4">
+              <InfoRow label="キャッチコピー" value={catchphrase} />
+              <InfoRow label="スキル" value={skills.length > 0 ? skills.join("、") : null} />
+              <InfoRow label="自己紹介" value={bio} />
+              <InfoRow label="会社URL" value={companyUrl} />
+              <InfoRow label="SNS" value={snsText || null} />
+              <InfoRow label="LINE連絡先" value={lineUrl} />
             </div>
           </section>
 
@@ -379,7 +449,7 @@ export default function AdminUsersPage() {
         p?.phone ?? "",
         p?.birthday ?? "",
         p?.gender ? (GENDER_LABELS[p.gender] || p.gender) : "",
-        p?.occupation ?? u.tenantName ?? "",
+        [p?.companyName || p?.occupation, p?.jobTitle].filter(Boolean).join(" / ") || u.tenantName || "",
         p?.purpose ?? "",
         p?.addressType ? (ADDRESS_TYPE_LABELS[p.addressType] || p.addressType) : "",
         p?.postalCode ?? "",
@@ -431,6 +501,8 @@ export default function AdminUsersPage() {
           u.email.toLowerCase().includes(q) ||
           (u.tenantName && u.tenantName.toLowerCase().includes(q)) ||
           (u.profile?.phone && u.profile.phone.includes(q)) ||
+          (u.profile?.companyName && u.profile.companyName.toLowerCase().includes(q)) ||
+          (u.profile?.jobTitle && u.profile.jobTitle.toLowerCase().includes(q)) ||
           (u.profile?.occupation && u.profile.occupation.toLowerCase().includes(q))
       );
     }
@@ -814,7 +886,7 @@ export default function AdminUsersPage() {
                         )}
                         <div>
                           <p className="font-medium text-[#231714]">{user.displayName}</p>
-                          <p className="text-xs text-[#231714]/40">{user.profile?.occupation || user.tenantName || "—"}</p>
+                          <p className="text-xs text-[#231714]/40">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
                         </div>
                       </div>
                     </td>
