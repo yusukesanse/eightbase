@@ -38,7 +38,20 @@ export default function TimelinePage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [draftType, setDraftType] = useState<"offer" | "request">("offer");
   const [draftBody, setDraftBody] = useState("");
+  const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  function addTag() {
+    const t = tagInput.trim();
+    if (t && !draftTags.includes(t) && draftTags.length < 5) {
+      setDraftTags((prev) => [...prev, t]);
+      setTagInput("");
+    }
+  }
+  function removeTag(t: string) {
+    setDraftTags((prev) => prev.filter((x) => x !== t));
+  }
 
   // 詳細 → LINE連絡フロー
   const [open, setOpen] = useState<Post | null>(null);
@@ -134,12 +147,14 @@ export default function TimelinePage() {
         credentials: "include",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: draftType, content: draftBody.trim(), tags: [] }),
+        body: JSON.stringify({ type: draftType, content: draftBody.trim(), tags: draftTags }),
       });
       if (res.ok) {
         setComposeOpen(false);
         setDraftBody("");
         setDraftType("offer");
+        setDraftTags([]);
+        setTagInput("");
         await refresh(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -252,6 +267,8 @@ export default function TimelinePage() {
         onClick={() => {
           setDraftType("offer");
           setDraftBody("");
+          setDraftTags([]);
+          setTagInput("");
           setComposeOpen(true);
         }}
         aria-label="投稿する"
@@ -303,6 +320,51 @@ export default function TimelinePage() {
             style={{ fontSize: "16px" }}
             className="w-full px-3 py-2.5 text-[15px] leading-relaxed text-[#1c1f21] bg-white rounded-[10px] border border-[#e4e7e9] focus:outline-none focus:border-[#a5c1c7] resize-none"
           />
+
+          {/* タグ（最大5個） */}
+          <div>
+            <p className="text-[12px] text-[#6d6f74] mb-2">タグ（最大5個）</p>
+            {draftTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {draftTags.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => removeTag(t)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] rounded-full bg-[#eef4f5] text-[#5f7a80]"
+                  >
+                    #{t}
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="#5f7a80" strokeWidth="1.3" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+            {draftTags.length < 5 && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTag();
+                    }
+                  }}
+                  placeholder="タグを入力"
+                  className="flex-1 px-3 py-2 text-[13px] bg-white rounded-[10px] border border-[#e4e7e9] focus:outline-none focus:border-[#a5c1c7]"
+                />
+                <button
+                  onClick={addTag}
+                  disabled={!tagInput.trim()}
+                  className="px-3.5 py-2 text-[12px] rounded-[10px] bg-[#f6f8f9] text-[#40434a] disabled:opacity-40"
+                >
+                  追加
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </BottomSheet>
 
@@ -330,8 +392,7 @@ export default function TimelinePage() {
               </div>
             )}
             <div className="flex items-center gap-[18px] pt-3 border-t border-[#eceff1]">
-              <StatIcon kind="heart" count={open.likes.length} active={open.likes.includes(currentUserId)} />
-              <StatIcon kind="comment" count={open.commentCount} />
+              <LikeStat count={open.likes.length} active={open.likes.includes(currentUserId)} />
             </div>
             {currentUserId && open.authorId === currentUserId && (
               <button
@@ -428,9 +489,8 @@ function PostCard({
             onLike();
           }}
         >
-          <StatIcon kind="heart" count={post.likes.length} active={liked} />
+          <LikeStat count={post.likes.length} active={liked} />
         </button>
-        <StatIcon kind="comment" count={post.commentCount} />
         <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-[#97999d]">
           詳細
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -442,19 +502,13 @@ function PostCard({
   );
 }
 
-function StatIcon({ kind, count, active }: { kind: "heart" | "comment"; count: number; active?: boolean }) {
+function LikeStat({ count, active }: { count: number; active?: boolean }) {
   const color = active ? "#e5484d" : "#6d6f74";
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color }}>
-      {kind === "heart" ? (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "#e5484d" : "none"} stroke={active ? "#e5484d" : "#97999d"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.5 1.2 5.5 3.5 2-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z" />
-        </svg>
-      ) : (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#97999d" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12a8 8 0 01-11.5 7.2L4 20l1.2-4.5A8 8 0 1121 12z" />
-        </svg>
-      )}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "#e5484d" : "none"} stroke={active ? "#e5484d" : "#97999d"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.5 1.2 5.5 3.5 2-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z" />
+      </svg>
       <span>{count}</span>
     </span>
   );
