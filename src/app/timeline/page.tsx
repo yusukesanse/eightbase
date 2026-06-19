@@ -1,20 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
-interface Post {
-  postId: string;
-  authorId: string;
-  authorName: string;
-  authorPictureUrl: string;
-  type: "offer" | "request";
-  content: string;
-  tags: string[];
-  likes: string[];
-  commentCount: number;
-  createdAt: string;
-}
+import {
+  type CachedPost as Post,
+  readPostsCache,
+  writePostsCache,
+} from "@/lib/timelineCache";
 
 const TABS = [
   { id: "all", label: "すべて" },
@@ -28,58 +20,128 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [currentUserId, setCurrentUserId] = useState("");
+  const [hasNew, setHasNew] = useState(false);
+
+  // 表示中の一覧を同期参照するためのref（再取得時の比較に使う）
+  const postsRef = useRef<Post[]>([]);
+  // 新着がある場合に差し替え待ちの最新一覧を保持
+  const pendingRef = useRef<Post[] | null>(null);
 
   useEffect(() => {
-    loadPosts();
-    // 自分のuserIdを取得
-    fetch("/api/mypage", { credentials: "include" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => {
-        if (d) {
-          // mypage APIからは lineUserId が直接取れないので auth/check を使う
-          fetch("/api/auth/check", { credentials: "include" })
-            .then((r) => r.json())
-            .then((c) => c.lineUserId && setCurrentUserId(c.lineUserId));
-        }
-      })
-      .catch(() => {});
-  }, []);
+    postsRef.current = posts;
+  }, [posts]);
 
-  async function loadPosts() {
-    try {
-      const res = await fetch("/api/posts", { credentials: "include" });
-      if (res.status === 401) {
-        router.replace("/login");
+  // 最新一覧を取得して、状況に応じて即時反映 or 新着バナー表示する
+  const refresh = useCallback(
+    async (force = false) => {
+      let fresh: Post[];
+      try {
+        const res = await fetch("/api/posts", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (res.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!res.ok) return;
+        fresh = await res.json();
+      } catch {
         return;
       }
-      if (res.ok) {
-        setPosts(await res.json());
+
+      writePostsCache(fresh);
+      const prev = postsRef.current;
+
+      // 初回 or 一覧が空のときは無条件で反映（バナーは出さない）
+      if (force || prev.length === 0) {
+        pendingRef.current = null;
+        setHasNew(false);
+        setPosts(fresh);
+        setLoading(false);
+        return;
       }
-    } catch {
-      // ignore
-    } finally {
+
+      // 先頭に未表示の新しい投稿があるか
+      const hasNewTop =
+        fresh[0] &&
+        prev[0] &&
+        fresh[0].postId !== prev[0].postId &&
+        new Date(fresh[0].createdAt).getTime() >
+          new Date(prev[0].createdAt).getTime();
+
+      if (hasNewTop) {
+        // 既存一覧は消さず、バナーで通知（押すと差し替え）
+        pendingRef.current = fresh;
+        setHasNew(true);
+      } else {
+        // 新着なし: いいね数・コメント数・削除などを裏で静かに反映
+        setPosts(fresh);
+      }
+      setLoading(false);
+    },
+    [router]
+  );
+
+  function showLatest() {
+    if (pendingRef.current) {
+      setPosts(pendingRef.current);
+      pendingRef.current = null;
+    }
+    setHasNew(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // 初回マウント: キャッシュを即表示しつつ裏で最新取得
+  useEffect(() => {
+    const cached = readPostsCache();
+    const hasCache = !!(cached && cached.length);
+    if (hasCache) {
+      setPosts(cached!);
       setLoading(false);
     }
-  }
+    refresh(!hasCache);
+
+    // 自分のuserIdを取得
+    fetch("/api/auth/check", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => c?.lineUserId && setCurrentUserId(c.lineUserId))
+      .catch(() => {});
+  }, [refresh]);
+
+  // ウィンドウ復帰時に裏で再取得
+  useEffect(() => {
+    const onFocus = () => refresh();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh]);
 
   async function toggleLike(postId: string) {
     try {
       const res = await fetch(`/api/posts/${postId}/like`, {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) return;
-      const { liked, likeCount } = await res.json();
+      const { liked } = await res.json();
 
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.postId !== postId) return p;
-          const newLikes = liked
-            ? [...p.likes, currentUserId]
-            : p.likes.filter((id) => id !== currentUserId);
-          return { ...p, likes: newLikes };
-        })
-      );
+      const next = postsRef.current.map((p) => {
+        if (p.postId !== postId) return p;
+        const newLikes = liked
+          ? [...p.likes, currentUserId]
+          : p.likes.filter((id) => id !== currentUserId);
+        return { ...p, likes: newLikes };
+      });
+      setPosts(next);
+      writePostsCache(next);
     } catch {
       // ignore
     }
@@ -91,9 +153,12 @@ export default function TimelinePage() {
       const res = await fetch(`/api/posts/${postId}`, {
         method: "DELETE",
         credentials: "include",
+        cache: "no-store",
       });
       if (res.ok) {
-        setPosts((prev) => prev.filter((p) => p.postId !== postId));
+        const next = postsRef.current.filter((p) => p.postId !== postId);
+        setPosts(next);
+        writePostsCache(next);
       } else {
         const data = await res.json();
         alert(data.error || "削除に失敗しました");
@@ -131,6 +196,19 @@ export default function TimelinePage() {
           </button>
         ))}
       </div>
+
+      {/* 新着バナー */}
+      {hasNew && (
+        <button
+          onClick={showLatest}
+          className="fixed top-[92px] left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[#A5C1C8] text-white text-xs font-medium shadow-lg flex items-center gap-1.5"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 11V3M3.5 6.5L7 3l3.5 3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          新しい投稿があります
+        </button>
+      )}
 
       {/* 投稿一覧 */}
       {loading ? (
