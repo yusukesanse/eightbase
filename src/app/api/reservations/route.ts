@@ -3,8 +3,12 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed } from "@/lib/line";
-import { requireActiveUser } from "@/lib/auth";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
+import {
+  validateReservationSlot,
+  intervalsOverlap,
+  timeToMin,
+} from "@/lib/reservations";
 // Square決済は現在無効（将来用に import は残さない）
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
@@ -22,7 +26,7 @@ function buildReservationSlotKey(
 
 // ─── GET: マイ予約一覧 ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const userId = await getSessionUserId(req);
+  const userId = await requireActiveUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -53,7 +57,7 @@ export async function GET(req: NextRequest) {
 // ─── POST: 予約登録 ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireProfileComplete(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -98,7 +102,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 二重予約防止: 直前に再度空き確認
+    // スロット妥当性（過去日・曜日・営業時間・固定枠・利用規約）— availability と共通ルール
+    const slotValidation = validateReservationSlot(facility, {
+      date,
+      startTime,
+      endTime,
+      termsAgreed,
+      enforceTerms: true,
+    });
+    if (!slotValidation.ok) {
+      return NextResponse.json(
+        { error: slotValidation.reason, message: slotValidation.message },
+        { status: 400 }
+      );
+    }
+
+    // 二重予約防止: 直前に再度空き確認（Google Calendar は補助。最終判定は下の transaction）
     const available = await checkAvailability(
       facility.calendarId,
       date,
@@ -142,7 +161,32 @@ export async function POST(req: NextRequest) {
     let lockAcquired = false;
     let reservationSaved = false;
 
+    const reqStart = timeToMin(startTime);
+    const reqEnd = timeToMin(endTime);
     await db.runTransaction(async (tx) => {
+      // facilityId + date の既存ロックを読み、時間帯の重なりで判定する
+      // （完全一致キーだけに依存せず、overlap するものは拒否）。
+      // Admin SDK の transaction は読んだクエリ範囲をロックするため、
+      // 同時実行でも overlap が二重に通らない。
+      const locksSnap = await tx.get(
+        db
+          .collection("reservationLocks")
+          .where("facilityId", "==", facilityId)
+          .where("date", "==", date)
+      );
+      for (const lockDoc of locksSnap.docs) {
+        const l = lockDoc.data();
+        if (l.status === "cancelled") continue;
+        if (
+          typeof l.startTime === "string" &&
+          typeof l.endTime === "string" &&
+          intervalsOverlap(reqStart, reqEnd, timeToMin(l.startTime), timeToMin(l.endTime))
+        ) {
+          throw new Error("ALREADY_BOOKED");
+        }
+      }
+
+      // 完全一致ロックも従来どおり拒否（保険）
       const slotDoc = await tx.get(slotRef);
       if (slotDoc.exists) {
         throw new Error("ALREADY_BOOKED");
