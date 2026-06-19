@@ -218,7 +218,7 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <h2 className="text-base font-semibold text-[#231714] mb-1">ワンタイムパスワード</h2>
             <p className="text-xs text-[#231714]/50 mb-4 leading-relaxed">
-              管理者から提供されたワンタイムパスワードを入力してください。
+              招待メールに記載されたワンタイムパスワードを入力してください。
               初回のみの操作です。
             </p>
 
@@ -278,8 +278,11 @@ export default function LoginPage() {
         </div>
 
         <h2 className="text-base font-bold text-[#231714]">
-          アカウントが存在しません
+          アカウントが見つかりません
         </h2>
+        <p className="text-xs text-[#231714]/50 mt-2 leading-relaxed">
+          ご利用には招待が必要です。招待メールをお持ちの方は、メール内のワンタイムパスワードでログインしてください。わからない場合は管理者にお問い合わせください。
+        </p>
       </div>
     </div>
   );

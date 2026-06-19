@@ -190,12 +190,12 @@ function ShibaGame() {
       </div>
 
       <p className="text-sm font-medium text-[#231714] mt-4 font-mono">NO ACCOUNT</p>
-      <p className="text-xs text-[#231714]/30 mt-1 font-mono">アカウントが見つかりませんでした</p>
+      <p className="text-xs text-[#231714]/30 mt-1 font-mono">ご利用には招待が必要です</p>
       <Link
         href="/login"
         className="inline-block mt-5 text-xs text-[#A5C1C8] underline underline-offset-2"
       >
-        アカウント情報をお持ちの方はこちら
+        招待（ワンタイムパスワード）をお持ちの方はこちら
       </Link>
     </div>
   );
@@ -227,11 +227,10 @@ export default function HomePage() {
             router.replace(result.profileComplete ? "/reservation" : "/setup-profile");
             return;
           case "needs-linking":
-            // 招待済み・未連携 → OTP 入力のあるログイン画面へ
-            router.replace("/login");
-            return;
           case "needs-line-login":
           case "no-access":
+            // 未連携/未招待は OTP を自動表示せず「招待が必要」案内（NO ACCOUNT 画面）を出す。
+            // 招待（ワンタイムパスワード）を持つ人は画面内リンクから /login へ進む。
             setPhase("no-account");
             return;
         }

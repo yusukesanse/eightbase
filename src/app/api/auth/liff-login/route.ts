@@ -111,26 +111,14 @@ export async function POST(req: NextRequest) {
       .get();
 
     if (snap.empty && !isReviewMode) {
-      // lineUserId が未連携 → 招待済み(pending)のアカウントが存在するか確認
-      // inviteStatus="pending" に限定し、未招待ユーザーに総当たり用OTP画面を出さない
-      const pendingSnap = await db
-        .collection("authorizedUsers")
-        .where("lineUserId", "==", null)
-        .where("active", "==", true)
-        .where("inviteStatus", "==", "pending")
-        .limit(1)
-        .get();
-
-      if (pendingSnap.empty) {
-        console.log(`[liff-login] no pending invitation for: ${lineUserId}`);
-        return NextResponse.json({
-          success: false,
-          noAccount: true,
-        });
-      }
-
-      // 招待済みアカウントが存在する → OTP連携フォームへ
-      console.log(`[liff-login] lineUserId not linked, pending invitation exists: ${lineUserId}`);
+      // lineUserId が未連携。
+      // メール招待方式では「この LINE ユーザーが招待済みか」を lineUserId だけでは判定できない
+      // （ワンタイムパスワードの入力こそが招待の証明）。
+      // 以前は「pending 招待が1件でもあれば全未連携ユーザーに needsLinking」を返していたが、
+      // それだと未招待ユーザーにも OTP 画面が出てしまうため廃止。
+      // ここでは「未連携」であることだけを返し、OTP 入力は明示導線(/login)でのみ表示する。
+      // ホーム(/) では未連携=「招待が必要」案内を出す（page.tsx 側で分岐）。
+      console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
       return NextResponse.json({
         success: false,
         needsLinking: true,
