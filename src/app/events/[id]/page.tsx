@@ -3,17 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { RichText } from "@/components/ui/RichText";
+import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
 import type { NufEvent } from "@/types";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
-
-/* ─── localStorage ─── */
-const GOOD_KEY = "event_goods";
-function getGoodSet(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(GOOD_KEY) ?? "[]")); } catch { return new Set(); }
-}
-function saveGoodSet(s: Set<string>) { localStorage.setItem(GOOD_KEY, JSON.stringify(Array.from(s))); }
 
 interface EventDetail extends NufEvent { goodCount: number }
 

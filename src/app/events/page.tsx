@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
+import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
 import type { NufEvent } from "@/types";
 
 // キャッシュ即表示と同じ paint 前タイミングでグッド状態を重ねるため layout effect を使う
@@ -14,13 +15,6 @@ import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
-
-/* ─── localStorage ─── */
-const GOOD_KEY = "event_goods";
-function getGoodSet(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(GOOD_KEY) ?? "[]")); } catch { return new Set(); }
-}
-function saveGoodSet(s: Set<string>) { localStorage.setItem(GOOD_KEY, JSON.stringify(Array.from(s))); }
 
 interface EventWithGood extends NufEvent { goodCount: number; liked: boolean }
 

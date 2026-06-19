@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { clearAllCache, getCacheOwner, setCacheOwner } from "@/lib/swrCache";
 import { clearPostsCache } from "@/lib/timelineCache";
+import { clearEventGoods } from "@/lib/eventGoods";
 
 /**
  * 認証チェックで判明した現在ユーザーと、キャッシュ所有者を突き合わせる。
@@ -15,6 +16,7 @@ function reconcileCacheOwner(userId: string) {
   if (prev && prev !== userId) {
     clearAllCache();
     clearPostsCache();
+    clearEventGoods();
   }
   setCacheOwner(userId);
 }
@@ -130,7 +132,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 export function clearAuthCache() {
   authCache = null;
   // 認証状態が変わるタイミングで表示用クライアントキャッシュも破棄し、
-  // 別ユーザーのメンバー一覧・マイページ・掲示板データが残らないようにする。
+  // 別ユーザーのメンバー一覧・マイページ・掲示板・イベントgood状態が残らないようにする。
   clearAllCache();
   clearPostsCache();
+  clearEventGoods();
 }
