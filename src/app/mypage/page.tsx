@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { MemberProfile } from "@/types";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { initLiff } from "@/lib/liff";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 
 interface UserData {
@@ -146,11 +147,13 @@ export default function MyPage() {
           onClick={async () => {
             await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
             clearAuthCache();
-            // LIFF セッションもクリア（再アクセス時に自動ログインしないように）
+            // LIFF セッションもクリア（init してから logout しないと反映されない）
             try {
-              const liff = (await import("@line/liff")).default;
+              const liff = await initLiff();
               if (liff.isLoggedIn()) liff.logout();
-            } catch { /* LIFF未初期化時は無視 */ }
+            } catch { /* LIFF未初期化/環境外は無視 */ }
+            // ログアウト直後の自動再ログインを抑止（HomePage が検知して停止）
+            try { sessionStorage.setItem("eb_logged_out", "1"); } catch { /* 無視 */ }
             router.replace("/");
           }}
           danger

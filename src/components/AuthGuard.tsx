@@ -24,9 +24,13 @@ function reconcileCacheOwner(userId: string) {
 const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
 const PUBLIC_PREFIXES = ["/admin"];
 
-/** セッション中の認証キャッシュ（ページ遷移ごとのAPIコールを防止） */
+/**
+ * セッション中の認証キャッシュ（ページ遷移ごとのAPIコール連打を防ぐための短期メモ）。
+ * 認証状態は表示用キャッシュ(swrCache)と同列に扱わない: 表示データより短い TTL にし、
+ * すぐに /api/auth/check で取り直す。最終的な可否判定はサーバー側(各API)が担保する。
+ */
 let authCache: { authorized: boolean; profileComplete: boolean; checkedAt: number } | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5分間キャッシュ
+const CACHE_TTL = 60 * 1000; // 認証は短期のみ（60秒）
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

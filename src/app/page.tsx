@@ -201,51 +201,80 @@ function ShibaGame() {
   );
 }
 
+const LOGGED_OUT_FLAG = "eb_logged_out";
+
 export default function HomePage() {
   const router = useRouter();
-  const [phase, setPhase] = useState<"loading" | "no-account" | "error">("loading");
+  const [phase, setPhase] = useState<"loading" | "no-account" | "error" | "logged-out">("loading");
   const [statusText, setStatusText] = useState("LIFF初期化中...");
 
-  useEffect(() => {
-    let cancelled = false;
+  // `/` と `/login` で共通の LIFF→サーバーセッション発行フロー。
+  // ログアウト後の「ログインする」ボタンからも呼べるように useCallback で切り出す。
+  const runBoot = useCallback(async () => {
+    setPhase("loading");
+    try {
+      setStatusText("認証中...");
+      const result = await runLiffServerLogin();
 
-    async function boot() {
-      try {
-        // `/` と `/login` で共通の LIFF→サーバーセッション発行フロー
-        setStatusText("認証中...");
-        const result = await runLiffServerLogin();
-        if (cancelled) return;
-
-        switch (result.kind) {
-          case "redirecting":
-            setStatusText("LINEログイン中...");
-            return;
-          case "linked":
-            // セッションが切り替わったので表示キャッシュを破棄し、
-            // プロフィール未完了なら直接 /setup-profile へ（/reservation との往復を防ぐ）
-            clearAuthCache();
-            router.replace(result.profileComplete ? "/reservation" : "/setup-profile");
-            return;
-          case "needs-linking":
-          case "needs-line-login":
-          case "no-access":
-            // 未連携/未招待は OTP を自動表示せず「招待が必要」案内（NO ACCOUNT 画面）を出す。
-            // 招待（ワンタイムパスワード）を持つ人は画面内リンクから /login へ進む。
-            setPhase("no-account");
-            return;
-        }
-      } catch (err) {
-        console.error("[HomePage] boot error:", err);
-        if (!cancelled) {
-          setStatusText("エラーが発生しました。ページを再読み込みしてください。");
-          setPhase("error");
-        }
+      switch (result.kind) {
+        case "redirecting":
+          setStatusText("LINEログイン中...");
+          return;
+        case "linked":
+          // セッションが切り替わったので表示キャッシュを破棄し、
+          // プロフィール未完了なら直接 /setup-profile へ（/reservation との往復を防ぐ）
+          clearAuthCache();
+          router.replace(result.profileComplete ? "/reservation" : "/setup-profile");
+          return;
+        case "needs-linking":
+        case "needs-line-login":
+        case "no-access":
+          // 未連携/未招待は OTP を自動表示せず「招待が必要」案内（NO ACCOUNT 画面）を出す。
+          // 招待（ワンタイムパスワード）を持つ人は画面内リンクから /login へ進む。
+          setPhase("no-account");
+          return;
       }
+    } catch (err) {
+      console.error("[HomePage] boot error:", err);
+      setStatusText("エラーが発生しました。ページを再読み込みしてください。");
+      setPhase("error");
     }
-
-    boot();
-    return () => { cancelled = true; };
   }, [router]);
+
+  useEffect(() => {
+    // ログアウト直後は自動ログインせず「ログアウトしました」画面を出す（即再ログイン防止）。
+    // フラグは一度きり消費する。
+    let loggedOut = false;
+    try {
+      loggedOut = !!sessionStorage.getItem(LOGGED_OUT_FLAG);
+      if (loggedOut) sessionStorage.removeItem(LOGGED_OUT_FLAG);
+    } catch { /* 無視 */ }
+
+    if (loggedOut) {
+      setPhase("logged-out");
+      return;
+    }
+    runBoot();
+  }, [runBoot]);
+
+  // ── ログアウト後画面（自動再ログインせず、明示的に再ログイン） ──
+  if (phase === "logged-out") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
+        <div className="opacity-20 mb-6">
+          <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={80} height={80} priority />
+        </div>
+        <p className="text-sm font-medium text-[#231714]">ログアウトしました</p>
+        <p className="text-xs text-[#231714]/40 mt-1 mb-6">ご利用ありがとうございました</p>
+        <button
+          onClick={runBoot}
+          className="px-6 py-3 rounded-xl bg-[#231714] text-white text-sm font-medium active:scale-[0.98] transition-transform"
+        >
+          ログインする
+        </button>
+      </div>
+    );
+  }
 
   // ── アカウントなし画面（柴犬インタラクティブゲーム） ──
   if (phase === "no-account") {

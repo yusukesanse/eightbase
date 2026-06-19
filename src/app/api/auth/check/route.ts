@@ -73,23 +73,4 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * POST /api/auth/check
- * ログアウト: セッション Cookie を削除する。
- */
-export async function POST(req: NextRequest) {
-  const { action } = await req.json().catch(() => ({ action: "" }));
-  if (action !== "logout") {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  }
-
-  const res = NextResponse.json({ success: true });
-  res.cookies.set("__session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
-  return res;
-}
+// ログアウトは POST /api/auth/logout に一本化（以前ここにあった重複の logout POST は削除）。
