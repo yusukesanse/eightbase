@@ -23,10 +23,12 @@ export default function NewsDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/news");
-        const d = await res.json();
-        const found = (d.news ?? []).find((n: NewsItem) => n.newsId === id);
-        if (found) setItem(found);
+        // 一覧APIから探さず単体取得（limit に依存しない）
+        const res = await fetch(`/api/news/${id}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (res.ok) setItem(await res.json());
       } finally { setLoading(false); }
     })();
   }, [id]);

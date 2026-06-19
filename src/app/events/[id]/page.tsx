@@ -21,10 +21,13 @@ export default function EventDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/events");
-        const d = await res.json();
-        const found = (d.events ?? []).find((e: EventDetail) => e.eventId === id);
-        if (found) {
+        // 一覧APIから探さず単体取得（limit に依存しない）
+        const res = await fetch(`/api/events/${id}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const found: EventDetail = await res.json();
           setEvent(found);
           setLiked(getGoodSet().has(found.eventId));
         }
