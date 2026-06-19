@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { INDUSTRY_OPTIONS } from "@/types";
 
 const PREFECTURES = [
@@ -325,24 +324,6 @@ export default function ProfilePage() {
           )}
         </Section>
 
-        {/* ===== スキル・プロフィール（読み取り専用 → スキル設定で変更） ===== */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l1.76 3.52 3.84.56-2.8 2.72.64 3.84L8 10.44l-3.44 1.8.64-3.84-2.8-2.72 3.84-.56L8 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" /></svg>
-              スキル・プロフィール
-            </h3>
-            <Link href="/mypage/skills" className="text-xs text-[#A5C1C8] hover:underline">
-              変更する
-            </Link>
-          </div>
-          <ReadOnlyRow label="スキル" value={form.skills.length > 0 ? form.skills.join("、") : "未設定"} />
-          <ReadOnlyRow label="自己紹介" value={form.bio} />
-          {form.companyUrl && <ReadOnlyRow label="会社URL" value={form.companyUrl} />}
-          {(form.socialLinks.x || form.socialLinks.instagram || form.socialLinks.facebook || form.socialLinks.other) && (
-            <ReadOnlyRow label="SNS" value={[form.socialLinks.x && `𝕏: ${form.socialLinks.x}`, form.socialLinks.instagram && `IG: ${form.socialLinks.instagram}`, form.socialLinks.facebook && `FB`, form.socialLinks.other].filter(Boolean).join(", ")} />
-          )}
-        </div>
       </div>
     </div>
   );

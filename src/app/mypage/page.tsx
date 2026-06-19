@@ -58,17 +58,8 @@ export default function MyPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       {/* ヘッダー */}
       <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-        <div className="flex items-center justify-between mb-5">
+        <div className="mb-5">
           <h1 className="text-[15px] font-medium text-white">マイページ</h1>
-          <button
-            onClick={() => router.push("/profile")}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M8.5 4a2 2 0 012-2h0a2 2 0 012 2v0a2 2 0 01-2 2h0a2 2 0 01-2-2zM3 17a7 7 0 0114 0" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              <path d="M15 7l1.5 1.5M16.5 8.5L12 13H10v-2l4.5-4.5 2 2z" stroke="white" strokeWidth="1.2" strokeLinejoin="round"/>
-            </svg>
-          </button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -90,10 +81,8 @@ export default function MyPage() {
             <p className="text-[17px] font-medium text-[#231714] truncate">
               {user.displayName || user.lineDisplayName}
             </p>
-            {user.catchphrase ? (
+            {user.catchphrase && (
               <p className="text-[12px] text-[#231714]/60 mt-1 truncate">{user.catchphrase}</p>
-            ) : (
-              <p className="text-[12px] text-white/50 mt-1">キャッチコピーを設定しましょう</p>
             )}
           </div>
         </div>
