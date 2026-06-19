@@ -20,6 +20,8 @@ export default function MyPage() {
   const router = useRouter();
 
   // 前回データを即出し→裏で更新。auth 判定は API 側に任せ、401 等の失敗時のみログインへ。
+  // 個人データ（投稿数・予約数・スキル等）なのでキャッシュしすぎない:
+  // ttl:0 で毎回 revalidate（前回値は即表示しつつ常に最新を取り直す）。
   const { data: user, isLoading, error } = useStaleWhileRevalidate<UserData>(
     "mypage",
     async () => {
@@ -32,7 +34,8 @@ export default function MyPage() {
         throw new Error("unauthorized");
       }
       return res.json();
-    }
+    },
+    { ttl: 0 }
   );
   const loading = isLoading;
 
