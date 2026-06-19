@@ -30,3 +30,17 @@
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ボトムシート / センターモーダルの入場アニメーション（メンバー/掲示板の連絡シート用） */
+@keyframes ebFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ebSheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes ebPop {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}

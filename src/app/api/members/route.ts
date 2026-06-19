@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
  *
  * レスポンス: MemberListItem[]
  */
+export interface MemberSocialLinks {
+  instagram?: string;
+  x?: string;
+  facebook?: string;
+  other?: string;
+}
+
 export interface MemberListItem {
   lineUserId: string;
   displayName: string;
@@ -22,6 +29,9 @@ export interface MemberListItem {
   skills: string[];
   companyName: string;
   jobTitle: string;
+  bio: string;
+  companyUrl: string;
+  socialLinks: MemberSocialLinks;
 }
 
 export async function GET(req: NextRequest) {
@@ -65,6 +75,9 @@ export async function GET(req: NextRequest) {
       const catchphrase: string = mp.catchphrase || "";
       const companyName: string = mp.companyName || "";
       const jobTitle: string = mp.jobTitle || "";
+      const bio: string = mp.bio || "";
+      const companyUrl: string = mp.companyUrl || "";
+      const socialLinks: MemberSocialLinks = mp.socialLinks || {};
 
       // キーワード検索（名前 or キャッチコピー or スキル or 会社名に部分一致）
       if (query) {
@@ -86,6 +99,9 @@ export async function GET(req: NextRequest) {
         skills,
         companyName,
         jobTitle,
+        bio,
+        companyUrl,
+        socialLinks,
       });
     }
 
