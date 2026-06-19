@@ -92,7 +92,10 @@ export async function GET(req: NextRequest) {
     // 名前順でソート
     members.sort((a, b) => a.displayName.localeCompare(b.displayName, "ja"));
 
-    return NextResponse.json(members);
+    // HTTP層ではキャッシュさせず常に最新を返す。鮮度管理はクライアント側で行う。
+    return NextResponse.json(members, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     console.error("[api/members] error:", error);
     return NextResponse.json(

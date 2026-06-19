@@ -39,5 +39,7 @@ export async function GET(req: NextRequest) {
     } as Omit<NufEvent, "eventId"> & { eventId: string; goodCount: number };
   });
 
-  return NextResponse.json({ events });
+  // HTTP層ではキャッシュさせず常に最新を返す。鮮度管理はクライアントの
+  // 軽量キャッシュ(useStaleWhileRevalidate)側で行う。
+  return NextResponse.json({ events }, { headers: { "Cache-Control": "no-store" } });
 }

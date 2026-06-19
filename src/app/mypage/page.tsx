@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { MemberProfile } from "@/types";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 
 interface UserData {
   displayName: string;
@@ -17,27 +18,28 @@ interface UserData {
 
 export default function MyPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/mypage", { credentials: "include" });
-        if (!res.ok) {
-          router.replace("/login");
-          return;
-        }
-        const data = await res.json();
-        setUser(data);
-      } catch {
+  // 前回データを即出し→裏で更新。auth 判定は API 側に任せ、401 等の失敗時のみログインへ。
+  const { data: user, isLoading, error } = useStaleWhileRevalidate<UserData>(
+    "mypage",
+    async () => {
+      const res = await fetch("/api/mypage", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) {
         router.replace("/login");
-      } finally {
-        setLoading(false);
+        throw new Error("unauthorized");
       }
+      return res.json();
     }
-    load();
-  }, [router]);
+  );
+  const loading = isLoading;
+
+  // キャッシュも無く取得にも失敗した場合のみログインへ（古い表示があれば維持する）
+  useEffect(() => {
+    if (error && !user) router.replace("/login");
+  }, [error, user, router]);
 
   if (loading) {
     return (

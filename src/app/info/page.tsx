@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NufEvent, NewsItem, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
@@ -19,23 +20,34 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+const EMPTY_EVENTS: (NufEvent & { goodCount: number })[] = [];
+const EMPTY_NEWS: NewsItem[] = [];
+
 export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
-  const [events, setEvents] = useState<(NufEvent & { goodCount: number })[]>([]);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/events").then((r) => r.json()).catch(() => ({ events: [] })),
-      fetch("/api/news").then((r) => r.json()).catch(() => ({ news: [] })),
-    ]).then(([evData, nData]) => {
-      setEvents(evData.events ?? []);
-      setNews(nData.news ?? []);
-      setLoading(false);
-    });
-  }, []);
+  // 前回表示を即出し→裏で再取得（数分キャッシュ）。
+  // events/news の各ページとキーを共有するのでページ間遷移でも再利用される。
+  const { data: eventsData, isLoading: eventsLoading } = useStaleWhileRevalidate<{
+    events: (NufEvent & { goodCount: number })[];
+  }>("events:list", () =>
+    fetch("/api/events", { credentials: "include", cache: "no-store" }).then((r) =>
+      r.json()
+    )
+  );
+  const { data: newsData, isLoading: newsLoading } = useStaleWhileRevalidate<{
+    news: NewsItem[];
+  }>("news:list", () =>
+    fetch("/api/news", { credentials: "include", cache: "no-store" }).then((r) =>
+      r.json()
+    )
+  );
+
+  const events = eventsData?.events ?? EMPTY_EVENTS;
+  const news = newsData?.news ?? EMPTY_NEWS;
+  // フルスクリーンスピナーは初回（両方ともキャッシュ無し）のときだけ
+  const loading = eventsLoading && newsLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">

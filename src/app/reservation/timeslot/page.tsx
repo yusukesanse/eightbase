@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
 import type { Facility } from "@/types";
 import type { AvailabilityResponse } from "@/types";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
+
+// 安定参照
+const EMPTY_SLOTS: { start: string; end: string }[] = [];
 
 // 15分単位のスロット生成
 function generateSlots(startMin: number, endMin: number): string[] {
@@ -34,44 +38,54 @@ function TimeslotContent() {
   const facilityId = params.get("facilityId") ?? "";
   const date = params.get("date") ?? "";
 
-  const [facility, setFacility] = useState<Facility | null>(null);
   const dateLabel = dayjs(date).format("M月D日（ddd）");
 
-  const [bookedSlots, setBookedSlots] = useState<{ start: string; end: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [allSlots, setAllSlots] = useState<string[]>(() => generateSlots(9 * 60, 18 * 60));
+  // 施設（キャッシュ可・即表示）
+  const { data: facilitiesData } = useStaleWhileRevalidate<{ facilities: Facility[] }>(
+    "facilities:list",
+    async () => {
+      const r = await fetch("/api/facilities", { cache: "no-store" });
+      return r.json();
+    }
+  );
+  const facility = useMemo(
+    () => facilitiesData?.facilities?.find((f) => f.id === facilityId) ?? null,
+    [facilitiesData, facilityId]
+  );
+  const allSlots = useMemo(() => {
+    if (!facility) return generateSlots(9 * 60, 18 * 60);
+    const [oh, om] = (facility.openTime ?? "09:00").split(":").map(Number);
+    const [ch, cm] = (facility.closeTime ?? "18:00").split(":").map(Number);
+    return generateSlots(oh * 60 + om, ch * 60 + cm);
+  }, [facility]);
 
-  // 施設情報を取得
-  useEffect(() => {
-    if (!facilityId) return;
-    fetch("/api/facilities")
-      .then((r) => r.json())
-      .then((data) => {
-        const found = (data.facilities as Facility[])?.find((f) => f.id === facilityId);
-        setFacility(found ?? null);
-        if (found) {
-          const [oh, om] = (found.openTime ?? "09:00").split(":").map(Number);
-          const [ch, cm] = (found.closeTime ?? "18:00").split(":").map(Number);
-          setAllSlots(generateSlots(oh * 60 + om, ch * 60 + cm));
-        }
-      })
-      .catch(() => {});
-  }, [facilityId]);
+  // 予約済みスロット（短時間キャッシュ＋前回表示を残して裏で更新）。
+  // 予約確定時はサーバーが必ず空きを再検証するため、表示が多少古くてもダブルブッキングは防がれる。
+  const dayKey = facilityId && date ? `avail:day:${facilityId}:${date}` : null;
+  const {
+    data: bookedRaw,
+    isLoading: loading,
+    isValidating,
+  } = useStaleWhileRevalidate<{ start: string; end: string }[]>(
+    dayKey,
+    async () => {
+      const r = await fetch(
+        `/api/reservations/availability?facilityId=${facilityId}&date=${date}`,
+        { cache: "no-store", credentials: "include" }
+      );
+      const d: AvailabilityResponse = await r.json();
+      return d.bookedSlots ?? [];
+    },
+    { ttl: 30_000 }
+  );
+  const bookedSlots = bookedRaw ?? EMPTY_SLOTS;
+  // 既存表示を出したまま裏で更新中（表示が古い可能性あり）
+  const refreshing = isValidating && !loading;
+
   const [selStart, setSelStart] = useState<string | null>(null);
   const [selEnd, setSelEnd] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [checking, setChecking] = useState(false);
-
-  // 予約済みスロット取得
-  useEffect(() => {
-    if (!facilityId || !date) return;
-    fetch(`/api/reservations/availability?facilityId=${facilityId}&date=${date}`)
-      .then((r) => r.json())
-      .then((data: AvailabilityResponse) => {
-        setBookedSlots(data.bookedSlots ?? []);
-      })
-      .finally(() => setLoading(false));
-  }, [facilityId, date]);
 
   function isBooked(slot: string): boolean {
     const sm = timeToMin(slot);
@@ -137,7 +151,8 @@ function TimeslotContent() {
     setChecking(true);
     try {
       const res = await fetch(
-        `/api/reservations/availability?facilityId=${facilityId}&date=${date}&startTime=${selStart}&endTime=${endTime}`
+        `/api/reservations/availability?facilityId=${facilityId}&date=${date}&startTime=${selStart}&endTime=${endTime}`,
+        { cache: "no-store", credentials: "include" }
       );
       const data: AvailabilityResponse = await res.json();
       setAvailability(data);
@@ -178,7 +193,11 @@ function TimeslotContent() {
                     受付時刻
                   </th>
                   <th className="text-[10px] font-medium text-gray-600 px-3 py-2 text-center">
-                    {loading ? "読み込み中..." : "空き状況"}
+                    {loading
+                      ? "読み込み中..."
+                      : refreshing
+                      ? "空き状況（更新中…）"
+                      : "空き状況"}
                   </th>
                 </tr>
               </thead>

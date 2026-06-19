@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { readCache, writeCache } from "@/lib/swrCache";
 
 interface MemberDetail {
   lineUserId: string;
@@ -12,6 +13,19 @@ interface MemberDetail {
   postCount: number;
 }
 
+// メンバー一覧キャッシュの要素（プレフィル用に必要な分だけ）
+interface ListMember {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl: string;
+  catchphrase: string;
+  skills: string[];
+}
+
+// キャッシュ即表示を paint 前に反映してスピナーのちらつきを防ぐ。SSR では useEffect。
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export default function MemberDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -21,30 +35,61 @@ export default function MemberDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  // 1) まず前回データを即表示（個別キャッシュ→無ければ一覧キャッシュから部分プレフィル）。
+  useIsomorphicLayoutEffect(() => {
+    const cachedDetail = readCache<MemberDetail>(`members:${memberId}`);
+    if (cachedDetail) {
+      setMember(cachedDetail.data);
+      setLoading(false);
+      return;
+    }
+    const cachedList = readCache<ListMember[]>("members:list");
+    const found = cachedList?.data.find((m) => m.lineUserId === memberId);
+    if (found) {
+      // postCount は個別取得で補完する
+      setMember({
+        lineUserId: found.lineUserId,
+        displayName: found.displayName,
+        pictureUrl: found.pictureUrl,
+        catchphrase: found.catchphrase,
+        skills: found.skills,
+        postCount: 0,
+      });
+      setLoading(false);
+    }
+  }, [memberId]);
+
+  // 2) 一覧キャッシュだけに依存せず、常に個別データを取得して最新化する。
   useEffect(() => {
-    async function load() {
+    let alive = true;
+    (async () => {
       try {
         const res = await fetch(`/api/members/${memberId}`, {
           credentials: "include",
+          cache: "no-store",
         });
         if (res.status === 401) {
           router.replace("/login");
           return;
         }
         if (res.status === 404) {
-          setNotFound(true);
+          if (alive) setNotFound(true);
           return;
         }
         if (!res.ok) return;
-        const data = await res.json();
+        const data: MemberDetail = await res.json();
+        if (!alive) return;
         setMember(data);
+        writeCache(`members:${memberId}`, data);
       } catch {
-        // ignore
+        // ネットワークエラー時はプレフィル済みの表示を維持
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
-    }
-    load();
+    })();
+    return () => {
+      alive = false;
+    };
   }, [memberId, router]);
 
   if (loading) {

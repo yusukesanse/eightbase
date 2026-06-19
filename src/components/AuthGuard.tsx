@@ -2,6 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { clearAllCache, getCacheOwner, setCacheOwner } from "@/lib/swrCache";
+import { clearPostsCache } from "@/lib/timelineCache";
+
+/**
+ * 認証チェックで判明した現在ユーザーと、キャッシュ所有者を突き合わせる。
+ * 別ユーザーに変わっていたら前ユーザーの表示キャッシュを破棄してから所有者を更新する。
+ * （明示ログアウトを経ずにユーザーが変わったケースの保険）
+ */
+function reconcileCacheOwner(userId: string) {
+  const prev = getCacheOwner();
+  if (prev && prev !== userId) {
+    clearAllCache();
+    clearPostsCache();
+  }
+  setCacheOwner(userId);
+}
 
 const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
 const PUBLIC_PREFIXES = ["/admin"];
@@ -62,6 +78,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             checkedAt: Date.now(),
           };
           if (data.authorized) {
+            // ユーザーIDが変わっていたら前ユーザーの表示キャッシュを破棄
+            if (data.lineUserId) reconcileCacheOwner(data.lineUserId);
             if (!data.profileComplete && pathname !== "/setup-profile") {
               router.replace("/setup-profile");
               return;
@@ -108,7 +126,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** 外部からキャッシュをクリア（ログアウト時に使用） */
+/** 外部からキャッシュをクリア（ログイン/ログアウトでユーザー切替時に使用） */
 export function clearAuthCache() {
   authCache = null;
+  // 認証状態が変わるタイミングで表示用クライアントキャッシュも破棄し、
+  // 別ユーザーのメンバー一覧・マイページ・掲示板データが残らないようにする。
+  clearAllCache();
+  clearPostsCache();
 }

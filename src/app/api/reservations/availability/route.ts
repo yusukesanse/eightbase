@@ -40,7 +40,11 @@ export async function GET(req: NextRequest) {
   // startTime/endTime が省略された場合は予約済みスロット一覧だけ返す（タイムスロット画面の初期ロード用）
   if (!startTime || !endTime) {
     const bookedSlots = await getBookedSlots(facility.calendarId, date);
-    return NextResponse.json({ bookedSlots });
+    // 空き状況は常に最新を返す（HTTPキャッシュ禁止）
+    return NextResponse.json(
+      { bookedSlots },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   // 過去日チェック
@@ -83,5 +87,6 @@ export async function GET(req: NextRequest) {
     bookedSlots,
   };
 
-  return NextResponse.json(res);
+  // この空き判定結果もキャッシュさせない（予約確定時にサーバーが再検証する前提は不変）
+  return NextResponse.json(res, { headers: { "Cache-Control": "no-store" } });
 }

@@ -24,5 +24,7 @@ export async function GET(req: NextRequest) {
     ...(doc.data() as Omit<NewsItem, "newsId">),
   }));
 
-  return NextResponse.json({ news });
+  // HTTP層ではキャッシュさせず常に最新を返す。鮮度管理はクライアントの
+  // 軽量キャッシュ(useStaleWhileRevalidate)側で行う。
+  return NextResponse.json({ news }, { headers: { "Cache-Control": "no-store" } });
 }

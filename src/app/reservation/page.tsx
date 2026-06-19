@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Facility } from "@/types";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import ReactMarkdown from "react-markdown";
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -13,6 +14,16 @@ dayjs.locale("ja");
 // ─── 定数 ───────────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
+
+// 安定参照（再レンダリングのたびに新規配列/オブジェクトを作らない）
+const EMPTY_FACILITIES: Facility[] = [];
+const EMPTY_WEEK: Record<string, { start: string; end: string }[]> = {};
+const EMPTY_SLOTS: { start: string; end: string }[] = [];
+
+// 空き状況の短時間キャッシュ TTL。前回表示を残しつつ常に裏で取り直し、古い間は「更新中」を出す。
+// 予約確定時はサーバー(POST /api/reservations)が必ず最新を再検証するため、多少古い表示でも
+// ダブルブッキングは起きない。
+const AVAIL_TTL = 30_000;
 
 function timeToMin(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -40,19 +51,21 @@ function generateSlots(openTime: string, closeTime: string): string[] {
 export default function ReservationPage() {
   const router = useRouter();
 
-  // データ
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  // ─── 施設（キャッシュ可・再訪時に即表示）──────────────────────────────────
+  const { data: facilitiesData } = useStaleWhileRevalidate<{ facilities: Facility[] }>(
+    "facilities:list",
+    async () => {
+      const r = await fetch("/api/facilities", { cache: "no-store" });
+      return r.json();
+    }
+  );
+  const facilities = facilitiesData?.facilities ?? EMPTY_FACILITIES;
+
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
 
   // カレンダー
   const [currentMonth, setCurrentMonth] = useState(() => dayjs().startOf("month"));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-
-  // 空き状況
-  const [weekData, setWeekData] = useState<Record<string, { start: string; end: string }[]>>({});
-  const [daySlots, setDaySlots] = useState<{ start: string; end: string }[]>([]);
-  const [loadingWeek, setLoadingWeek] = useState(false);
-  const [loadingDay, setLoadingDay] = useState(false);
 
   // 時間選択
   const [selStart, setSelStart] = useState<string | null>(null);
@@ -61,66 +74,79 @@ export default function ReservationPage() {
   const today = dayjs().format("YYYY-MM-DD");
   const maxDate = dayjs().add(30, "day").format("YYYY-MM-DD");
 
-  // ─── 施設取得 ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    fetch("/api/facilities")
-      .then((r) => r.json())
-      .then((d) => {
-        const list = (d.facilities ?? []) as Facility[];
-        setFacilities(list);
-      })
-      .catch(() => {});
-  }, []);
-
-  // ─── 月の空きデータ取得（週ごとに取得して合算）─────────────────────────────
-  useEffect(() => {
-    if (!selectedFacility) return;
-    setLoadingWeek(true);
-    setWeekData({});
-
-    // 月の開始〜終了をカバーする週を計算
-    const monthStart = currentMonth.startOf("month");
-    const monthEnd = currentMonth.endOf("month");
-    const weeks: string[] = [];
-
-    let w = monthStart.startOf("week").add(1, "day"); // 月曜始まり
-    if (w.isAfter(monthStart)) w = w.subtract(1, "week");
-    while (w.isBefore(monthEnd) || w.isSame(monthEnd, "day")) {
-      weeks.push(w.format("YYYY-MM-DD"));
-      w = w.add(1, "week");
-    }
-
-    Promise.all(
-      weeks.map((ws) =>
-        fetch(`/api/reservations/week-availability?facilityId=${selectedFacility.id}&weekStart=${ws}`)
-          .then((r) => r.json())
-          .catch(() => ({}))
-      )
-    ).then((results) => {
+  // ─── 月の空き（週ごとに取得して合算。短時間キャッシュ＋裏で更新）──────────
+  const weekKey = selectedFacility
+    ? `avail:week:${selectedFacility.id}:${currentMonth.format("YYYY-MM")}`
+    : null;
+  const {
+    data: weekDataRaw,
+    isLoading: weekLoading,
+    isValidating: weekValidating,
+  } = useStaleWhileRevalidate<Record<string, { start: string; end: string }[]>>(
+    weekKey,
+    async () => {
+      const facilityId = selectedFacility!.id;
+      const monthStart = currentMonth.startOf("month");
+      const monthEnd = currentMonth.endOf("month");
+      const weeks: string[] = [];
+      let w = monthStart.startOf("week").add(1, "day"); // 月曜始まり
+      if (w.isAfter(monthStart)) w = w.subtract(1, "week");
+      while (w.isBefore(monthEnd) || w.isSame(monthEnd, "day")) {
+        weeks.push(w.format("YYYY-MM-DD"));
+        w = w.add(1, "week");
+      }
+      const results = await Promise.all(
+        weeks.map((ws) =>
+          fetch(
+            `/api/reservations/week-availability?facilityId=${facilityId}&weekStart=${ws}`,
+            { cache: "no-store", credentials: "include" }
+          )
+            .then((r) => r.json())
+            .catch(() => ({}))
+        )
+      );
       const merged: Record<string, { start: string; end: string }[]> = {};
       results.forEach((r) => {
         Object.entries(r).forEach(([date, slots]) => {
           merged[date] = slots as { start: string; end: string }[];
         });
       });
-      setWeekData(merged);
-      setLoadingWeek(false);
-    });
-  }, [selectedFacility?.id, currentMonth.format("YYYY-MM")]);
+      return merged;
+    },
+    { ttl: AVAIL_TTL }
+  );
+  const weekData = weekDataRaw ?? EMPTY_WEEK;
+  // 既存表示を出したまま裏で更新中（=表示が古い可能性がある）
+  const weekRefreshing = weekValidating && !weekLoading;
 
-  // ─── 選択日の空き取得 ──────────────────────────────────────────────────────
+  // ─── 選択日の空き（短時間キャッシュ＋裏で更新）───────────────────────────
+  const dayKey =
+    selectedFacility && selectedDate
+      ? `avail:day:${selectedFacility.id}:${selectedDate}`
+      : null;
+  const {
+    data: daySlotsRaw,
+    isLoading: loadingDay,
+    isValidating: dayValidating,
+  } = useStaleWhileRevalidate<{ start: string; end: string }[]>(
+    dayKey,
+    async () => {
+      const r = await fetch(
+        `/api/reservations/availability?facilityId=${selectedFacility!.id}&date=${selectedDate}`,
+        { cache: "no-store", credentials: "include" }
+      );
+      const d = await r.json();
+      return d.bookedSlots ?? [];
+    },
+    { ttl: AVAIL_TTL }
+  );
+  const daySlots = daySlotsRaw ?? EMPTY_SLOTS;
+  const dayRefreshing = dayValidating && !loadingDay;
+
+  // 施設/日付が変わったら時間選択をリセット
   useEffect(() => {
-    if (!selectedFacility || !selectedDate) {
-      setDaySlots([]);
-      return;
-    }
-    setLoadingDay(true);
     setSelStart(null);
     setSelEnd(null);
-    fetch(`/api/reservations/availability?facilityId=${selectedFacility.id}&date=${selectedDate}`)
-      .then((r) => r.json())
-      .then((d) => setDaySlots(d.bookedSlots ?? []))
-      .finally(() => setLoadingDay(false));
   }, [selectedFacility?.id, selectedDate]);
 
   // ─── カレンダーデータ ─────────────────────────────────────────────────────
@@ -571,11 +597,16 @@ export default function ReservationPage() {
             })}
           </div>
 
-          {loadingWeek && (
+          {weekLoading ? (
             <div className="flex justify-center py-2">
               <div className="w-4 h-4 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
             </div>
-          )}
+          ) : weekRefreshing ? (
+            <div className="flex items-center justify-center gap-1.5 py-2">
+              <div className="w-3 h-3 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+              <span className="text-[10px] text-[#231714]/40">空き状況を更新中…</span>
+            </div>
+          ) : null}
 
           {/* 凡例 */}
           <div className="flex items-center gap-4 mt-2 justify-center">
@@ -609,9 +640,17 @@ export default function ReservationPage() {
           <div className="mx-5 h-px bg-gray-100" />
           <section className="px-5 pt-4 pb-2 flex-1">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[11px] font-bold text-[#231714]/40 uppercase tracking-widest">
-                時間を選択
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[11px] font-bold text-[#231714]/40 uppercase tracking-widest">
+                  時間を選択
+                </h3>
+                {dayRefreshing && (
+                  <span className="flex items-center gap-1 text-[10px] text-[#231714]/40">
+                    <span className="w-2.5 h-2.5 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+                    更新中…
+                  </span>
+                )}
+              </div>
               <span className="text-xs font-medium text-[#231714]">
                 {dayjs(selectedDate).format("M月D日（ddd）")}
               </span>

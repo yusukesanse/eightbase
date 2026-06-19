@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES } from "@/types";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 
 interface MemberItem {
   lineUserId: string;
@@ -14,35 +15,37 @@ interface MemberItem {
   jobTitle: string;
 }
 
+const EMPTY_MEMBERS: MemberItem[] = [];
+
 export default function MembersPage() {
   const router = useRouter();
-  const [members, setMembers] = useState<MemberItem[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // 前回表示を即出し→裏で再取得（sessionStorage）。auth/active 判定は API 側に任せ、
+  // 401 のときだけログインへ。キャッシュは表示の高速化のみに使う。
+  const { data, isLoading } = useStaleWhileRevalidate<MemberItem[]>(
+    "members:list",
+    async () => {
+      const res = await fetch("/api/members", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        if (res.status === 401) router.replace("/login");
+        throw new Error("failed to load members");
+      }
+      return res.json();
+    }
+  );
+  const members = data ?? EMPTY_MEMBERS;
+  // フルスクリーンスピナーは初回（キャッシュ無し）のみ
+  const loading = isLoading;
+
   const [search, setSearch] = useState("");
   const [selectedSkill, setSelectedSkill] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/members", { credentials: "include" });
-        if (!res.ok) {
-          if (res.status === 401) router.replace("/login");
-          return;
-        }
-        const data = await res.json();
-        setMembers(data);
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [router]);
 
   /* サジェスト外クリックで閉じる */
   useEffect(() => {

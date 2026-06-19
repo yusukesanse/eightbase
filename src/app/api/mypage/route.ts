@@ -68,16 +68,20 @@ export async function GET(req: NextRequest) {
       // reservations コレクションが未作成の場合は 0
     }
 
-    return NextResponse.json({
-      displayName: authData?.displayName || userData.displayName || "",
-      lineDisplayName: userData.lineDisplayName || "",
-      pictureUrl: userData.pictureUrl || "",
-      catchphrase: memberProfile.catchphrase || "",
-      skills: memberProfile.skills || [],
-      companyUrl: memberProfile.companyUrl || "",
-      postCount,
-      reservationCount,
-    });
+    // 個人データなので HTTP 層ではキャッシュさせない（クライアント側 sessionStorage のみ）。
+    return NextResponse.json(
+      {
+        displayName: authData?.displayName || userData.displayName || "",
+        lineDisplayName: userData.lineDisplayName || "",
+        pictureUrl: userData.pictureUrl || "",
+        catchphrase: memberProfile.catchphrase || "",
+        skills: memberProfile.skills || [],
+        companyUrl: memberProfile.companyUrl || "",
+        postCount,
+        reservationCount,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("[api/mypage] error:", error);
     return NextResponse.json(

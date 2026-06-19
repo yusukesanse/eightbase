@@ -51,3 +51,13 @@ export function findCachedPost(postId: string): CachedPost | null {
   const current = readPostsCache();
   return current?.find((p) => p.postId === postId) || null;
 }
+
+/** 掲示板キャッシュを破棄する（ログイン/ログアウトでユーザー切替時に呼ぶ）。 */
+export function clearPostsCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(CACHE_KEY);
+  } catch {
+    // 無視
+  }
+}
