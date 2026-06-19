@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/games/cs
- * 公開CSイベント一覧 + 自分の候補者情報
+ * CSイベント一覧 + 自分の候補者情報（ログイン必須・公開しない）
  * ログインユーザーの lineUserId で候補者をフィルタ
  */
 export async function GET(req: NextRequest) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireActiveUser(req);
+    if (!lineUserId) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
 
     const db = getDb();
 

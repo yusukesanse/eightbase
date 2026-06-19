@@ -361,7 +361,6 @@ function EventsTab({
 
 interface RankingUser {
   rank: number;
-  lineUserId: string;
   displayName: string;
   pictureUrl?: string;
   totalScore: number;
@@ -389,7 +388,7 @@ function GamesTab() {
     if (subTab !== "ranking" || gameCategory === "mahjong") return;
     setRankingLoading(true);
     const params = new URLSearchParams({ gameCategory, period, yearMonth });
-    fetch(`/api/games/ranking?${params}`)
+    fetch(`/api/games/ranking?${params}`, { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setRanking(d.ranking ?? []))
       .catch(() => setRanking([]))
@@ -489,7 +488,7 @@ function GamesTab() {
                     const maxScore = ranking[0]?.totalScore || 1;
                     const pct = Math.round((user.totalScore / maxScore) * 100);
                     return (
-                      <div key={user.lineUserId} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+                      <div key={user.rank} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
                         <div className="flex items-center gap-3">
                           <span className={clsx(
                             "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
