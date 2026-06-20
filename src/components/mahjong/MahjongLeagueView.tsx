@@ -2,11 +2,33 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
+import { Avatar } from "@/components/ui/LineContact";
 import type {
   MahjongStanding,
   MahjongTable,
+  MahjongTableMember,
   MahjongScheduleEntry,
 } from "@/types";
+
+// 卓の席順（卓内の並び順から東南西北を割り当て）
+const SEATS = ["東", "南", "西", "北"] as const;
+// 麻雀リーグのアクセント（フェルト緑系・TILES案）
+const ACCENT = "#2f7d57";
+
+function dateParts(d: string): { md: string; wd: string } {
+  const parts = d.split("-").map(Number);
+  const dt = new Date(d + "T00:00:00");
+  const w = ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
+  return { md: `${parts[1]}/${parts[2]}`, wd: w };
+}
+
+function CheckIcon({ color = "#fff", size = 15 }: { color?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
 
 /**
  * ランキング > 麻雀 のビュー
@@ -174,47 +196,48 @@ function JoinTab({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gray-50 border-b border-gray-100">
-            <th className="text-left px-4 py-2.5 text-[11px] font-medium text-[#231714]/50">開催日</th>
-            <th className="text-left px-2 py-2.5 text-[11px] font-medium text-[#231714]/50">時間</th>
-            <th className="px-3 py-2.5 w-24"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {schedule.map((s) => {
-            const entered = enteredDates.has(s.date);
-            const past = s.date < today;
-            return (
-              <tr key={s.scheduleId} className="border-b border-gray-50 last:border-0">
-                <td className="px-4 py-3 text-[#231714] font-medium">{formatJpDate(s.date)}</td>
-                <td className="px-2 py-3 text-[11px] text-[#231714]/50">
-                  {s.startTime}〜{s.endTime}
-                </td>
-                <td className="px-3 py-3 text-right">
-                  {past ? (
-                    <span className="text-[11px] text-[#231714]/30">終了</span>
-                  ) : (
-                    <button
-                      onClick={() => toggle(s.date, entered)}
-                      disabled={busy === s.date}
-                      className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50 ${
-                        entered
-                          ? "bg-gray-100 text-[#231714]/60"
-                          : "bg-[#B0E401] text-[#231714]"
-                      }`}
-                    >
-                      {busy === s.date ? "..." : entered ? "参加中" : "参加する"}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-2.5">
+      <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
+        参加したい開催日に表明してください。卓組みは当日、管理者が確定します。
+      </p>
+      {schedule.map((s) => {
+        const entered = enteredDates.has(s.date);
+        const past = s.date < today;
+        const { md, wd } = dateParts(s.date);
+        return (
+          <div
+            key={s.scheduleId}
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
+            style={entered && !past ? { boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } : undefined}
+          >
+            <div className="w-[50px] text-center shrink-0">
+              <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
+              <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14.5px] font-extrabold text-[#231714]">リーグ戦</div>
+              <div className="text-[12px] text-[#231714]/50 mt-0.5">{s.startTime}〜{s.endTime}</div>
+            </div>
+            {past ? (
+              <span className="text-[11px] text-[#231714]/30 font-bold shrink-0">終了</span>
+            ) : (
+              <button
+                onClick={() => toggle(s.date, entered)}
+                disabled={busy === s.date}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform"
+                style={
+                  entered
+                    ? { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }
+                    : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+                }
+              >
+                {entered && busy !== s.date && <CheckIcon />}
+                {busy === s.date ? "..." : entered ? "参加中" : "参加する"}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -241,69 +264,77 @@ function ReportTab({
     );
   }
 
+  const sorted = tables
+    .slice()
+    .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || (a.round ?? 0) - (b.round ?? 0));
+
   return (
-    <div className="space-y-3">
-      {tables
-        .slice()
-        .sort((a, b) => (b.eventDate.localeCompare(a.eventDate)) || (a.round ?? 0) - (b.round ?? 0))
-        .map((t) => {
-          const me = t.members.find((m) => m.lineUserId === currentUserId);
-          const needReport = me && me.points === null && t.status !== "completed";
-          return (
-            <div key={t.tableId} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-sm font-bold text-[#231714]">
-                  {formatJpDate(t.eventDate)}
-                  {t.round ? ` ・ 第${t.round}回戦` : ""}
-                  {t.tableLabel ? ` ・ ${t.tableLabel}卓` : ""}
+    <div className="flex flex-col gap-5">
+      {sorted.map((t) => {
+        const me = t.members.find((m) => m.lineUserId === currentUserId);
+        const reportedCount = t.members.filter((m) => m.points !== null).length;
+        const needReport = !!me && me.points === null && t.status !== "completed";
+        const reported = !!me && me.points !== null;
+        return (
+          <div key={t.tableId} className="flex flex-col gap-3">
+            {/* ヘッダー */}
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-extrabold text-[#231714]">{formatJpDate(t.eventDate)}</span>
+              {t.round ? (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>
+                  第{t.round}回戦
                 </span>
-                <span
-                  className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                    t.status === "completed"
-                      ? "bg-[#B0E401]/20 text-[#231714]"
-                      : "bg-orange-50 text-orange-600"
-                  }`}
-                >
-                  {t.status === "completed" ? "確定" : "申告待ち"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {t.members.map((m) => (
-                  <div
-                    key={m.lineUserId}
-                    className={`rounded-xl p-2.5 ${
-                      m.lineUserId === currentUserId ? "bg-[#A5C1C8]/10" : "bg-gray-50"
-                    }`}
-                  >
-                    <div className="text-[11px] font-medium text-[#231714] truncate">
-                      {m.displayName}
-                      {m.lineUserId === currentUserId && (
-                        <span className="ml-1 text-[#A5C1C8]">（自分）</span>
-                      )}
-                    </div>
-                    {m.points !== null ? (
-                      <div className="text-[11px] text-[#231714]/60 mt-0.5">
-                        {m.rank}位 / {m.points.toLocaleString()}点
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-orange-500 mt-0.5">未申告</div>
-                    )}
-                  </div>
+              ) : null}
+              <span className="flex-1" />
+              <span className="text-[11px] font-bold" style={{ color: reportedCount === 4 ? "#6f9023" : "#97999d" }}>
+                {reportedCount}/4 申告
+              </span>
+            </div>
+
+            {/* 緑フェルトの卓 */}
+            <div
+              className="rounded-[20px] p-4"
+              style={{
+                background: "radial-gradient(120% 90% at 50% 30%, #2f7d57, #1c4d36)",
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,.08), inset 0 0 50px rgba(0,0,0,.28)",
+              }}
+            >
+              {t.tableLabel && (
+                <div className="text-center text-white/90 text-[12px] font-extrabold tracking-[0.1em] mb-3">{t.tableLabel}卓</div>
+              )}
+              <div className="grid grid-cols-2 gap-2.5">
+                {t.members.map((m, i) => (
+                  <Seat key={m.lineUserId} m={m} seat={SEATS[i] ?? ""} me={m.lineUserId === currentUserId} />
                 ))}
               </div>
-              {me && t.status !== "completed" && (
-                <button
-                  onClick={() => setReportTable(t)}
-                  className={`mt-3 w-full py-2.5 rounded-2xl text-sm font-bold active:scale-[0.98] transition-all ${
-                    needReport ? "bg-[#231714] text-white" : "bg-gray-100 text-[#231714]/60"
-                  }`}
-                >
-                  {needReport ? "スコアを申告する" : "申告をやり直す"}
-                </button>
-              )}
             </div>
-          );
-        })}
+
+            {/* アクション */}
+            {t.status === "completed" ? (
+              <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold" style={{ background: "#eef4dd", color: "#6f9023" }}>
+                <CheckIcon color="#6f9023" size={16} />確定済み
+              </div>
+            ) : needReport ? (
+              <button
+                onClick={() => setReportTable(t)}
+                className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
+                style={{ background: ACCENT }}
+              >
+                <CheckIcon size={17} />スコアを申告する
+              </button>
+            ) : reported ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-extrabold" style={{ background: "#eef4dd", color: "#6f9023" }}>
+                  <CheckIcon color="#6f9023" size={16} />申告済み — 全員の申告で卓が確定します
+                </div>
+                <button onClick={() => setReportTable(t)} className="w-full py-2 rounded-xl text-[12px] font-bold text-[#231714]/60 bg-gray-100">
+                  申告をやり直す
+                </button>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
 
       {reportTable && (
         <ReportModal
@@ -314,6 +345,47 @@ function ReportTab({
             onChanged();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+/* 緑フェルト上の席（東南西北） */
+function Seat({ m, seat, me }: { m: MahjongTableMember; seat: string; me: boolean }) {
+  const done = m.points !== null;
+  return (
+    <div
+      className="rounded-[14px] p-3 relative"
+      style={
+        me
+          ? { background: "rgba(255,255,255,.96)", boxShadow: "0 4px 12px rgba(0,0,0,.25)" }
+          : { background: "rgba(255,255,255,.1)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.16)" }
+      }
+    >
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <Avatar src={m.pictureUrl} name={m.displayName} size={30} />
+          <span
+            className="absolute -left-1 -top-1.5 w-4 h-4 rounded-full text-white text-[10px] font-black flex items-center justify-center"
+            style={{ background: "#d8533a", boxShadow: "0 0 0 1.5px rgba(255,255,255,.9)" }}
+          >
+            {seat}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-extrabold truncate" style={{ color: me ? "#1c1f21" : "#fff" }}>{m.displayName}</div>
+          <div className="text-[10.5px] font-bold" style={{ color: me ? "#97999d" : "rgba(255,255,255,.7)" }}>
+            {me ? "あなた" : done ? "申告済み" : "申告待ち"}
+          </div>
+        </div>
+      </div>
+      {done && (
+        <div className="flex items-baseline justify-between mt-2">
+          <span className="text-[16px] font-black tabular-nums" style={{ color: me ? "#1c1f21" : "#fff" }}>
+            {m.points!.toLocaleString()}
+          </span>
+          <span className="text-[11px] font-extrabold" style={{ color: me ? "#97999d" : "rgba(255,255,255,.8)" }}>{m.rank}着</span>
+        </div>
       )}
     </div>
   );
@@ -368,52 +440,60 @@ function ReportModal({
         className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-bold text-[#231714]">スコアを申告</h3>
-        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">
+        <h3 className="text-base font-bold text-[#1c1f21]">スコアを申告</h3>
+        <p className="text-[11px] text-[#231714]/50 mt-1 mb-5">
           同卓4人の合計が100,000点になると自動で確定します。
         </p>
 
-        <label className="block text-xs font-medium text-[#231714]/60 mb-1">最終持ち点</label>
-        <input
-          type="number"
-          inputMode="numeric"
-          step={100}
-          value={points}
-          onChange={(e) => setPoints(e.target.value)}
-          placeholder="例: 32000"
-          className="w-full px-4 py-3 text-base border border-gray-200 rounded-xl text-right focus:outline-none focus:border-[#A5C1C8]"
-        />
+        <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mb-2">最終持ち点</label>
+        <div className="flex items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}>
+          <input
+            type="number"
+            inputMode="numeric"
+            step={100}
+            value={points}
+            onChange={(e) => setPoints(e.target.value)}
+            placeholder="25000"
+            className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
+            style={{ fontSize: "30px" }}
+          />
+          <span className="text-[14px] font-bold text-[#97999d]">点</span>
+        </div>
+        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（4人の合計が100,000点）</div>
 
-        <label className="block text-xs font-medium text-[#231714]/60 mt-4 mb-1">卓内順位</label>
-        <div className="grid grid-cols-4 gap-2">
+        <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
+        <div className="flex gap-2">
           {[1, 2, 3, 4].map((n) => (
             <button
               key={n}
               onClick={() => setRank(n)}
-              className={`py-3 rounded-xl text-sm font-bold border transition-colors ${
+              className="flex-1 py-3 rounded-xl text-[16px] font-black transition-all"
+              style={
                 rank === n
-                  ? "bg-[#231714] text-white border-[#231714]"
-                  : "bg-white text-[#231714]/60 border-gray-200"
-              }`}
+                  ? { background: ACCENT, color: "#fff", boxShadow: `0 3px 10px color-mix(in srgb, ${ACCENT} 40%, transparent)` }
+                  : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+              }
             >
-              {n}位
+              {n}<span className="text-[11px]">着</span>
             </button>
           ))}
         </div>
 
         {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
 
-        <div className="mt-5 flex gap-2">
+        <div className="mt-6 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-3 text-sm font-medium text-[#231714]/60 border border-gray-200 rounded-2xl"
+            className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
+            style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
           >
             キャンセル
           </button>
           <button
             onClick={submit}
             disabled={busy}
-            className="flex-1 py-3 text-sm font-bold text-[#231714] bg-[#B0E401] rounded-2xl active:scale-[0.98] disabled:opacity-50"
+            className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
+            style={{ background: ACCENT }}
           >
             {busy ? "送信中..." : "申告する"}
           </button>
