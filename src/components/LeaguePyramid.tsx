@@ -2,12 +2,12 @@
 
 import dynamic from "next/dynamic";
 import type { MahjongStanding, MahjongLeagueTier } from "@/types";
+import { Avatar } from "@/components/ui/LineContact";
 
 /**
- * 麻雀リーグ ピラミッド表示
- * - 上部: 正面向き 3D ピラミッド（深色ジュエル調・自分を浮遊アバター表示）
- * - 下部: リーグ別の順位リスト（自分をハイライト）
- * standings から動的描画。
+ * 麻雀リーグ ピラミッド表示（TILES 案）
+ * - 上部: 3D 回転ピラミッド（`LeaguePyramid3D`）をアイボリー帯のヒーローに配置
+ * - 下部: M1/M2/M3 別の順位リスト（自分を YOU でハイライト）
  */
 
 // 3D は WebGL のためクライアント専用（SSR 無効）
@@ -16,19 +16,19 @@ const LeaguePyramid3D = dynamic(
   { ssr: false }
 );
 
-const TIER_META: Record<
-  MahjongLeagueTier,
-  { label: string; color: string; soft: string }
-> = {
-  M1: { label: "M1.LEAGUE", color: "#E4007F", soft: "#FCE4F1" }, // マゼンタ
-  M2: { label: "M2.LEAGUE", color: "#00A0E9", soft: "#E0F4FD" }, // シアン
-  M3: { label: "M3.LEAGUE", color: "#F5B400", soft: "#FCF2D9" }, // イエロー
+const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
+  M1: { color: "#a2125a", desc: "PREMIER ・ 1〜4位" },
+  M2: { color: "#1172a5", desc: "CHALLENGER ・ 5〜8位" },
+  M3: { color: "#b48f13", desc: "CONTENDER ・ 9位〜" },
 };
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
 
-function initial(name: string) {
-  return name.trim().charAt(0) || "?";
+/** 連対率などのレート表示（0–1 の小数でも 0–100 でも丸めて % にする） */
+function pct(v: number): string {
+  if (v == null || Number.isNaN(v)) return "0%";
+  const n = v <= 1 ? v * 100 : v;
+  return `${Math.round(n)}%`;
 }
 
 export function LeaguePyramid({
@@ -38,77 +38,89 @@ export function LeaguePyramid({
   standings: MahjongStanding[];
   currentUserId?: string;
 }) {
-  const byTier: Record<MahjongLeagueTier, MahjongStanding[]> = {
-    M1: [],
-    M2: [],
-    M3: [],
-  };
+  const byTier: Record<MahjongLeagueTier, MahjongStanding[]> = { M1: [], M2: [], M3: [] };
   standings.forEach((s) => byTier[s.tier].push(s));
   TIER_ORDER.forEach((t) => byTier[t].sort((a, b) => a.rank - b.rank));
 
   return (
     <div className="space-y-5">
-      {/* 3D ピラミッド */}
-      <LeaguePyramid3D standings={standings} currentUserId={currentUserId} />
-
-      {/* 順位リスト */}
-      <div className="space-y-3">
-        {TIER_ORDER.map((t) => (
-          <div
-            key={`list-${t}`}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
-          >
-            <div
-              className="flex items-center gap-2 px-4 py-2.5"
-              style={{ borderLeft: `4px solid ${TIER_META[t].color}` }}
-            >
-              <span className="text-sm font-bold text-[#231714]">{TIER_META[t].label}</span>
-              <span className="text-xs text-[#231714]/50">{byTier[t].length}名</span>
-            </div>
-            {byTier[t].length === 0 ? (
-              <div className="px-4 py-4 text-xs text-[#231714]/40">該当者なし</div>
-            ) : (
-              byTier[t].map((s) => {
-                const isMe = s.lineUserId === currentUserId;
-                return (
-                  <div
-                    key={s.lineUserId}
-                    className="flex items-center gap-3 px-4 py-2.5 border-t border-gray-50"
-                    style={isMe ? { background: TIER_META[t].soft } : undefined}
-                  >
-                    <span className="w-6 text-center text-xs text-[#231714]/50">{s.rank}</span>
-                    {s.pictureUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
-                    ) : (
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-                        style={{ background: TIER_META[t].color }}
-                      >
-                        {initial(s.displayName)}
-                      </div>
-                    )}
-                    <span className="flex-1 text-sm text-[#231714] truncate">
-                      {s.displayName}
-                      {isMe && (
-                        <span className="ml-1 text-[11px]" style={{ color: TIER_META[t].color }}>
-                          （あなた）
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-bold text-[#231714]">
-                      {s.average.toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ))}
+      {/* 3D ピラミッド（アイボリー帯ヒーロー） */}
+      <div
+        className="rounded-[18px] overflow-hidden"
+        style={{ background: "radial-gradient(120% 80% at 50% 12%, #fffdf7, #f4f1ea)" }}
+      >
+        <LeaguePyramid3D standings={standings} currentUserId={currentUserId} height={280} />
       </div>
 
-      <p className="text-[11px] text-[#231714]/40 leading-relaxed">
-        順位はシーズン通算アベレージ順。毎月のリーグ戦後にリーグの入れ替えがあります。
+      {/* 順位リスト */}
+      <div className="space-y-[18px]">
+        {TIER_ORDER.map((t) => {
+          const members = byTier[t];
+          if (members.length === 0) return null;
+          const col = TIER_META[t].color;
+          return (
+            <div key={`list-${t}`}>
+              {/* セクション見出し */}
+              <div className="flex items-center gap-2 mx-0.5 mb-2">
+                <span className="text-[13px] font-black tracking-wide" style={{ color: col }}>{t}</span>
+                <span className="text-[11px] text-[#97999d]">{TIER_META[t].desc}</span>
+                <span className="flex-1 h-px bg-[#eceff1]" />
+                <span className="text-[11px] text-[#97999d]">{members.length}名</span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {members.map((s) => {
+                  const isMe = s.lineUserId === currentUserId;
+                  const top3 = s.rank <= 3;
+                  return (
+                    <div
+                      key={s.lineUserId}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-[14px]"
+                      style={
+                        isMe
+                          ? { background: `color-mix(in srgb, ${col} 8%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${col}` }
+                          : { background: "#fff", boxShadow: "0 1px 2px rgba(28,31,33,.05), inset 0 0 0 1px #f1f3f4" }
+                      }
+                    >
+                      <div className="w-[26px] text-center shrink-0">
+                        <span
+                          className="font-black tabular-nums"
+                          style={{ fontSize: top3 ? 19 : 16, color: top3 ? col : "#97999d", letterSpacing: "-.03em" }}
+                        >
+                          {s.rank}
+                        </span>
+                      </div>
+                      <Avatar src={s.pictureUrl} name={s.displayName} size={36} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14.5px] font-bold text-[#1c1f21] truncate">
+                          {s.displayName}
+                          {isMe && (
+                            <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: col }}>YOU</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2.5 mt-0.5 text-[11px] text-[#97999d] tabular-nums">
+                          <span>{s.gamesPlayed}戦</span>
+                          <span>1位 {s.firstCount}</span>
+                          <span>連対 {pct(s.top2Rate)}</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 min-w-[58px]">
+                        <div className="text-[16.5px] font-black text-[#1c1f21] tabular-nums leading-none">
+                          {Math.round(s.average).toLocaleString()}
+                        </div>
+                        <div className="text-[9.5px] font-bold text-[#97999d] mt-0.5">AVG</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[11px] text-[#97999d] leading-relaxed px-1">
+        順位はシーズン通算アベレージ順。アベレージが同じ場合は 連対率 → 試合数 → 名前順。毎月のリーグ戦後にリーグの入れ替えがあります。
       </p>
     </div>
   );

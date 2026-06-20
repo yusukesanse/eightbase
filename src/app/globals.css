@@ -1,3 +1,6 @@
+/* 麻雀リーグ ピラミッド左ラベル用（Noto Serif JP）＋ canvas 初期文字（Noto Sans JP） */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,6 +8,13 @@
 :root {
   --line-green: #06C755;
   --line-dark:  #05A847;
+
+  /* リーグ色（3Dピラミッド／順位リストと一致。ハンドオフのDS色） */
+  --eb-league-m1: #a2125a;
+  --eb-league-m2: #1172a5;
+  --eb-league-m3: #b48f13;
+  /* テキスト階調（ピラミッド左ラベル等で参照） */
+  --text-tertiary: #97999d;
 }
 
 /* LINE ミニアプリ向け: スクロールバーを非表示 */
