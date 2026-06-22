@@ -3,27 +3,13 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/payments/config
- * フロントエンドに必要な Square 設定を返す
- * (Application ID は公開情報、Access Token は返さない)
+ * GET /api/payments/config — 決済機能は現在無効。
+ *
+ * Square 設定（applicationId 等）は返さず、常に 501 PAYMENT_DISABLED を返す。
  */
 export async function GET() {
-  const applicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID;
-  const locationId = process.env.SQUARE_LOCATION_ID;
-  const environment = process.env.SQUARE_ENVIRONMENT === "production"
-    ? "production"
-    : "sandbox";
-
-  if (!applicationId || !locationId) {
-    return NextResponse.json(
-      { error: "Square の設定が完了していません" },
-      { status: 503 }
-    );
-  }
-
-  return NextResponse.json({
-    applicationId,
-    locationId,
-    environment,
-  });
+  return NextResponse.json(
+    { error: "PAYMENT_DISABLED", message: "決済機能は現在無効です。" },
+    { status: 501 }
+  );
 }

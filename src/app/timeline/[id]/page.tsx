@@ -2,19 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-
-interface Post {
-  postId: string;
-  authorId: string;
-  authorName: string;
-  authorPictureUrl: string;
-  type: "offer" | "request";
-  content: string;
-  tags: string[];
-  likes: string[];
-  commentCount: number;
-  createdAt: string;
-}
+import { type CachedPost as Post, findCachedPost } from "@/lib/timelineCache";
 
 interface Comment {
   commentId: string;
@@ -40,13 +28,22 @@ export default function PostDetailPage() {
   const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // 一覧キャッシュに該当投稿があれば即表示（スピナーを避ける）
+    const cached = findCachedPost(postId);
+    if (cached) {
+      setPost(cached);
+      setLoading(false);
+    }
     loadData();
   }, [postId]);
 
   async function loadData() {
     try {
       // ユーザーID取得
-      const authRes = await fetch("/api/auth/check", { credentials: "include" });
+      const authRes = await fetch("/api/auth/check", {
+        credentials: "include",
+        cache: "no-store",
+      });
       const authData = await authRes.json();
       if (!authData.authorized) {
         router.replace("/login");
@@ -54,16 +51,19 @@ export default function PostDetailPage() {
       }
       setCurrentUserId(authData.lineUserId || "");
 
-      // 投稿一覧から該当投稿を探す（個別取得APIがないため）
-      const postsRes = await fetch("/api/posts", { credentials: "include" });
-      if (!postsRes.ok) return;
-      const posts: Post[] = await postsRes.json();
-      const found = posts.find((p) => p.postId === postId);
-      if (found) setPost(found);
+      // 投稿を単体取得（一覧の最新30件から探さない）
+      const postRes = await fetch(`/api/posts/${postId}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (postRes.ok) {
+        setPost(await postRes.json());
+      }
 
       // コメント取得
       const commentsRes = await fetch(`/api/posts/${postId}/comments`, {
         credentials: "include",
+        cache: "no-store",
       });
       if (commentsRes.ok) {
         setComments(await commentsRes.json());
@@ -81,6 +81,7 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/posts/${postId}/like`, {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
       });
       if (!res.ok) return;
       const { liked } = await res.json();
@@ -104,6 +105,7 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/posts/${postId}/comments`, {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: commentText.trim() }),
       });
@@ -112,6 +114,7 @@ export default function PostDetailPage() {
         // コメント一覧を再読み込み
         const commentsRes = await fetch(`/api/posts/${postId}/comments`, {
           credentials: "include",
+          cache: "no-store",
         });
         if (commentsRes.ok) {
           setComments(await commentsRes.json());
@@ -135,6 +138,7 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/posts/${postId}`, {
         method: "DELETE",
         credentials: "include",
+        cache: "no-store",
       });
       if (res.ok) {
         router.replace("/timeline");

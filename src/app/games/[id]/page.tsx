@@ -36,11 +36,11 @@ export default function GameDetailPage() {
 
   useEffect(() => {
     if (!gameId) return;
-    fetch("/api/games")
-      .then((r) => r.json())
-      .then((data) => {
-        const found = (data.games as Game[])?.find((g) => g.gameId === gameId);
-        setGame(found ?? null);
+    // 一覧APIから探さず単体取得（limit に依存しない）
+    fetch(`/api/games/${gameId}`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Game | null) => {
+        setGame(data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));

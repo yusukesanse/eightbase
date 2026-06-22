@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isPreviewMode, PREVIEW_USER_ID } from "@/lib/preview";
+import { isReviewModeEnabled } from "@/lib/reviewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -37,15 +38,7 @@ export async function GET(req: NextRequest) {
 
     if (snap.empty) {
       // authorizedUsers に存在しない → 審査モードを確認（本番では明示許可なしで無効）
-      let isReviewMode = false;
-      if (process.env.NODE_ENV !== "production" || process.env.ALLOW_REVIEW_MODE === "true") {
-      try {
-        const settingsDoc = await db.collection("settings").doc("app").get();
-        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
-      } catch (e) {
-        console.warn("[auth/check] settings fetch error:", e);
-      }
-      } // end ALLOW_REVIEW_MODE guard
+      const isReviewMode = await isReviewModeEnabled(db);
 
       if (!isReviewMode) {
         return NextResponse.json({ authorized: false });
@@ -73,23 +66,4 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * POST /api/auth/check
- * ログアウト: セッション Cookie を削除する。
- */
-export async function POST(req: NextRequest) {
-  const { action } = await req.json().catch(() => ({ action: "" }));
-  if (action !== "logout") {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  }
-
-  const res = NextResponse.json({ success: true });
-  res.cookies.set("__session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
-  return res;
-}
+// ログアウトは POST /api/auth/logout に一本化（以前ここにあった重複の logout POST は削除）。

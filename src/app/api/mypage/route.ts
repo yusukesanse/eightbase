@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireActiveUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -68,15 +68,22 @@ export async function GET(req: NextRequest) {
       // reservations コレクションが未作成の場合は 0
     }
 
-    return NextResponse.json({
-      displayName: authData?.displayName || userData.displayName || "",
-      lineDisplayName: userData.lineDisplayName || "",
-      pictureUrl: userData.pictureUrl || "",
-      catchphrase: memberProfile.catchphrase || "",
-      skills: memberProfile.skills || [],
-      postCount,
-      reservationCount,
-    });
+    // 個人データなので HTTP 層ではキャッシュさせない（クライアント側 sessionStorage のみ）。
+    return NextResponse.json(
+      {
+        displayName: authData?.displayName || userData.displayName || "",
+        lineDisplayName: userData.lineDisplayName || "",
+        pictureUrl: userData.pictureUrl || "",
+        catchphrase: memberProfile.catchphrase || "",
+        skills: memberProfile.skills || [],
+        companyUrl: memberProfile.companyUrl || "",
+        socialLinks: memberProfile.socialLinks || {},
+        lineUrl: memberProfile.lineUrl || "",
+        postCount,
+        reservationCount,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("[api/mypage] error:", error);
     return NextResponse.json(

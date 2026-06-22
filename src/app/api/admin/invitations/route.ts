@@ -3,11 +3,13 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { isPreviewMode } from "@/lib/preview";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
+import { sendPasscodeEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
 const INVITATION_EXPIRY_DAYS = 7;
 const MAX_PASSCODE_ATTEMPTS = 5;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * GET /api/admin/invitations
@@ -32,8 +34,10 @@ export async function GET(req: NextRequest) {
       const lineUserId = d.lineUserId as string | null;
       const expiresAt = d.expiresAt as string;
 
-      let status: "unused" | "used" | "expired" = "unused";
-      if (usedAt || lineUserId) {
+      let status: "unused" | "used" | "expired" | "revoked" = "unused";
+      if (d.revokedAt) {
+        status = "revoked";
+      } else if (usedAt || lineUserId) {
         status = "used";
       } else if (new Date(expiresAt).getTime() < now) {
         status = "expired";
@@ -42,7 +46,9 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         displayName: d.displayName || "",
+        email: (d.email as string) || "",
         status,
+        emailDeliveryStatus: (d.emailDeliveryStatus as string) || "unknown",
         createdAt: d.createdAt as string,
         expiresAt,
         usedAt: usedAt || null,
@@ -58,10 +64,15 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/invitations
- * 新規招待を作成（ワンタイムパスコード発行）
- * パスコードはハッシュで保存し、平文はこのレスポンスでのみ返却
+ * 新規招待を作成（ワンタイムパスコード発行 + メール送信）
  *
- * Body: { displayName: string }
+ * Body: { displayName: string, email: string }
+ *
+ * - email を正規化・形式検証
+ * - authorizedUsers の同一 email 重複を 409 で拒否
+ * - invitations + authorizedUsers を batch でアトミックに作成
+ * - メール送信結果を emailDeliveryStatus として保存
+ * - メール送信成功時は平文 passcode をレスポンスに含めない
  */
 export async function POST(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
@@ -69,12 +80,30 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { displayName } = await req.json();
+    const { displayName, email } = await req.json();
     if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
       return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
     }
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return NextResponse.json({ error: "メールアドレスを入力してください" }, { status: 400 });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 });
+    }
 
     const db = getDb();
+
+    // 同一メールアドレスの重複チェック（authorizedUsers）
+    const existingUser = await db
+      .collection("authorizedUsers")
+      .where("email", "==", trimmedEmail)
+      .limit(1)
+      .get();
+    if (!existingUser.empty) {
+      return NextResponse.json({ error: "このメールアドレスは既に登録されています" }, { status: 409 });
+    }
 
     // 重複チェック付きパスコード生成（最大5回）
     let passcode = "";
@@ -97,20 +126,29 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     const nowStr = now.toISOString();
+    const trimmedName = displayName.trim();
 
-    const inviteRef = await db.collection("invitations").add({
-      displayName: displayName.trim(),
+    // invitations + authorizedUsers をアトミックに作成
+    const batch = db.batch();
+    const inviteRef = db.collection("invitations").doc();
+    batch.set(inviteRef, {
+      displayName: trimmedName,
+      email: trimmedEmail,
       passcodeHash: pHash,
+      emailDeliveryStatus: "pending",
+      emailSentAt: null,
+      emailError: null,
       createdAt: nowStr,
       expiresAt: expiresAt.toISOString(),
       usedAt: null,
       lineUserId: null,
+      revokedAt: null,
     });
 
-    // authorizedUsers にも即時作成（ユーザー一覧に表示するため）
-    await db.collection("authorizedUsers").add({
-      displayName: displayName.trim(),
-      email: "",
+    const authRef = db.collection("authorizedUsers").doc();
+    batch.set(authRef, {
+      displayName: trimmedName,
+      email: trimmedEmail,
       passwordHash: "",
       salt: "",
       lineUserId: null,
@@ -122,10 +160,32 @@ export async function POST(req: NextRequest) {
       inviteStatus: "pending",
     });
 
+    await batch.commit();
+
+    // メール送信（DB作成後に実行、結果をinvitationに反映）
+    let emailSent = false;
+    try {
+      await sendPasscodeEmail(trimmedEmail, trimmedName, passcode);
+      emailSent = true;
+      await inviteRef.update({
+        emailDeliveryStatus: "sent",
+        emailSentAt: new Date().toISOString(),
+      });
+    } catch (emailError) {
+      const errMsg = emailError instanceof Error ? emailError.message : "Unknown error";
+      console.error("[admin/invitations] Email send error:", errMsg);
+      await inviteRef.update({
+        emailDeliveryStatus: "failed",
+        emailError: errMsg,
+      });
+    }
+
+    // メール送信成功時は平文パスコードを返さない
     return NextResponse.json({
       success: true,
       id: inviteRef.id,
-      passcode,
+      passcode: emailSent ? undefined : passcode,
+      emailSent,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
@@ -136,7 +196,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * PATCH /api/admin/invitations
- * パスコードを再発行（新ハッシュで上書き、有効期限リセット）
+ * パスコードを再発行（新ハッシュで上書き、有効期限リセット、メール再送）
  *
  * Body: { id: string }
  */
@@ -163,20 +223,65 @@ export async function PATCH(req: NextRequest) {
     if (data.usedAt || data.lineUserId) {
       return NextResponse.json({ error: "使用済みの招待は再発行できません" }, { status: 400 });
     }
+    if (data.revokedAt) {
+      return NextResponse.json({ error: "無効化された招待は再発行できません" }, { status: 400 });
+    }
 
-    const passcode = generatePasscode();
-    const pHash = hashPasscode(passcode);
+    // パスコードハッシュ重複チェック付き生成
+    let passcode = "";
+    let pHash = "";
+    for (let i = 0; i < MAX_PASSCODE_ATTEMPTS; i++) {
+      passcode = generatePasscode();
+      pHash = hashPasscode(passcode);
+      const dup = await db
+        .collection("invitations")
+        .where("passcodeHash", "==", pHash)
+        .where("usedAt", "==", null)
+        .limit(1)
+        .get();
+      if (dup.empty) break;
+      if (i === MAX_PASSCODE_ATTEMPTS - 1) {
+        return NextResponse.json({ error: "パスコード生成に失敗しました。再試行してください" }, { status: 500 });
+      }
+    }
+
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
     await docRef.update({
       passcodeHash: pHash,
       expiresAt: expiresAt.toISOString(),
+      emailDeliveryStatus: "pending",
+      emailSentAt: null,
+      emailError: null,
     });
 
+    // メール再送
+    let emailSent = false;
+    const savedEmail = data.email as string | undefined;
+    if (savedEmail) {
+      try {
+        await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
+        emailSent = true;
+        await docRef.update({
+          emailDeliveryStatus: "sent",
+          emailSentAt: new Date().toISOString(),
+        });
+      } catch (emailError) {
+        const errMsg = emailError instanceof Error ? emailError.message : "Unknown error";
+        console.error("[admin/invitations] Email resend error:", errMsg);
+        await docRef.update({
+          emailDeliveryStatus: "failed",
+          emailError: errMsg,
+        });
+      }
+    }
+
+    // メール送信成功時は平文パスコードを返さない
     return NextResponse.json({
       success: true,
-      passcode,
+      passcode: emailSent ? undefined : passcode,
+      emailSent,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {

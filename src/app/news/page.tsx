@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NewsItem, NewsCategory, NewsPriority } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -17,15 +17,17 @@ const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; dot: str
 
 export default function NewsPage() {
   const router = useRouter();
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/news")
-      .then(r => r.json())
-      .then(d => setNews(d.news ?? []))
-      .finally(() => setLoading(false));
-  }, []);
+  // 前回表示を即出し→裏で再取得（数分キャッシュ）。info ページとキーを共有する。
+  const { data, isLoading } = useStaleWhileRevalidate<{ news: NewsItem[] }>(
+    "news:list",
+    () =>
+      fetch("/api/news", { credentials: "include", cache: "no-store" }).then(
+        (r) => r.json()
+      )
+  );
+  const news = data?.news ?? [];
+  // フルスクリーンスピナーは初回（キャッシュ無し）のみ
+  const loading = isLoading;
 
   const today = dayjs().format("M月D日（ddd）");
 

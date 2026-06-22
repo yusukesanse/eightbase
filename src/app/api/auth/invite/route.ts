@@ -3,6 +3,7 @@ import { signSession, setSessionCookie } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { hashPasscode } from "@/lib/passcode";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -43,32 +44,22 @@ export async function POST(req: NextRequest) {
     }
 
     // ── LINE API でアクセストークンを検証 ──
-    const verifyRes = await fetch(
-      `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
-    );
-    if (!verifyRes.ok) {
+    const tokenStatus = await verifyLineAccessToken(accessToken);
+    if (tokenStatus === "invalid") {
       return NextResponse.json({ error: "LINEアクセストークンが無効です" }, { status: 401 });
     }
-    const verifyData = await verifyRes.json();
-    if (verifyData.expires_in <= 0) {
+    if (tokenStatus === "expired") {
       return NextResponse.json({ error: "LINEアクセストークンの有効期限が切れています" }, { status: 401 });
     }
 
     // ── LINE API でプロフィール取得 ──
-    const profileRes = await fetch("https://api.line.me/v2/profile", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!profileRes.ok) {
+    const profile = await fetchLineProfile(accessToken);
+    if (!profile) {
       return NextResponse.json({ error: "LINEプロフィールの取得に失敗しました" }, { status: 401 });
     }
-    const profile = await profileRes.json();
-    const lineUserId: string = profile.userId;
-    const lineDisplayName: string = profile.displayName || "";
-    const linePictureUrl: string = profile.pictureUrl || "";
-
-    if (!lineUserId) {
-      return NextResponse.json({ error: "LINE ユーザーIDを取得できませんでした" }, { status: 401 });
-    }
+    const lineUserId = profile.userId;
+    const lineDisplayName = profile.displayName;
+    const linePictureUrl = profile.pictureUrl;
 
     // ── LINE userId レートリミット (5回/10分) ──
     if (!checkRateLimit(`invite:line:${lineUserId}`, 5, 10 * 60 * 1000)) {
@@ -103,8 +94,11 @@ export async function POST(req: NextRequest) {
 
       const invite = inviteDoc.data()!;
 
-      // 使用済み or 期限切れ → 統一メッセージ
+      // 使用済み / 無効化 / 期限切れ → 統一メッセージ
       if (invite.usedAt || invite.lineUserId) {
+        return { error: INVALID_MSG, status: 400 };
+      }
+      if (invite.revokedAt) {
         return { error: INVALID_MSG, status: 400 };
       }
       if (new Date(invite.expiresAt).getTime() < Date.now()) {
@@ -127,6 +121,11 @@ export async function POST(req: NextRequest) {
       );
 
       if (!authSnap.empty) {
+        const authData = authSnap.docs[0].data();
+        // active=false のユーザーは連携を拒否
+        if (authData.active === false) {
+          return { error: INVALID_MSG, status: 400 };
+        }
         tx.update(authSnap.docs[0].ref, {
           lineUserId,
           lastLoginAt: now,

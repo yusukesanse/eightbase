@@ -54,7 +54,10 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    return NextResponse.json(result);
+    // 空き状況は常に最新を返す（HTTPキャッシュ禁止）
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[week-availability] error:", message);

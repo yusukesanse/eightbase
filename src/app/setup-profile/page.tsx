@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
+import { clearAuthCache } from "@/components/AuthGuard";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -53,6 +54,7 @@ interface FormData {
   skills: string[];
   companyUrl: string;
   bio: string;
+  lineUrl: string;
   socialLinks: {
     instagram: string;
     x: string;
@@ -83,6 +85,7 @@ const EMPTY_FORM: FormData = {
   skills: [],
   companyUrl: "",
   bio: "",
+  lineUrl: "",
   socialLinks: { instagram: "", x: "", facebook: "", other: "" },
 };
 
@@ -118,6 +121,7 @@ export default function SetupProfilePage() {
             skills: p.skills || [],
             companyUrl: p.companyUrl || "",
             bio: p.bio || "",
+            lineUrl: p.lineUrl || "",
             socialLinks: { ...EMPTY_FORM.socialLinks, ...(p.socialLinks || {}) },
           });
         }
@@ -214,6 +218,7 @@ export default function SetupProfilePage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        clearAuthCache();
         router.replace("/reservation");
       } else {
         setError(data.error || "保存に失敗しました");
@@ -460,6 +465,14 @@ export default function SetupProfilePage() {
                   <input type="text" value={form.socialLinks.other} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, other: e.target.value } }))} placeholder="その他のURL" className={`flex-1 ${INPUT_CLASS}`} />
                 </div>
               </div>
+            </Card>
+
+            {/* LINE連絡先（任意・推奨） */}
+            <Card title="LINE連絡先（任意）" icon="share">
+              <p className="text-[10px] text-[#231714]/40 mb-2 leading-relaxed">
+                登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーがあなたに直接連絡できます（任意・後からでも設定できます）。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
+              </p>
+              <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={INPUT_CLASS} />
             </Card>
 
             {/* 自己紹介 */}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { prependPostCache } from "@/lib/timelineCache";
 
 export default function NewPostPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function NewPostPage() {
       const res = await fetch("/api/posts", {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, content: content.trim(), tags }),
       });
@@ -44,6 +46,24 @@ export default function NewPostPage() {
         const data = await res.json();
         setError(data.error || "投稿に失敗しました");
         return;
+      }
+
+      // 投稿を一覧キャッシュの先頭へ即時反映（著者名等は遷移先の裏更新で補完される）。
+      // postId を一致させることで、timelineで新着バナーではなく静かな差し替えになる。
+      const { postId } = await res.json().catch(() => ({ postId: "" }));
+      if (postId) {
+        prependPostCache({
+          postId,
+          authorId: "",
+          authorName: "",
+          authorPictureUrl: "",
+          type,
+          content: content.trim(),
+          tags,
+          likes: [],
+          commentCount: 0,
+          createdAt: new Date().toISOString(),
+        });
       }
 
       router.push("/timeline");

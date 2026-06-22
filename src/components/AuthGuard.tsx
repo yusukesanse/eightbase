@@ -2,13 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { clearAllCache, getCacheOwner, setCacheOwner } from "@/lib/swrCache";
+import { clearPostsCache } from "@/lib/timelineCache";
+import { clearEventGoods } from "@/lib/eventGoods";
+
+/**
+ * 認証チェックで判明した現在ユーザーと、キャッシュ所有者を突き合わせる。
+ * 別ユーザーに変わっていたら前ユーザーの表示キャッシュを破棄してから所有者を更新する。
+ * （明示ログアウトを経ずにユーザーが変わったケースの保険）
+ */
+function reconcileCacheOwner(userId: string) {
+  const prev = getCacheOwner();
+  if (prev && prev !== userId) {
+    clearAllCache();
+    clearPostsCache();
+    clearEventGoods();
+  }
+  setCacheOwner(userId);
+}
 
 const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
 const PUBLIC_PREFIXES = ["/admin"];
 
-/** セッション中の認証キャッシュ（ページ遷移ごとのAPIコールを防止） */
+/**
+ * セッション中の認証キャッシュ（ページ遷移ごとのAPIコール連打を防ぐための短期メモ）。
+ * 認証状態は表示用キャッシュ(swrCache)と同列に扱わない: 表示データより短い TTL にし、
+ * すぐに /api/auth/check で取り直す。最終的な可否判定はサーバー側(各API)が担保する。
+ */
 let authCache: { authorized: boolean; profileComplete: boolean; checkedAt: number } | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5分間キャッシュ
+const CACHE_TTL = 60 * 1000; // 認証は短期のみ（60秒）
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -62,6 +84,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             checkedAt: Date.now(),
           };
           if (data.authorized) {
+            // ユーザーIDが変わっていたら前ユーザーの表示キャッシュを破棄
+            if (data.lineUserId) reconcileCacheOwner(data.lineUserId);
             if (!data.profileComplete && pathname !== "/setup-profile") {
               router.replace("/setup-profile");
               return;
@@ -108,7 +132,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** 外部からキャッシュをクリア（ログアウト時に使用） */
+/** 外部からキャッシュをクリア（ログイン/ログアウトでユーザー切替時に使用） */
 export function clearAuthCache() {
   authCache = null;
+  // 認証状態が変わるタイミングで表示用クライアントキャッシュも破棄し、
+  // 別ユーザーのメンバー一覧・マイページ・掲示板・イベントgood状態が残らないようにする。
+  clearAllCache();
+  clearPostsCache();
+  clearEventGoods();
 }

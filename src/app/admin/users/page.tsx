@@ -5,15 +5,26 @@ import dayjs from "dayjs";
 
 /* ─── 型定義 ─── */
 
+interface SocialLinksData {
+  instagram?: string;
+  x?: string;
+  facebook?: string;
+  other?: string;
+}
+
 interface UserProfile {
   lastName: string;
   firstName: string;
   lastNameKana: string;
   firstNameKana: string;
+  email?: string;
   phone: string;
   birthday: string;
   gender: string;
-  occupation: string;
+  companyName?: string;
+  jobTitle?: string;
+  industry?: string;
+  occupation?: string; // 旧データ（後方互換）
   purpose: string;
   postalCode: string;
   prefecture: string;
@@ -21,6 +32,23 @@ interface UserProfile {
   address: string;
   building: string;
   addressType: string;
+  companyUrl?: string;
+  bio?: string;
+  lineUrl?: string;
+  socialLinks?: SocialLinksData;
+}
+
+/** users.memberProfile（スキル・キャッチコピー等。LINE連携ユーザーのみ） */
+interface MemberProfileData {
+  skills?: string[];
+  catchphrase?: string;
+  companyName?: string;
+  jobTitle?: string;
+  industry?: string;
+  companyUrl?: string;
+  bio?: string;
+  socialLinks?: SocialLinksData;
+  lineUrl?: string;
 }
 
 interface User {
@@ -32,6 +60,7 @@ interface User {
   active: boolean;
   profileComplete: boolean;
   profile: UserProfile | null;
+  memberProfile: MemberProfileData | null;
   pictureUrl: string | null;
   lineDisplayName: string | null;
   createdAt: string;
@@ -119,6 +148,27 @@ function UserDetailPanel({
   onDelete: (user: User) => void;
 }) {
   const p = user.profile;
+  const mp = user.memberProfile;
+
+  // profile（authorizedUsers）優先、memberProfile（users）/旧occupation でフォールバック
+  const companyName = p?.companyName || p?.occupation || mp?.companyName || "";
+  const jobTitle = p?.jobTitle || mp?.jobTitle || "";
+  const industry = p?.industry || mp?.industry || "";
+  const companyUrl = p?.companyUrl || mp?.companyUrl || "";
+  const bio = p?.bio || mp?.bio || "";
+  const lineUrl = p?.lineUrl || mp?.lineUrl || "";
+  const catchphrase = mp?.catchphrase || "";
+  const skills = mp?.skills || [];
+  const sns = p?.socialLinks || mp?.socialLinks || {};
+  const snsText =
+    [
+      sns.x && `X: ${sns.x}`,
+      sns.instagram && `Instagram: ${sns.instagram}`,
+      sns.facebook && `Facebook: ${sns.facebook}`,
+      sns.other && `その他: ${sns.other}`,
+    ]
+      .filter(Boolean)
+      .join("  /  ") || "";
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-end z-50">
@@ -163,7 +213,7 @@ function UserDetailPanel({
                   {p.lastNameKana} {p.firstNameKana}
                 </p>
               )}
-              <p className="text-sm text-[#231714]/60 mt-1">{p?.occupation || user.tenantName || "—"}</p>
+              <p className="text-sm text-[#231714]/60 mt-1">{[companyName, jobTitle].filter(Boolean).join(" / ") || user.tenantName || "—"}</p>
 
               <div className="flex items-center gap-2 mt-3">
                 <Badge active={user.active} />
@@ -235,8 +285,28 @@ function UserDetailPanel({
             <div className="bg-[#231714]/[0.02] rounded-xl px-4">
               <InfoRow label="生年月日" value={p?.birthday ? dayjs(p.birthday).format("YYYY年M月D日") : null} />
               <InfoRow label="性別" value={p?.gender ? GENDER_LABELS[p.gender] || p.gender : null} />
-              <InfoRow label="職業・会社名" value={p?.occupation} />
+              <InfoRow label="会社名・屋号" value={companyName} />
+              <InfoRow label="職種" value={jobTitle} />
+              <InfoRow label="業種" value={industry} />
               <InfoRow label="利用目的" value={p?.purpose} />
+            </div>
+          </section>
+
+          {/* プロフィール・スキル */}
+          <section>
+            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1.5l1.6 3.3 3.6.5-2.6 2.5.6 3.6L7 9.7 3.8 11.4l.6-3.6L1.8 5.3l3.6-.5L7 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
+              </svg>
+              プロフィール・スキル
+            </h3>
+            <div className="bg-[#231714]/[0.02] rounded-xl px-4">
+              <InfoRow label="キャッチコピー" value={catchphrase} />
+              <InfoRow label="スキル" value={skills.length > 0 ? skills.join("、") : null} />
+              <InfoRow label="自己紹介" value={bio} />
+              <InfoRow label="会社URL" value={companyUrl} />
+              <InfoRow label="SNS" value={snsText || null} />
+              <InfoRow label="LINE連絡先" value={lineUrl} />
             </div>
           </section>
 
@@ -379,7 +449,7 @@ export default function AdminUsersPage() {
         p?.phone ?? "",
         p?.birthday ?? "",
         p?.gender ? (GENDER_LABELS[p.gender] || p.gender) : "",
-        p?.occupation ?? u.tenantName ?? "",
+        [p?.companyName || p?.occupation, p?.jobTitle].filter(Boolean).join(" / ") || u.tenantName || "",
         p?.purpose ?? "",
         p?.addressType ? (ADDRESS_TYPE_LABELS[p.addressType] || p.addressType) : "",
         p?.postalCode ?? "",
@@ -431,6 +501,8 @@ export default function AdminUsersPage() {
           u.email.toLowerCase().includes(q) ||
           (u.tenantName && u.tenantName.toLowerCase().includes(q)) ||
           (u.profile?.phone && u.profile.phone.includes(q)) ||
+          (u.profile?.companyName && u.profile.companyName.toLowerCase().includes(q)) ||
+          (u.profile?.jobTitle && u.profile.jobTitle.toLowerCase().includes(q)) ||
           (u.profile?.occupation && u.profile.occupation.toLowerCase().includes(q))
       );
     }
@@ -814,7 +886,7 @@ export default function AdminUsersPage() {
                         )}
                         <div>
                           <p className="font-medium text-[#231714]">{user.displayName}</p>
-                          <p className="text-xs text-[#231714]/40">{user.profile?.occupation || user.tenantName || "—"}</p>
+                          <p className="text-xs text-[#231714]/40">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
                         </div>
                       </div>
                     </td>
@@ -855,7 +927,7 @@ export default function AdminUsersPage() {
   );
 }
 
-/* ═══ 招待URL発行モーダル ═══ */
+/* ═══ 招待モーダル（メール送信 + ワンタイムパスワード） ═══ */
 
 function InviteModal({
   onClose,
@@ -865,9 +937,11 @@ function InviteModal({
   onCreated: (msg: string) => void;
 }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passcode, setPasscode] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleCreate(e: React.FormEvent) {
@@ -879,11 +953,12 @@ function InviteModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ displayName: name }),
+        body: JSON.stringify({ displayName: name, email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
-      setPasscode(data.passcode);
+      setPasscode(data.passcode ?? null);
+      setEmailSent(data.emailSent ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -898,35 +973,59 @@ function InviteModal({
     setTimeout(() => setCopied(false), 2000);
   }
 
+  // 完了画面（emailSent=true or passcode取得済み）
+  const showResult = emailSent || passcode;
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        {passcode ? (
+        {showResult ? (
           <>
             <div className="text-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-[#B0E401]/20 flex items-center justify-center mx-auto mb-3">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 12l4 4 8-8" stroke="#B0E401" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+              <div className={`w-12 h-12 rounded-full ${emailSent ? "bg-[#B0E401]/20" : "bg-orange-100"} flex items-center justify-center mx-auto mb-3`}>
+                {emailSent ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 12l4 4 8-8" stroke="#B0E401" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 9v4M12 17h.01" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F59E0B" strokeWidth="1.5" />
+                  </svg>
+                )}
               </div>
-              <h3 className="text-base font-semibold text-[#231714]">ワンタイムパスワードを発行しました</h3>
-              <p className="text-xs text-[#231714]/50 mt-1">{name} さんにこのパスワードを伝えてください（有効期限: 7日間）</p>
+              <h3 className="text-base font-semibold text-[#231714]">
+                {emailSent ? "招待メールを送信しました" : "ワンタイムパスワードを発行しました"}
+              </h3>
+              <p className="text-xs text-[#231714]/50 mt-1">
+                {emailSent
+                  ? `${email} 宛にパスワードをメール送信しました（有効期限: 7日間）`
+                  : `${name} さんにこのパスワードを伝えてください（有効期限: 7日間）`}
+              </p>
+              {!emailSent && (
+                <p className="text-xs text-orange-500 mt-1">※ メール送信に失敗しました。手動でパスワードをお伝えください。</p>
+              )}
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
-            </div>
+            {/* メール送信失敗時のみ平文パスコードを表示 */}
+            {passcode && (
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+                <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
+              </div>
+            )}
 
             <div className="flex gap-2">
+              {passcode && (
+                <button
+                  onClick={copyPasscode}
+                  className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
+                >
+                  {copied ? "コピーしました" : "コピー"}
+                </button>
+              )}
               <button
-                onClick={copyPasscode}
-                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
-              >
-                {copied ? "コピーしました" : "コピー"}
-              </button>
-              <button
-                onClick={() => onCreated(`${name} さんのワンタイムパスワードを発行しました`)}
-                className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+                onClick={() => onCreated(`${name} さん${emailSent ? "に招待メールを送信" : "のワンタイムパスワードを発行"}しました`)}
+                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>
@@ -944,6 +1043,17 @@ function InviteModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="山田 太郎"
+                  required
+                  className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">メールアドレス</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="taro@example.com"
                   required
                   className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]"
                 />
@@ -983,6 +1093,7 @@ function ReissuePasscodeModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passcode, setPasscode] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleReissue() {
@@ -990,7 +1101,6 @@ function ReissuePasscodeModal({
     setLoading(true);
     try {
       if (user.invitationId) {
-        // invitationId で直接再発行
         const res = await fetch("/api/admin/invitations", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -999,18 +1109,23 @@ function ReissuePasscodeModal({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setPasscode(data.passcode);
+        setPasscode(data.passcode ?? null);
+        setEmailSent(data.emailSent ?? false);
       } else {
-        // invitationId がない旧ユーザー → 新規招待作成
+        // invitationId がない旧ユーザー → 新規招待作成（emailが必要）
+        if (!user.email) {
+          throw new Error("メールアドレスが未登録のため再発行できません");
+        }
         const res = await fetch("/api/admin/invitations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ displayName: user.displayName }),
+          body: JSON.stringify({ displayName: user.displayName, email: user.email }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setPasscode(data.passcode);
+        setPasscode(data.passcode ?? null);
+        setEmailSent(data.emailSent ?? false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "再発行に失敗しました");
@@ -1022,23 +1137,36 @@ function ReissuePasscodeModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        {passcode ? (
+        {(emailSent || passcode) ? (
           <>
-            <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードを再発行しました</h3>
-            <p className="text-xs text-[#231714]/50 mb-4">{user.displayName} さんに新しいパスワードを伝えてください</p>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-              <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
-            </div>
+            <h3 className="text-base font-semibold text-[#231714] mb-1">
+              {emailSent ? "招待メールを再送しました" : "パスワードを再発行しました"}
+            </h3>
+            <p className="text-xs text-[#231714]/50 mb-4">
+              {emailSent
+                ? `${user.email} 宛にパスワードをメール送信しました`
+                : `${user.displayName} さんに新しいパスワードを伝えてください`}
+            </p>
+            {!emailSent && user.email && (
+              <p className="text-xs text-orange-500 mb-2">※ メール送信に失敗しました。手動でパスワードをお伝えください。</p>
+            )}
+            {passcode && (
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+                <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
+              </div>
+            )}
             <div className="flex gap-2">
+              {passcode && (
+                <button
+                  onClick={async () => { await navigator.clipboard.writeText(passcode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
+                >
+                  {copied ? "コピーしました" : "コピー"}
+                </button>
+              )}
               <button
-                onClick={async () => { await navigator.clipboard.writeText(passcode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
-              >
-                {copied ? "コピーしました" : "コピー"}
-              </button>
-              <button
-                onClick={() => onReissued(`${user.displayName} さんのパスワードを再発行しました`)}
-                className="px-4 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+                onClick={() => onReissued(`${user.displayName} さん${emailSent ? "に招待メールを再送" : "のパスワードを再発行"}しました`)}
+                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
  *
  * レスポンス: MemberListItem[]
  */
+export interface MemberSocialLinks {
+  instagram?: string;
+  x?: string;
+  facebook?: string;
+  other?: string;
+}
+
 export interface MemberListItem {
   lineUserId: string;
   displayName: string;
@@ -22,11 +29,15 @@ export interface MemberListItem {
   skills: string[];
   companyName: string;
   jobTitle: string;
+  bio: string;
+  companyUrl: string;
+  socialLinks: MemberSocialLinks;
+  lineUrl: string;
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireActiveUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -65,6 +76,10 @@ export async function GET(req: NextRequest) {
       const catchphrase: string = mp.catchphrase || "";
       const companyName: string = mp.companyName || "";
       const jobTitle: string = mp.jobTitle || "";
+      const bio: string = mp.bio || "";
+      const companyUrl: string = mp.companyUrl || "";
+      const socialLinks: MemberSocialLinks = mp.socialLinks || {};
+      const lineUrl: string = mp.lineUrl || "";
 
       // キーワード検索（名前 or キャッチコピー or スキル or 会社名に部分一致）
       if (query) {
@@ -86,13 +101,20 @@ export async function GET(req: NextRequest) {
         skills,
         companyName,
         jobTitle,
+        bio,
+        companyUrl,
+        socialLinks,
+        lineUrl,
       });
     }
 
     // 名前順でソート
     members.sort((a, b) => a.displayName.localeCompare(b.displayName, "ja"));
 
-    return NextResponse.json(members);
+    // HTTP層ではキャッシュさせず常に最新を返す。鮮度管理はクライアント側で行う。
+    return NextResponse.json(members, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     console.error("[api/members] error:", error);
     return NextResponse.json(

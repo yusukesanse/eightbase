@@ -1,20 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
+import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
 import type { NufEvent } from "@/types";
+
+// キャッシュ即表示と同じ paint 前タイミングでグッド状態を重ねるため layout effect を使う
+// （再訪時に一瞬「イベントなし」が見えるのを防ぐ）。SSR では useEffect にフォールバック。
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
-
-/* ─── localStorage ─── */
-const GOOD_KEY = "event_goods";
-function getGoodSet(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(GOOD_KEY) ?? "[]")); } catch { return new Set(); }
-}
-function saveGoodSet(s: Set<string>) { localStorage.setItem(GOOD_KEY, JSON.stringify(Array.from(s))); }
 
 interface EventWithGood extends NufEvent { goodCount: number; liked: boolean }
 
@@ -37,25 +37,33 @@ function getCategoryStyle(cat: string) {
 
 export default function EventsPage() {
   const router = useRouter();
-  const [events, setEvents] = useState<EventWithGood[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/events");
-      const d = await res.json();
-      const goodSet = getGoodSet();
-      const list: EventWithGood[] = (d.events ?? []).map(
-        (ev: NufEvent & { goodCount?: number }) => ({
-          ...ev,
-          goodCount: ev.goodCount ?? 0,
-          liked: goodSet.has(ev.eventId),
-        })
-      );
-      setEvents(list);
-      setLoading(false);
-    })();
-  }, []);
+  // 前回表示を即出し→裏で再取得（数分キャッシュ）。info ページとキーを共有する。
+  const { data, isLoading } = useStaleWhileRevalidate<{
+    events: (NufEvent & { goodCount?: number })[];
+  }>("events:list", () =>
+    fetch("/api/events", { credentials: "include", cache: "no-store" }).then((r) =>
+      r.json()
+    )
+  );
+
+  // グッド状態(localStorage)を重ねた表示用リスト。data が更新されるたびに作り直す
+  // ことで、裏で再取得された差分（新規イベントや goodCount）が反映される。
+  const [events, setEvents] = useState<EventWithGood[]>([]);
+  useIsomorphicLayoutEffect(() => {
+    if (!data) return;
+    const goodSet = getGoodSet();
+    setEvents(
+      (data.events ?? []).map((ev) => ({
+        ...ev,
+        goodCount: ev.goodCount ?? 0,
+        liked: goodSet.has(ev.eventId),
+      }))
+    );
+  }, [data]);
+
+  // フルスクリーンスピナーは初回（キャッシュ無し）のみ
+  const loading = isLoading;
 
   const handleToggleGood = useCallback(async (e: React.MouseEvent, eventId: string) => {
     e.stopPropagation();

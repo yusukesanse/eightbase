@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage, type Storage } from "firebase-admin/storage";
+import { assertEnvConsistency } from "./env";
 
 let app: App;
 let db: Firestore;
@@ -8,6 +9,10 @@ let storage: Storage;
 
 function getAdminApp(): App {
   if (app) return app;
+
+  // 環境変数の取り違え（demo に本番値が混入 等）を初期化前に検知して止める。
+  // 本番 Firestore へ誤って接続する前の最後の砦。
+  assertEnvConsistency();
 
   if (getApps().length > 0) {
     app = getApps()[0];

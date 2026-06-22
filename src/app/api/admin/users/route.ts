@@ -99,12 +99,16 @@ export async function GET(req: NextRequest) {
 
     // users コレクションから LINE プロフィール画像を取得
     const usersSnap = await db.collection("users").get();
-    const usersMap: Record<string, { pictureUrl?: string; lineDisplayName?: string }> = {};
+    const usersMap: Record<
+      string,
+      { pictureUrl?: string | null; lineDisplayName?: string | null; memberProfile?: Record<string, unknown> | null }
+    > = {};
     usersSnap.docs.forEach((doc) => {
       const d = doc.data();
       usersMap[doc.id] = {
         pictureUrl: d.pictureUrl ?? null,
         lineDisplayName: d.lineDisplayName ?? d.displayName ?? null,
+        memberProfile: d.memberProfile ?? null,
       };
     });
 
@@ -139,6 +143,7 @@ export async function GET(req: NextRequest) {
         profile: d.profile ?? null,
         pictureUrl: lineData?.pictureUrl ?? null,
         lineDisplayName: lineData?.lineDisplayName ?? null,
+        memberProfile: lineData?.memberProfile ?? null,
         createdAt: d.createdAt,
         lastLoginAt: d.lastLoginAt ?? null,
         profileUpdatedAt: d.profileUpdatedAt ?? null,
@@ -230,8 +235,21 @@ export async function DELETE(req: NextRequest) {
 
     const userData = authDoc.data()!;
     const lineUserId = userData.lineUserId as string | null;
+    const invitationId = userData.invitationId as string | null;
 
-    // 2. 関連する予約データを削除
+    // 2. 紐づく招待を無効化（期限内OTPが残らないようにする）
+    if (invitationId) {
+      const invDocRef = db.collection("invitations").doc(invitationId);
+      const invDoc = await invDocRef.get();
+      if (invDoc.exists) {
+        const invData = invDoc.data()!;
+        if (!invData.usedAt && !invData.revokedAt) {
+          await invDocRef.update({ revokedAt: new Date().toISOString() });
+        }
+      }
+    }
+
+    // 3. 関連する予約データ・usersを削除
     let deletedReservations = 0;
     if (lineUserId) {
       const reservationsSnap = await db
@@ -257,7 +275,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // 3. authorizedUsers ドキュメントを削除
+    // 4. authorizedUsers ドキュメントを削除
     await authDocRef.delete();
 
     return NextResponse.json({

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clearSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,12 +9,6 @@ export const dynamic = "force-dynamic";
  */
 export async function POST() {
   const res = NextResponse.json({ success: true });
-  res.cookies.set("__session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
+  clearSessionCookie(res);
   return res;
 }

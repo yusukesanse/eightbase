@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { initLiff } from "@/lib/liff";
+import { clearAuthCache } from "@/components/AuthGuard";
+import { useLiffBoot } from "@/hooks/useLiffBoot";
 
 /**
  * ログインページ — LIFF + ワンタイムパスワード認証フロー
@@ -16,6 +18,7 @@ import { initLiff } from "@/lib/liff";
  */
 export default function LoginPage() {
   const router = useRouter();
+  const boot = useLiffBoot();
   const [status, setStatus] = useState<
     "loading" | "liff-login" | "needs-linking" | "linking" | "no-access"
   >("loading");
@@ -31,81 +34,73 @@ export default function LoginPage() {
   // ワンタイムパスワードフォーム
   const [passcode, setPasscode] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
+  const passcodeRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
+  const prevValueRef = useRef("");
+
+  const handlePasscodeInput = useCallback(() => {
+    if (composingRef.current) return;
+    const el = passcodeRef.current;
+    if (!el) return;
+
+    const prev = prevValueRef.current;
+    let v = el.value.toUpperCase();
+    const isDeleting = v.length < prev.length;
+
+    // 削除操作時はフォーマットせずそのまま受け入れる
+    if (!isDeleting) {
+      // "EB" の直後にハイフンを自動挿入（追加時のみ）
+      if (v.length === 2 && v === "EB") {
+        v = "EB-";
+      } else if (v.length > 2 && v.startsWith("EB") && v[2] !== "-") {
+        v = "EB-" + v.slice(2);
+      }
+      v = v.slice(0, 9);
+    }
+
+    el.value = v;
+    prevValueRef.current = v;
+    setPasscode(v);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function tryLiffLogin() {
-      try {
-        const liff = await initLiff();
-        if (cancelled) return;
+      // `/` と共通の LIFF→サーバーセッション発行フロー（useLiffBoot）
+      setMessage("認証中...");
+      const result = await boot();
+      if (cancelled) return;
 
-        const isInClient = liff.isInClient();
+      // 例外（boot 内でログ済み）→ アクセス不可表示
+      if (!result) {
+        setStatus("no-access");
+        return;
+      }
 
-        if (!liff.isLoggedIn()) {
-          if (isInClient) {
-            setMessage("LINEログイン中...");
-            liff.login({ redirectUri: window.location.href });
-            return;
-          }
-          setStatus("no-access");
+      switch (result.kind) {
+        case "redirecting":
+          setStatus("liff-login");
+          setMessage("LINEログイン中...");
           return;
-        }
-
-        // LINE ログイン済み → LIFF ログイン API
-        setStatus("liff-login");
-        setMessage("認証中...");
-
-        const accessToken = liff.getAccessToken();
-        if (!accessToken) {
-          setStatus("no-access");
+        case "linked":
+          // boot() 内で表示キャッシュ破棄＋遷移済み
           return;
-        }
-
-        // クライアント側でプロフィールを取得（サーバー側 LINE API 失敗時のフォールバック）
-        let liffProfile: { userId?: string; displayName?: string; pictureUrl?: string } = {};
-        try {
-          const p = await liff.getProfile();
-          liffProfile = { userId: p.userId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" };
-        } catch (e) {
-          console.warn("[LoginPage] liff.getProfile() failed:", e);
-        }
-
-        const res = await fetch("/api/auth/liff-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken, liffProfile }),
-          credentials: "include",
-        });
-
-        if (cancelled) return;
-
-        const data = await res.json();
-
-        if (data.success) {
-          // 連携済み → プロフィール完了チェック
-          if (data.profileComplete) {
-            router.replace("/reservation");
-          } else {
-            router.replace("/setup-profile");
-          }
-        } else if (data.needsLinking) {
-          // 未連携 → メール+パスワードフォーム表示
+        case "needs-linking":
           setLineInfo({
-            lineUserId: data.lineUserId,
-            displayName: data.displayName,
-            pictureUrl: data.pictureUrl || "",
+            lineUserId: result.lineUserId,
+            displayName: result.displayName,
+            pictureUrl: result.pictureUrl || "",
           });
           setStatus("needs-linking");
-        } else {
-          if (data.error) setMessage(data.error);
+          return;
+        case "needs-line-login":
           setStatus("no-access");
-        }
-      } catch (err) {
-        console.error("[LoginPage] LIFF error:", err);
-        if (!cancelled) {
+          return;
+        case "no-access":
+          if (result.error) setMessage(result.error);
           setStatus("no-access");
-        }
+          return;
       }
     }
 
@@ -113,7 +108,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [boot]);
 
   // ワンタイムパスワードで認証 → LINE ID 連携
   async function handleLinkSubmit(e: React.FormEvent) {
@@ -142,8 +137,10 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
+        clearAuthCache();
         router.replace("/setup-profile");
       } else if (data.alreadyLinked) {
+        clearAuthCache();
         router.replace("/reservation");
       } else {
         setLinkError(data.error || "認証に失敗しました");
@@ -220,7 +217,7 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <h2 className="text-base font-semibold text-[#231714] mb-1">ワンタイムパスワード</h2>
             <p className="text-xs text-[#231714]/50 mb-4 leading-relaxed">
-              管理者から提供されたワンタイムパスワードを入力してください。
+              招待メールに記載されたワンタイムパスワードを入力してください。
               初回のみの操作です。
             </p>
 
@@ -230,15 +227,19 @@ export default function LoginPage() {
                   ワンタイムパスワード
                 </label>
                 <input
+                  ref={passcodeRef}
                   type="text"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  onBlur={() => setPasscode((v) => v.toUpperCase())}
-                  placeholder="例: EB-A3X9K2"
+                  defaultValue=""
+                  onInput={handlePasscodeInput}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={() => { composingRef.current = false; handlePasscodeInput(); }}
+                  placeholder="EB-A3X9K2"
+                  maxLength={9}
                   required
                   autoComplete="off"
                   autoCapitalize="characters"
-                  inputMode="text"
+                  inputMode="email"
+                  lang="en"
                   spellCheck={false}
                   className="w-full px-3 py-3 text-base font-mono tracking-widest text-center uppercase border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
                 />
@@ -276,8 +277,11 @@ export default function LoginPage() {
         </div>
 
         <h2 className="text-base font-bold text-[#231714]">
-          アカウントが存在しません
+          アカウントが見つかりません
         </h2>
+        <p className="text-xs text-[#231714]/50 mt-2 leading-relaxed">
+          ご利用には招待が必要です。招待メールをお持ちの方は、メール内のワンタイムパスワードでログインしてください。わからない場合は管理者にお問い合わせください。
+        </p>
       </div>
     </div>
   );

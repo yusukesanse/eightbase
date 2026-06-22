@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireActiveUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -36,6 +36,20 @@ export async function GET(req: NextRequest) {
 
     const snap = await query.get();
 
+    // 投稿者の LINE 友だち追加URL（memberProfile.lineUrl）を一括取得し、
+    // 「LINEで連絡」で投稿者へ直接つなげられるようにする（最新値を都度参照）。
+    const authorIds = Array.from(new Set(snap.docs.map((doc) => doc.data().authorId).filter(Boolean)));
+    const lineUrlByAuthor: Record<string, string> = {};
+    if (authorIds.length > 0) {
+      const userRefs = authorIds.map((id: string) => db.collection("users").doc(id));
+      const userDocs = await db.getAll(...userRefs);
+      userDocs.forEach((u) => {
+        if (u.exists) {
+          lineUrlByAuthor[u.id] = u.data()?.memberProfile?.lineUrl || "";
+        }
+      });
+    }
+
     const posts = snap.docs.map((doc) => {
       const d = doc.data();
       return {
@@ -43,6 +57,7 @@ export async function GET(req: NextRequest) {
         authorId: d.authorId,
         authorName: d.authorName || "",
         authorPictureUrl: d.authorPictureUrl || "",
+        authorLineUrl: lineUrlByAuthor[d.authorId] || "",
         type: d.type,
         content: d.content,
         tags: d.tags || [],
@@ -70,7 +85,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireProfileComplete(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

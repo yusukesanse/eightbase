@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signSession, setSessionCookie } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
+import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
+import { isReviewModeEnabled } from "@/lib/reviewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -27,32 +29,10 @@ export async function POST(req: NextRequest) {
 
     // ── 審査モードを取得（本番では環境変数で明示的に許可しない限り無効）──
     const db = getDb();
-    let isReviewMode = false;
-    if (process.env.NODE_ENV !== "production" || process.env.ALLOW_REVIEW_MODE === "true") {
-      try {
-        const settingsDoc = await db.collection("settings").doc("app").get();
-        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
-      } catch (e) {
-        console.warn("[liff-login] settings fetch error:", e);
-      }
-    }
+    const isReviewMode = await isReviewModeEnabled(db);
 
     // ── 1. LINE API でアクセストークンを検証 ──
-    let tokenValid = false;
-    try {
-      const verifyRes = await fetch(
-        `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
-      );
-
-      if (verifyRes.ok) {
-        const verifyData = await verifyRes.json();
-        tokenValid = verifyData.expires_in > 0;
-      } else {
-        console.warn("[liff-login] token verify failed:", await verifyRes.text());
-      }
-    } catch (e) {
-      console.warn("[liff-login] token verify error:", e);
-    }
+    const tokenValid = (await verifyLineAccessToken(accessToken)) === "valid";
 
     if (!tokenValid && !isReviewMode) {
       return NextResponse.json(
@@ -71,18 +51,11 @@ export async function POST(req: NextRequest) {
     let pictureUrl = "";
 
     if (tokenValid) {
-      const profileRes = await fetch("https://api.line.me/v2/profile", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
+      const profile = await fetchLineProfile(accessToken);
+      if (profile) {
         lineUserId = profile.userId;
         displayName = profile.displayName;
-        pictureUrl = profile.pictureUrl ?? "";
-      } else {
-        const errText = await profileRes.text();
-        console.warn("[liff-login] server-side profile fetch failed:", errText);
+        pictureUrl = profile.pictureUrl;
       }
     }
 
@@ -111,24 +84,13 @@ export async function POST(req: NextRequest) {
       .get();
 
     if (snap.empty && !isReviewMode) {
-      // lineUserId が未連携 → 連携可能なアカウントが存在するか確認
-      const unlinkedSnap = await db
-        .collection("authorizedUsers")
-        .where("lineUserId", "==", null)
-        .where("active", "==", true)
-        .limit(1)
-        .get();
-
-      if (unlinkedSnap.empty) {
-        // 連携可能なアカウントが存在しない → アカウントなし
-        console.log(`[liff-login] no linkable account for: ${lineUserId}`);
-        return NextResponse.json({
-          success: false,
-          noAccount: true,
-        });
-      }
-
-      // 連携可能なアカウントが存在する → 連携フォームへ
+      // lineUserId が未連携。
+      // メール招待方式では「この LINE ユーザーが招待済みか」を lineUserId だけでは判定できない
+      // （ワンタイムパスワードの入力こそが招待の証明）。
+      // 以前は「pending 招待が1件でもあれば全未連携ユーザーに needsLinking」を返していたが、
+      // それだと未招待ユーザーにも OTP 画面が出てしまうため廃止。
+      // ここでは「未連携」であることだけを返し、OTP 入力は明示導線(/login)でのみ表示する。
+      // ホーム(/) では未連携=「招待が必要」案内を出す（page.tsx 側で分岐）。
       console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
       return NextResponse.json({
         success: false,

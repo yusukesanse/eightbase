@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/session";
+import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const lineUserId = await getSessionUserId(req);
+    const lineUserId = await requireActiveUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -54,14 +54,17 @@ export async function GET(
       // posts コレクション未作成時
     }
 
-    return NextResponse.json({
-      lineUserId: memberId,
-      displayName: data.displayName || data.lineDisplayName || "",
-      pictureUrl: data.pictureUrl || "",
-      catchphrase: mp.catchphrase || "",
-      skills,
-      postCount,
-    });
+    return NextResponse.json(
+      {
+        lineUserId: memberId,
+        displayName: data.displayName || data.lineDisplayName || "",
+        pictureUrl: data.pictureUrl || "",
+        catchphrase: mp.catchphrase || "",
+        skills,
+        postCount,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("[api/members/[id]] error:", error);
     return NextResponse.json(

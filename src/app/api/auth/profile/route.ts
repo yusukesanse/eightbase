@@ -36,6 +36,7 @@ interface ProfileData {
     facebook?: string;
     other?: string;
   };
+  lineUrl?: string;         // LINE友だち追加URL（任意・メンバー同士の直接連絡用）
   // 後方互換（旧データ）
   occupation?: string;
 }
@@ -236,6 +237,9 @@ export async function POST(req: NextRequest) {
     if (profile.bio?.trim()) {
       cleanProfile.bio = profile.bio.trim();
     }
+    if (profile.lineUrl?.trim()) {
+      cleanProfile.lineUrl = profile.lineUrl.trim().slice(0, 300);
+    }
     if (profile.socialLinks) {
       const sl: Record<string, string> = {};
       if (profile.socialLinks.instagram?.trim()) sl.instagram = profile.socialLinks.instagram.trim();
@@ -255,6 +259,7 @@ export async function POST(req: NextRequest) {
     };
     if (profile.companyUrl?.trim()) memberProfileUpdate.companyUrl = cleanProfile.companyUrl;
     if (profile.bio?.trim()) memberProfileUpdate.bio = cleanProfile.bio;
+    if (profile.lineUrl?.trim()) memberProfileUpdate.lineUrl = cleanProfile.lineUrl;
     if (profile.socialLinks) memberProfileUpdate.socialLinks = cleanProfile.socialLinks;
 
     await docRef.update({

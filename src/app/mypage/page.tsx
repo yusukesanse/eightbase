@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { MemberProfile } from "@/types";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { initLiff } from "@/lib/liff";
+import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 
 interface UserData {
   displayName: string;
@@ -17,27 +19,31 @@ interface UserData {
 
 export default function MyPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/mypage", { credentials: "include" });
-        if (!res.ok) {
-          router.replace("/login");
-          return;
-        }
-        const data = await res.json();
-        setUser(data);
-      } catch {
+  // 前回データを即出し→裏で更新。auth 判定は API 側に任せ、401 等の失敗時のみログインへ。
+  // 個人データ（投稿数・予約数・スキル等）なのでキャッシュしすぎない:
+  // ttl:0 で毎回 revalidate（前回値は即表示しつつ常に最新を取り直す）。
+  const { data: user, isLoading, error } = useStaleWhileRevalidate<UserData>(
+    "mypage",
+    async () => {
+      const res = await fetch("/api/mypage", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) {
         router.replace("/login");
-      } finally {
-        setLoading(false);
+        throw new Error("unauthorized");
       }
-    }
-    load();
-  }, [router]);
+      return res.json();
+    },
+    { ttl: 0 }
+  );
+  const loading = isLoading;
+
+  // キャッシュも無く取得にも失敗した場合のみログインへ（古い表示があれば維持する）
+  useEffect(() => {
+    if (error && !user) router.replace("/login");
+  }, [error, user, router]);
 
   if (loading) {
     return (
@@ -56,17 +62,8 @@ export default function MyPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       {/* ヘッダー */}
       <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-        <div className="flex items-center justify-between mb-5">
+        <div className="mb-5">
           <h1 className="text-[15px] font-medium text-white">マイページ</h1>
-          <button
-            onClick={() => router.push("/profile")}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M8.5 4a2 2 0 012-2h0a2 2 0 012 2v0a2 2 0 01-2 2h0a2 2 0 01-2-2zM3 17a7 7 0 0114 0" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              <path d="M15 7l1.5 1.5M16.5 8.5L12 13H10v-2l4.5-4.5 2 2z" stroke="white" strokeWidth="1.2" strokeLinejoin="round"/>
-            </svg>
-          </button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -88,10 +85,8 @@ export default function MyPage() {
             <p className="text-[17px] font-medium text-[#231714] truncate">
               {user.displayName || user.lineDisplayName}
             </p>
-            {user.catchphrase ? (
+            {user.catchphrase && (
               <p className="text-[12px] text-[#231714]/60 mt-1 truncate">{user.catchphrase}</p>
-            ) : (
-              <p className="text-[12px] text-white/50 mt-1">キャッチコピーを設定しましょう</p>
             )}
           </div>
         </div>
@@ -152,11 +147,13 @@ export default function MyPage() {
           onClick={async () => {
             await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
             clearAuthCache();
-            // LIFF セッションもクリア（再アクセス時に自動ログインしないように）
+            // LIFF セッションもクリア（init してから logout しないと反映されない）
             try {
-              const liff = (await import("@line/liff")).default;
+              const liff = await initLiff();
               if (liff.isLoggedIn()) liff.logout();
-            } catch { /* LIFF未初期化時は無視 */ }
+            } catch { /* LIFF未初期化/環境外は無視 */ }
+            // ログアウト直後の自動再ログインを抑止（HomePage が検知して停止）
+            try { sessionStorage.setItem("eb_logged_out", "1"); } catch { /* 無視 */ }
             router.replace("/");
           }}
           danger

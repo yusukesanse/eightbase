@@ -3,9 +3,13 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed } from "@/lib/line";
-import { requireActiveUser } from "@/lib/auth";
-import { getSessionUserId } from "@/lib/session";
-import { calculateReservationAmount, verifySquarePayment, refundSquarePayment } from "@/lib/square";
+import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
+import {
+  validateReservationSlot,
+  intervalsOverlap,
+  timeToMin,
+} from "@/lib/reservations";
+// Square決済は現在無効（将来用に import は残さない）
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
@@ -20,13 +24,9 @@ function buildReservationSlotKey(
   return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
 }
 
-function buildPaymentKey(paymentId: string): string {
-  return encodeURIComponent(paymentId);
-}
-
 // ─── GET: マイ予約一覧 ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const userId = await getSessionUserId(req);
+  const userId = await requireActiveUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 // ─── POST: 予約登録 ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireProfileComplete(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -77,6 +77,14 @@ export async function POST(req: NextRequest) {
       paymentId?: string;
     };
 
+    // Square決済は現在無効 — paymentIdを受け付けない
+    if (paymentId) {
+      return NextResponse.json(
+        { error: "PAYMENT_DISABLED", message: "決済機能は現在無効です。" },
+        { status: 501 }
+      );
+    }
+
     if (!facilityId || !date || !startTime || !endTime) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -86,32 +94,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Facility not found" }, { status: 404 });
     }
 
-    const expectedPaymentAmount = calculateReservationAmount(facility, startTime, endTime);
+    // 有料施設はオンライン予約不可（決済準備中）
     if (facility.requirePayment) {
-      if (!paymentId) {
-        return NextResponse.json(
-          { error: "PAYMENT_REQUIRED", message: "この施設は決済が必要です。" },
-          { status: 402 }
-        );
-      }
-      try {
-        await verifySquarePayment({
-          paymentId,
-          expectedAmount: expectedPaymentAmount,
-          userId,
-        });
-      } catch (error) {
-        return NextResponse.json(
-          {
-            error: "INVALID_PAYMENT",
-            message: error instanceof Error ? error.message : "決済情報を確認できませんでした。",
-          },
-          { status: 402 }
-        );
-      }
+      return NextResponse.json(
+        { error: "PAYMENT_DISABLED", message: "オンライン決済は現在準備中です。管理者にお問い合わせください。" },
+        { status: 501 }
+      );
     }
 
-    // 二重予約防止: 直前に再度空き確認
+    // スロット妥当性（過去日・曜日・営業時間・固定枠・利用規約）— availability と共通ルール
+    const slotValidation = validateReservationSlot(facility, {
+      date,
+      startTime,
+      endTime,
+      termsAgreed,
+      enforceTerms: true,
+    });
+    if (!slotValidation.ok) {
+      return NextResponse.json(
+        { error: slotValidation.reason, message: slotValidation.message },
+        { status: 400 }
+      );
+    }
+
+    // 二重予約防止: 直前に再度空き確認（Google Calendar は補助。最終判定は下の transaction）
     const available = await checkAvailability(
       facility.calendarId,
       date,
@@ -150,24 +156,40 @@ export async function POST(req: NextRequest) {
 
     const slotKey = buildReservationSlotKey(facilityId, date, startTime, endTime);
     const slotRef = db.collection("reservationLocks").doc(slotKey);
-    const paymentRef = paymentId
-      ? db.collection("usedPayments").doc(buildPaymentKey(paymentId))
-      : null;
     const reservationRef = db.collection("reservations").doc();
     let googleEventId: string | null = null;
     let lockAcquired = false;
     let reservationSaved = false;
 
+    const reqStart = timeToMin(startTime);
+    const reqEnd = timeToMin(endTime);
     await db.runTransaction(async (tx) => {
+      // facilityId + date の既存ロックを読み、時間帯の重なりで判定する
+      // （完全一致キーだけに依存せず、overlap するものは拒否）。
+      // Admin SDK の transaction は読んだクエリ範囲をロックするため、
+      // 同時実行でも overlap が二重に通らない。
+      const locksSnap = await tx.get(
+        db
+          .collection("reservationLocks")
+          .where("facilityId", "==", facilityId)
+          .where("date", "==", date)
+      );
+      for (const lockDoc of locksSnap.docs) {
+        const l = lockDoc.data();
+        if (l.status === "cancelled") continue;
+        if (
+          typeof l.startTime === "string" &&
+          typeof l.endTime === "string" &&
+          intervalsOverlap(reqStart, reqEnd, timeToMin(l.startTime), timeToMin(l.endTime))
+        ) {
+          throw new Error("ALREADY_BOOKED");
+        }
+      }
+
+      // 完全一致ロックも従来どおり拒否（保険）
       const slotDoc = await tx.get(slotRef);
       if (slotDoc.exists) {
         throw new Error("ALREADY_BOOKED");
-      }
-      if (paymentRef) {
-        const paymentDoc = await tx.get(paymentRef);
-        if (paymentDoc.exists) {
-          throw new Error("PAYMENT_ALREADY_USED");
-        }
       }
 
       tx.create(slotRef, {
@@ -179,15 +201,6 @@ export async function POST(req: NextRequest) {
         lineUserId: userId,
         createdAt: dayjs().toISOString(),
       });
-      if (paymentRef && paymentId) {
-        tx.create(paymentRef, {
-          paymentId,
-          lineUserId: userId,
-          amount: expectedPaymentAmount,
-          status: "pending",
-          createdAt: dayjs().toISOString(),
-        });
-      }
     });
     lockAcquired = true;
 
@@ -212,11 +225,6 @@ export async function POST(req: NextRequest) {
         googleEventId,
         status: "confirmed",
         ...(termsAgreed ? { termsAgreed: true, termsAgreedAt: dayjs().toISOString() } : {}),
-        ...(paymentId ? {
-          paymentId,
-          paymentAmount: expectedPaymentAmount,
-          paymentStatus: "completed" as const,
-        } : {}),
         createdAt: dayjs().toISOString(),
       };
 
@@ -227,13 +235,6 @@ export async function POST(req: NextRequest) {
           status: "confirmed",
           updatedAt: dayjs().toISOString(),
         });
-        if (paymentRef) {
-          tx.update(paymentRef, {
-            reservationId: reservationRef.id,
-            status: "used",
-            usedAt: dayjs().toISOString(),
-          });
-        }
       });
       reservationSaved = true;
     } catch (error) {
@@ -245,37 +246,7 @@ export async function POST(req: NextRequest) {
         }
       }
       if (lockAcquired && !reservationSaved) {
-        await Promise.allSettled([
-          slotRef.delete(),
-          paymentRef?.delete() ?? Promise.resolve(),
-        ]);
-      }
-      if (paymentId && expectedPaymentAmount > 0) {
-        // 決済済みで予約失敗 → 自動返金を試行
-        let refundId: string | null = null;
-        let refundError: string | null = null;
-        try {
-          refundId = await refundSquarePayment(paymentId, expectedPaymentAmount);
-          console.log(`[reservations] Auto-refund success: ${refundId} for payment ${paymentId}`);
-        } catch (refErr) {
-          refundError = refErr instanceof Error ? refErr.message : String(refErr);
-          console.error(`[reservations] Auto-refund failed for payment ${paymentId}:`, refErr);
-        }
-        // 返金結果に関わらず pendingPayments に記録（管理者追跡用）
-        await db.collection("pendingPayments").add({
-          paymentId,
-          lineUserId: userId,
-          amount: expectedPaymentAmount,
-          facilityId,
-          date,
-          startTime,
-          endTime,
-          reason: error instanceof Error ? error.message : String(error),
-          refundId,
-          refundError,
-          refundStatus: refundId ? "refunded" : "pending",
-          createdAt: dayjs().toISOString(),
-        });
+        await slotRef.delete().catch(() => {});
       }
       throw error;
     }
@@ -302,12 +273,6 @@ export async function POST(req: NextRequest) {
     if (message === "ALREADY_BOOKED") {
       return NextResponse.json(
         { error: "ALREADY_BOOKED", message: "この時間帯はすでに予約済みです。" },
-        { status: 409 }
-      );
-    }
-    if (message === "PAYMENT_ALREADY_USED") {
-      return NextResponse.json(
-        { error: "PAYMENT_ALREADY_USED", message: "この決済はすでに使用されています。" },
         { status: 409 }
       );
     }
