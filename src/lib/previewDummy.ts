@@ -151,6 +151,34 @@ export const dummyMembers: PreviewMember[] = [
   },
 ];
 
+/* ───────── マイページ（/api/mypage） ───────── */
+
+export interface PreviewMypage {
+  displayName: string;
+  lineDisplayName: string;
+  pictureUrl: string;
+  catchphrase: string;
+  skills: string[];
+  companyUrl: string;
+  socialLinks: { instagram?: string; x?: string; facebook?: string; other?: string };
+  lineUrl: string;
+  postCount: number;
+  reservationCount: number;
+}
+
+export const dummyMypage: PreviewMypage = {
+  displayName: "あなた（プレビュー）",
+  lineDisplayName: "preview",
+  pictureUrl: "",
+  catchphrase: "プレビュー表示用のサンプルです",
+  skills: ["プロダクト", "ディレクション"],
+  companyUrl: "https://example.com",
+  socialLinks: { instagram: "https://instagram.com/" },
+  lineUrl: "",
+  postCount: 3,
+  reservationCount: 2,
+};
+
 /* ───────── ニュース（/api/news） ───────── */
 
 export const dummyNews: NewsItem[] = [
