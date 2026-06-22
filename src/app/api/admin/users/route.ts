@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isPreviewMode } from "@/lib/preview";
+import { dummyAdminUsers } from "@/lib/previewDummyAdmin";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -85,9 +86,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // プレビューモード: ユーザーデータを返さない
+  // プレビューモード: ダミーのユーザー一覧を返す（架空データ / 本番には出ない）
   if (await isPreviewMode(req)) {
-    return NextResponse.json({ users: [], _preview: true });
+    return NextResponse.json({ ...dummyAdminUsers, _preview: true });
   }
 
   try {

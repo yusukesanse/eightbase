@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isPreviewMode } from "@/lib/preview";
+import { dummyAdminInvitations } from "@/lib/previewDummyAdmin";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
 import { sendPasscodeEmail } from "@/lib/email";
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (await isPreviewMode(req)) {
-    return NextResponse.json({ invitations: [], _preview: true });
+    return NextResponse.json(dummyAdminInvitations);
   }
 
   try {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isPreviewMode } from "@/lib/preview";
+import { dummyAdminReservations } from "@/lib/previewDummyAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (await isPreviewMode(req)) {
-    return NextResponse.json({ reservations: [], _preview: true });
+    return NextResponse.json(dummyAdminReservations);
   }
 
   try {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
+import { isPreviewMode } from "@/lib/preview";
+import { dummyAdminEvents } from "@/lib/previewDummyAdmin";
 import { broadcastContentPublished } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -31,6 +33,11 @@ const EVENT_UPDATE_FIELDS = [
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // プレビューモード: ダミーイベントを返す（架空データ / 本番には出ない）
+  if (await isPreviewMode(req)) {
+    return NextResponse.json(dummyAdminEvents);
   }
 
   try {
