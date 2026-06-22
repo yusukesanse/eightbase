@@ -13,8 +13,12 @@ import type {
   MahjongStanding,
   MahjongCsEvent,
   MahjongScheduleEntry,
+  MahjongEntry,
+  MahjongTable,
   NewsItem,
   NufEvent,
+  Facility,
+  Reservation,
   MahjongLeagueTier,
 } from "@/types";
 
@@ -372,4 +376,160 @@ const csEvent: MahjongCsEvent = {
 export const dummyCs: { event: MahjongCsEvent; entered: boolean } = {
   event: csEvent,
   entered: true,
+};
+
+/* ───────── 施設一覧（/api/facilities） ───────── */
+// 返却は calendarId を除いた "safe" 形。
+export const dummyFacilities: Omit<Facility, "calendarId">[] = [
+  { id: "demo-room-a", name: "会議室 A", type: "meeting_room", capacity: 6, active: true, order: 1, openTime: "09:00", closeTime: "21:00", availableDays: [1, 2, 3, 4, 5, 6] },
+  { id: "demo-room-b", name: "会議室 B", type: "meeting_room", capacity: 4, active: true, order: 2, openTime: "09:00", closeTime: "21:00", availableDays: [1, 2, 3, 4, 5] },
+  { id: "demo-booth-1", name: "集中ブース 1", type: "booth", capacity: 1, active: true, order: 3, openTime: "09:00", closeTime: "21:00", availableDays: [1, 2, 3, 4, 5, 6, 0] },
+];
+
+/* ───────── 自分の予約（/api/reservations） ───────── */
+export const dummyReservations: Reservation[] = [
+  {
+    reservationId: "demo-res-1",
+    facilityId: "demo-room-a",
+    facilityName: "会議室 A",
+    lineUserId: PREVIEW_DUMMY_USER_ID,
+    date: "2026-07-05",
+    startTime: "13:00",
+    endTime: "15:00",
+    googleEventId: "demo-gcal-1",
+    status: "confirmed",
+    createdAt: "2026-06-20T01:00:00.000Z",
+  },
+  {
+    reservationId: "demo-res-2",
+    facilityId: "demo-booth-1",
+    facilityName: "集中ブース 1",
+    lineUserId: PREVIEW_DUMMY_USER_ID,
+    date: "2026-07-12",
+    startTime: "10:00",
+    endTime: "12:00",
+    googleEventId: "demo-gcal-2",
+    status: "confirmed",
+    createdAt: "2026-06-21T02:00:00.000Z",
+  },
+];
+
+/* ───────── 麻雀 参加表明（/api/mahjong/entries） ───────── */
+const ENTRY_DATE = "2026-07-11";
+export const dummyEntries: { entries: MahjongEntry[]; entered: boolean } = {
+  entries: [
+    { entryId: "demo-en-1", seasonId: PREVIEW_SEASON_ID, eventDate: ENTRY_DATE, lineUserId: PREVIEW_DUMMY_USER_ID, displayName: "あなた（プレビュー）", pictureUrl: "", enteredAt: "2026-07-01T00:00:00.000Z" },
+    { entryId: "demo-en-2", seasonId: PREVIEW_SEASON_ID, eventDate: ENTRY_DATE, lineUserId: "demo-u2", displayName: "佐藤 みなみ", pictureUrl: "", enteredAt: "2026-07-01T01:00:00.000Z" },
+    { entryId: "demo-en-3", seasonId: PREVIEW_SEASON_ID, eventDate: ENTRY_DATE, lineUserId: "demo-u3", displayName: "鈴木 健太", pictureUrl: "", enteredAt: "2026-07-01T02:00:00.000Z" },
+    { entryId: "demo-en-4", seasonId: PREVIEW_SEASON_ID, eventDate: ENTRY_DATE, lineUserId: "demo-u4", displayName: "高橋 あや", pictureUrl: "", enteredAt: "2026-07-01T03:00:00.000Z" },
+  ],
+  entered: true,
+};
+
+/* ───────── 麻雀 当日の卓（/api/mahjong/tables） ───────── */
+export const dummyTables: { tables: MahjongTable[]; seasonId: string } = {
+  tables: [
+    {
+      tableId: "demo-table-1",
+      seasonId: PREVIEW_SEASON_ID,
+      eventDate: ENTRY_DATE,
+      createdBy: "system",
+      memberIds: [PREVIEW_DUMMY_USER_ID, "demo-u2", "demo-u3", "demo-u4"],
+      members: [
+        { lineUserId: PREVIEW_DUMMY_USER_ID, displayName: "あなた（プレビュー）", pictureUrl: "", points: 38200, rank: 1, reportedAt: "2026-07-11T09:00:00.000Z" },
+        { lineUserId: "demo-u2", displayName: "佐藤 みなみ", pictureUrl: "", points: 27600, rank: 2, reportedAt: "2026-07-11T09:00:00.000Z" },
+        { lineUserId: "demo-u3", displayName: "鈴木 健太", pictureUrl: "", points: 19800, rank: 3, reportedAt: "2026-07-11T09:00:00.000Z" },
+        { lineUserId: "demo-u4", displayName: "高橋 あや", pictureUrl: "", points: 14400, rank: 4, reportedAt: "2026-07-11T09:00:00.000Z" },
+      ],
+      status: "completed",
+      round: 1,
+      createdAt: "2026-07-11T08:00:00.000Z",
+      updatedAt: "2026-07-11T09:00:00.000Z",
+    },
+  ],
+  seasonId: PREVIEW_SEASON_ID,
+};
+
+/* ───────── ゲーム一覧（/api/games） ───────── */
+export const dummyGames = {
+  games: [
+    {
+      gameId: "demo-game-1",
+      title: "麻雀リーグ 7月節",
+      category: "mahjong",
+      categoryLabel: "麻雀",
+      description: "シーズン通算アベレージで競うリーグ戦。",
+      startAt: "2026-07-11T03:00:00.000Z",
+      endAt: "2026-07-11T09:00:00.000Z",
+      location: "ラウンジ",
+      imageUrl: "",
+      maxParticipants: 16,
+      deadline: "2026-07-09T00:00:00.000Z",
+      status: "upcoming",
+      participantCount: 12,
+    },
+    {
+      gameId: "demo-game-2",
+      title: "ダーツ大会",
+      category: "darts",
+      categoryLabel: "ダーツ",
+      description: "個人戦トーナメント。初心者歓迎。",
+      startAt: "2026-07-25T08:00:00.000Z",
+      endAt: "2026-07-25T11:00:00.000Z",
+      location: "イベントスペース",
+      imageUrl: "",
+      maxParticipants: 24,
+      deadline: "2026-07-23T00:00:00.000Z",
+      status: "upcoming",
+      participantCount: 7,
+    },
+  ],
+};
+
+/* ───────── ゲームのランキング（/api/games/ranking） ───────── */
+const RANKING_LIST = [
+  { rank: 1, displayName: "あなた（プレビュー）", pictureUrl: undefined as string | undefined, totalScore: 1280, playedCount: 8 },
+  { rank: 2, displayName: "佐藤 みなみ", pictureUrl: undefined as string | undefined, totalScore: 1140, playedCount: 8 },
+  { rank: 3, displayName: "鈴木 健太", pictureUrl: undefined as string | undefined, totalScore: 980, playedCount: 7 },
+  { rank: 4, displayName: "高橋 あや", pictureUrl: undefined as string | undefined, totalScore: 870, playedCount: 6 },
+  { rank: 5, displayName: "田中 大輔", pictureUrl: undefined as string | undefined, totalScore: 760, playedCount: 6 },
+];
+export function buildDummyRanking(period: string, gameCategory: string, yearMonth: string) {
+  return { ranking: RANKING_LIST, period, gameCategory, yearMonth };
+}
+
+/* ───────── ゲームCS（/api/games/cs） ───────── */
+export const dummyGamesCs = {
+  csEvents: [
+    {
+      csEventId: "demo-gcs-1",
+      title: "年間チャンピオンシップ 2026",
+      description: "各種目の年間上位者が集う決勝大会。",
+      startAt: "2027-03-20T05:00:00.000Z",
+      endAt: "2027-03-20T10:00:00.000Z",
+      location: "イベントスペース",
+      status: "upcoming",
+      candidates: [
+        { gameCategory: "mahjong", annualRank: 1, displayName: "あなた（プレビュー）", pictureUrl: "" },
+        { gameCategory: "mahjong", annualRank: 2, displayName: "佐藤 みなみ", pictureUrl: "" },
+        { gameCategory: "darts", annualRank: 1, displayName: "鈴木 健太", pictureUrl: "" },
+      ],
+      myCandidacies: [],
+    },
+  ],
+};
+
+/* ───────── 登録プロフィール（/api/auth/profile GET） ───────── */
+export const dummyProfile = {
+  profileComplete: true,
+  profile: {
+    lastName: "見本", firstName: "太郎",
+    lastNameKana: "ミホン", firstNameKana: "タロウ",
+    phone: "09000000000", birthday: "1990-01-01", gender: "male",
+    occupation: "ディレクター", purpose: "プレビュー表示用",
+    postalCode: "1000001", prefecture: "東京都", city: "千代田区",
+    address: "1-1", building: "", addressType: "office",
+    companyName: "エイトベース", jobTitle: "ディレクター", industry: "IT",
+  },
+  displayName: "あなた（プレビュー）",
 };

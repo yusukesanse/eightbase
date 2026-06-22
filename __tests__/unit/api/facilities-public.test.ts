@@ -25,6 +25,10 @@ jest.mock("next/server", () => ({
 }));
 
 import { GET } from "@/app/api/facilities/route";
+import type { NextRequest } from "next/server";
+
+// プレビューCookie無しの最小モックリクエスト（isPreviewMode → false で通常経路へ）
+const req = { cookies: { get: () => undefined } } as unknown as NextRequest;
 
 describe("公開施設API — GET /api/facilities", () => {
   beforeEach(() => {
@@ -32,12 +36,12 @@ describe("公開施設API — GET /api/facilities", () => {
   });
 
   test("正常にレスポンスが返る", async () => {
-    const res = await GET();
+    const res = await GET(req);
     expect(res.status).toBe(200);
   });
 
   test("レスポンスにfacilities配列が含まれる", async () => {
-    const res = await GET();
+    const res = await GET(req);
     const data = res._data;
     expect(data.facilities).toBeDefined();
     expect(Array.isArray(data.facilities)).toBe(true);
@@ -45,7 +49,7 @@ describe("公開施設API — GET /api/facilities", () => {
   });
 
   test("calendarIdがレスポンスに含まれない（セキュリティ）", async () => {
-    const res = await GET();
+    const res = await GET(req);
     const data = res._data;
     for (const facility of data.facilities) {
       expect(facility.calendarId).toBeUndefined();
@@ -54,7 +58,7 @@ describe("公開施設API — GET /api/facilities", () => {
   });
 
   test("施設名・タイプ・定員は含まれる", async () => {
-    const res = await GET();
+    const res = await GET(req);
     const data = res._data;
     const roomA = data.facilities.find((f: Facility) => f.id === "room-a");
     expect(roomA).toBeDefined();
@@ -66,7 +70,7 @@ describe("公開施設API — GET /api/facilities", () => {
   test("エラー時は500を返す", async () => {
     const { getFacilities } = require("@/lib/facilities");
     getFacilities.mockRejectedValueOnce(new Error("DB error"));
-    const res = await GET();
+    const res = await GET(req);
     expect(res.status).toBe(500);
   });
 });

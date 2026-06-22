@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireActiveUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { isPreviewMode } from "@/lib/preview";
+import { dummyTables } from "@/lib/previewDummy";
 import type { MahjongTable, MahjongTableMember } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,11 @@ export async function GET(req: NextRequest) {
     const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    // プレビューモード: ダミーの卓を返す（本番には出ない）
+    if (await isPreviewMode(req)) {
+      return NextResponse.json(dummyTables);
     }
 
     const season = await getActiveSeason();

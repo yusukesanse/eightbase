@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
+import { isPreviewMode } from "@/lib/preview";
+import { dummyProfile } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +72,11 @@ export async function GET(req: NextRequest) {
     const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    // プレビューモード: ダミーの登録プロフィールを返す（本番には出ない）
+    if (await isPreviewMode(req)) {
+      return NextResponse.json(dummyProfile);
     }
 
     const db = getDb();
