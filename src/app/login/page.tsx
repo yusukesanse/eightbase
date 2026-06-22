@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { initLiff, runLiffServerLogin } from "@/lib/liff";
+import { initLiff } from "@/lib/liff";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { useLiffBoot } from "@/hooks/useLiffBoot";
 
 /**
  * ログインページ — LIFF + ワンタイムパスワード認証フロー
@@ -17,6 +18,7 @@ import { clearAuthCache } from "@/components/AuthGuard";
  */
 export default function LoginPage() {
   const router = useRouter();
+  const boot = useLiffBoot();
   const [status, setStatus] = useState<
     "loading" | "liff-login" | "needs-linking" | "linking" | "no-access"
   >("loading");
@@ -65,43 +67,40 @@ export default function LoginPage() {
     let cancelled = false;
 
     async function tryLiffLogin() {
-      try {
-        // `/` と共通の LIFF→サーバーセッション発行フロー
-        setMessage("認証中...");
-        const result = await runLiffServerLogin();
-        if (cancelled) return;
+      // `/` と共通の LIFF→サーバーセッション発行フロー（useLiffBoot）
+      setMessage("認証中...");
+      const result = await boot();
+      if (cancelled) return;
 
-        switch (result.kind) {
-          case "redirecting":
-            setStatus("liff-login");
-            setMessage("LINEログイン中...");
-            return;
-          case "needs-line-login":
-            setStatus("no-access");
-            return;
-          case "linked":
-            // セッション切替後は表示キャッシュを破棄。プロフィール未完了は /setup-profile へ
-            clearAuthCache();
-            router.replace(result.profileComplete ? "/reservation" : "/setup-profile");
-            return;
-          case "needs-linking":
-            setLineInfo({
-              lineUserId: result.lineUserId,
-              displayName: result.displayName,
-              pictureUrl: result.pictureUrl || "",
-            });
-            setStatus("needs-linking");
-            return;
-          case "no-access":
-            if (result.error) setMessage(result.error);
-            setStatus("no-access");
-            return;
-        }
-      } catch (err) {
-        console.error("[LoginPage] LIFF error:", err);
-        if (!cancelled) {
+      // 例外（boot 内でログ済み）→ アクセス不可表示
+      if (!result) {
+        setStatus("no-access");
+        return;
+      }
+
+      switch (result.kind) {
+        case "redirecting":
+          setStatus("liff-login");
+          setMessage("LINEログイン中...");
+          return;
+        case "linked":
+          // boot() 内で表示キャッシュ破棄＋遷移済み
+          return;
+        case "needs-linking":
+          setLineInfo({
+            lineUserId: result.lineUserId,
+            displayName: result.displayName,
+            pictureUrl: result.pictureUrl || "",
+          });
+          setStatus("needs-linking");
+          return;
+        case "needs-line-login":
           setStatus("no-access");
-        }
+          return;
+        case "no-access":
+          if (result.error) setMessage(result.error);
+          setStatus("no-access");
+          return;
       }
     }
 
@@ -109,7 +108,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [boot]);
 
   // ワンタイムパスワードで認証 → LINE ID 連携
   async function handleLinkSubmit(e: React.FormEvent) {

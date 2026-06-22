@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signSession, setSessionCookie } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
+import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
+import { isReviewModeEnabled } from "@/lib/reviewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -27,32 +29,10 @@ export async function POST(req: NextRequest) {
 
     // ── 審査モードを取得（本番では環境変数で明示的に許可しない限り無効）──
     const db = getDb();
-    let isReviewMode = false;
-    if (process.env.NODE_ENV !== "production" || process.env.ALLOW_REVIEW_MODE === "true") {
-      try {
-        const settingsDoc = await db.collection("settings").doc("app").get();
-        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
-      } catch (e) {
-        console.warn("[liff-login] settings fetch error:", e);
-      }
-    }
+    const isReviewMode = await isReviewModeEnabled(db);
 
     // ── 1. LINE API でアクセストークンを検証 ──
-    let tokenValid = false;
-    try {
-      const verifyRes = await fetch(
-        `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
-      );
-
-      if (verifyRes.ok) {
-        const verifyData = await verifyRes.json();
-        tokenValid = verifyData.expires_in > 0;
-      } else {
-        console.warn("[liff-login] token verify failed:", await verifyRes.text());
-      }
-    } catch (e) {
-      console.warn("[liff-login] token verify error:", e);
-    }
+    const tokenValid = (await verifyLineAccessToken(accessToken)) === "valid";
 
     if (!tokenValid && !isReviewMode) {
       return NextResponse.json(
@@ -71,18 +51,11 @@ export async function POST(req: NextRequest) {
     let pictureUrl = "";
 
     if (tokenValid) {
-      const profileRes = await fetch("https://api.line.me/v2/profile", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
+      const profile = await fetchLineProfile(accessToken);
+      if (profile) {
         lineUserId = profile.userId;
         displayName = profile.displayName;
-        pictureUrl = profile.pictureUrl ?? "";
-      } else {
-        const errText = await profileRes.text();
-        console.warn("[liff-login] server-side profile fetch failed:", errText);
+        pictureUrl = profile.pictureUrl;
       }
     }
 

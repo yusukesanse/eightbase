@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isPreviewMode, PREVIEW_USER_ID } from "@/lib/preview";
+import { isReviewModeEnabled } from "@/lib/reviewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -37,15 +38,7 @@ export async function GET(req: NextRequest) {
 
     if (snap.empty) {
       // authorizedUsers に存在しない → 審査モードを確認（本番では明示許可なしで無効）
-      let isReviewMode = false;
-      if (process.env.NODE_ENV !== "production" || process.env.ALLOW_REVIEW_MODE === "true") {
-      try {
-        const settingsDoc = await db.collection("settings").doc("app").get();
-        isReviewMode = settingsDoc.exists && settingsDoc.data()?.reviewMode === true;
-      } catch (e) {
-        console.warn("[auth/check] settings fetch error:", e);
-      }
-      } // end ALLOW_REVIEW_MODE guard
+      const isReviewMode = await isReviewModeEnabled(db);
 
       if (!isReviewMode) {
         return NextResponse.json({ authorized: false });
