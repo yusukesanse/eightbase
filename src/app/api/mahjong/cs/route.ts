@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getSessionUserId } from "@/lib/session";
 import { getActiveSeason } from "@/lib/mahjong";
+import { isPreviewMode } from "@/lib/preview";
+import { dummyCs } from "@/lib/previewDummy";
 import type { MahjongCsEvent } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,11 @@ export async function GET(req: NextRequest) {
     const userId = await getSessionUserId(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    // プレビューモード: ダミーCSを返す（Firestoreは参照しない / 本番には出ない）
+    if (await isPreviewMode(req)) {
+      return NextResponse.json(dummyCs);
     }
 
     const season = await getActiveSeason();

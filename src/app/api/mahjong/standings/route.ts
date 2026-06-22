@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth";
 import { computeStandings, getActiveSeason } from "@/lib/mahjong";
+import { isPreviewMode } from "@/lib/preview";
+import { dummyStandings } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,11 @@ export async function GET(req: NextRequest) {
     const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    // プレビューモード: ダミー順位表を返す（Firestoreは参照しない / 本番には出ない）
+    if (await isPreviewMode(req)) {
+      return NextResponse.json(dummyStandings);
     }
 
     let seasonId = req.nextUrl.searchParams.get("seasonId");
