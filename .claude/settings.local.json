@@ -10,7 +10,9 @@
       "Bash(git reset:*)",
       "Bash(git pull:*)",
       "Bash(git merge:*)",
-      "Bash(find /Users/miseyuusuke/Desktop/nakagawa-share-office-app/.git -name \"*.lock\" -delete)"
+      "Bash(find /Users/miseyuusuke/Desktop/nakagawa-share-office-app/.git -name \"*.lock\" -delete)",
+      "Bash(npx jest *)",
+      "Bash(git stash *)"
     ]
   }
 }

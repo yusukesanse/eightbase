@@ -30,6 +30,17 @@ function CheckIcon({ color = "#fff", size = 15 }: { color?: string; size?: numbe
   );
 }
 
+function ChevronRight({ color = "#fff", size = 14 }: { color?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+// 卓確定の色（CSメダル金系・参加中の緑と区別する）
+const CONFIRM = "#b48f13";
+
 /**
  * ランキング > 麻雀 のビュー
  * タブ: リーグ（ピラミッド＋順位） / 参加（開催予定表＋参加ボタン） / 申告（フォーム・参加中のみ活性）
@@ -145,6 +156,8 @@ export function MahjongLeagueView() {
         <JoinTab
           schedule={schedule}
           enteredDates={enteredDates}
+          tables={tables}
+          currentUserId={currentUserId}
           onChanged={loadCore}
         />
       ) : (
@@ -163,13 +176,19 @@ export function MahjongLeagueView() {
 function JoinTab({
   schedule,
   enteredDates,
+  tables,
+  currentUserId,
   onChanged,
 }: {
   schedule: MahjongScheduleEntry[];
   enteredDates: Set<string>;
+  tables: MahjongTable[];
+  currentUserId?: string;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  // 卓確定の同卓メンバーを表示する対象日
+  const [viewDate, setViewDate] = useState<string | null>(null);
   const today = todayJst();
 
   async function toggle(date: string, entered: boolean) {
@@ -195,6 +214,11 @@ function JoinTab({
     );
   }
 
+  // 表示中の日の卓（自分の卓のみ ?mine=1 で取得済み）
+  const viewTables = viewDate
+    ? tables.filter((t) => t.eventDate === viewDate)
+    : [];
+
   return (
     <div className="flex flex-col gap-2.5">
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
@@ -203,12 +227,15 @@ function JoinTab({
       {schedule.map((s) => {
         const entered = enteredDates.has(s.date);
         const past = s.date < today;
+        // その日に自分が含まれる卓があれば「卓確定」
+        const confirmed = tables.some((t) => t.eventDate === s.date);
         const { md, wd } = dateParts(s.date);
+        const highlight = !past && (confirmed || entered);
         return (
           <div
             key={s.scheduleId}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
-            style={entered && !past ? { boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } : undefined}
+            style={highlight ? { boxShadow: `inset 0 0 0 1.5px ${confirmed ? CONFIRM : ACCENT}` } : undefined}
           >
             <div className="w-[50px] text-center shrink-0">
               <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
@@ -220,6 +247,16 @@ function JoinTab({
             </div>
             {past ? (
               <span className="text-[11px] text-[#231714]/30 font-bold shrink-0">終了</span>
+            ) : confirmed ? (
+              // 卓確定: タップで同卓メンバーを表示
+              <button
+                onClick={() => setViewDate(s.date)}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold pl-4 pr-3 py-2 active:scale-95 transition-transform"
+                style={{ background: CONFIRM, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}
+              >
+                <CheckIcon />卓確定
+                <ChevronRight size={13} />
+              </button>
             ) : (
               <button
                 onClick={() => toggle(s.date, entered)}
@@ -238,6 +275,69 @@ function JoinTab({
           </div>
         );
       })}
+
+      {viewDate && viewTables.length > 0 && (
+        <TableMembersModal
+          date={viewDate}
+          tables={viewTables}
+          currentUserId={currentUserId}
+          onClose={() => setViewDate(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* 卓確定の同卓メンバー表示（参加タブから開くボトムシート） */
+function TableMembersModal({
+  date,
+  tables,
+  currentUserId,
+  onClose,
+}: {
+  date: string;
+  tables: MahjongTable[];
+  currentUserId?: string;
+  onClose: () => void;
+}) {
+  const sorted = tables
+    .slice()
+    .sort((a, b) => (a.round ?? 0) - (b.round ?? 0));
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: "#f6efd8", color: CONFIRM }}>
+            <CheckIcon color={CONFIRM} size={13} />卓確定
+          </span>
+          <h3 className="text-base font-bold text-[#1c1f21]">{formatJpDate(date)} の卓</h3>
+        </div>
+        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">同卓メンバー（席順：東→南→西→北）</p>
+
+        <div className="flex flex-col gap-4">
+          {sorted.map((t) => (
+            <div key={t.tableId} className="flex flex-col gap-2">
+              {t.round ? (
+                <div className="text-[11px] font-bold px-2 py-0.5 rounded-full self-start" style={{ background: "#eef4f5", color: "#5f7a80" }}>
+                  第{t.round}回戦
+                </div>
+              ) : null}
+              <TableBoard table={t} currentUserId={currentUserId} />
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="mt-5 w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
+          style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
+        >
+          閉じる
+        </button>
+      </div>
     </div>
   );
 }
@@ -292,22 +392,7 @@ function ReportTab({
             </div>
 
             {/* 緑フェルトの卓 */}
-            <div
-              className="rounded-[20px] p-4"
-              style={{
-                background: "radial-gradient(120% 90% at 50% 30%, #2f7d57, #1c4d36)",
-                boxShadow: "inset 0 0 0 1px rgba(255,255,255,.08), inset 0 0 50px rgba(0,0,0,.28)",
-              }}
-            >
-              {t.tableLabel && (
-                <div className="text-center text-white/90 text-[12px] font-extrabold tracking-[0.1em] mb-3">{t.tableLabel}卓</div>
-              )}
-              <div className="grid grid-cols-2 gap-2.5">
-                {t.members.map((m, i) => (
-                  <Seat key={m.lineUserId} m={m} seat={SEATS[i] ?? ""} me={m.lineUserId === currentUserId} />
-                ))}
-              </div>
-            </div>
+            <TableBoard table={t} currentUserId={currentUserId} />
 
             {/* アクション */}
             {t.status === "completed" ? (
@@ -346,6 +431,28 @@ function ReportTab({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/* 緑フェルトの卓ボード（席グリッド）。申告タブと参加タブの卓確定表示で共用 */
+function TableBoard({ table, currentUserId }: { table: MahjongTable; currentUserId?: string }) {
+  return (
+    <div
+      className="rounded-[20px] p-4"
+      style={{
+        background: "radial-gradient(120% 90% at 50% 30%, #2f7d57, #1c4d36)",
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,.08), inset 0 0 50px rgba(0,0,0,.28)",
+      }}
+    >
+      {table.tableLabel && (
+        <div className="text-center text-white/90 text-[12px] font-extrabold tracking-[0.1em] mb-3">{table.tableLabel}卓</div>
+      )}
+      <div className="grid grid-cols-2 gap-2.5">
+        {table.members.map((m, i) => (
+          <Seat key={m.lineUserId} m={m} seat={SEATS[i] ?? ""} me={m.lineUserId === currentUserId} />
+        ))}
+      </div>
     </div>
   );
 }
