@@ -81,6 +81,12 @@ if (appEnv === "production") {
       `EIGHTBASE_DUMMY_DATA="${env.EIGHTBASE_DUMMY_DATA}" は本番では無効化してください（dev/staging 専用のダミーデータ）`
     );
   }
+  // 簡易パスワードログイン（dev/staging 専用）が本番に紛れていないか
+  if (env.ADMIN_SIMPLE_PASSWORD) {
+    errors.push(
+      "ADMIN_SIMPLE_PASSWORD は本番では設定しないでください（dev/staging 専用のパスワードログイン）"
+    );
+  }
 }
 
 // ── 結果出力 ──
