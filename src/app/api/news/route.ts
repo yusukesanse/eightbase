@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireActiveUser } from "@/lib/auth";
+import { isDummyDataEnabled } from "@/lib/env";
+import { dummyNews } from "@/lib/previewDummy";
 import type { NewsItem } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,11 @@ export async function GET(req: NextRequest) {
   const userId = await requireActiveUser(req);
   if (!userId) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  // プレビューモード: ダミーデータを返す（Firestoreは参照しない / 本番には出ない）
+  if (isDummyDataEnabled()) {
+    return NextResponse.json({ news: dummyNews }, { headers: { "Cache-Control": "no-store" } });
   }
 
   const db = getDb();

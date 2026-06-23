@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
+import { dummyAdminReservations } from "@/lib/previewDummyAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (await isPreviewMode(req)) {
-    return NextResponse.json({ reservations: [], _preview: true });
+  if (isDummyDataEnabled()) {
+    return NextResponse.json(dummyAdminReservations);
   }
 
   try {

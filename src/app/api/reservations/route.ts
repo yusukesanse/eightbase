@@ -4,6 +4,8 @@ import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed } from "@/lib/line";
 import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
+import { isDummyDataEnabled } from "@/lib/env";
+import { dummyReservations } from "@/lib/previewDummy";
 import {
   validateReservationSlot,
   intervalsOverlap,
@@ -29,6 +31,11 @@ export async function GET(req: NextRequest) {
   const userId = await requireActiveUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // プレビューモード: ダミー予約を返す（Firestore参照なし / 本番には出ない）
+  if (isDummyDataEnabled()) {
+    return NextResponse.json({ reservations: dummyReservations });
   }
 
   const db = getDb();

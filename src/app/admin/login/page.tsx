@@ -1,17 +1,52 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+/** 本番のみ Google OAuth。非本番(staging/development)はパスワードログイン。 */
+const IS_PROD = process.env.NEXT_PUBLIC_APP_ENV === "production";
+
 /**
- * 管理者ログインページ — Google OAuth
+ * 管理者ログインページ
+ * - 本番: Google OAuth
+ * - 非本番: ADMIN_SIMPLE_PASSWORD によるパスワードログイン
  */
 export default function AdminLoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [password, setPassword] = useState("");
   const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // パスワードログイン（非本番）
+  const handlePasswordSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!password) return;
+      setError(null);
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ password }),
+        });
+        if (res.ok) {
+          router.replace("/admin");
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setError(data.error || "ログインに失敗しました");
+        }
+      } catch {
+        setError("接続エラーが発生しました。もう一度お試しください。");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [password, router]
+  );
 
   // すでにログイン済みならダッシュボードへ
   useEffect(() => {
@@ -52,9 +87,9 @@ export default function AdminLoginPage() {
     [router]
   );
 
-  // Google Identity Services の読み込みと初期化
+  // Google Identity Services の読み込みと初期化（本番のみ）
   useEffect(() => {
-    if (checkingSession) return;
+    if (checkingSession || !IS_PROD) return;
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
     if (!clientId) {
@@ -127,10 +162,31 @@ export default function AdminLoginPage() {
           <p className="text-xs text-[#231714]/40 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
         </div>
 
-        {/* Google ログインボタン */}
-        <div className="flex flex-col items-center">
-          <div ref={googleBtnRef} className="flex justify-center" />
-        </div>
+        {IS_PROD ? (
+          /* 本番: Google ログインボタン */
+          <div className="flex flex-col items-center">
+            <div ref={googleBtnRef} className="flex justify-center" />
+          </div>
+        ) : (
+          /* 非本番: パスワードログイン */
+          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="管理パスワード"
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-white/60 bg-white/60 px-4 py-3 text-sm text-[#231714] placeholder:text-[#231714]/30 outline-none focus:border-[#A5C1C8] focus:ring-2 focus:ring-[#A5C1C8]/30"
+            />
+            <button
+              type="submit"
+              disabled={loading || !password}
+              className="w-full rounded-xl bg-gradient-to-br from-[#A5C1C8] to-[#7BA8B0] px-4 py-3 text-sm font-medium text-white shadow-md shadow-[#A5C1C8]/30 transition disabled:opacity-50"
+            >
+              ログイン
+            </button>
+          </form>
+        )}
 
         {/* エラー */}
         {error && (
@@ -140,7 +196,9 @@ export default function AdminLoginPage() {
         )}
 
         <p className="text-[10px] text-[#231714]/30 text-center mt-5 leading-relaxed">
-          管理者として登録されたアカウントでログインしてください
+          {IS_PROD
+            ? "管理者として登録されたアカウントでログインしてください"
+            : "検証/開発環境です。管理パスワードでログインしてください"}
         </p>
 
         {/* 認証中オーバーレイ */}

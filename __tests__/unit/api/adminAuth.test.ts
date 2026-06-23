@@ -164,3 +164,58 @@ describe("API /api/admin/auth — 管理者認証", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("API /api/admin/auth — パスワードログイン（非本番のみ）", () => {
+  const SIMPLE_EMAIL = "staging-admin@eightbase.local";
+  let prevPw: string | undefined;
+  let prevEnv: string | undefined;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prevPw = process.env.ADMIN_SIMPLE_PASSWORD;
+    prevEnv = process.env.NEXT_PUBLIC_APP_ENV;
+  });
+  afterEach(() => {
+    if (prevPw === undefined) delete process.env.ADMIN_SIMPLE_PASSWORD;
+    else process.env.ADMIN_SIMPLE_PASSWORD = prevPw;
+    if (prevEnv === undefined) delete process.env.NEXT_PUBLIC_APP_ENV;
+    else process.env.NEXT_PUBLIC_APP_ENV = prevEnv;
+  });
+
+  // IT-AAUTH-008: 非本番 + 正しいパスワードでログイン成功
+  test("非本番 + 正しいパスワードで成功 → httpOnly Cookie発行", async () => {
+    process.env.ADMIN_SIMPLE_PASSWORD = "dev-pass-123";
+    const res = await POST(createRequest("POST", { password: "dev-pass-123" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.email).toBe(SIMPLE_EMAIL);
+
+    const setCookie = res.headers.get("set-cookie");
+    expect(setCookie).toContain("__admin_session");
+    expect(setCookie).toContain("HttpOnly");
+  });
+
+  // IT-AAUTH-009: 非本番 + 間違ったパスワードで401
+  test("非本番 + 間違ったパスワードで401", async () => {
+    process.env.ADMIN_SIMPLE_PASSWORD = "correct-password";
+    const res = await POST(createRequest("POST", { password: "wrong" }));
+    expect(res.status).toBe(401);
+  });
+
+  // IT-AAUTH-010: ADMIN_SIMPLE_PASSWORD 未設定なら403（経路無効）
+  test("ADMIN_SIMPLE_PASSWORD 未設定で403", async () => {
+    delete process.env.ADMIN_SIMPLE_PASSWORD;
+    const res = await POST(createRequest("POST", { password: "anything" }));
+    expect(res.status).toBe(403);
+  });
+
+  // IT-AAUTH-011: 本番ではパスワードログインは常に無効（403）
+  test("本番ではパスワードログイン無効 → 403", async () => {
+    process.env.NEXT_PUBLIC_APP_ENV = "production";
+    process.env.ADMIN_SIMPLE_PASSWORD = "dev-pass-123";
+    const res = await POST(createRequest("POST", { password: "dev-pass-123" }));
+    expect(res.status).toBe(403);
+  });
+});

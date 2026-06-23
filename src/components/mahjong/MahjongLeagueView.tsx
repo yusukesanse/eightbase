@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
+import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import { Avatar } from "@/components/ui/LineContact";
 import type {
   MahjongStanding,
   MahjongTable,
   MahjongTableMember,
   MahjongScheduleEntry,
+  MahjongSeasonSummary,
 } from "@/types";
 
 // 卓の席順（卓内の並び順から東南西北を割り当て）
@@ -69,12 +71,31 @@ export function MahjongLeagueView() {
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
   const [tables, setTables] = useState<MahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
+  // シーズン切替（順位/戦歴の閲覧にのみ効く。参加/申告はアクティブシーズン固定）
+  const [seasons, setSeasons] = useState<MahjongSeasonSummary[]>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [viewSeasonId, setViewSeasonId] = useState<string | undefined>(undefined);
+  // 戦歴ビューの対象プレイヤー
+  const [historyPlayer, setHistoryPlayer] = useState<string | null>(null);
+
+  // シーズン一覧（セレクタ用・初回のみ）
+  useEffect(() => {
+    fetch("/api/mahjong/seasons", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setSeasons(d.seasons ?? []))
+      .catch(() => {
+        /* noop */
+      });
+  }, []);
 
   const loadCore = useCallback(async () => {
     setLoading(true);
     try {
+      const standingsUrl = selectedSeasonId
+        ? `/api/mahjong/standings?seasonId=${encodeURIComponent(selectedSeasonId)}`
+        : "/api/mahjong/standings";
       const [sRes, schRes, tRes] = await Promise.all([
-        fetch("/api/mahjong/standings", { credentials: "include" }),
+        fetch(standingsUrl, { credentials: "include" }),
         fetch("/api/mahjong/schedule", { credentials: "include" }),
         fetch("/api/mahjong/tables?mine=1", { credentials: "include" }),
       ]);
@@ -83,6 +104,7 @@ export function MahjongLeagueView() {
       const tData = await tRes.json();
       setStandings(sData.standings ?? []);
       setCurrentUserId(sData.currentUserId);
+      setViewSeasonId(sData.seasonId ?? selectedSeasonId ?? undefined);
       const league = (schData.schedule ?? []).filter(
         (x: MahjongScheduleEntry) => x.type === "league"
       );
@@ -110,7 +132,7 @@ export function MahjongLeagueView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedSeasonId]);
 
   useEffect(() => {
     loadCore();
@@ -151,7 +173,20 @@ export function MahjongLeagueView() {
           <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : subTab === "league" ? (
-        <LeaguePyramid standings={standings} currentUserId={currentUserId} />
+        <div className="space-y-4">
+          {seasons.length > 1 && (
+            <SeasonSelector
+              seasons={seasons}
+              value={viewSeasonId}
+              onChange={setSelectedSeasonId}
+            />
+          )}
+          <LeaguePyramid
+            standings={standings}
+            currentUserId={currentUserId}
+            onSelectPlayer={setHistoryPlayer}
+          />
+        </div>
       ) : subTab === "join" ? (
         <JoinTab
           schedule={schedule}
@@ -167,6 +202,56 @@ export function MahjongLeagueView() {
           onChanged={loadCore}
         />
       )}
+
+      {historyPlayer && (
+        <PlayerHistorySheet
+          lineUserId={historyPlayer}
+          seasonId={viewSeasonId}
+          onClose={() => setHistoryPlayer(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────── シーズン選択 ───────── */
+
+function SeasonSelector({
+  seasons,
+  value,
+  onChange,
+}: {
+  seasons: MahjongSeasonSummary[];
+  value?: string;
+  onChange: (seasonId: string) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-0.5">
+      {seasons.map((s) => {
+        const active = s.seasonId === value;
+        return (
+          <button
+            key={s.seasonId}
+            type="button"
+            onClick={() => onChange(s.seasonId)}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12.5px] font-bold transition-colors ${
+              active ? "text-white" : "text-[#40434a]"
+            }`}
+            style={
+              active
+                ? { background: "#2f7d57" }
+                : { background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+            }
+          >
+            {s.name || s.seasonId}
+            {s.active && (
+              <span className={`ml-1.5 text-[9px] ${active ? "opacity-80" : "text-[#2f7d57]"}`}>
+                開催中
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -511,6 +596,7 @@ function ReportModal({
   const [rank, setRank] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const pointsRef = useRef<HTMLInputElement>(null);
 
   async function submit() {
     setError(null);
@@ -544,7 +630,7 @@ function ReportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb"
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#1c1f21]">スコアを申告</h3>
@@ -553,20 +639,39 @@ function ReportModal({
         </p>
 
         <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mb-2">最終持ち点</label>
-        <div className="flex items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}>
-          <input
-            type="number"
-            inputMode="numeric"
-            step={100}
-            value={points}
-            onChange={(e) => setPoints(e.target.value)}
-            placeholder="25000"
-            className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-            style={{ fontSize: "30px" }}
-          />
-          <span className="text-[14px] font-bold text-[#97999d]">点</span>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex-1 flex items-baseline gap-2 pb-1.5"
+            style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}
+          >
+            <input
+              ref={pointsRef}
+              type="number"
+              inputMode="numeric"
+              step={100}
+              autoFocus
+              value={points}
+              onChange={(e) => setPoints(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") pointsRef.current?.blur();
+              }}
+              placeholder="25000"
+              className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
+              style={{ fontSize: "30px" }}
+            />
+            <span className="text-[14px] font-bold text-[#97999d]">点</span>
+          </div>
+          {/* 数字キーボードを閉じて値を確定（下部シートがキーボードに隠れる対策） */}
+          <button
+            type="button"
+            onClick={() => pointsRef.current?.blur()}
+            className="shrink-0 inline-flex items-center gap-1 rounded-xl px-3.5 py-2.5 text-[13px] font-extrabold text-white active:scale-95 transition-transform"
+            style={{ background: ACCENT }}
+          >
+            <CheckIcon size={15} />確定
+          </button>
         </div>
-        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（4人の合計が100,000点）</div>
+        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（4人の合計が100,000点）。「確定」でキーボードを閉じます</div>
 
         <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
         <div className="flex gap-2">

@@ -10,6 +10,8 @@ import {
   MAHJONG_TABLE_TOTAL,
   type MahjongLeagueAssignmentEntry,
   type MahjongLeagueTier,
+  type MahjongPlayerHistory,
+  type MahjongSeasonSummary,
   type MahjongStanding,
   type MahjongTable,
   type MahjongTableMember,
@@ -213,6 +215,120 @@ export async function buildLeagueAssignmentEntries(
     top2Rate: s.top2Rate,
     csEligible: s.csEligible,
   }));
+}
+
+/**
+ * portal 向け: 指定種目のシーズン一覧（active/過去とも）を新しい順で返す。
+ * gameCategory 未設定の旧シーズンは麻雀として扱う（getActiveSeason と同方針）。
+ */
+export async function listSeasons(
+  category: ScoreboardGameId = "mahjong"
+): Promise<MahjongSeasonSummary[]> {
+  const db = getDb();
+  const snap = await db.collection("seasons").get();
+  const seasons = snap.docs
+    .map((d) => {
+      const data = d.data() as {
+        gameCategory?: string;
+        name?: string;
+        startDate?: string;
+        endDate?: string;
+        active?: boolean;
+      };
+      return { seasonId: d.id, ...data };
+    })
+    .filter(
+      (s) => s.gameCategory === category || (category === "mahjong" && !s.gameCategory)
+    )
+    .map((s) => ({
+      seasonId: s.seasonId,
+      name: s.name ?? "",
+      startDate: s.startDate ?? "",
+      endDate: s.endDate ?? "",
+      active: !!s.active,
+    }));
+  // 新しい順（startDate 降順、未設定は末尾）
+  seasons.sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+  return seasons;
+}
+
+/**
+ * シーズン内の1プレイヤーの戦歴を計算する。
+ * - 戦歴: 完了済み卓から当該プレイヤーの {持ち点, 着順, 日付, 回戦} を抽出（新しい順）
+ * - avgTrend: 時系列（古い順）に各試合終了時点の累積アベレージ（スパークライン用）
+ * - standing: そのシーズンの順位表における当該プレイヤーの集計・順位（standings と一致）
+ */
+export async function computePlayerHistory(
+  seasonId: string,
+  lineUserId: string
+): Promise<MahjongPlayerHistory> {
+  const db = getDb();
+  const snap = await db
+    .collection("mahjongTables")
+    .where("seasonId", "==", seasonId)
+    .get();
+
+  const games: MahjongPlayerHistory["games"] = [];
+  let displayName = "";
+  let pictureUrl: string | undefined;
+
+  for (const doc of snap.docs) {
+    const table = doc.data() as MahjongTable;
+    if (table.status !== "completed") continue;
+    const m = table.members.find((mm) => mm.lineUserId === lineUserId);
+    if (!m || m.points === null || m.rank === null) continue;
+    games.push({
+      tableId: table.tableId ?? doc.id,
+      eventDate: table.eventDate,
+      round: table.round,
+      points: m.points,
+      rank: m.rank,
+    });
+    displayName = m.displayName;
+    if (m.pictureUrl) pictureUrl = m.pictureUrl;
+  }
+
+  // 時系列（古い順）に並べて累積アベレージを計算
+  const chrono = games
+    .slice()
+    .sort(
+      (a, b) =>
+        a.eventDate.localeCompare(b.eventDate) || (a.round ?? 0) - (b.round ?? 0)
+    );
+  let sum = 0;
+  const avgTrend = chrono.map((g, i) => {
+    sum += g.points;
+    return { date: g.eventDate, cumulativeAverage: Math.round(sum / (i + 1)) };
+  });
+
+  // 順位・集計は standings と一致させる（再計算して当該ユーザーを引く）
+  const standings = await computeStandings(seasonId);
+  const s = standings.find((x) => x.lineUserId === lineUserId) ?? null;
+
+  return {
+    seasonId,
+    player: {
+      lineUserId,
+      displayName: s?.displayName ?? displayName,
+      pictureUrl: s?.pictureUrl ?? pictureUrl,
+    },
+    standing: s
+      ? {
+          gamesPlayed: s.gamesPlayed,
+          average: s.average,
+          firstCount: s.firstCount,
+          top2Count: s.top2Count,
+          firstRate: s.firstRate,
+          top2Rate: s.top2Rate,
+          csEligible: s.csEligible,
+          rank: s.rank,
+          tier: s.tier,
+        }
+      : null,
+    // 表示は新しい順
+    games: chrono.slice().reverse(),
+    avgTrend,
+  };
 }
 
 /**

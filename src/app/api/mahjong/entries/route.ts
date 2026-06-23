@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { isDummyDataEnabled } from "@/lib/env";
+import { dummyEntries } from "@/lib/previewDummy";
 import type { MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,11 @@ export async function GET(req: NextRequest) {
     const userId = await requireActiveUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    // プレビューモード: ダミー参加表明を返す（本番には出ない / eventDate不問）
+    if (isDummyDataEnabled()) {
+      return NextResponse.json(dummyEntries);
     }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");

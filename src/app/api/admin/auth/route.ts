@@ -7,8 +7,13 @@ import {
 } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isPreviewMode, PREVIEW_ADMIN_EMAIL } from "@/lib/preview";
+import { isProduction } from "@/lib/env";
+import { timingSafeEqual } from "crypto";
 
 export const dynamic = "force-dynamic";
+
+/** パスワードログイン時の管理者アイデンティティ（非本番専用） */
+const SIMPLE_ADMIN_EMAIL = "staging-admin@eightbase.local";
 
 /** 環境変数のスーパー管理者リスト（常にアクセス可能） */
 const SUPER_ADMIN_EMAILS: string[] = (() => {
@@ -86,17 +91,68 @@ function getRequestMeta(req: NextRequest) {
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ?? "";
 
 /**
+ * パスワードログイン（**非本番のみ**）
+ * staging / development では Google OAuth の代わりに `ADMIN_SIMPLE_PASSWORD` 一本でログイン可。
+ * 本番では常に無効（`isProduction()` で経路を閉じ、prebuild でもフラグ混入を弾く）。
+ */
+async function handlePasswordLogin(
+  password: string,
+  meta: { ip: string; userAgent: string }
+) {
+  const configured = process.env.ADMIN_SIMPLE_PASSWORD ?? "";
+
+  // 本番では無効。非本番でも未設定なら無効。
+  if (isProduction() || !configured) {
+    await recordLoginLog("login_denied", {
+      reason: "パスワードログインは無効な環境",
+      ...meta,
+    });
+    return NextResponse.json(
+      { error: "この環境ではパスワードログインは利用できません" },
+      { status: 403 }
+    );
+  }
+
+  const a = Buffer.from(password);
+  const b = Buffer.from(configured);
+  const ok = a.length === b.length && timingSafeEqual(a, b);
+  if (!ok) {
+    await recordLoginLog("login_failed", { reason: "パスワード不一致", ...meta });
+    return NextResponse.json({ error: "パスワードが違います" }, { status: 401 });
+  }
+
+  await recordLoginLog("login_success", {
+    email: SIMPLE_ADMIN_EMAIL,
+    name: "Staging Admin",
+    ...meta,
+  });
+  const jwt = await signAdminToken(SIMPLE_ADMIN_EMAIL);
+  const res = NextResponse.json({
+    success: true,
+    email: SIMPLE_ADMIN_EMAIL,
+    name: "Staging Admin",
+  });
+  setAdminCookie(res, jwt);
+  return res;
+}
+
+/**
  * POST /api/admin/auth
- * Google OAuth ログイン: Google ID トークンを検証し、
- * メールアドレスが許可リストに含まれていればセッション Cookie を発行
- *
- * Body: { idToken: string }
+ * - Google OAuth ログイン: `{ idToken }` を検証し、許可メールならセッション Cookie 発行（全環境）
+ * - パスワードログイン: `{ password }` を `ADMIN_SIMPLE_PASSWORD` と照合（**非本番のみ**）
  */
 export async function POST(req: NextRequest) {
   const meta = getRequestMeta(req);
 
   try {
-    const { idToken } = await req.json();
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+
+    // ── パスワードログイン経路（非本番のみ） ──
+    if (typeof body.password === "string") {
+      return await handlePasswordLogin(body.password, meta);
+    }
+
+    const idToken = body.idToken;
 
     if (!idToken || typeof idToken !== "string") {
       return NextResponse.json(
