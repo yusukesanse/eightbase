@@ -421,6 +421,46 @@ export interface MahjongStanding {
   tier: MahjongLeagueTier; // 1-4位=M1, 5-8位=M2, 9位〜=M3
 }
 
+/** プレイヤー戦歴: 1試合（1半荘）分 */
+export interface MahjongPlayerGame {
+  tableId: string;
+  eventDate: string;       // YYYY-MM-DD
+  round?: number;          // 第n回戦
+  points: number;          // 最終持ち点
+  rank: number;            // 卓内順位 1〜4
+}
+
+/** プレイヤー戦歴ビュー（/api/mahjong/players/[lineUserId]/history の返却） */
+export interface MahjongPlayerHistory {
+  seasonId: string;
+  player: { lineUserId: string; displayName: string; pictureUrl?: string };
+  /** そのシーズンの通算成績・順位（standings と一致）。試合が無ければ null */
+  standing: {
+    gamesPlayed: number;
+    average: number;
+    firstCount: number;
+    top2Count: number;
+    firstRate: number;
+    top2Rate: number;
+    csEligible: boolean;
+    rank: number;
+    tier: MahjongLeagueTier;
+  } | null;
+  /** 戦歴リスト（新しい順・表示用） */
+  games: MahjongPlayerGame[];
+  /** AVG推移（時系列・各試合終了時点の累積アベレージ。スパークライン用） */
+  avgTrend: { date: string; cumulativeAverage: number }[];
+}
+
+/** portal 向けシーズン要約（/api/mahjong/seasons の返却要素） */
+export interface MahjongSeasonSummary {
+  seasonId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  active: boolean;
+}
+
 /** リーグ編成のスナップショット項目（確定時点の1人分） */
 export interface MahjongLeagueAssignmentEntry {
   lineUserId: string;

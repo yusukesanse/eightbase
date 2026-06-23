@@ -15,6 +15,9 @@ import type {
   MahjongScheduleEntry,
   MahjongEntry,
   MahjongTable,
+  MahjongPlayerHistory,
+  MahjongPlayerGame,
+  MahjongSeasonSummary,
   NewsItem,
   NufEvent,
   Facility,
@@ -296,6 +299,81 @@ export const dummyStandings: {
   seasonId: PREVIEW_SEASON_ID,
   currentUserId: PREVIEW_DUMMY_USER_ID,
 };
+
+/* ───────── 麻雀 シーズン一覧（/api/mahjong/seasons） ───────── */
+export const dummySeasons: MahjongSeasonSummary[] = [
+  { seasonId: PREVIEW_SEASON_ID, name: "2026 シーズン", startDate: "2026-04-01", endDate: "2026-12-31", active: true },
+  { seasonId: "demo-season-2025", name: "2025 シーズン", startDate: "2025-04-01", endDate: "2025-12-31", active: false },
+];
+
+/* ───────── 麻雀 プレイヤー戦歴（/api/mahjong/players/[id]/history） ─────────
+ * standings のダミーから、戦数ぶんの試合を決定的に生成（AVG付近で変動）。
+ * AVG推移スパークラインが見えるよう複数試合を作る。 */
+const HISTORY_DATES = [
+  "2026-07-11", "2026-08-08", "2026-09-05", "2026-10-10",
+  "2026-11-14", "2026-12-12", "2027-01-09", "2027-02-13",
+];
+const HISTORY_RANK_CYCLE = [1, 2, 3, 2, 1, 4, 2, 3];
+
+export function dummyPlayerHistory(
+  lineUserId: string,
+  seasonId?: string
+): MahjongPlayerHistory {
+  const sid = seasonId ?? PREVIEW_SEASON_ID;
+  const s = dummyStandings.standings.find((x) => x.lineUserId === lineUserId);
+  if (!s) {
+    return {
+      seasonId: sid,
+      player: { lineUserId, displayName: "プレイヤー", pictureUrl: "" },
+      standing: null,
+      games: [],
+      avgTrend: [],
+    };
+  }
+
+  const n = Math.max(1, s.gamesPlayed);
+  const games: MahjongPlayerGame[] = [];
+  for (let i = 0; i < n; i++) {
+    // -7500〜+7500 を決定的に振る（AVG 付近で変動）
+    const delta = (((i * 37) % 11) - 5) * 1500;
+    const points = Math.round((s.average + delta) / 100) * 100;
+    games.push({
+      tableId: `demo-hist-${lineUserId}-${i + 1}`,
+      eventDate: HISTORY_DATES[i % HISTORY_DATES.length],
+      round: 1,
+      points,
+      rank: HISTORY_RANK_CYCLE[i % HISTORY_RANK_CYCLE.length],
+    });
+  }
+
+  // 時系列（古い順）で累積アベレージ
+  const chrono = games
+    .slice()
+    .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  let sum = 0;
+  const avgTrend = chrono.map((g, i) => {
+    sum += g.points;
+    return { date: g.eventDate, cumulativeAverage: Math.round(sum / (i + 1)) };
+  });
+
+  return {
+    seasonId: sid,
+    player: { lineUserId, displayName: s.displayName, pictureUrl: s.pictureUrl ?? "" },
+    standing: {
+      gamesPlayed: s.gamesPlayed,
+      average: s.average,
+      firstCount: s.firstCount,
+      top2Count: s.top2Count,
+      firstRate: s.firstRate,
+      top2Rate: s.top2Rate,
+      csEligible: s.csEligible,
+      rank: s.rank,
+      tier: s.tier,
+    },
+    games: chrono.slice().reverse(),
+    avgTrend,
+  };
+}
 
 /* ───────── 麻雀 日程（/api/mahjong/schedule） ───────── */
 
