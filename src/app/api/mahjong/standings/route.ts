@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth";
 import { computeStandings, getActiveSeason } from "@/lib/mahjong";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyStandings } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     }
 
     // プレビューモード: ダミー順位表を返す（Firestoreは参照しない / 本番には出ない）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json(dummyStandings);
     }
 

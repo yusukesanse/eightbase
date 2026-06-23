@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyMypage } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     }
 
     // プレビューモード: ダミーのマイページを返す（LINE連携・Firestore参照なし / 本番には出ない）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json(dummyMypage, { headers: { "Cache-Control": "no-store" } });
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFacilities } from "@/lib/facilities";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyFacilities } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     // プレビューモード: ダミー施設を返す（本番には出ない）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json({ facilities: dummyFacilities }, { headers: { "Cache-Control": "no-store" } });
     }
 

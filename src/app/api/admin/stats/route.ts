@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyAdminStats } from "@/lib/previewDummyAdmin";
 import dayjs from "dayjs";
 
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミー統計を返す（架空データ / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json(dummyAdminStats);
   }
 

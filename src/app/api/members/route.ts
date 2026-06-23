@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyMembers } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     }
 
     // プレビューモード: ダミーデータを返す（Firestoreは参照しない / 本番には出ない）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json(dummyMembers, { headers: { "Cache-Control": "no-store" } });
     }
 

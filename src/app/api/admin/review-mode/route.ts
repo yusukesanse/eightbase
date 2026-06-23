@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyReviewMode } from "@/lib/previewDummyAdmin";
 import { getDb } from "@/lib/firebaseAdmin";
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミー（審査モードOFF）を返す
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json(dummyReviewMode);
   }
 

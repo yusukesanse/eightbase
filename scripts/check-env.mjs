@@ -75,6 +75,12 @@ if (appEnv === "production") {
   if (env.ALLOW_REVIEW_MODE === "true") {
     errors.push("ALLOW_REVIEW_MODE=true は本番では無効化してください");
   }
+  // ダミーデータ（dev/staging 専用）が本番に紛れていないか
+  if (["on", "1", "true", "yes"].includes((env.EIGHTBASE_DUMMY_DATA || "").toLowerCase())) {
+    errors.push(
+      `EIGHTBASE_DUMMY_DATA="${env.EIGHTBASE_DUMMY_DATA}" は本番では無効化してください（dev/staging 専用のダミーデータ）`
+    );
+  }
 }
 
 // ── 結果出力 ──

@@ -4,7 +4,7 @@ import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed } from "@/lib/line";
 import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyReservations } from "@/lib/previewDummy";
 import {
   validateReservationSlot,
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミー予約を返す（Firestore参照なし / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json({ reservations: dummyReservations });
   }
 

@@ -2,7 +2,7 @@
  * プレビューモード専用のダミーデータ。
  *
  * 目的: demo/preview で麻雀リーグ・掲示板などを「中身のある状態」で確認できるようにする。
- * 重要: これは **isPreviewMode(req) === true のときだけ** 各 GET API が返す。
+ * 重要: これは **isDummyDataEnabled() === true のときだけ** 各 GET API が返す。
  *       本番ユーザーは preview Cookie を持たないため絶対に通らない。
  *       Firestore へは一切書き込まない（メモリ上の固定データを返すのみ）= 本番にも demo DB にも影響なし。
  *

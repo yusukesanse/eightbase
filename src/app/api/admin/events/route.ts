@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyAdminEvents } from "@/lib/previewDummyAdmin";
 import { broadcastContentPublished } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミーイベントを返す（架空データ / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json(dummyAdminEvents);
   }
 

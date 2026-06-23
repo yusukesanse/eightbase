@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireActiveUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { buildDummyRanking } from "@/lib/previewDummy";
 import type { ScoreboardGameId } from "@/types";
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     // プレビューモード: ダミーランキングを返す（本番には出ない）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json(buildDummyRanking(period, gameCategory, yearMonth));
     }
 

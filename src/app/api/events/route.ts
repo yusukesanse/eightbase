@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireActiveUser } from "@/lib/auth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyEvents } from "@/lib/previewDummy";
 import type { NufEvent } from "@/types";
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミーデータを返す（Firestoreは参照しない / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json({ events: dummyEvents }, { headers: { "Cache-Control": "no-store" } });
   }
 

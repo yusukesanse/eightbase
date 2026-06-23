@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
-import { isPreviewMode, PREVIEW_ADMIN_EMAIL } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
+import { PREVIEW_ADMIN_EMAIL } from "@/lib/preview";
 import { dummyAdminAdminUsers } from "@/lib/previewDummyAdmin";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミーの管理者一覧を返す（架空データ / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json({
       admins: dummyAdminAdminUsers.admins,
       currentEmail: PREVIEW_ADMIN_EMAIL,

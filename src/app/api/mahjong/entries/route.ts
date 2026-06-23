@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyEntries } from "@/lib/previewDummy";
 import type { MahjongEntry } from "@/types";
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     }
 
     // プレビューモード: ダミー参加表明を返す（本番には出ない / eventDate不問）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json(dummyEntries);
     }
 

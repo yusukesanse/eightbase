@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyAdminUsers } from "@/lib/previewDummyAdmin";
 import crypto from "crypto";
 
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミーのユーザー一覧を返す（架空データ / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json({ ...dummyAdminUsers, _preview: true });
   }
 

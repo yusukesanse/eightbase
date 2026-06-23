@@ -2,7 +2,7 @@
  * プレビューモード専用の「管理画面」ダミーデータ。
  *
  * 利用者向けは src/lib/previewDummy.ts。こちらは /admin の各GET API用。
- * 重要: isPreviewMode(req)===true のときだけ各 admin GET が返す。
+ * 重要: isDummyDataEnabled()===true のときだけ各 admin GET が返す。
  *       本番管理者には出ない（preview Cookie 必須）。Firestore へは書き込まない。
  *       内容はすべて架空データ（実データではないのでプライバシー問題なし）。
  */

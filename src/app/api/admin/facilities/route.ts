@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyAdminFacilities } from "@/lib/previewDummyAdmin";
 import {
   getAllFacilities,
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   }
 
   // プレビューモード: ダミー施設を返す（架空のcalendarId / 本番には出ない）
-  if (await isPreviewMode(req)) {
+  if (isDummyDataEnabled()) {
     return NextResponse.json(dummyAdminFacilities);
   }
 

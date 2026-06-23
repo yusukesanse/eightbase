@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getSessionUserId } from "@/lib/session";
 import { getActiveSeason } from "@/lib/mahjong";
-import { isPreviewMode } from "@/lib/preview";
+import { isDummyDataEnabled } from "@/lib/env";
 import { dummyCs } from "@/lib/previewDummy";
 import type { MahjongCsEvent } from "@/types";
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     // プレビューモード: ダミーCSを返す（Firestoreは参照しない / 本番には出ない）
-    if (await isPreviewMode(req)) {
+    if (isDummyDataEnabled()) {
       return NextResponse.json(dummyCs);
     }
 
