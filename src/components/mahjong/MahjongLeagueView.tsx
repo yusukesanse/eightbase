@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
+import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import { Avatar } from "@/components/ui/LineContact";
 import type {
   MahjongStanding,
   MahjongTable,
   MahjongTableMember,
   MahjongScheduleEntry,
+  MahjongSeasonSummary,
 } from "@/types";
 
 // 卓の席順（卓内の並び順から東南西北を割り当て）
@@ -69,12 +71,31 @@ export function MahjongLeagueView() {
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
   const [tables, setTables] = useState<MahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
+  // シーズン切替（順位/戦歴の閲覧にのみ効く。参加/申告はアクティブシーズン固定）
+  const [seasons, setSeasons] = useState<MahjongSeasonSummary[]>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [viewSeasonId, setViewSeasonId] = useState<string | undefined>(undefined);
+  // 戦歴ビューの対象プレイヤー
+  const [historyPlayer, setHistoryPlayer] = useState<string | null>(null);
+
+  // シーズン一覧（セレクタ用・初回のみ）
+  useEffect(() => {
+    fetch("/api/mahjong/seasons", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setSeasons(d.seasons ?? []))
+      .catch(() => {
+        /* noop */
+      });
+  }, []);
 
   const loadCore = useCallback(async () => {
     setLoading(true);
     try {
+      const standingsUrl = selectedSeasonId
+        ? `/api/mahjong/standings?seasonId=${encodeURIComponent(selectedSeasonId)}`
+        : "/api/mahjong/standings";
       const [sRes, schRes, tRes] = await Promise.all([
-        fetch("/api/mahjong/standings", { credentials: "include" }),
+        fetch(standingsUrl, { credentials: "include" }),
         fetch("/api/mahjong/schedule", { credentials: "include" }),
         fetch("/api/mahjong/tables?mine=1", { credentials: "include" }),
       ]);
@@ -83,6 +104,7 @@ export function MahjongLeagueView() {
       const tData = await tRes.json();
       setStandings(sData.standings ?? []);
       setCurrentUserId(sData.currentUserId);
+      setViewSeasonId(sData.seasonId ?? selectedSeasonId ?? undefined);
       const league = (schData.schedule ?? []).filter(
         (x: MahjongScheduleEntry) => x.type === "league"
       );
@@ -110,7 +132,7 @@ export function MahjongLeagueView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedSeasonId]);
 
   useEffect(() => {
     loadCore();
@@ -151,7 +173,20 @@ export function MahjongLeagueView() {
           <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : subTab === "league" ? (
-        <LeaguePyramid standings={standings} currentUserId={currentUserId} />
+        <div className="space-y-4">
+          {seasons.length > 1 && (
+            <SeasonSelector
+              seasons={seasons}
+              value={viewSeasonId}
+              onChange={setSelectedSeasonId}
+            />
+          )}
+          <LeaguePyramid
+            standings={standings}
+            currentUserId={currentUserId}
+            onSelectPlayer={setHistoryPlayer}
+          />
+        </div>
       ) : subTab === "join" ? (
         <JoinTab
           schedule={schedule}
@@ -167,6 +202,56 @@ export function MahjongLeagueView() {
           onChanged={loadCore}
         />
       )}
+
+      {historyPlayer && (
+        <PlayerHistorySheet
+          lineUserId={historyPlayer}
+          seasonId={viewSeasonId}
+          onClose={() => setHistoryPlayer(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────── シーズン選択 ───────── */
+
+function SeasonSelector({
+  seasons,
+  value,
+  onChange,
+}: {
+  seasons: MahjongSeasonSummary[];
+  value?: string;
+  onChange: (seasonId: string) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-0.5">
+      {seasons.map((s) => {
+        const active = s.seasonId === value;
+        return (
+          <button
+            key={s.seasonId}
+            type="button"
+            onClick={() => onChange(s.seasonId)}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12.5px] font-bold transition-colors ${
+              active ? "text-white" : "text-[#40434a]"
+            }`}
+            style={
+              active
+                ? { background: "#2f7d57" }
+                : { background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+            }
+          >
+            {s.name || s.seasonId}
+            {s.active && (
+              <span className={`ml-1.5 text-[9px] ${active ? "opacity-80" : "text-[#2f7d57]"}`}>
+                開催中
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

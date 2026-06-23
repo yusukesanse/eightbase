@@ -34,9 +34,12 @@ function pct(v: number): string {
 export function LeaguePyramid({
   standings,
   currentUserId,
+  onSelectPlayer,
 }: {
   standings: MahjongStanding[];
   currentUserId?: string;
+  /** 順位リストの行タップ（戦歴ビューを開く） */
+  onSelectPlayer?: (lineUserId: string) => void;
 }) {
   const byTier: Record<MahjongLeagueTier, MahjongStanding[]> = { M1: [], M2: [], M3: [] };
   standings.forEach((s) => byTier[s.tier].push(s));
@@ -73,9 +76,11 @@ export function LeaguePyramid({
                   const isMe = s.lineUserId === currentUserId;
                   const top3 = s.rank <= 3;
                   return (
-                    <div
+                    <button
                       key={s.lineUserId}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-[14px]"
+                      type="button"
+                      onClick={() => onSelectPlayer?.(s.lineUserId)}
+                      className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-[14px] active:scale-[0.99] transition-transform"
                       style={
                         isMe
                           ? { background: `color-mix(in srgb, ${col} 8%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${col}` }
@@ -110,7 +115,7 @@ export function LeaguePyramid({
                         </div>
                         <div className="text-[9.5px] font-bold text-[#97999d] mt-0.5">AVG</div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
