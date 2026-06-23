@@ -427,8 +427,30 @@ export const dummyEntries: { entries: MahjongEntry[]; entered: boolean } = {
 };
 
 /* ───────── 麻雀 当日の卓（/api/mahjong/tables） ───────── */
+// 卓組み2回目の開催日（demo-sch-2）。卓確定済みだがまだ未対局＝申告前の状態を見せる用。
+const CONFIRMED_PENDING_DATE = "2026-08-08";
 export const dummyTables: { tables: MahjongTable[]; seasonId: string } = {
   tables: [
+    // ① 卓確定後、まだ未対局（status:"reporting" / 全員 points=null）。
+    //    → 参加タブは「卓確定」、申告タブは「スコアを申告する」ボタン＋申告ダイアログが見える。
+    {
+      tableId: "demo-table-2",
+      seasonId: PREVIEW_SEASON_ID,
+      eventDate: CONFIRMED_PENDING_DATE,
+      createdBy: "system",
+      memberIds: [PREVIEW_DUMMY_USER_ID, "demo-u2", "demo-u5", "demo-u6"],
+      members: [
+        { lineUserId: PREVIEW_DUMMY_USER_ID, displayName: "あなた（プレビュー）", pictureUrl: "", points: null, rank: null, reportedAt: null },
+        { lineUserId: "demo-u2", displayName: "佐藤 みなみ", pictureUrl: "", points: null, rank: null, reportedAt: null },
+        { lineUserId: "demo-u5", displayName: "田中 大輔", pictureUrl: "", points: null, rank: null, reportedAt: null },
+        { lineUserId: "demo-u6", displayName: "渡辺 さくら", pictureUrl: "", points: null, rank: null, reportedAt: null },
+      ],
+      status: "reporting",
+      round: 1,
+      createdAt: "2026-08-08T08:00:00.000Z",
+      updatedAt: "2026-08-08T08:00:00.000Z",
+    },
+    // ② 既に全員申告して確定済み（status:"completed"）。「確定済み」表示の参照用。
     {
       tableId: "demo-table-1",
       seasonId: PREVIEW_SEASON_ID,
