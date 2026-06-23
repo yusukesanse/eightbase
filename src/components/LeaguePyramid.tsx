@@ -24,11 +24,11 @@ const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
 
-/** 連対率などのレート表示（0–1 の小数でも 0–100 でも丸めて % にする） */
+/** 連対率の表示（0–1 の小数でも 0–100 でも % 表記・小数第2位まで） */
 function pct(v: number): string {
-  if (v == null || Number.isNaN(v)) return "0%";
+  if (v == null || Number.isNaN(v)) return "0.00%";
   const n = v <= 1 ? v * 100 : v;
-  return `${Math.round(n)}%`;
+  return `${n.toFixed(2)}%`;
 }
 
 export function LeaguePyramid({

@@ -17,6 +17,13 @@ function pct(v: number): string {
   return `${Math.round(n)}%`;
 }
 
+/** 連対率の表示（小数第2位まで） */
+function pct2(v: number): string {
+  if (v == null || Number.isNaN(v)) return "0.00%";
+  const n = v <= 1 ? v * 100 : v;
+  return `${n.toFixed(2)}%`;
+}
+
 function fmtDate(d: string): string {
   const [, m, day] = d.split("-").map(Number);
   const w = ["日", "月", "火", "水", "木", "金", "土"][new Date(d + "T00:00:00").getDay()];
@@ -146,7 +153,7 @@ export function PlayerHistorySheet({
                     { label: "戦数", val: `${data.standing.gamesPlayed}` },
                     { label: "AVG", val: Math.round(data.standing.average).toLocaleString() },
                     { label: "1位率", val: pct(data.standing.firstRate) },
-                    { label: "連対率", val: pct(data.standing.top2Rate) },
+                    { label: "連対率", val: pct2(data.standing.top2Rate) },
                   ].map((c) => (
                     <div key={c.label} className="rounded-xl bg-[#f6f8f9] py-2.5 text-center">
                       <div className="text-[15px] font-black text-[#1c1f21] tabular-nums">{c.val}</div>
