@@ -4,18 +4,12 @@ import { getFacilityById } from "@/lib/facilities";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationCancelled } from "@/lib/line";
 import { requireActiveUser } from "@/lib/auth";
+import { buildReservationSlotKey } from "@/lib/reservations";
+import { deletePasscode } from "@/lib/switchbot";
+import { notifyAdmin } from "@/lib/adminNotify";
 import type { Reservation } from "@/types";
 
 export const dynamic = "force-dynamic";
-
-function buildReservationSlotKey(
-  facilityId: string,
-  date: string,
-  startTime: string,
-  endTime: string
-): string {
-  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
-}
 
 // ─── DELETE: 予約キャンセル ────────────────────────────────────────────────────
 export async function DELETE(
@@ -92,6 +86,26 @@ export async function DELETE(
     tx.update(docRef, { status: "cancelled" });
     tx.delete(slotRef);
   });
+
+  // トレーラー等: 解錠コードを即時無効化（残存させない）し、返金対応を管理者へ通知。
+  if (reservation.switchBotKeyId && facility?.switchBotDeviceId) {
+    try {
+      await deletePasscode(facility.switchBotDeviceId, reservation.switchBotKeyId);
+    } catch (err) {
+      console.error("[reservations DELETE] passcode revoke failed:", err);
+    }
+  }
+  if (reservation.paymentTransactionId || reservation.switchBotPasscode) {
+    await notifyAdmin(
+      "trailer_cancel",
+      `トレーラー予約が取り消されました。返金対応をお願いします（予約 ${reservation.reservationId} / ${reservation.facilityName} / ${reservation.date} ${reservation.startTime}〜${reservation.endTime}）。`,
+      {
+        reservationId: reservation.reservationId,
+        facilityId: reservation.facilityId,
+        paymentTransactionId: reservation.paymentTransactionId ?? null,
+      }
+    );
+  }
 
   // LINE 通知送信
   try {
