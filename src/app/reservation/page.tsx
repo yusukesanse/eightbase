@@ -399,11 +399,10 @@ export default function ReservationPage() {
     }
   }
 
-  // ─── 課金関連（現在無効） ─────────────────────────────────────────────────
-  // トレーラー等: Square決済URLが設定された施設は「決済する」フロー。
-  const squarePaymentUrl = selectedFacility?.squarePaymentUrl;
-  const isTrailer = !!squarePaymentUrl;
-  // 旧 requirePayment（オンライン不可）のブロックは squarePaymentUrl 未設定時のみ。
+  // ─── 課金関連 ─────────────────────────────────────────────────────────────
+  // 決済額(paymentAmount)が設定された施設は「決済する」フロー（予約ごとに動的Square決済リンクを生成）。
+  const isTrailer = !!(selectedFacility?.paymentAmount && selectedFacility.paymentAmount > 0);
+  // 旧 requirePayment（オンライン不可）のブロックは決済施設でないときのみ。
   const needsPayment = (selectedFacility?.requirePayment ?? false) && !isTrailer;
 
   // ─── 予約確定へ ────────────────────────────────────────────────────────────
@@ -423,7 +422,7 @@ export default function ReservationPage() {
 
   // ─── トレーラー: 決済する（仮押さえ → 決済URLへ遷移） ──────────────────────────
   async function handlePay() {
-    if (!selectedFacility?.squarePaymentUrl || !selectedDate || !selStart || !selEnd) return;
+    if (!isTrailer || !selectedFacility || !selectedDate || !selStart || !selEnd) return;
     if (needsTerms && !termsAgreed) return;
     setPaying(true);
     setPayError(null);

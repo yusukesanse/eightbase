@@ -1,10 +1,12 @@
 /**
  * Square 決済ユーティリティ
  *
- * トレーラー等の「静的決済リンク方式」で使用する:
- *   決済後リダイレクトの orderId → 注文→決済を取得し、完了・金額を照合（verifySquareOrderPayment）。
- *   共有リンクのため referenceId は使わない（予約との紐付けは pending予約Cookieで行う）。
- * 旧 verifySquarePayment（referenceId=userId 前提の動的決済向け）は後方互換で残置。
+ * 予約ごとの「動的決済リンク方式」で使用する:
+ *   決済する時に `createReservationPaymentLink` で予約専用リンクを生成（redirect_url に `?rid=予約ID`）。
+ *   生成した注文ID(orderId)を予約に保存し、決済後リダイレクトでは rid から予約→保存orderId を引き、
+ *   注文→決済を取得して完了・金額を照合する（verifySquareOrderPayment）。
+ *   ※静的共有リンクは Square がリダイレクトに識別子を付けず注文も使い回すため不採用。
+ * 旧 verifySquarePayment（referenceId=userId 前提）は後方互換で残置。
  */
 
 import { SquareClient, SquareEnvironment } from "square";
@@ -155,6 +157,42 @@ export async function verifySquareOrderPayment({
   const payment = await getSquarePayment(paymentId);
   assertSquarePaymentValid(payment, expectedAmount);
   return { orderId, paymentId };
+}
+
+/**
+ * 予約ごとの Square Payment Link（動的リンク）を生成する。
+ *
+ * 静的リンクと異なり redirect_url に予約ID(`?rid=...`)を埋め込めるため、決済後に
+ * どの予約の決済かを確実に特定できる。生成した注文ID(orderId)を予約に保存し、
+ * 戻り後に COMPLETED/金額を `verifySquareOrderPayment` で照合する。
+ * @returns { url, orderId }
+ * @throws 生成失敗時にエラー
+ */
+export async function createReservationPaymentLink({
+  amount,
+  name,
+  redirectUrl,
+}: {
+  amount: number;
+  name: string;
+  redirectUrl: string;
+}): Promise<{ url: string; orderId: string }> {
+  const client = getSquareClient();
+  const { randomUUID } = await import("crypto");
+  const res = await client.checkout.paymentLinks.create({
+    idempotencyKey: randomUUID(),
+    quickPay: {
+      name,
+      priceMoney: { amount: BigInt(amount), currency: "JPY" },
+      locationId: getSquareLocationId(),
+    },
+    checkoutOptions: { redirectUrl },
+  });
+  const link = res.paymentLink;
+  if (!link?.url || !link?.orderId) {
+    throw new Error("決済リンクの生成に失敗しました");
+  }
+  return { url: link.url, orderId: link.orderId };
 }
 
 /**

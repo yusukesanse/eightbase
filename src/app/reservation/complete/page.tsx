@@ -19,8 +19,9 @@ function Spinner() {
 
 function CompleteInner() {
   const params = useSearchParams();
-  // Square は決済後リダイレクトに orderId / transactionId を付与する。
-  const orderId = params.get("orderId") || params.get("transactionId") || "";
+  // 予約専用リンクの redirect_url に埋め込んだ予約ID（rid）。決済の照合はサーバー側で予約に
+  // 保存済みの注文IDを使って行う（Square はリダイレクトに識別子を付与しないため）。
+  const rid = params.get("rid") || "";
 
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [reservation, setReservation] = useState<CompletedReservation | null>(null);
@@ -29,7 +30,7 @@ function CompleteInner() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!orderId) {
+    if (!rid) {
       setState("error");
       setErrorMsg("決済情報が取得できませんでした。「マイ予約」をご確認ください。");
       return;
@@ -41,7 +42,7 @@ function CompleteInner() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ orderId }),
+          body: JSON.stringify({ rid }),
         });
         const data = await res.json();
         if (!alive) return;
@@ -64,7 +65,7 @@ function CompleteInner() {
     return () => {
       alive = false;
     };
-  }, [orderId]);
+  }, [rid]);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center px-5 py-10">

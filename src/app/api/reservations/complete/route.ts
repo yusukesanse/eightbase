@@ -6,7 +6,6 @@ import { createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed, sendTrailerPasscodeNotice } from "@/lib/line";
 import { verifySquareOrderPayment } from "@/lib/square";
 import { generatePasscode, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
-import { verifyPendingCookie, PENDING_RESERVATION_COOKIE } from "@/lib/trailerPending";
 import { reservationEpochMs, buildReservationSlotKey } from "@/lib/reservations";
 import { notifyAdmin } from "@/lib/adminNotify";
 import type { Reservation } from "@/types";
@@ -15,9 +14,9 @@ import dayjs from "dayjs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/reservations/complete  Body: { orderId }
- * Square 決済後リダイレクトからの確定処理。
- *  1. 署名Cookie → pending予約を特定（本人・未失効）
+ * POST /api/reservations/complete  Body: { rid }（予約ID）
+ * Square 決済後リダイレクト（/reservation/complete?rid=...）からの確定処理。
+ *  1. rid → pending予約を特定（本人）。決済の注文IDは予約に保存済み（動的リンク方式）。
  *  2. Square API で取引照合（金額/COMPLETED/再利用なし）
  *  3. 予約を confirmed 化（Calendarイベント作成・transactionId保存）
  *  4. SwitchBot 時限パスコードを発行（失敗時リトライ→管理者通知・予約は確定のまま）
@@ -30,23 +29,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    const { orderId } = (await req.json().catch(() => ({}))) as { orderId?: string };
-    if (!orderId || typeof orderId !== "string") {
-      return NextResponse.json({ error: "orderId がありません" }, { status: 400 });
-    }
-
-    // 署名Cookie → pending予約
-    const cookie = req.cookies.get(PENDING_RESERVATION_COOKIE)?.value;
-    const pending = cookie ? await verifyPendingCookie(cookie) : null;
-    if (!pending || pending.lineUserId !== userId) {
-      return NextResponse.json(
-        { error: "PENDING_NOT_FOUND", message: "決済対象の予約が見つかりません。" },
-        { status: 400 }
-      );
+    const { rid } = (await req.json().catch(() => ({}))) as { rid?: string };
+    if (!rid || typeof rid !== "string") {
+      return NextResponse.json({ error: "rid がありません" }, { status: 400 });
     }
 
     const db = getDb();
-    const reservationRef = db.collection("reservations").doc(pending.reservationId);
+    const reservationRef = db.collection("reservations").doc(rid);
     const snap = await reservationRef.get();
     if (!snap.exists) {
       return NextResponse.json({ error: "予約が見つかりません" }, { status: 404 });
@@ -55,6 +44,13 @@ export async function POST(req: NextRequest) {
       reservationId: snap.id,
       ...(snap.data() as Omit<Reservation, "reservationId">),
     };
+    // 本人の予約か（rid はURL由来なので所有者をセッションで確認）
+    if (reservation.lineUserId !== userId) {
+      return NextResponse.json(
+        { error: "PENDING_NOT_FOUND", message: "決済対象の予約が見つかりません。" },
+        { status: 400 }
+      );
+    }
 
     // 冪等: 既に確定済みなら同じ結果（パスコード）を返す
     if (reservation.status === "confirmed") {
@@ -79,6 +75,14 @@ export async function POST(req: NextRequest) {
     const expectedAmount = reservation.paymentAmount ?? facility.paymentAmount;
     if (!expectedAmount) {
       return NextResponse.json({ error: "決済額が未設定です" }, { status: 400 });
+    }
+    // 照合に使う注文IDは pending 作成時にこの予約専用リンクの注文として保存済み。
+    const orderId = reservation.paymentTransactionId;
+    if (!orderId) {
+      return NextResponse.json(
+        { error: "NO_ORDER", message: "この予約に決済情報がありません。" },
+        { status: 400 }
+      );
     }
 
     // 仮押さえ失効: ただし決済が成立していれば、黙って課金せず管理者へ返金依頼を通知する。
@@ -278,14 +282,11 @@ export async function POST(req: NextRequest) {
     }
 
     const finalSnap = await reservationRef.get();
-    const res = NextResponse.json({
+    return NextResponse.json({
       reservation: { reservationId: finalSnap.id, ...finalSnap.data() },
       passcode,
       passcodePending,
     });
-    // 使い終わった pending Cookie を破棄
-    res.cookies.set(PENDING_RESERVATION_COOKIE, "", { path: "/", maxAge: 0 });
-    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[reservations/complete] POST error:", message, err);

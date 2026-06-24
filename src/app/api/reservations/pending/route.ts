@@ -7,11 +7,8 @@ import {
   assertSlotFreeInTx,
   buildReservationSlotKey,
 } from "@/lib/reservations";
-import {
-  signPendingCookie,
-  PENDING_RESERVATION_COOKIE,
-  PENDING_TTL_MIN,
-} from "@/lib/trailerPending";
+import { createReservationPaymentLink } from "@/lib/square";
+import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
@@ -19,10 +16,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/reservations/pending
- * トレーラー等（squarePaymentUrl 設定施設）の「決済前 仮押さえ」。
+ * 決済が必要な施設（paymentAmount 設定）の「決済前 仮押さえ」。
  *  - pending_payment 予約 ＋ TTL付きロックを transaction で作成（二重予約防止）
- *  - reservationId を署名Cookieに入れ、決済URL(squarePaymentUrl)を返す
- *  - 決済はクライアントがこのURLへ遷移し、戻りは /reservation/complete で確定する
+ *  - 予約ごとの Square 決済リンクを生成（redirect_url に `?rid=予約ID` を埋め込む）
+ *  - 生成注文ID(orderId)を予約に保存し、決済URLを返す
+ *  - 決済はクライアントがこのURLへ遷移し、戻りは /reservation/complete?rid=... で確定する
  */
 export async function POST(req: NextRequest) {
   try {
@@ -48,8 +46,8 @@ export async function POST(req: NextRequest) {
     if (!facility) {
       return NextResponse.json({ error: "Facility not found" }, { status: 404 });
     }
-    // この経路は決済URLが設定された施設専用
-    if (!facility.squarePaymentUrl) {
+    // この経路は決済額が設定された施設専用
+    if (!facility.paymentAmount || facility.paymentAmount <= 0) {
       return NextResponse.json(
         { error: "NOT_PAYMENT_FACILITY", message: "この施設は決済予約に対応していません。" },
         { status: 400 }
@@ -78,6 +76,25 @@ export async function POST(req: NextRequest) {
       .doc(buildReservationSlotKey(facilityId, date, startTime, endTime));
     const reservationRef = db.collection("reservations").doc();
 
+    // 予約専用の Square 決済リンクを生成（戻り先URLに予約IDを埋め込む）。
+    // 失敗時は仮押さえを作る前に中断（不要なpendingロックを残さない）。
+    const origin = req.headers.get("origin") || req.nextUrl.origin;
+    const redirectUrl = `${origin}/reservation/complete?rid=${reservationRef.id}`;
+    let paymentLink: { url: string; orderId: string };
+    try {
+      paymentLink = await createReservationPaymentLink({
+        amount: facility.paymentAmount,
+        name: facility.name,
+        redirectUrl,
+      });
+    } catch (e) {
+      console.error("[reservations/pending] payment link failed:", e);
+      return NextResponse.json(
+        { error: "PAYMENT_LINK_FAILED", message: "決済リンクの生成に失敗しました。時間をおいてお試しください。" },
+        { status: 502 }
+      );
+    }
+
     await db.runTransaction(async (tx) => {
       // 空き判定はロック共通ヘルパーに集約（通常POSTと同一ルール／失効pendingのTTL解放含む）。
       await assertSlotFreeInTx(tx, db, { facilityId, date, startTime, endTime, nowIso });
@@ -104,26 +121,19 @@ export async function POST(req: NextRequest) {
         googleEventId: "",
         status: "pending_payment",
         pendingExpiresAt: expiresAt,
-        ...(facility.paymentAmount ? { paymentAmount: facility.paymentAmount } : {}),
+        // 決済後の照合に使う注文ID（この予約専用リンクの注文）
+        paymentTransactionId: paymentLink.orderId,
+        paymentAmount: facility.paymentAmount,
         ...(termsAgreed ? { termsAgreed: true, termsAgreedAt: nowIso } : {}),
         createdAt: nowIso,
       };
       tx.create(reservationRef, reservationData);
     });
 
-    const res = NextResponse.json({
+    return NextResponse.json({
       reservationId: reservationRef.id,
-      paymentUrl: facility.squarePaymentUrl,
+      paymentUrl: paymentLink.url,
     });
-    const cookie = await signPendingCookie(reservationRef.id, userId);
-    res.cookies.set(PENDING_RESERVATION_COOKIE, cookie, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: PENDING_TTL_MIN * 60,
-      path: "/",
-    });
-    return res;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message === "ALREADY_BOOKED") {
