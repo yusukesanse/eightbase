@@ -7,6 +7,29 @@ const LINE_API_BASE = "https://api.line.me/v2/bot";
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || "";
 
+/**
+ * Messaging API の uri action 用 URL を生成する。
+ * 通常URL（Safari 等の外部ブラウザで開く）ではなく **LIFF URL** にして、
+ * LINEミニアプリとして開かせる。
+ *
+ * LIFF ID は環境ごとの値を使う（本番=prod / demo=demo。各Vercelプロジェクトが
+ * 自環境のLIFF IDを設定している）。万一 LIFF ID 未設定のときだけ通常URLへ
+ * フォールバックし、リンク自体は壊さない。
+ *
+ * ⚠️ 通知ボタンには PORTAL_URL を直接入れず、必ずこの helper を経由すること
+ *    （ブラウザで開いてしまうミスの再発防止）。
+ */
+function liffUrl(path: string): string {
+  const liffId =
+    process.env.NEXT_PUBLIC_LIFF_ID_PROD ||
+    process.env.NEXT_PUBLIC_LIFF_ID ||
+    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW ||
+    "";
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  if (!liffId) return `${PORTAL_URL}${clean}`;
+  return `https://liff.line.me/${liffId}${clean}`;
+}
+
 async function pushMessage(userId: string, messages: object[]) {
   const res = await fetch(`${LINE_API_BASE}/message/push`, {
     method: "POST",
@@ -119,7 +142,7 @@ export async function sendReservationConfirmed(
               action: {
                 type: "uri",
                 label: "マイ予約を確認",
-                uri: `${PORTAL_URL}/my-reservations`,
+                uri: liffUrl("/my-reservations"),
               },
               style: "primary",
               color: "#A5C1C8",
@@ -237,7 +260,7 @@ export async function broadcastContentPublished(
   if (userIds.length === 0) return;
 
   const config = CONTENT_CONFIG[contentType];
-  const url = `${PORTAL_URL}${config.path}`;
+  const url = liffUrl(config.path);
 
   await multicastMessage(userIds, [
     {
@@ -318,7 +341,7 @@ export async function sendCommentNotification(
   }
 ) {
   const preview = postContent.length > 30 ? postContent.slice(0, 30) + "…" : postContent;
-  const url = `${PORTAL_URL}/timeline/${postId}`;
+  const url = liffUrl(`/timeline/${postId}`);
 
   await pushMessage(postAuthorLineUserId, [
     {
@@ -468,7 +491,7 @@ export async function sendCsNotification(
               action: {
                 type: "uri",
                 label: "詳細を確認する",
-                uri: `${PORTAL_URL}/info`,
+                uri: liffUrl("/info"),
               },
               style: "primary",
               color: "#B0E401",
