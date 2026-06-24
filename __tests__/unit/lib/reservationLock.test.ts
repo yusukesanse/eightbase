@@ -29,6 +29,12 @@ describe("isLockBlocking — TTL対応の占有判定", () => {
     expect(isLockBlocking({ status: "pending", pendingExpiresAt: NOW }, NOW)).toBe(false);
   });
 
+  test("confirmed は失効した pendingExpiresAt が残っていても常にブロッキング", () => {
+    expect(
+      isLockBlocking({ status: "confirmed", pendingExpiresAt: "2026-07-01T11:50:00.000Z" }, NOW)
+    ).toBe(true);
+  });
+
   test("status 不明・pendingExpiresAtなしは既定でブロッキング（安全側）", () => {
     expect(isLockBlocking({}, NOW)).toBe(true);
   });

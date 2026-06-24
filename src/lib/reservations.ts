@@ -52,7 +52,10 @@ export interface LockLike {
  */
 export function isLockBlocking(lock: LockLike, nowIso: string): boolean {
   if (lock.status === "cancelled") return false;
-  if (lock.pendingExpiresAt && lock.pendingExpiresAt <= nowIso) return false;
+  // TTL解放は pending のみ。confirmed は pendingExpiresAt が残っていても常にブロッキング。
+  if (lock.status === "pending" && lock.pendingExpiresAt && lock.pendingExpiresAt <= nowIso) {
+    return false;
+  }
   return true;
 }
 

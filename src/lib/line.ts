@@ -131,6 +131,36 @@ export async function sendReservationConfirmed(
   ]);
 }
 
+// ─── トレーラー: 解錠コード通知 ──────────────────────────────────────────────
+export async function sendTrailerPasscodeNotice(
+  lineUserId: string,
+  {
+    facilityName,
+    date,
+    startTime,
+    endTime,
+    passcode,
+  }: {
+    facilityName: string;
+    date: string;        // YYYY-MM-DD
+    startTime: string;   // HH:MM
+    endTime: string;
+    passcode: string;
+  }
+) {
+  const dateLabel = formatDate(date);
+  await pushMessage(lineUserId, [
+    {
+      type: "text",
+      text:
+        `🔑 ${facilityName} 解錠コード\n\n` +
+        `コード: ${passcode}\n` +
+        `有効: ${dateLabel} ${startTime}〜${endTime}\n\n` +
+        `※予約時間中のみ有効な使い捨てコードです。終了後は無効になります。`,
+    },
+  ]);
+}
+
 // ─── キャンセル完了通知 ────────────────────────────────────────────────────────
 export async function sendReservationCancelled(
   lineUserId: string,
