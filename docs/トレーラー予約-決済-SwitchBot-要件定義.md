@@ -83,7 +83,7 @@
   - 認証ヘッダ: `Authorization: <token>` / `sign = base64(HMAC_SHA256(token+t+nonce, secret)).toUpperCase()` / `t`(13桁ms) / `nonce`(UUID)。
   - `issueTimeLimitPasscode(deviceId, {name, password, startMs, endMs})` → `POST /v1.1/devices/{deviceId}/commands` に `{command:"createKey", commandType:"command", parameter:{name, type:"timeLimit", password, startTime, endTime}}`。返り値の `id` を保存。
   - `deletePasscode(deviceId, keyId)` → `{command:"deleteKey", parameter:{id}}`。
-- **パスワード生成**: 予約ごとにランダム数字（例 6桁。SwitchBotキーパッド準拠で6〜12桁）。使い回さない。
+- **パスワード生成**: 予約ごとにランダム数字 **6桁**（確定）。使い回さない。
 - **発行タイミング**: 決済検証OK後の**予約確定時**に発行。`startTime`=予約開始（epoch ms）、`endTime`=予約終了。未来開始でもOK。
 - **失効**: 予約終了で自動失効（timeLimit）。**キャンセル時は `deleteKey` で即無効化**。
 - **失敗時（要件4）**: 数回リトライ → なお失敗なら `switchBotStatus="failed"` で予約は確定のまま、**管理者通知**（LINE/メール）＋利用者へ「発行中・連絡ください」案内。管理者が手動再発行できる導線を用意。
@@ -99,7 +99,7 @@
 - トレーラー施設では「予約する」を **「決済する」**ボタンに切替（`squarePaymentUrl` 有無で分岐）。
 - 「決済する」→ pending予約作成 → `openExternalUrl()` 等で Square URL へ遷移（LIFF外部ブラウザ）。
 - 完了画面（`/reservation/complete`）: 予約詳細＋**解錠パスワード**＋有効時間（予約開始〜終了）を表示。
-- **マイ予約**（`/my-reservations`）: トレーラー予約に解錠パスワードと有効時間を表示（要ログイン）。
+- **マイ予約**（`/my-reservations`）: トレーラー予約に解錠パスワードと有効時間を表示（要ログイン）。さらに **「予約取り消し（返金対応）」ボタン**を配置（決済後でも取消可・§12）。
 - **LINE通知**: 予約確定通知にパスワードと有効時間を含める。
 
 ## 11. スロット確保（pending＋TTL）
@@ -108,10 +108,15 @@
 - **Cron**（`src/app/api/cron/*` に追加）で期限切れ pending を定期的に cancelled 化＋ロック解放（掃除）。
 - 決済成功で confirmed 化（pendingExpiresAt クリア）。
 
-## 12. キャンセル・返金
-- 予約キャンセル時: `deleteKey` でパスコード無効化＋スロット解放。
-- 返金は Square 側（`refundSquarePayment()` 流用可）。自動返金とするか手動かは §15 で要確認。
-- Google Calendar 連携: トレーラーをカレンダー管理対象にするかは要確認（§15）。
+## 12. キャンセル・返金（手動返金）
+- **マイ予約のトレーラー予約に「予約取り消し（返金対応）」ボタン**を配置。**予約後（決済後）でも取消可能**。
+- 取消時のアプリ処理:
+  - 予約を `cancelled` 化＋スロット（`reservationLocks`）解放。
+  - `deleteKey` で解錠パスコードを即無効化。
+  - Google Calendar のイベントも削除（`calendarId` 連携）。
+  - **管理webアプリへ通知**（SwitchBot失敗通知と同じ通知基盤を流用）。
+- **返金は手動**: 通知を受けた管理者が Square 管理画面（または `refundSquarePayment()`）で**手動返金**。アプリは自動返金しない。
+- Google Calendar 連携: 従来どおり施設の `calendarId` で連携（トレーラー用カレンダー作成済み）。予約APIの Calendar イベント作成をそのまま使う。
 
 ## 13. セキュリティ
 - **決済の真正性**: Square API 照合＋transactionId 再利用防止＋pendingReservationId は**署名httpOnly Cookie**で改ざん防止。
@@ -127,14 +132,18 @@ SWITCHBOT_TOKEN= / SWITCHBOT_SECRET=                                # SwitchBot 
 - 施設ごとの `squarePaymentUrl` / `switchBotDeviceId` は Firestore（管理画面）で管理（env不要）。
 - demo/preview ではダミー（Square sandbox / SwitchBot はモック）。本番フラグ漏れ防止は既存 env ガードに準拠。
 
-## 15. 未決事項・リスク
-- 管理者が用意する Square URL が **Payment Link（redirect＋transactionId付与）**であること（そうでない決済URLだと API 照合の紐付けが弱くなる → その場合は「予約ごと動的リンク」へ方針変更）。
-- キャンセル時の**返金**を自動化するか手動か。
-- **Google Calendar** にトレーラー予約を載せるか（現状 予約APIはCalendarイベントを作る）。
-- pending TTL の具体値（既定15分）。
-- パスコード桁数（既定6桁）と SwitchBot デバイス側設定の整合。
-- 決済中に LIFF 外部ブラウザへ出て戻る導線（セッション維持/再ログイン）の検証。
+## 15. 確定した補足仕様 / 残リスク
+### 確定（今回決定）
+- **決済URL**: Square Payment Link（リダイレクト可）。redirect 先は **本番 `https://portal.eightbase.net/reservation/complete`** ／ 検証 `https://eightbase-demo.vercel.app/reservation/complete`。全施設で同一URLでよい（予約の紐付けは Cookie）。
+- **返金**: 手動（マイ予約の取消ボタン → 管理web通知 → 管理者が Square で手動返金。決済後も取消可）。§12。
+- **Google Calendar**: 従来どおり施設の `calendarId` で連携（トレーラー用カレンダー作成済み）。
+- **pending TTL**: 15分。
+- **パスコード桁数**: 6桁。
+
+### 残リスク（実装時に対処）
+- 決済中の LINEミニアプリ↔ブラウザ往復での**セッション/Cookie維持**（同一webviewで開く・戻す設計で対処。`/reservation/complete` で本人特定が切れた場合は再ログイン or マイ予約導線でフォロー）。
 - 同一トレーラーに複数デバイス（複数キーパッド）がある場合の扱い。
+- Square sandbox/本番のリンク・env の取り違え防止（既存 env ガード準拠）。
 
 ## 16. 実装ブレークダウン（参考・本書では実装しない）
 1. **データモデル**: Facility/Reservation のフィールド追加＋`status: pending_payment`。
