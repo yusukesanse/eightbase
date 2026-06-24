@@ -25,6 +25,10 @@ interface FacilityForm {
   // 課金設定
   requirePayment: boolean;
   hourlyRate: string;        // 円/時間（空文字=未設定）
+  // トレーラー等: Square決済URL / SwitchBot解錠
+  squarePaymentUrl: string;  // 空文字=未設定（あれば「決済する」ボタン化）
+  paymentAmount: string;     // 円・税込（空文字=未設定）
+  switchBotDeviceId: string; // 空文字=未設定（あれば解錠パスコード発行）
 }
 
 const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -44,6 +48,9 @@ const EMPTY_FORM: FacilityForm = {
   termsContent: "",
   requirePayment: false,
   hourlyRate: "",
+  squarePaymentUrl: "",
+  paymentAmount: "",
+  switchBotDeviceId: "",
 };
 
 /* ───────── メインコンポーネント ───────── */
@@ -120,6 +127,9 @@ export default function CalendarsPage() {
       termsContent: facility.termsContent ?? "",
       requirePayment: facility.requirePayment ?? false,
       hourlyRate: facility.hourlyRate ? String(facility.hourlyRate) : "",
+      squarePaymentUrl: facility.squarePaymentUrl ?? "",
+      paymentAmount: facility.paymentAmount ? String(facility.paymentAmount) : "",
+      switchBotDeviceId: facility.switchBotDeviceId ?? "",
     });
     setShowModal(true);
   }
@@ -157,6 +167,10 @@ export default function CalendarsPage() {
         termsContent: form.requireTerms ? form.termsContent : undefined,
         // hourlyRate は requirePayment=false なら送らない
         hourlyRate: form.requirePayment && form.hourlyRate ? Number(form.hourlyRate) : undefined,
+        // トレーラー等: 決済URL / 解錠デバイス（空は "" で送って解除可能に）
+        squarePaymentUrl: form.squarePaymentUrl.trim(),
+        paymentAmount: form.paymentAmount ? Number(form.paymentAmount) : undefined,
+        switchBotDeviceId: form.switchBotDeviceId.trim(),
       };
 
       if (editingId) {
@@ -667,6 +681,50 @@ export default function CalendarsPage() {
                     <p className="text-[10px] text-gray-400 mt-1">利用時間×単価が予約時に課金されます</p>
                   </div>
                 )}
+              </div>
+
+              {/* ── 決済URL・解錠（トレーラー等） ── */}
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <p className="text-sm font-medium text-gray-700">決済URL・解錠（トレーラー等）</p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Square 決済URL</label>
+                  <input
+                    type="url"
+                    value={form.squarePaymentUrl}
+                    onChange={(e) => setForm({ ...form, squarePaymentUrl: e.target.value })}
+                    placeholder="https://square.link/u/xxxxxxxx"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    設定すると「予約する」が「決済する」に変わり、このURLへ遷移します（決済後リダイレクト設定が必要）。
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">決済額（円・税込）</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={form.paymentAmount}
+                    onChange={(e) => setForm({ ...form, paymentAmount: e.target.value })}
+                    placeholder="22000"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Square決済の照合に使う金額（リンクの金額と一致させる）。</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">SwitchBot デバイスID</label>
+                  <input
+                    type="text"
+                    value={form.switchBotDeviceId}
+                    onChange={(e) => setForm({ ...form, switchBotDeviceId: e.target.value })}
+                    placeholder="例: ABCDEF123456"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    設定すると予約ごとに、予約時間だけ有効な解錠パスコードを発行します（管理者の永続パスは別管理）。
+                  </p>
+                </div>
               </div>
 
               {/* ボタン */}

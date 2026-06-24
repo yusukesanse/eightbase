@@ -18,6 +18,10 @@ const VALIDATION_RULES = {
   calendarId: { type: "string" as const, minLength: 1, maxLength: 300 },
   type: { type: "string" as const },
   capacity: { type: "number" as const, min: 1, max: 1000 },
+  // ── トレーラー等: 決済URL / 解錠デバイス ──
+  squarePaymentUrl: { type: "url" as const, maxLength: 1000 },
+  paymentAmount: { type: "number" as const, min: 0, max: 10000000 },
+  switchBotDeviceId: { type: "string" as const, maxLength: 100 },
 };
 
 const ALLOWED_UPDATE_FIELDS = [
@@ -26,6 +30,7 @@ const ALLOWED_UPDATE_FIELDS = [
   "minDuration", "fixedDuration", "prepTime",
   "requireTerms", "termsContent",
   "requirePayment", "hourlyRate",
+  "squarePaymentUrl", "paymentAmount", "switchBotDeviceId",
 ];
 
 const TIME_REGEX = /^\d{2}:\d{2}$/;
