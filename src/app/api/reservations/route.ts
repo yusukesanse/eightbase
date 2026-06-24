@@ -8,23 +8,13 @@ import { isDummyDataEnabled } from "@/lib/env";
 import { dummyReservations } from "@/lib/previewDummy";
 import {
   validateReservationSlot,
-  intervalsOverlap,
-  timeToMin,
+  assertSlotFreeInTx,
+  buildReservationSlotKey,
 } from "@/lib/reservations";
-// Square決済は現在無効（将来用に import は残さない）
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
-
-function buildReservationSlotKey(
-  facilityId: string,
-  date: string,
-  startTime: string,
-  endTime: string
-): string {
-  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
-}
 
 // ─── GET: マイ予約一覧 ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -168,45 +158,19 @@ export async function POST(req: NextRequest) {
     let lockAcquired = false;
     let reservationSaved = false;
 
-    const reqStart = timeToMin(startTime);
-    const reqEnd = timeToMin(endTime);
+    const nowIso = dayjs().toISOString();
     await db.runTransaction(async (tx) => {
-      // facilityId + date の既存ロックを読み、時間帯の重なりで判定する
-      // （完全一致キーだけに依存せず、overlap するものは拒否）。
-      // Admin SDK の transaction は読んだクエリ範囲をロックするため、
-      // 同時実行でも overlap が二重に通らない。
-      const locksSnap = await tx.get(
-        db
-          .collection("reservationLocks")
-          .where("facilityId", "==", facilityId)
-          .where("date", "==", date)
-      );
-      for (const lockDoc of locksSnap.docs) {
-        const l = lockDoc.data();
-        if (l.status === "cancelled") continue;
-        if (
-          typeof l.startTime === "string" &&
-          typeof l.endTime === "string" &&
-          intervalsOverlap(reqStart, reqEnd, timeToMin(l.startTime), timeToMin(l.endTime))
-        ) {
-          throw new Error("ALREADY_BOOKED");
-        }
-      }
-
-      // 完全一致ロックも従来どおり拒否（保険）
-      const slotDoc = await tx.get(slotRef);
-      if (slotDoc.exists) {
-        throw new Error("ALREADY_BOOKED");
-      }
-
-      tx.create(slotRef, {
+      // 空き判定はロック共通ヘルパーに集約（失効pendingのTTL解放含めて pending経路と一本化）。
+      await assertSlotFreeInTx(tx, db, { facilityId, date, startTime, endTime, nowIso });
+      // 失効した pending ロックは上書き再取得できるよう set を使う。
+      tx.set(slotRef, {
         facilityId,
         date,
         startTime,
         endTime,
         status: "pending",
         lineUserId: userId,
-        createdAt: dayjs().toISOString(),
+        createdAt: nowIso,
       });
     });
     lockAcquired = true;

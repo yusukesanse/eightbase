@@ -4,9 +4,8 @@ import { getFacilityById } from "@/lib/facilities";
 import { requireProfileComplete } from "@/lib/auth";
 import {
   validateReservationSlot,
-  intervalsOverlap,
-  timeToMin,
-  isLockBlocking,
+  assertSlotFreeInTx,
+  buildReservationSlotKey,
 } from "@/lib/reservations";
 import {
   signPendingCookie,
@@ -74,37 +73,14 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const nowIso = dayjs().toISOString();
     const expiresAt = dayjs().add(PENDING_TTL_MIN, "minute").toISOString();
-    const reqStart = timeToMin(startTime);
-    const reqEnd = timeToMin(endTime);
-    const slotKey = encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
-    const slotRef = db.collection("reservationLocks").doc(slotKey);
+    const slotRef = db
+      .collection("reservationLocks")
+      .doc(buildReservationSlotKey(facilityId, date, startTime, endTime));
     const reservationRef = db.collection("reservations").doc();
 
     await db.runTransaction(async (tx) => {
-      // facilityId + date の既存ロックを読み、ブロッキング（confirmed / 未失効pending）かつ
-      // 時間帯が重なるものがあれば拒否。失効した pending（TTL超過）は空き扱い。
-      const locksSnap = await tx.get(
-        db
-          .collection("reservationLocks")
-          .where("facilityId", "==", facilityId)
-          .where("date", "==", date)
-      );
-      for (const lockDoc of locksSnap.docs) {
-        const l = lockDoc.data();
-        if (!isLockBlocking(l, nowIso)) continue;
-        if (
-          typeof l.startTime === "string" &&
-          typeof l.endTime === "string" &&
-          intervalsOverlap(reqStart, reqEnd, timeToMin(l.startTime), timeToMin(l.endTime))
-        ) {
-          throw new Error("ALREADY_BOOKED");
-        }
-      }
-      // 完全一致キーの既存ロックがブロッキングなら拒否（失効pendingは上書き再取得）。
-      const slotDoc = await tx.get(slotRef);
-      if (slotDoc.exists && isLockBlocking(slotDoc.data() ?? {}, nowIso)) {
-        throw new Error("ALREADY_BOOKED");
-      }
+      // 空き判定はロック共通ヘルパーに集約（通常POSTと同一ルール／失効pendingのTTL解放含む）。
+      await assertSlotFreeInTx(tx, db, { facilityId, date, startTime, endTime, nowIso });
 
       tx.set(slotRef, {
         facilityId,

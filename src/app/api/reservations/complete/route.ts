@@ -7,7 +7,7 @@ import { sendReservationConfirmed, sendTrailerPasscodeNotice } from "@/lib/line"
 import { verifySquareOrderPayment } from "@/lib/square";
 import { generatePasscode, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
 import { verifyPendingCookie, PENDING_RESERVATION_COOKIE } from "@/lib/trailerPending";
-import { reservationEpochMs } from "@/lib/reservations";
+import { reservationEpochMs, buildReservationSlotKey } from "@/lib/reservations";
 import { notifyAdmin } from "@/lib/adminNotify";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
@@ -71,20 +71,35 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (reservation.pendingExpiresAt && reservation.pendingExpiresAt <= dayjs().toISOString()) {
-      return NextResponse.json(
-        { error: "EXPIRED", message: "仮押さえの期限が切れました。最初からやり直してください。" },
-        { status: 410 }
-      );
-    }
-
     const facility = await getFacilityById(reservation.facilityId);
     if (!facility) {
       return NextResponse.json({ error: "施設が見つかりません" }, { status: 404 });
     }
-    const expectedAmount = facility.paymentAmount ?? reservation.paymentAmount;
+    // 金額は pending 作成時に確定した予約側を優先（決済中の価格改定に影響されない）。
+    const expectedAmount = reservation.paymentAmount ?? facility.paymentAmount;
     if (!expectedAmount) {
       return NextResponse.json({ error: "決済額が未設定です" }, { status: 400 });
+    }
+
+    // 仮押さえ失効: ただし決済が成立していれば、黙って課金せず管理者へ返金依頼を通知する。
+    if (reservation.pendingExpiresAt && reservation.pendingExpiresAt <= dayjs().toISOString()) {
+      try {
+        await verifySquareOrderPayment({ orderId, expectedAmount });
+        await notifyAdmin(
+          "trailer_cancel",
+          `仮押さえ期限切れ後に決済が成立しました。返金対応をお願いします（予約 ${reservation.reservationId} / 注文 ${orderId}）。`,
+          { reservationId: reservation.reservationId, orderId, facilityId: facility.id }
+        );
+      } catch {
+        /* 未決済なら通知不要 */
+      }
+      return NextResponse.json(
+        {
+          error: "EXPIRED",
+          message: "仮押さえの期限が切れました。決済済みの場合は返金対応します（管理者に通知済み）。",
+        },
+        { status: 410 }
+      );
     }
 
     // ── Square 取引照合 ──
@@ -101,53 +116,89 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 再利用防止: 同じ取引IDが他の予約で使われていないか ──
-    const dupSnap = await db
-      .collection("reservations")
-      .where("paymentTransactionId", "==", verified.orderId)
-      .get();
-    if (dupSnap.docs.some((d) => d.id !== reservation.reservationId)) {
-      return NextResponse.json(
-        { error: "PAYMENT_REUSED", message: "この決済はすでに使用されています。" },
-        { status: 409 }
+    const nowIso = dayjs().toISOString();
+    const slotRef = db
+      .collection("reservationLocks")
+      .doc(
+        buildReservationSlotKey(
+          reservation.facilityId,
+          reservation.date,
+          reservation.startTime,
+          reservation.endTime
+        )
       );
+    // 取引IDの一意ドキュメントで「再利用防止」と「確定」を1 transaction に原子化
+    // （二度押し/並行リクエストでも 1決済=1予約。pending再確認で同一予約の二重確定も防ぐ）。
+    const orderRef = db.collection("squareOrders").doc(verified.orderId);
+    try {
+      await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(reservationRef);
+        if (!fresh.exists || fresh.data()?.status !== "pending_payment") {
+          throw new Error("ALREADY_FINALIZED");
+        }
+        const orderDoc = await tx.get(orderRef);
+        if (orderDoc.exists) {
+          throw new Error("PAYMENT_REUSED");
+        }
+        tx.create(orderRef, {
+          reservationId: reservation.reservationId,
+          paymentId: verified.paymentId,
+          lineUserId: userId,
+          createdAt: nowIso,
+        });
+        tx.update(reservationRef, {
+          status: "confirmed",
+          paymentStatus: "completed",
+          paymentId: verified.paymentId,
+          paymentTransactionId: verified.orderId,
+          updatedAt: nowIso,
+        });
+        tx.set(
+          slotRef,
+          { status: "confirmed", reservationId: reservation.reservationId, updatedAt: nowIso },
+          { merge: true }
+        );
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "PAYMENT_REUSED") {
+        return NextResponse.json(
+          { error: "PAYMENT_REUSED", message: "この決済はすでに使用されています。" },
+          { status: 409 }
+        );
+      }
+      if (m === "ALREADY_FINALIZED") {
+        // 並行リクエスト等で既に確定済み → 冪等に結果を返す
+        const again = await reservationRef.get();
+        const r = {
+          reservationId: again.id,
+          ...(again.data() as Omit<Reservation, "reservationId">),
+        };
+        return NextResponse.json({
+          reservation: r,
+          passcode: r.switchBotPasscode ?? null,
+          passcodePending: r.switchBotStatus === "failed",
+          alreadyDone: true,
+        });
+      }
+      throw e;
     }
 
-    // ── Google Calendar イベント作成（失敗は致命ではない） ──
-    let googleEventId = "";
+    // 確定後に Google Calendar イベントを作成（失敗は致命ではない）。
     try {
-      googleEventId = await createCalendarEvent(facility.calendarId, {
+      const googleEventId = await createCalendarEvent(facility.calendarId, {
         date: reservation.date,
         startTime: reservation.startTime,
         endTime: reservation.endTime,
         summary: `${facility.name}（決済済）`,
         description: `予約者LINE ID: ${userId}\nSquare決済: ${verified.paymentId}`,
       });
+      if (googleEventId) {
+        await reservationRef.update({ googleEventId });
+      }
     } catch (e) {
       console.error("[reservations/complete] calendar failed:", e);
     }
-
-    const nowIso = dayjs().toISOString();
-    const slotKey = encodeURIComponent(
-      `${reservation.facilityId}_${reservation.date}_${reservation.startTime}_${reservation.endTime}`
-    );
-
-    // ── 確定（予約 + ロック） ──
-    await reservationRef.update({
-      status: "confirmed",
-      paymentStatus: "completed",
-      paymentId: verified.paymentId,
-      paymentTransactionId: verified.orderId,
-      googleEventId,
-      updatedAt: nowIso,
-    });
-    await db
-      .collection("reservationLocks")
-      .doc(slotKey)
-      .set(
-        { status: "confirmed", reservationId: reservation.reservationId, updatedAt: nowIso },
-        { merge: true }
-      );
 
     // ── SwitchBot 時限パスコード発行 ──
     let passcode: string | null = null;

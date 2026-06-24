@@ -64,6 +64,65 @@ export function reservationEpochMs(date: string, time: string): number {
   return new Date(`${date}T${time}:00+09:00`).getTime();
 }
 
+/** reservationLocks のドキュメントID（facilityId_date_start_end をURLエンコード）。全経路で共用。 */
+export function buildReservationSlotKey(
+  facilityId: string,
+  date: string,
+  startTime: string,
+  endTime: string
+): string {
+  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
+}
+
+/**
+ * transaction 内で「対象スロットが空いているか」を判定し、埋まっていれば throw "ALREADY_BOOKED"。
+ * - facilityId+date の全ロックを読み、isLockBlocking かつ時間帯が overlap するものがあれば拒否。
+ * - 完全一致キーのブロッキングロックも拒否（保険）。
+ * - 失効した pending（TTL超過）は空き扱い（isLockBlocking が false）。
+ * 通常予約POST・トレーラー仮押さえの両方で共用し、ロック解釈を一本化する。
+ */
+export async function assertSlotFreeInTx(
+  tx: FirebaseFirestore.Transaction,
+  db: FirebaseFirestore.Firestore,
+  params: {
+    facilityId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    nowIso: string;
+  }
+): Promise<void> {
+  const { facilityId, date, startTime, endTime, nowIso } = params;
+  const reqStart = timeToMin(startTime);
+  const reqEnd = timeToMin(endTime);
+
+  const locksSnap = await tx.get(
+    db
+      .collection("reservationLocks")
+      .where("facilityId", "==", facilityId)
+      .where("date", "==", date)
+  );
+  for (const lockDoc of locksSnap.docs) {
+    const l = lockDoc.data();
+    if (!isLockBlocking(l, nowIso)) continue;
+    if (
+      typeof l.startTime === "string" &&
+      typeof l.endTime === "string" &&
+      intervalsOverlap(reqStart, reqEnd, timeToMin(l.startTime), timeToMin(l.endTime))
+    ) {
+      throw new Error("ALREADY_BOOKED");
+    }
+  }
+
+  const slotRef = db
+    .collection("reservationLocks")
+    .doc(buildReservationSlotKey(facilityId, date, startTime, endTime));
+  const slotDoc = await tx.get(slotRef);
+  if (slotDoc.exists && isLockBlocking(slotDoc.data() ?? {}, nowIso)) {
+    throw new Error("ALREADY_BOOKED");
+  }
+}
+
 export type SlotValidationReason =
   | "INVALID_RANGE"
   | "PAST_DATE"
