@@ -1,9 +1,10 @@
 /**
  * Square 決済ユーティリティ
  *
- * 現在未使用 — オンライン決済は無効化されています。
- * 将来決済を有効化する際にこのファイルを再利用してください。
- * 参照: reservations/route.ts の requirePayment ガード
+ * トレーラー等の「静的決済リンク方式」で使用する:
+ *   決済後リダイレクトの orderId → 注文→決済を取得し、完了・金額を照合（verifySquareOrderPayment）。
+ *   共有リンクのため referenceId は使わない（予約との紐付けは pending予約Cookieで行う）。
+ * 旧 verifySquarePayment（referenceId=userId 前提の動的決済向け）は後方互換で残置。
  */
 
 import { SquareClient, SquareEnvironment } from "square";
@@ -96,6 +97,64 @@ export async function verifySquarePayment({
   if (payment.referenceId !== expectedReferenceId) {
     throw new Error("決済ユーザーが一致しません");
   }
+}
+
+/**
+ * 取得済みの payment が「完了済み・金額一致・JPY」かを検証する純粋関数（テスト容易化）。
+ * @throws 不一致時にエラー
+ */
+export function assertSquarePaymentValid(
+  payment:
+    | {
+        status?: string | null;
+        amountMoney?: { amount?: bigint | number | null; currency?: string | null } | null;
+      }
+    | null
+    | undefined,
+  expectedAmount: number
+): void {
+  if (!payment) {
+    throw new Error("決済情報が見つかりません");
+  }
+  if (payment.status !== "COMPLETED") {
+    throw new Error("決済が完了していません");
+  }
+  const amount = payment.amountMoney?.amount;
+  if (amount === undefined || amount === null || BigInt(expectedAmount) !== BigInt(amount)) {
+    throw new Error("決済金額が予約金額と一致しません");
+  }
+  const currency = payment.amountMoney?.currency;
+  if (currency && currency !== "JPY") {
+    throw new Error("決済通貨が不正です");
+  }
+}
+
+/**
+ * 静的決済リンク方式（トレーラー等）の検証。
+ * 決済後リダイレクトの orderId から注文→紐づく payment を取得し、完了・金額を照合する。
+ * @returns 予約への保存・再利用防止に使う { orderId, paymentId }
+ * @throws 未完了 / 金額不一致 / 取得失敗時にエラー
+ */
+export async function verifySquareOrderPayment({
+  orderId,
+  expectedAmount,
+}: {
+  orderId: string;
+  expectedAmount: number;
+}): Promise<{ orderId: string; paymentId: string }> {
+  const client = getSquareClient();
+  const orderRes = await client.orders.get({ orderId });
+  const order = orderRes.order;
+  if (!order) {
+    throw new Error("注文が見つかりません");
+  }
+  const paymentId = order.tenders?.find((t) => t.paymentId)?.paymentId;
+  if (!paymentId) {
+    throw new Error("注文に決済が紐づいていません");
+  }
+  const payment = await getSquarePayment(paymentId);
+  assertSquarePaymentValid(payment, expectedAmount);
+  return { orderId, paymentId };
 }
 
 /**
