@@ -379,6 +379,9 @@ export default function ReservationPage() {
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [termsRead, setTermsRead] = useState(false);   // 規約を最後までスクロールしたか
   const [showTermsModal, setShowTermsModal] = useState(false);
+  // トレーラー決済（仮押さえ→決済URL遷移）
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const needsTerms = selectedFacility?.requireTerms ?? false;
 
   // 施設変更時にリセット
@@ -402,8 +405,6 @@ export default function ReservationPage() {
   const isTrailer = !!squarePaymentUrl;
   // 旧 requirePayment（オンライン不可）のブロックは squarePaymentUrl 未設定時のみ。
   const needsPayment = (selectedFacility?.requirePayment ?? false) && !isTrailer;
-  const [paying, setPaying] = useState(false);
-  const [payError, setPayError] = useState<string | null>(null);
 
   // ─── 予約確定へ ────────────────────────────────────────────────────────────
   function handleConfirm() {

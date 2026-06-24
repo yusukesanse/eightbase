@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { requireProfileComplete } from "@/lib/auth";
-import { createCalendarEvent } from "@/lib/googleCalendar";
+import { createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed, sendTrailerPasscodeNotice } from "@/lib/line";
 import { verifySquareOrderPayment } from "@/lib/square";
 import { generatePasscode, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
@@ -85,11 +85,26 @@ export async function POST(req: NextRequest) {
     if (reservation.pendingExpiresAt && reservation.pendingExpiresAt <= dayjs().toISOString()) {
       try {
         await verifySquareOrderPayment({ orderId, expectedAmount });
-        await notifyAdmin(
-          "trailer_cancel",
-          `仮押さえ期限切れ後に決済が成立しました。返金対応をお願いします（予約 ${reservation.reservationId} / 注文 ${orderId}）。`,
-          { reservationId: reservation.reservationId, orderId, facilityId: facility.id }
-        );
+        // orderId を一度だけ記録し、初回のみ通知（リトライで返金通知が重複しないように）。
+        let firstTime = false;
+        const expiredOrderRef = db.collection("squareOrders").doc(orderId);
+        await db.runTransaction(async (tx) => {
+          const d = await tx.get(expiredOrderRef);
+          if (d.exists) return;
+          tx.create(expiredOrderRef, {
+            reservationId: reservation.reservationId,
+            expiredRefund: true,
+            createdAt: dayjs().toISOString(),
+          });
+          firstTime = true;
+        });
+        if (firstTime) {
+          await notifyAdmin(
+            "trailer_cancel",
+            `仮押さえ期限切れ後に決済が成立しました。返金対応をお願いします（予約 ${reservation.reservationId} / 注文 ${orderId}）。`,
+            { reservationId: reservation.reservationId, orderId, facilityId: facility.id }
+          );
+        }
       } catch {
         /* 未決済なら通知不要 */
       }
@@ -117,6 +132,21 @@ export async function POST(req: NextRequest) {
     }
 
     const nowIso = dayjs().toISOString();
+    // 確定tx に googleEventId を含められるよう、先に Calendar イベントを作成する
+    // （確定が成立しなかった場合は下の abort 補償でこのイベントを削除し孤児化を防ぐ）。
+    let googleEventId = "";
+    try {
+      googleEventId = await createCalendarEvent(facility.calendarId, {
+        date: reservation.date,
+        startTime: reservation.startTime,
+        endTime: reservation.endTime,
+        summary: `${facility.name}（決済済）`,
+        description: `予約者LINE ID: ${userId}\nSquare決済: ${verified.paymentId}`,
+      });
+    } catch (e) {
+      console.error("[reservations/complete] calendar failed:", e);
+    }
+
     const slotRef = db
       .collection("reservationLocks")
       .doc(
@@ -151,6 +181,7 @@ export async function POST(req: NextRequest) {
           paymentStatus: "completed",
           paymentId: verified.paymentId,
           paymentTransactionId: verified.orderId,
+          googleEventId,
           updatedAt: nowIso,
         });
         tx.set(
@@ -160,6 +191,10 @@ export async function POST(req: NextRequest) {
         );
       });
     } catch (e) {
+      // 確定が成立しなかった → 作成済み Calendar イベントを補償削除（孤児化防止）。
+      if (googleEventId) {
+        await deleteCalendarEvent(facility.calendarId, googleEventId).catch(() => {});
+      }
       const m = e instanceof Error ? e.message : "";
       if (m === "PAYMENT_REUSED") {
         return NextResponse.json(
@@ -182,22 +217,6 @@ export async function POST(req: NextRequest) {
         });
       }
       throw e;
-    }
-
-    // 確定後に Google Calendar イベントを作成（失敗は致命ではない）。
-    try {
-      const googleEventId = await createCalendarEvent(facility.calendarId, {
-        date: reservation.date,
-        startTime: reservation.startTime,
-        endTime: reservation.endTime,
-        summary: `${facility.name}（決済済）`,
-        description: `予約者LINE ID: ${userId}\nSquare決済: ${verified.paymentId}`,
-      });
-      if (googleEventId) {
-        await reservationRef.update({ googleEventId });
-      }
-    } catch (e) {
-      console.error("[reservations/complete] calendar failed:", e);
     }
 
     // ── SwitchBot 時限パスコード発行 ──
