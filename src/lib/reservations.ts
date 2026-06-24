@@ -35,6 +35,32 @@ export function intervalsOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
+/** reservationLocks の1件（重なり判定に使う最小形）。 */
+export interface LockLike {
+  status?: string;
+  startTime?: string;
+  endTime?: string;
+  /** 決済前 pending の失効時刻 ISO8601。これを過ぎた pending は「空き」扱い（TTL解放）。 */
+  pendingExpiresAt?: string;
+}
+
+/**
+ * このロックが新規予約をブロックするか。
+ * - cancelled は非ブロッキング。
+ * - pendingExpiresAt があり now を過ぎていれば非ブロッキング（決済未了で失効＝空き扱い）。
+ * - それ以外はブロッキング（confirmed / 未失効の pending）。
+ */
+export function isLockBlocking(lock: LockLike, nowIso: string): boolean {
+  if (lock.status === "cancelled") return false;
+  if (lock.pendingExpiresAt && lock.pendingExpiresAt <= nowIso) return false;
+  return true;
+}
+
+/** 予約の日付(YYYY-MM-DD)+時刻(HH:MM)を JST として epoch ms に変換（SwitchBot有効期間用）。 */
+export function reservationEpochMs(date: string, time: string): number {
+  return new Date(`${date}T${time}:00+09:00`).getTime();
+}
+
 export type SlotValidationReason =
   | "INVALID_RANGE"
   | "PAST_DATE"
