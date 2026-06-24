@@ -7,7 +7,7 @@
 
 ## 1. 背景・目的
 トレーラー予約は通常予約と違い、次の2つが必要:
-1. **決済**: 予約に Square 決済（¥20,000）が必要。「予約する」を「決済する」に変え、Square決済URLへ遷移→決済後に予約完了画面へ。
+1. **決済**: 予約に Square 決済（¥22,000/税込）が必要。「予約する」を「決済する」に変え、Square決済URLへ遷移→決済後に予約完了画面へ。
 2. **解錠**: 予約完了画面に SwitchBot キーパッドの**解錠パスワード**を表示。**予約ごと**に API で**時間制限式**（予約開始〜終了のみ有効）の使い捨てパスワードを発行する。管理者用の永続パスワードは別物で**触らない**。
 
 ## 2. 用語・前提
@@ -23,7 +23,7 @@
 - **SwitchBot 連携は皆無** → `src/lib/switchbot.ts` 新規。公式API: `createKey`/`deleteKey`、認証は `token`+`secret` の HMAC-SHA256（`sign`/`t`/`nonce` ヘッダ）。`timeLimit` は `startTime`/`endTime`（epoch ms）対応。
 
 ## 4. 確定要件（意思決定済み）
-1. **決済検証**: Square 決済URLは**管理画面記入の静的URL（Square Payment Link）**。決済後リダイレクトで `transactionId` を受け取り、**Square API で取引を照合**（金額¥20,000・COMPLETED・未使用）してから予約確定。
+1. **決済検証**: Square 決済URLは**管理画面記入の静的URL（Square Payment Link）**。決済後リダイレクトで `transactionId` を受け取り、**Square API で取引を照合**（金額¥22,000・COMPLETED・未使用）してから予約確定。
 2. **スロット確保**: 「決済する」時点で **pending予約として枠を仮押さえ**し、**未決済はTTL（例: 15分）で自動解放**。
 3. **パスワード表示**: **完了画面＋マイ予約＋LINE通知**の3箇所（到着時に見返せる）。
 4. **発行失敗時**: SwitchBot発行は**自動リトライ**。なお失敗なら**管理者へ通知**＋利用者に「発行中／連絡ください」案内（管理者が手動再発行可能）。
@@ -35,7 +35,7 @@
 [Portal] トレーラー施設を選択 → 日時選択 → 「決済する」
    │  ① pending予約を作成（枠を仮押さえ・TTL15分）／pendingReservationId を署名Cookieに保存
    ▼
-[Square] 静的決済リンク（¥20,000）で決済
+[Square] 静的決済リンク（¥22,000/税込）で決済
    │  ② 決済完了 → Square が redirect_url?transactionId=… で完了画面へ戻す
    ▼
 [App] /reservation/complete（完了エンドポイント）
@@ -51,11 +51,15 @@
 
 ## 6. データモデル変更
 ### Facility（追加）
-- `paymentProvider?: "square"`（or 既存 `requirePayment` を流用）
-- `squarePaymentUrl?: string` … 管理者が用意する Square Payment Link（決済後 redirect 付き）
-- `paymentAmount?: number` … 決済額（既定 ¥20,000。`hourlyRate` ではなく固定額）
-- `switchBotDeviceId?: string` … トレーラーのキーパッド/ロックのデバイスID
-- （判定）**`squarePaymentUrl` と `switchBotDeviceId` が設定された施設＝トレーラー扱い**（決済＋解錠フロー）。
+- `squarePaymentUrl?: string` … 管理者が管理webにペーストする **Square 決済URL**。
+- `paymentAmount?: number` … 決済額（トレーラーは ¥22,000/税込）。Square API 照合の金額チェックに使用。
+- `switchBotDeviceId?: string` … キーパッド/ロックのデバイスID。
+
+**この2つは独立した「能力(capability)」として扱う（＝再利用できる汎用パーツ）**:
+- **`squarePaymentUrl` があれば → 「予約する」を「決済する」に変え、そのURLへ遷移**。
+  ＝ トレーラーに限らず**決済が必要な任意の施設（レンタルスペース等）で再利用可能**。管理webにSquare URLをペーストするだけでボタンが決済導線になる。
+- **`switchBotDeviceId` があれば → 解錠の時限パスコードを発行**。
+- 組み合わせは自由:「決済のみ」「決済＋解錠（＝トレーラー）」「解錠のみ」のいずれも成立。
 
 ### Reservation（追加）
 - `status` に **`pending_payment`** を追加（`confirmed|cancelled|pending_payment`）。
