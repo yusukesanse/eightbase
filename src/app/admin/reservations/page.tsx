@@ -346,9 +346,17 @@ export default function AdminReservationsPage() {
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                          r.status === "confirmed" ? "bg-[#B0E401]/20 text-[#231714]" : "bg-gray-100 text-[#231714]/60"
+                          r.status === "confirmed"
+                            ? "bg-[#B0E401]/20 text-[#231714]"
+                            : r.status === "pending_payment"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-gray-100 text-[#231714]/60"
                         }`}>
-                          {r.status === "confirmed" ? "確定" : "キャンセル済"}
+                          {r.status === "confirmed"
+                            ? "確定"
+                            : r.status === "pending_payment"
+                              ? "決済待ち"
+                              : "キャンセル済"}
                         </span>
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
