@@ -87,6 +87,12 @@ if (appEnv === "production") {
       "ADMIN_SIMPLE_PASSWORD は本番では設定しないでください（dev/staging 専用のパスワードログイン）"
     );
   }
+  // 認証バイパス（dev/staging 専用）が本番に紛れていないか
+  if (["on", "1", "true", "yes"].includes((env.NEXT_PUBLIC_DEMO_AUTH_BYPASS || "").toLowerCase())) {
+    errors.push(
+      `NEXT_PUBLIC_DEMO_AUTH_BYPASS="${env.NEXT_PUBLIC_DEMO_AUTH_BYPASS}" は本番では無効化してください（dev/staging 専用の認証バイパス）`
+    );
+  }
 }
 
 // ── 結果出力 ──

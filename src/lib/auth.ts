@@ -15,6 +15,7 @@
 import type { NextRequest } from "next/server";
 import { getSessionUserId } from "./session";
 import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
+import { isAuthBypassEnabled, DEMO_BYPASS_USER_ID } from "./env";
 import { getDb } from "./firebaseAdmin";
 
 /**
@@ -38,6 +39,9 @@ async function getActiveAuthorizedUser(
 export async function requireActiveUser(
   req: NextRequest
 ): Promise<string | null> {
+  // demo/開発: 認証バイパス（本番では常に無効）。操作系含め固定テストユーザーを通す。
+  if (isAuthBypassEnabled()) return DEMO_BYPASS_USER_ID;
+
   // プレビューモード: 読み取り専用で仮ユーザー
   if (await isPreviewMode(req)) {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return PREVIEW_USER_ID;
@@ -56,6 +60,9 @@ export async function requireActiveUser(
 export async function requireProfileComplete(
   req: NextRequest
 ): Promise<string | null> {
+  // demo/開発: 認証バイパス（本番では常に無効）。操作系含め固定テストユーザーを通す。
+  if (isAuthBypassEnabled()) return DEMO_BYPASS_USER_ID;
+
   // プレビューモード: 読み取り専用で仮ユーザー（操作系は基本 GET 以外なので拒否される）
   if (await isPreviewMode(req)) {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return PREVIEW_USER_ID;
