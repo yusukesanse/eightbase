@@ -49,6 +49,16 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/admin/notifications",
+    label: "通知",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 2.5a4.5 4.5 0 0 0-4.5 4.5c0 4-2 5-2 5h13s-2-1-2-5A4.5 4.5 0 0 0 10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M8.5 16.5a1.8 1.8 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/calendars",
     label: "カレンダー管理",
     icon: (
