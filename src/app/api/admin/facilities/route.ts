@@ -146,6 +146,10 @@ export async function POST(req: NextRequest) {
       termsContent: body.termsContent,
       requirePayment: body.requirePayment,
       hourlyRate: body.hourlyRate ? Number(body.hourlyRate) : undefined,
+      // トレーラー等: 決済URL / 決済額 / 解錠デバイス（新規作成でも保存する）
+      squarePaymentUrl: body.squarePaymentUrl || undefined,
+      paymentAmount: body.paymentAmount ? Number(body.paymentAmount) : undefined,
+      switchBotDeviceId: body.switchBotDeviceId || undefined,
     });
     return NextResponse.json({ facility }, { status: 201 });
   } catch (error) {
