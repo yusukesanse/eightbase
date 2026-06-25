@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { getBookedSlots } from "@/lib/googleCalendar";
 import { requireActiveUser } from "@/lib/auth";
+import { getPendingLockedSlots } from "@/lib/reservations";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +37,8 @@ export async function GET(req: NextRequest) {
   }
 
   const availableDays = facility.availableDays ?? [1, 2, 3, 4, 5];
+  const nowIso = dayjs().toISOString();
+  const db = getDb();
 
   try {
     // 月曜起点の7日分を並列取得（利用不可曜日は空配列）
@@ -48,8 +52,12 @@ export async function GET(req: NextRequest) {
           result[date] = [];
           return Promise.resolve();
         }
-        return getBookedSlots(facility.calendarId, date).then((slots) => {
-          result[date] = slots;
+        // Google Calendar（確定）＋ 決済前の仮押さえ（pending）を合算
+        return Promise.all([
+          getBookedSlots(facility.calendarId, date),
+          getPendingLockedSlots(db, facilityId, date, nowIso),
+        ]).then(([cal, pending]) => {
+          result[date] = [...cal, ...pending];
         });
       })
     );

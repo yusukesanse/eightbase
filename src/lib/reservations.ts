@@ -75,6 +75,38 @@ export function buildReservationSlotKey(
 }
 
 /**
+ * 決済前の仮押さえ（pending_payment）でブロック中のスロットを返す（空き表示への反映用）。
+ * これらは Google Calendar にイベントを作らない（確定時に作る）ため、別途取得して空き表示に足す。
+ * confirmed のロックは Calendar 側に出るのでここには含めない（getBookedSlots と二重計上しない）。
+ */
+export async function getPendingLockedSlots(
+  db: FirebaseFirestore.Firestore,
+  facilityId: string,
+  date: string,
+  nowIso: string
+): Promise<{ start: string; end: string }[]> {
+  const snap = await db
+    .collection("reservationLocks")
+    .where("facilityId", "==", facilityId)
+    .where("date", "==", date)
+    .get();
+  const out: { start: string; end: string }[] = [];
+  for (const doc of snap.docs) {
+    const l = doc.data() as {
+      startTime?: string;
+      endTime?: string;
+      status?: string;
+      pendingExpiresAt?: string;
+    };
+    if (l.status !== "pending" || !l.startTime || !l.endTime) continue;
+    // TTL 超過の pending は空き扱い（仮押さえ解放）
+    if (l.pendingExpiresAt && l.pendingExpiresAt <= nowIso) continue;
+    out.push({ start: l.startTime, end: l.endTime });
+  }
+  return out;
+}
+
+/**
  * transaction 内で「対象スロットが空いているか」を判定し、埋まっていれば throw "ALREADY_BOOKED"。
  * - facilityId+date の全ロックを読み、isLockBlocking かつ時間帯が overlap するものがあれば拒否。
  * - 完全一致キーのブロッキングロックも拒否（保険）。
