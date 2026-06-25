@@ -132,9 +132,55 @@ export async function PUT(
 }
 
 /**
+ * シーズン削除時に一緒に消す、seasonId で紐づく関連コレクション。
+ * （麻雀リーグ/CS/スコアボードの各データ。`games` は季節非依存のため対象外）
+ */
+const SEASON_LINKED_COLLECTIONS = [
+  "scores",
+  "cs_events",
+  "mahjongEntries",
+  "mahjongTables",
+  "mahjongSchedule",
+  "mahjongLeagueAssignments",
+  "mahjongCsEvents",
+] as const;
+
+/**
+ * 指定コレクションから seasonId に紐づく全ドキュメントを削除する。
+ * Firestore の batch write は1回あたり最大500件のため、件数が多くても壊れないよう
+ * 500件未満ずつ取得→batch削除を繰り返す。
+ * @returns 削除した件数
+ */
+async function deleteCollectionBySeasonId(
+  db: FirebaseFirestore.Firestore,
+  collectionName: string,
+  seasonId: string
+): Promise<number> {
+  const PAGE = 450; // 500 の安全マージン
+  let total = 0;
+  // 取得→削除を繰り返す（削除済みは次クエリに出てこないので進む）
+  for (;;) {
+    const snap = await db
+      .collection(collectionName)
+      .where("seasonId", "==", seasonId)
+      .limit(PAGE)
+      .get();
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    total += snap.size;
+
+    if (snap.size < PAGE) break;
+  }
+  return total;
+}
+
+/**
  * DELETE /api/admin/scoreboard/seasons/[seasonId]
- * シーズン削除
- * ※ 紐付けスコアがある場合は削除不可
+ * シーズン削除（関連データごと削除）
+ * ※ スコア等の関連データがあっても、紐づくドキュメントを全削除してから season を消す。
  */
 export async function DELETE(
   req: NextRequest,
@@ -154,20 +200,10 @@ export async function DELETE(
       return NextResponse.json({ error: "シーズンが見つかりません" }, { status: 404 });
     }
 
-    // スコアが紐付いている場合は削除不可
-    const scoresSnap = await db
-      .collection("scores")
-      .where("seasonId", "==", seasonId)
-      .limit(1)
-      .get();
-
-    if (!scoresSnap.empty) {
-      return NextResponse.json(
-        { error: "このシーズンにはスコアが登録されているため削除できません" },
-        { status: 409 }
-      );
+    // 関連データ（scores / 麻雀リーグ・CS 等）を seasonId 単位で全削除してから season 本体を削除。
+    for (const collectionName of SEASON_LINKED_COLLECTIONS) {
+      await deleteCollectionBySeasonId(db, collectionName, seasonId);
     }
-
     await docRef.delete();
 
     return NextResponse.json({ success: true });
