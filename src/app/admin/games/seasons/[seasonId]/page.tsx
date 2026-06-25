@@ -34,8 +34,13 @@ export default function SeasonOverviewPage() {
   });
   const [saving, setSaving] = useState(false);
 
-  // 削除確認
+  // 削除確認（GitHub のリポジトリ削除のように、確認テキストの入力を必須にする）
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // 入力すべき確認テキスト（シーズン名 + 「削除」）
+  const expectedConfirmText = season ? `${season.name} 削除` : "";
+  const canDelete =
+    deleteConfirmText.trim() === expectedConfirmText && expectedConfirmText !== "";
 
   /* ───────── データ取得 ───────── */
 
@@ -137,6 +142,7 @@ export default function SeasonOverviewPage() {
   /* ───────── 削除 ───────── */
 
   async function handleDelete() {
+    if (!canDelete) return; // 確認テキスト未一致なら実行しない（ボタンは disabled だが二重防御）
     try {
       const res = await fetch(
         `/api/admin/scoreboard/seasons/${seasonId}`,
@@ -259,7 +265,10 @@ export default function SeasonOverviewPage() {
               {season.active ? "無効にする" : "有効にする"}
             </button>
             <button
-              onClick={() => setDeleteConfirm(true)}
+              onClick={() => {
+                setDeleteConfirmText("");
+                setDeleteConfirm(true);
+              }}
               className="px-4 py-2 text-sm font-medium rounded-lg text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
             >
               削除
@@ -312,11 +321,28 @@ export default function SeasonOverviewPage() {
             <h3 className="text-base font-semibold text-[#231714] mb-2">
               削除の確認
             </h3>
-            <p className="text-sm text-[#231714]/60 mb-5">
+            <p className="text-sm text-[#231714]/60 mb-4">
               このシーズンを削除しますか？このシーズンに紐づくスコア・麻雀リーグ・CS
               などの関連データも<span className="font-semibold text-red-600">すべて削除</span>
               されます。この操作は取り消せません。
             </p>
+            <div className="mb-5">
+              <p className="text-xs text-[#231714]/60 mb-2">
+                確認のため、下のボックスに{" "}
+                <code className="px-1.5 py-0.5 rounded bg-gray-100 text-red-600 font-semibold select-all">
+                  {expectedConfirmText}
+                </code>{" "}
+                と入力してください。
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={expectedConfirmText}
+                autoComplete="off"
+                className="w-full px-3 py-2 text-sm border border-[#231714]/15 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300"
+              />
+            </div>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteConfirm(false)}
@@ -326,7 +352,8 @@ export default function SeasonOverviewPage() {
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                disabled={!canDelete}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600"
               >
                 削除する
               </button>
