@@ -35,9 +35,8 @@ export interface Facility {
   // ── 課金設定 ──
   requirePayment?: boolean;  // true=予約時にSquare決済が必要（旧仕様・現状オンライン不可）
   hourlyRate?: number;       // 時間単価（円/時間）
-  // ── 決済（Square決済URL方式・能力フィールド／任意の施設で再利用可） ──
-  squarePaymentUrl?: string; // 管理webにペーストするSquare決済URL。あれば「予約する」を「決済する」に切替
-  paymentAmount?: number;    // 決済額（円・税込）。Square API照合の金額チェックに使用
+  // ── 決済（予約ごとに動的Square決済リンクを生成／任意の施設で再利用可） ──
+  paymentAmount?: number;    // 決済額（円・税込）。設定で「決済する」化＋Square API照合の金額チェックに使用
   // ── 解錠（SwitchBot時限パスコード・能力フィールド） ──
   switchBotDeviceId?: string; // キーパッド/ロックのデバイスID。あれば予約ごとに時限パスコードを発行
   createdAt?: string;  // ISO8601

@@ -18,8 +18,7 @@ const VALIDATION_RULES = {
   calendarId: { type: "string" as const, minLength: 1, maxLength: 300 },
   type: { type: "string" as const },
   capacity: { type: "number" as const, min: 1, max: 1000 },
-  // ── トレーラー等: 決済URL / 解錠デバイス ──
-  squarePaymentUrl: { type: "url" as const, maxLength: 1000 },
+  // ── トレーラー等: 決済額 / 解錠デバイス ──
   paymentAmount: { type: "number" as const, min: 0, max: 10000000 },
   switchBotDeviceId: { type: "string" as const, maxLength: 100 },
 };
@@ -30,7 +29,7 @@ const ALLOWED_UPDATE_FIELDS = [
   "minDuration", "fixedDuration", "prepTime",
   "requireTerms", "termsContent",
   "requirePayment", "hourlyRate",
-  "squarePaymentUrl", "paymentAmount", "switchBotDeviceId",
+  "paymentAmount", "switchBotDeviceId",
 ];
 
 const TIME_REGEX = /^\d{2}:\d{2}$/;
@@ -146,8 +145,7 @@ export async function POST(req: NextRequest) {
       termsContent: body.termsContent,
       requirePayment: body.requirePayment,
       hourlyRate: body.hourlyRate ? Number(body.hourlyRate) : undefined,
-      // トレーラー等: 決済URL / 決済額 / 解錠デバイス（新規作成でも保存する）
-      squarePaymentUrl: body.squarePaymentUrl || undefined,
+      // トレーラー等: 決済額 / 解錠デバイス（新規作成でも保存する）
       paymentAmount: body.paymentAmount ? Number(body.paymentAmount) : undefined,
       switchBotDeviceId: body.switchBotDeviceId || undefined,
     });
