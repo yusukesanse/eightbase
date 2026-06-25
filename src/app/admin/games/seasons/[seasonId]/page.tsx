@@ -313,7 +313,9 @@ export default function SeasonOverviewPage() {
               削除の確認
             </h3>
             <p className="text-sm text-[#231714]/60 mb-5">
-              このシーズンを削除しますか？スコアが登録済みの場合は削除できません。
+              このシーズンを削除しますか？このシーズンに紐づくスコア・麻雀リーグ・CS
+              などの関連データも<span className="font-semibold text-red-600">すべて削除</span>
+              されます。この操作は取り消せません。
             </p>
             <div className="flex gap-3 justify-end">
               <button
