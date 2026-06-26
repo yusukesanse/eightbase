@@ -5,7 +5,7 @@ import { AuthGuard } from "./AuthGuard";
 import { RichMenu } from "./RichMenu";
 
 /** ボトムナビゲーションを表示しないパス */
-const NO_NAV_PATHS = ["/", "/login", "/setup-profile"];
+const NO_NAV_PATHS = ["/", "/login", "/setup-profile", "/guest"];
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

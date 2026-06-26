@@ -4,9 +4,15 @@ import { isDummyDataEnabled } from "@/lib/env";
 import { dummyAdminInvitations } from "@/lib/previewDummyAdmin";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
-import { sendPasscodeEmail } from "@/lib/email";
+import { sendPasscodeEmail, sendGuestInviteEmail } from "@/lib/email";
+import { liffUrl } from "@/lib/liffUrl";
 
 export const dynamic = "force-dynamic";
+
+/** ゲスト招待URL（LIFF URL）。踏むと LINEミニアプリの /guest が開き、その場でゲスト登録される。 */
+function buildGuestInviteUrl(passcode: string): string {
+  return liffUrl(`/guest?code=${encodeURIComponent(passcode)}`);
+}
 
 const INVITATION_EXPIRY_DAYS = 7;
 const MAX_PASSCODE_ATTEMPTS = 5;
@@ -48,6 +54,7 @@ export async function GET(req: NextRequest) {
         id: doc.id,
         displayName: d.displayName || "",
         email: (d.email as string) || "",
+        role: (d.role as string) || "member",
         status,
         emailDeliveryStatus: (d.emailDeliveryStatus as string) || "unknown",
         createdAt: d.createdAt as string,
@@ -81,7 +88,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { displayName, email } = await req.json();
+    const { displayName, email, role: rawRole } = await req.json();
+    const role: "member" | "guest" = rawRole === "guest" ? "guest" : "member";
     if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
       return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
     }
@@ -136,6 +144,7 @@ export async function POST(req: NextRequest) {
       displayName: trimmedName,
       email: trimmedEmail,
       passcodeHash: pHash,
+      role, // 身分（member|guest）
       emailDeliveryStatus: "pending",
       emailSentAt: null,
       emailError: null,
@@ -154,7 +163,7 @@ export async function POST(req: NextRequest) {
       salt: "",
       lineUserId: null,
       active: true,
-      role: "member", // 身分（member|guest）。ゲスト発行は別途 role:"guest"。
+      role, // 身分（member|guest）。guest はゲーム機能のみ。
       profileComplete: false,
       createdAt: nowStr,
       lastLoginAt: null,
@@ -165,9 +174,14 @@ export async function POST(req: NextRequest) {
     await batch.commit();
 
     // メール送信（DB作成後に実行、結果をinvitationに反映）
+    // member: ワンタイムパスコード（ログイン画面で入力）/ guest: ワンタイムURL（踏むと登録）
     let emailSent = false;
     try {
-      await sendPasscodeEmail(trimmedEmail, trimmedName, passcode);
+      if (role === "guest") {
+        await sendGuestInviteEmail(trimmedEmail, trimmedName, buildGuestInviteUrl(passcode));
+      } else {
+        await sendPasscodeEmail(trimmedEmail, trimmedName, passcode);
+      }
       emailSent = true;
       await inviteRef.update({
         emailDeliveryStatus: "sent",
@@ -182,11 +196,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // メール送信成功時は平文パスコードを返さない
+    // メール送信成功時は平文パスコード/URLを返さない（失敗時のみ手動共有用に返す）
     return NextResponse.json({
       success: true,
       id: inviteRef.id,
-      passcode: emailSent ? undefined : passcode,
+      role,
+      passcode: emailSent || role === "guest" ? undefined : passcode,
+      guestUrl: emailSent || role !== "guest" ? undefined : buildGuestInviteUrl(passcode),
       emailSent,
       expiresAt: expiresAt.toISOString(),
     });
@@ -258,12 +274,17 @@ export async function PATCH(req: NextRequest) {
       emailError: null,
     });
 
-    // メール再送
+    // メール再送（member: パスコード / guest: ワンタイムURL）
+    const role = data.role === "guest" ? "guest" : "member";
     let emailSent = false;
     const savedEmail = data.email as string | undefined;
     if (savedEmail) {
       try {
-        await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
+        if (role === "guest") {
+          await sendGuestInviteEmail(savedEmail, data.displayName || "", buildGuestInviteUrl(passcode));
+        } else {
+          await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
+        }
         emailSent = true;
         await docRef.update({
           emailDeliveryStatus: "sent",
@@ -279,10 +300,12 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // メール送信成功時は平文パスコードを返さない
+    // メール送信成功時は平文パスコード/URLを返さない（失敗時のみ手動共有用に返す）
     return NextResponse.json({
       success: true,
-      passcode: emailSent ? undefined : passcode,
+      role,
+      passcode: emailSent || role === "guest" ? undefined : passcode,
+      guestUrl: emailSent || role !== "guest" ? undefined : buildGuestInviteUrl(passcode),
       emailSent,
       expiresAt: expiresAt.toISOString(),
     });

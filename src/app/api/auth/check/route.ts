@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
         authorized: true,
         lineUserId: DEMO_BYPASS_USER_ID,
         profileComplete: true,
+        role: "member",
       });
     }
 
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
         authorized: true,
         lineUserId: PREVIEW_USER_ID,
         profileComplete: true,
+        role: "member",
       });
     }
 
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
         authorized: true,
         lineUserId,
         profileComplete: true,
+        role: "member",
       });
     }
 
@@ -69,6 +72,7 @@ export async function GET(req: NextRequest) {
       authorized: true,
       lineUserId,
       profileComplete: !!userData.profileComplete,
+      role: userData.role === "guest" ? "guest" : "member",
     });
   } catch (error) {
     console.error("[auth/check] error:", error);
