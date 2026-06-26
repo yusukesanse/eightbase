@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { requireProfileComplete } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { validateTableReports } from "@/lib/mahjong";
 import type { MahjongTable } from "@/types";
 
@@ -19,7 +19,7 @@ export async function POST(
   { params }: { params: Promise<{ tableId: string }> }
 ) {
   try {
-    const userId = await requireProfileComplete(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

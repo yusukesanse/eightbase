@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
       salt: "",
       lineUserId: null,
       active: true,
+      role: "member", // 身分（member|guest）。ゲスト発行は別途 role:"guest"。
       profileComplete: false,
       createdAt: nowStr,
       lastLoginAt: null,

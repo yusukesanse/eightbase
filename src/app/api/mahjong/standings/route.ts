@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireActiveUser } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { computeStandings, getActiveSeason } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyStandings } from "@/lib/previewDummy";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

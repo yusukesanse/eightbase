@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyEntries } from "@/lib/previewDummy";
@@ -16,7 +16,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireProfileComplete(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

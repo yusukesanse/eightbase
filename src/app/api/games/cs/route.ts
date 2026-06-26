@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { requireActiveUser } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyGamesCs } from "@/lib/previewDummy";
 
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const lineUserId = await requireActiveUser(req);
+    const lineUserId = await requireGameUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
