@@ -21,15 +21,22 @@ function reconcileCacheOwner(userId: string) {
   setCacheOwner(userId);
 }
 
-const PUBLIC_PATHS = ["/login", "/", "/setup-profile"];
+const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest"];
 const PUBLIC_PREFIXES = ["/admin"];
+
+/** ゲスト(role=guest)が閲覧できるのはゲーム系ルートのみ。会員専用ルートはブロック。 */
+function isGuestAllowedPath(pathname: string): boolean {
+  return pathname.startsWith("/games");
+}
+/** ゲストの初期到達先（麻雀リーグ）。 */
+const GUEST_HOME = "/games/mahjong";
 
 /**
  * セッション中の認証キャッシュ（ページ遷移ごとのAPIコール連打を防ぐための短期メモ）。
  * 認証状態は表示用キャッシュ(swrCache)と同列に扱わない: 表示データより短い TTL にし、
  * すぐに /api/auth/check で取り直す。最終的な可否判定はサーバー側(各API)が担保する。
  */
-let authCache: { authorized: boolean; profileComplete: boolean; checkedAt: number } | null = null;
+let authCache: { authorized: boolean; profileComplete: boolean; role: "member" | "guest"; checkedAt: number } | null = null;
 const CACHE_TTL = 60 * 1000; // 認証は短期のみ（60秒）
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -53,9 +60,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // キャッシュが有効なら即authorized（プロフィール未完了チェックのみ）
+    // キャッシュが有効なら即authorized（ゲスト/プロフィール未完了の分岐のみ）
     if (authCache && Date.now() - authCache.checkedAt < CACHE_TTL) {
       if (authCache.authorized) {
+        if (authCache.role === "guest") {
+          // ゲストはゲーム系のみ。setup-profile は強制しない。
+          if (!isGuestAllowedPath(pathname)) {
+            router.replace(GUEST_HOME);
+            return;
+          }
+          setStatus("authorized");
+          return;
+        }
         if (!authCache.profileComplete && pathname !== "/setup-profile") {
           router.replace("/setup-profile");
           return;
@@ -81,11 +97,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           authCache = {
             authorized: !!data.authorized,
             profileComplete: !!data.profileComplete,
+            role: data.role === "guest" ? "guest" : "member",
             checkedAt: Date.now(),
           };
           if (data.authorized) {
             // ユーザーIDが変わっていたら前ユーザーの表示キャッシュを破棄
             if (data.lineUserId) reconcileCacheOwner(data.lineUserId);
+            if (authCache.role === "guest") {
+              // ゲストはゲーム系のみ。setup-profile は強制しない。
+              if (!isGuestAllowedPath(pathname)) {
+                router.replace(GUEST_HOME);
+                return;
+              }
+              setStatus("authorized");
+              return;
+            }
             if (!data.profileComplete && pathname !== "/setup-profile") {
               router.replace("/setup-profile");
               return;

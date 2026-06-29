@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireActiveUser } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { listSeasons } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummySeasons } from "@/lib/previewDummy";
@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
  * GET /api/mahjong/seasons
  * portal 向け 麻雀シーズン一覧（新しい順）。リーグ画面のシーズン切替セレクタ用。
  *
- * 認可: requireActiveUser（閲覧系）。
+ * 認可: requireGameUser（閲覧系）。
  *   ※ ゲスト機能着手時に game 系を一括で requireGameUser へ切替予定。
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

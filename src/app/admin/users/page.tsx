@@ -58,6 +58,7 @@ interface User {
   tenantName: string;
   lineUserId: string | null;
   active: boolean;
+  role: "member" | "guest";
   profileComplete: boolean;
   profile: UserProfile | null;
   memberProfile: MemberProfileData | null;
@@ -140,12 +141,14 @@ function UserDetailPanel({
   onToggleActive,
   onReissuePasscode,
   onDelete,
+  onPromote,
 }: {
   user: User;
   onClose: () => void;
   onToggleActive: (user: User) => void;
   onReissuePasscode: (user: User) => void;
   onDelete: (user: User) => void;
+  onPromote: (user: User) => void;
 }) {
   const p = user.profile;
   const mp = user.memberProfile;
@@ -217,6 +220,11 @@ function UserDetailPanel({
 
               <div className="flex items-center gap-2 mt-3">
                 <Badge active={user.active} />
+                {user.role === "guest" && (
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#2f7d57]/10 text-[#2f7d57] text-xs rounded-full font-medium">
+                    ゲスト
+                  </span>
+                )}
                 {user.lineUserId ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#06C755]/10 text-[#06C755] text-xs rounded-full font-medium">
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -366,6 +374,21 @@ function UserDetailPanel({
               </button>
             )}
           </div>
+
+          {/* ゲスト → 会員へ昇格（同一LINE IDのまま role を更新＝戦績は継承） */}
+          {user.role === "guest" && (
+            <div className="pt-3">
+              <button
+                onClick={() => onPromote(user)}
+                className="w-full py-2.5 text-sm border border-[#2f7d57]/40 text-[#2f7d57] rounded-xl hover:bg-[#2f7d57]/10 transition-colors font-medium"
+              >
+                会員に昇格する
+              </button>
+              <p className="text-xs text-[#231714]/30 text-center mt-2">
+                全機能を利用可能に。麻雀の戦績はそのまま引き継がれます（プロフィール登録は別途必要）。
+              </p>
+            </div>
+          )}
 
           {/* 完全削除ボタン */}
           <div className="pt-4 border-t border-[#231714]/5">
@@ -586,6 +609,24 @@ export default function AdminUsersPage() {
       await fetchUsers();
     } catch {
       setActionMsg("更新に失敗しました");
+    }
+  }
+
+  async function handlePromote(user: User) {
+    if (!confirm(`${user.displayName} さんを会員に昇格しますか？（全機能が利用可能になります。麻雀の戦績は引き継がれます）`)) return;
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ id: user.id, role: "member" }),
+      });
+      if (!res.ok) throw new Error();
+      setActionMsg(`${user.displayName} を会員に昇格しました`);
+      setSelectedUser(null);
+      await fetchUsers();
+    } catch {
+      setActionMsg("昇格に失敗しました");
     }
   }
 
@@ -825,6 +866,7 @@ export default function AdminUsersPage() {
           onToggleActive={handleToggleActive}
           onReissuePasscode={(u) => { setResetTarget(u); }}
           onDelete={(u) => { setDeleteTarget(u); }}
+          onPromote={handlePromote}
         />
       )}
 
@@ -938,11 +980,14 @@ function InviteModal({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"member" | "guest">("member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passcode, setPasscode] = useState<string | null>(null);
+  const [guestUrl, setGuestUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
+  const isGuest = role === "guest";
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -953,11 +998,12 @@ function InviteModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ displayName: name, email }),
+        body: JSON.stringify({ displayName: name, email, role }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "エラーが発生しました");
       setPasscode(data.passcode ?? null);
+      setGuestUrl(data.guestUrl ?? null);
       setEmailSent(data.emailSent ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -967,14 +1013,16 @@ function InviteModal({
   }
 
   async function copyPasscode() {
-    if (!passcode) return;
-    await navigator.clipboard.writeText(passcode);
+    const value = passcode ?? guestUrl;
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // 完了画面（emailSent=true or passcode取得済み）
-  const showResult = emailSent || passcode;
+  // 完了画面（emailSent=true or 手動共有用の passcode/guestUrl 取得済み）
+  const showResult = emailSent || passcode || guestUrl;
+  const fallbackValue = passcode ?? guestUrl; // メール失敗時に手動共有する値
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -995,27 +1043,39 @@ function InviteModal({
                 )}
               </div>
               <h3 className="text-base font-semibold text-[#231714]">
-                {emailSent ? "招待メールを送信しました" : "ワンタイムパスワードを発行しました"}
+                {emailSent
+                  ? isGuest ? "ゲスト招待メールを送信しました" : "招待メールを送信しました"
+                  : isGuest ? "ゲスト招待URLを発行しました" : "ワンタイムパスワードを発行しました"}
               </h3>
               <p className="text-xs text-[#231714]/50 mt-1">
                 {emailSent
-                  ? `${email} 宛にパスワードをメール送信しました（有効期限: 7日間）`
-                  : `${name} さんにこのパスワードを伝えてください（有効期限: 7日間）`}
+                  ? isGuest
+                    ? `${email} 宛に参加用URLをメール送信しました（有効期限: 7日間）`
+                    : `${email} 宛にパスワードをメール送信しました（有効期限: 7日間）`
+                  : isGuest
+                    ? `${name} さんにこのURLをLINEで開いてもらってください（有効期限: 7日間）`
+                    : `${name} さんにこのパスワードを伝えてください（有効期限: 7日間）`}
               </p>
               {!emailSent && (
-                <p className="text-xs text-orange-500 mt-1">※ メール送信に失敗しました。手動でパスワードをお伝えください。</p>
+                <p className="text-xs text-orange-500 mt-1">
+                  ※ メール送信に失敗しました。手動で{isGuest ? "URL" : "パスワード"}をお伝えください。
+                </p>
               )}
             </div>
 
-            {/* メール送信失敗時のみ平文パスコードを表示 */}
-            {passcode && (
+            {/* メール送信失敗時のみ手動共有用の値（member=パスコード / guest=URL）を表示 */}
+            {fallbackValue && (
               <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-                <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
+                {isGuest ? (
+                  <p className="text-xs font-mono text-[#231714] break-all">{fallbackValue}</p>
+                ) : (
+                  <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{fallbackValue}</p>
+                )}
               </div>
             )}
 
             <div className="flex gap-2">
-              {passcode && (
+              {fallbackValue && (
                 <button
                   onClick={copyPasscode}
                   className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
@@ -1024,8 +1084,8 @@ function InviteModal({
                 </button>
               )}
               <button
-                onClick={() => onCreated(`${name} さん${emailSent ? "に招待メールを送信" : "のワンタイムパスワードを発行"}しました`)}
-                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
+                onClick={() => onCreated(`${name} さん${isGuest ? "にゲスト招待" : emailSent ? "に招待メール" : "のワンタイムパスワード"}${emailSent ? "を送信" : "を発行"}しました`)}
+                className={`${fallbackValue ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>
@@ -1034,8 +1094,35 @@ function InviteModal({
         ) : (
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">ユーザーを招待</h3>
-            <p className="text-xs text-[#231714]/50 mb-4">ワンタイムパスワードを発行します。利用者はLINEのログイン画面でこのパスワードを入力してアカウントを作成します。</p>
+            <p className="text-xs text-[#231714]/50 mb-4">
+              {isGuest
+                ? "ゲストは麻雀リーグなどのゲーム機能のみ利用できます。メールのワンタイムURLを開くと参加登録されます（予約・掲示板等は不可）。"
+                : "会員は全機能を利用できます。ワンタイムパスワードを発行し、利用者がLINEのログイン画面で入力してアカウントを作成します。"}
+            </p>
             <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-1">種別</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { v: "member", label: "会員", desc: "全機能" },
+                    { v: "guest", label: "ゲスト", desc: "ゲームのみ" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setRole(opt.v)}
+                      className={`py-2 rounded-xl text-sm border transition-colors ${
+                        role === opt.v
+                          ? "border-[#231714] bg-[#231714] text-white"
+                          : "border-[#231714]/15 text-[#231714]/70 hover:bg-[#231714]/5"
+                      }`}
+                    >
+                      {opt.label}
+                      <span className={`block text-[10px] ${role === opt.v ? "text-white/70" : "text-[#231714]/40"}`}>{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-medium text-[#231714]/60 mb-1">名前</label>
                 <input
@@ -1068,7 +1155,7 @@ function InviteModal({
                   キャンセル
                 </button>
                 <button type="submit" disabled={loading} className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">
-                  {loading ? "発行中..." : "パスワードを発行"}
+                  {loading ? "発行中..." : isGuest ? "ゲスト招待を送信" : "パスワードを発行"}
                 </button>
               </div>
             </form>

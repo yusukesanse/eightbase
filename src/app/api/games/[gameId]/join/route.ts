@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { requireActiveUser } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function POST(
   { params }: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -84,7 +84,7 @@ export async function DELETE(
   { params }: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

@@ -149,3 +149,25 @@ export const dummyAdminStats = {
   totalEvents: 3,
   publishedEvents: 2,
 };
+
+/* ───────── 管理者通知（/api/admin/notifications） ───────── */
+export const dummyAdminNotifications = [
+  {
+    id: "demo-notif-1",
+    type: "switchbot_failed",
+    message:
+      "解錠コードの発行に失敗しました（予約 demo-res-9 / トレーラーA）。手動で再発行してください。",
+    data: { reservationId: "demo-res-9", facilityId: "demo-trailer-a" },
+    read: false,
+    createdAt: "2026-08-08T10:05:00.000Z",
+  },
+  {
+    id: "demo-notif-2",
+    type: "trailer_cancel",
+    message:
+      "トレーラー予約が取り消されました。返金対応をお願いします（予約 demo-res-7 / トレーラーA / 2026-08-01 13:00〜17:00）。",
+    data: { reservationId: "demo-res-7" },
+    read: true,
+    createdAt: "2026-08-01T09:00:00.000Z",
+  },
+];

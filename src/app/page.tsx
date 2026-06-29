@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import ShibaGame from "@/components/ShibaGame";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
+import { isAuthBypassEnabled } from "@/lib/env";
 
 const LOGGED_OUT_FLAG = "eb_logged_out";
 
@@ -44,6 +45,12 @@ export default function HomePage() {
   }, [boot]);
 
   useEffect(() => {
+    // demo/開発: 認証バイパス時は LIFF ログインを行わず予約画面へ直行（本番では常に無効）。
+    if (isAuthBypassEnabled()) {
+      window.location.replace("/reservation");
+      return;
+    }
+
     // ログアウト直後は自動ログインせず「ログアウトしました」画面を出す（即再ログイン防止）。
     // フラグは一度きり消費する。
     let loggedOut = false;

@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isPreviewMode, PREVIEW_USER_ID } from "@/lib/preview";
 import { isReviewModeEnabled } from "@/lib/reviewMode";
+import { isAuthBypassEnabled, DEMO_BYPASS_USER_ID } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,23 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    // demo/開発: 認証バイパス（本番では常に無効）。固定テストユーザーで認証OKを返す。
+    if (isAuthBypassEnabled()) {
+      return NextResponse.json({
+        authorized: true,
+        lineUserId: DEMO_BYPASS_USER_ID,
+        profileComplete: true,
+        role: "member",
+      });
+    }
+
     // プレビューモード: 即座に認証OKを返す
     if (await isPreviewMode(req)) {
       return NextResponse.json({
         authorized: true,
         lineUserId: PREVIEW_USER_ID,
         profileComplete: true,
+        role: "member",
       });
     }
 
@@ -50,6 +62,7 @@ export async function GET(req: NextRequest) {
         authorized: true,
         lineUserId,
         profileComplete: true,
+        role: "member",
       });
     }
 
@@ -59,6 +72,7 @@ export async function GET(req: NextRequest) {
       authorized: true,
       lineUserId,
       profileComplete: !!userData.profileComplete,
+      role: userData.role === "guest" ? "guest" : "member",
     });
   } catch (error) {
     console.error("[auth/check] error:", error);

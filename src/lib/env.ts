@@ -40,6 +40,24 @@ export function isDummyDataEnabled(): boolean {
   return raw === "on" || raw === "1" || raw === "true" || raw === "yes";
 }
 
+/**
+ * demo / 開発専用の「認証バイパス」。LINE/LIFF ログインを省略してテストするための抜け穴。
+ *
+ * env フラグ `NEXT_PUBLIC_DEMO_AUTH_BYPASS` が有効、かつ production でないときだけ true。
+ * - production では二重に封じる: isProduction() で常に false ＋ `scripts/check-env.mjs` が
+ *   本番ビルドでこのフラグを検出するとビルド失敗させる。
+ * - NEXT_PUBLIC_* なのはクライアント（ルートページの LIFF 省略）でも判定するため。値は秘匿情報ではない。
+ * - 有効時、サーバーの認可は固定のテストユーザー(DEMO_BYPASS_USER_ID)を返す。
+ */
+export function isAuthBypassEnabled(): boolean {
+  if (isProduction()) return false;
+  const raw = (process.env.NEXT_PUBLIC_DEMO_AUTH_BYPASS ?? "").toLowerCase();
+  return raw === "on" || raw === "1" || raw === "true" || raw === "yes";
+}
+
+/** 認証バイパス時に使う固定テストユーザーID */
+export const DEMO_BYPASS_USER_ID = "demo-bypass-user";
+
 /** vercel.app / localhost を含む = 本番ドメインではない、と判定 */
 function looksNonProdUrl(url: string): boolean {
   return (

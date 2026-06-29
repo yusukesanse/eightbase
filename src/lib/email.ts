@@ -77,3 +77,65 @@ export async function sendPasscodeEmail(
     throw new Error(`Resend error: ${error.message}`);
   }
 }
+
+/**
+ * ゲスト招待メール: ワンタイムURL（LIFF URL）を本文のボタンで送る。
+ * URLを踏むとLINEミニアプリの /guest が開き、その場でゲスト登録される（1URL=1回）。
+ */
+export async function sendGuestInviteEmail(
+  to: string,
+  displayName: string,
+  url: string
+): Promise<void> {
+  const resend = getResend();
+
+  const safeName = escapeHtml(displayName);
+  const safeUrl = escapeHtml(url);
+
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: "【EIGHT BASE】麻雀リーグ ゲスト参加のご案内",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 16px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="font-size: 20px; color: #231714; margin: 0;">EIGHT BASE</h1>
+        </div>
+
+        <p style="font-size: 14px; color: #231714; line-height: 1.6;">
+          ${safeName} 様
+        </p>
+        <p style="font-size: 14px; color: #231714; line-height: 1.6;">
+          麻雀リーグへのゲスト参加にご招待します。<br />
+          下のボタンを <strong>LINE アプリで</strong> 開くと、麻雀リーグのゲーム画面に参加できます。
+        </p>
+
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${safeUrl}" style="display: inline-block; background: #2f7d57; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 28px; border-radius: 12px;">
+            麻雀リーグに参加する
+          </a>
+        </div>
+
+        <p style="font-size: 12px; color: #231714; opacity: 0.6; line-height: 1.6; word-break: break-all;">
+          ボタンが開けない場合は、次のURLをLINEで開いてください：<br />
+          ${safeUrl}
+        </p>
+
+        <p style="font-size: 12px; color: #231714; opacity: 0.5; line-height: 1.6;">
+          ※ このリンクの有効期限は7日間です。<br />
+          ※ <strong>最初に開いた1名のみ</strong>参加登録されます（1回限り）。<br />
+          ※ 心当たりがない場合は、このメールを無視してください。
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 32px 0 16px;" />
+        <p style="font-size: 11px; color: #231714; opacity: 0.3; text-align: center;">
+          EIGHT BASE — エイトデザイン株式会社
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
+}

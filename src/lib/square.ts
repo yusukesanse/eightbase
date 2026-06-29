@@ -1,9 +1,12 @@
 /**
  * Square 決済ユーティリティ
  *
- * 現在未使用 — オンライン決済は無効化されています。
- * 将来決済を有効化する際にこのファイルを再利用してください。
- * 参照: reservations/route.ts の requirePayment ガード
+ * 予約ごとの「動的決済リンク方式」で使用する:
+ *   決済する時に `createReservationPaymentLink` で予約専用リンクを生成（redirect_url に `?rid=予約ID`）。
+ *   生成した注文ID(orderId)を予約に保存し、決済後リダイレクトでは rid から予約→保存orderId を引き、
+ *   注文→決済を取得して完了・金額を照合する（verifySquareOrderPayment）。
+ *   ※静的共有リンクは Square がリダイレクトに識別子を付けず注文も使い回すため不採用。
+ * 旧 verifySquarePayment（referenceId=userId 前提）は後方互換で残置。
  */
 
 import { SquareClient, SquareEnvironment } from "square";
@@ -96,6 +99,100 @@ export async function verifySquarePayment({
   if (payment.referenceId !== expectedReferenceId) {
     throw new Error("決済ユーザーが一致しません");
   }
+}
+
+/**
+ * 取得済みの payment が「完了済み・金額一致・JPY」かを検証する純粋関数（テスト容易化）。
+ * @throws 不一致時にエラー
+ */
+export function assertSquarePaymentValid(
+  payment:
+    | {
+        status?: string | null;
+        amountMoney?: { amount?: bigint | number | null; currency?: string | null } | null;
+      }
+    | null
+    | undefined,
+  expectedAmount: number
+): void {
+  if (!payment) {
+    throw new Error("決済情報が見つかりません");
+  }
+  if (payment.status !== "COMPLETED") {
+    throw new Error("決済が完了していません");
+  }
+  const amount = payment.amountMoney?.amount;
+  if (amount === undefined || amount === null || BigInt(expectedAmount) !== BigInt(amount)) {
+    throw new Error("決済金額が予約金額と一致しません");
+  }
+  const currency = payment.amountMoney?.currency;
+  if (currency && currency !== "JPY") {
+    throw new Error("決済通貨が不正です");
+  }
+}
+
+/**
+ * 静的決済リンク方式（トレーラー等）の検証。
+ * 決済後リダイレクトの orderId から注文→紐づく payment を取得し、完了・金額を照合する。
+ * @returns 予約への保存・再利用防止に使う { orderId, paymentId }
+ * @throws 未完了 / 金額不一致 / 取得失敗時にエラー
+ */
+export async function verifySquareOrderPayment({
+  orderId,
+  expectedAmount,
+}: {
+  orderId: string;
+  expectedAmount: number;
+}): Promise<{ orderId: string; paymentId: string }> {
+  const client = getSquareClient();
+  const orderRes = await client.orders.get({ orderId });
+  const order = orderRes.order;
+  if (!order) {
+    throw new Error("注文が見つかりません");
+  }
+  const paymentId = order.tenders?.find((t) => t.paymentId)?.paymentId;
+  if (!paymentId) {
+    throw new Error("注文に決済が紐づいていません");
+  }
+  const payment = await getSquarePayment(paymentId);
+  assertSquarePaymentValid(payment, expectedAmount);
+  return { orderId, paymentId };
+}
+
+/**
+ * 予約ごとの Square Payment Link（動的リンク）を生成する。
+ *
+ * 静的リンクと異なり redirect_url に予約ID(`?rid=...`)を埋め込めるため、決済後に
+ * どの予約の決済かを確実に特定できる。生成した注文ID(orderId)を予約に保存し、
+ * 戻り後に COMPLETED/金額を `verifySquareOrderPayment` で照合する。
+ * @returns { url, orderId }
+ * @throws 生成失敗時にエラー
+ */
+export async function createReservationPaymentLink({
+  amount,
+  name,
+  redirectUrl,
+}: {
+  amount: number;
+  name: string;
+  redirectUrl: string;
+}): Promise<{ url: string; orderId: string }> {
+  const client = getSquareClient();
+  const { randomUUID } = await import("crypto");
+  const res = await client.checkout.paymentLinks.create({
+    idempotencyKey: randomUUID(),
+    quickPay: {
+      name,
+      priceMoney: { amount: BigInt(amount), currency: "JPY" },
+      locationId: getSquareLocationId(),
+    },
+    checkoutOptions: { redirectUrl },
+  });
+  const link = res.paymentLink;
+  if (!link?.url || !link?.orderId) {
+    throw new Error("決済リンクの生成に失敗しました");
+  }
+  return { url: link.url, orderId: link.orderId };
 }
 
 /**

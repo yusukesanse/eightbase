@@ -3,32 +3,9 @@
  * SDK を使わず fetch で直接呼び出す軽量実装
  */
 
+import { liffUrl } from "./liffUrl";
+
 const LINE_API_BASE = "https://api.line.me/v2/bot";
-
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || "";
-
-/**
- * Messaging API の uri action 用 URL を生成する。
- * 通常URL（Safari 等の外部ブラウザで開く）ではなく **LIFF URL** にして、
- * LINEミニアプリとして開かせる。
- *
- * LIFF ID は環境ごとの値を使う（本番=prod / demo=demo。各Vercelプロジェクトが
- * 自環境のLIFF IDを設定している）。万一 LIFF ID 未設定のときだけ通常URLへ
- * フォールバックし、リンク自体は壊さない。
- *
- * ⚠️ 通知ボタンには PORTAL_URL を直接入れず、必ずこの helper を経由すること
- *    （ブラウザで開いてしまうミスの再発防止）。
- */
-function liffUrl(path: string): string {
-  const liffId =
-    process.env.NEXT_PUBLIC_LIFF_ID_PROD ||
-    process.env.NEXT_PUBLIC_LIFF_ID ||
-    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW ||
-    "";
-  const clean = path.startsWith("/") ? path : `/${path}`;
-  if (!liffId) return `${PORTAL_URL}${clean}`;
-  return `https://liff.line.me/${liffId}${clean}`;
-}
 
 async function pushMessage(userId: string, messages: object[]) {
   const res = await fetch(`${LINE_API_BASE}/message/push`, {
@@ -150,6 +127,36 @@ export async function sendReservationConfirmed(
           ],
         },
       },
+    },
+  ]);
+}
+
+// ─── トレーラー: 解錠コード通知 ──────────────────────────────────────────────
+export async function sendTrailerPasscodeNotice(
+  lineUserId: string,
+  {
+    facilityName,
+    date,
+    startTime,
+    endTime,
+    passcode,
+  }: {
+    facilityName: string;
+    date: string;        // YYYY-MM-DD
+    startTime: string;   // HH:MM
+    endTime: string;
+    passcode: string;
+  }
+) {
+  const dateLabel = formatDate(date);
+  await pushMessage(lineUserId, [
+    {
+      type: "text",
+      text:
+        `🔑 ${facilityName} 解錠コード\n\n` +
+        `コード: ${passcode}\n` +
+        `有効: ${dateLabel} ${startTime}〜${endTime}\n\n` +
+        `※予約時間中のみ有効な使い捨てコードです。終了後は無効になります。`,
     },
   ]);
 }

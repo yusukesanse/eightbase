@@ -379,6 +379,9 @@ export default function ReservationPage() {
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [termsRead, setTermsRead] = useState(false);   // 規約を最後までスクロールしたか
   const [showTermsModal, setShowTermsModal] = useState(false);
+  // トレーラー決済（仮押さえ→決済URL遷移）
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const needsTerms = selectedFacility?.requireTerms ?? false;
 
   // 施設変更時にリセット
@@ -396,8 +399,11 @@ export default function ReservationPage() {
     }
   }
 
-  // ─── 課金関連（現在無効） ─────────────────────────────────────────────────
-  const needsPayment = selectedFacility?.requirePayment ?? false;
+  // ─── 課金関連 ─────────────────────────────────────────────────────────────
+  // 決済額(paymentAmount)が設定された施設は「決済する」フロー（予約ごとに動的Square決済リンクを生成）。
+  const isTrailer = !!(selectedFacility?.paymentAmount && selectedFacility.paymentAmount > 0);
+  // 旧 requirePayment（オンライン不可）のブロックは決済施設でないときのみ。
+  const needsPayment = (selectedFacility?.requirePayment ?? false) && !isTrailer;
 
   // ─── 予約確定へ ────────────────────────────────────────────────────────────
   function handleConfirm() {
@@ -412,6 +418,39 @@ export default function ReservationPage() {
     });
     if (termsAgreed) params.set("termsAgreed", "true");
     router.push(`/reservation/confirm?${params.toString()}`);
+  }
+
+  // ─── トレーラー: 決済する（仮押さえ → 決済URLへ遷移） ──────────────────────────
+  async function handlePay() {
+    if (!isTrailer || !selectedFacility || !selectedDate || !selStart || !selEnd) return;
+    if (needsTerms && !termsAgreed) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const res = await fetch("/api/reservations/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          facilityId: selectedFacility.id,
+          date: selectedDate,
+          startTime: selStart,
+          endTime: selEnd,
+          ...(termsAgreed ? { termsAgreed: true } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.paymentUrl) {
+        setPayError(data.message || "仮押さえに失敗しました。時間を変えてお試しください。");
+        setPaying(false);
+        return;
+      }
+      // 同一webviewで決済URLへ遷移（決済後は /reservation/complete に戻る）。
+      window.location.href = data.paymentUrl as string;
+    } catch {
+      setPayError("通信エラーが発生しました。");
+      setPaying(false);
+    }
   }
 
   const canConfirm = !!(selectedFacility && selectedDate && selStart && selEnd && (!needsTerms || termsAgreed) && !needsPayment);
@@ -817,24 +856,41 @@ export default function ReservationPage() {
               )
             )}
 
-            {/* 有料施設は予約不可（決済準備中） */}
+            {/* 有料施設は予約不可（旧 requirePayment・決済URL未設定時のみ） */}
             {needsPayment && (
               <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
                 <p className="text-xs text-amber-700">オンライン決済は現在準備中です。管理者にお問い合わせください。</p>
               </div>
             )}
 
+            {/* トレーラー: 決済額の案内 */}
+            {isTrailer && selectedFacility?.paymentAmount ? (
+              <p className="text-xs text-[#231714]/60 text-center">
+                決済額 ¥{selectedFacility.paymentAmount.toLocaleString()}（税込）／ 決済後に解錠コードが表示されます
+              </p>
+            ) : null}
+
+            {payError && (
+              <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
+                <p className="text-xs text-red-600">{payError}</p>
+              </div>
+            )}
+
             <button
-              onClick={handleConfirm}
-              disabled={!canConfirm}
+              onClick={isTrailer ? handlePay : handleConfirm}
+              disabled={!canConfirm || paying}
               className={clsx(
                 "w-full py-3.5 rounded-2xl text-sm font-bold transition-all",
-                canConfirm
+                canConfirm && !paying
                   ? "bg-[#B0E401] text-[#231714] active:scale-[0.98] shadow-sm shadow-[#B0E401]/20"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
               )}
             >
-              予約内容を確認する
+              {paying
+                ? "決済へ移動中..."
+                : isTrailer
+                  ? `決済する${selectedFacility?.paymentAmount ? `（¥${selectedFacility.paymentAmount.toLocaleString()}）` : ""}`
+                  : "予約内容を確認する"}
             </button>
           </div>
         ) : (

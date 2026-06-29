@@ -170,33 +170,59 @@ function ReservationCard({
   const endDt = dayjs(`${r.date}T${r.endTime}:00`);
   const canCancel = !isPast && dayjs().isBefore(endDt);
 
+  // トレーラー等（決済済み）: 解錠コードと取消ラベルを出し分け
+  const isTrailer = !!(r.switchBotPasscode || r.paymentTransactionId);
+  const showPasscode = !isPast && !!r.switchBotPasscode;
+  const passcodeFailed = !isPast && r.switchBotStatus === "failed" && !r.switchBotPasscode;
+
   return (
     <div
       className={clsx(
-        "bg-white rounded-xl border p-3 flex items-center gap-3",
+        "bg-white rounded-xl border p-3",
         isPast ? "border-gray-100 opacity-60" : "border-gray-100"
       )}
     >
-      <div
-        className={clsx(
-          "w-2 h-2 rounded-full flex-shrink-0",
-          isPast ? "bg-gray-300" : "bg-[#A5C1C8]"
+      <div className="flex items-center gap-3">
+        <div
+          className={clsx(
+            "w-2 h-2 rounded-full flex-shrink-0",
+            isPast ? "bg-gray-300" : "bg-[#A5C1C8]"
+          )}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-800">{r.facilityName}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {dateLabel}　{r.startTime}〜{r.endTime}
+          </p>
+        </div>
+        {canCancel && (
+          <button
+            onClick={() => onCancel(r.reservationId)}
+            disabled={cancelling}
+            className="text-[11px] text-red-500 border border-red-200 rounded-lg px-2.5 py-1.5 flex-shrink-0 disabled:opacity-50"
+          >
+            {cancelling ? "処理中..." : isTrailer ? "予約取消（返金）" : "キャンセル"}
+          </button>
         )}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800">{r.facilityName}</p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          {dateLabel}　{r.startTime}〜{r.endTime}
-        </p>
       </div>
-      {canCancel && (
-        <button
-          onClick={() => onCancel(r.reservationId)}
-          disabled={cancelling}
-          className="text-[11px] text-red-500 border border-red-200 rounded-lg px-2.5 py-1.5 flex-shrink-0 disabled:opacity-50"
-        >
-          {cancelling ? "処理中..." : "キャンセル"}
-        </button>
+
+      {showPasscode && (
+        <div className="mt-3 rounded-xl border border-[#2f7d57]/40 bg-[#2f7d57]/5 px-3 py-2.5 text-center">
+          <div className="text-[10px] font-extrabold text-[#2f7d57]">解錠コード</div>
+          <div className="text-[22px] font-black tabular-nums tracking-[0.15em] text-[#1c1f21]">
+            {r.switchBotPasscode}
+          </div>
+          <div className="text-[10px] text-gray-400">
+            {r.startTime}〜{r.endTime} のみ有効
+          </div>
+        </div>
+      )}
+      {passcodeFailed && (
+        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-center">
+          <p className="text-[11px] text-amber-700">
+            解錠コードを発行中です。表示されない場合は管理者へお問い合わせください。
+          </p>
+        </div>
       )}
     </div>
   );

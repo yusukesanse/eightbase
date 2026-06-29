@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { requireActiveUser } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { buildDummyRanking } from "@/lib/previewDummy";
@@ -21,7 +21,7 @@ const VALID_GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "da
 export async function GET(req: NextRequest) {
   try {
     // 公開しない（active ユーザーのみ）
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

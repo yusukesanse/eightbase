@@ -33,14 +33,19 @@ export interface Facility {
   requireTerms?: boolean;  // true=予約前に利用規約への同意が必要
   termsContent?: string;   // 利用規約の本文（改行対応）
   // ── 課金設定 ──
-  requirePayment?: boolean;  // true=予約時にSquare決済が必要
+  requirePayment?: boolean;  // true=予約時にSquare決済が必要（旧仕様・現状オンライン不可）
   hourlyRate?: number;       // 時間単価（円/時間）
+  // ── 決済（予約ごとに動的Square決済リンクを生成／任意の施設で再利用可） ──
+  paymentAmount?: number;    // 決済額（円・税込）。設定で「決済する」化＋Square API照合の金額チェックに使用
+  // ── 解錠（SwitchBot時限パスコード・能力フィールド） ──
+  switchBotDeviceId?: string; // キーパッド/ロックのデバイスID。あれば予約ごとに時限パスコードを発行
   createdAt?: string;  // ISO8601
   updatedAt?: string;  // ISO8601
 }
 
 // ─── 予約 ────────────────────────────────────────────────────────────────────
-export type ReservationStatus = "confirmed" | "cancelled";
+// pending_payment: 決済前の仮押さえ（TTLで自動解放）。confirmed: 確定。cancelled: 取消。
+export type ReservationStatus = "confirmed" | "cancelled" | "pending_payment";
 
 export interface Reservation {
   reservationId: string;
@@ -58,6 +63,14 @@ export interface Reservation {
   paymentId?: string;       // Square Payment ID
   paymentAmount?: number;   // 決済金額（円）
   paymentStatus?: "completed" | "failed" | "refunded";
+  // ── Square決済URL方式（トレーラー等） ──
+  pendingExpiresAt?: string;     // pending_payment の仮押さえ失効 ISO8601（TTL・決済成功でクリア）
+  paymentTransactionId?: string; // Square取引ID（再利用防止のため一意に保つ）
+  // ── 解錠（SwitchBot時限パスコード） ──
+  switchBotPasscode?: string;          // 発行した時限パスワード（6桁・本人にのみ表示）
+  switchBotKeyId?: number;             // SwitchBotが返すキーID（deleteKey用）
+  switchBotPasscodeExpiresAt?: string; // パスコード失効（=予約終了）ISO8601
+  switchBotStatus?: "issued" | "pending" | "failed"; // 発行状態（failed=要手動再発行）
   createdAt: string;
 }
 

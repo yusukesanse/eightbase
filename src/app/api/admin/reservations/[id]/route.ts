@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { buildReservationSlotKey } from "@/lib/reservations";
+import { deletePasscode } from "@/lib/switchbot";
+import { getFacilityById } from "@/lib/facilities";
 
 export const dynamic = "force-dynamic";
-
-function buildReservationSlotKey(
-  facilityId: string,
-  date: string,
-  startTime: string,
-  endTime: string
-): string {
-  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
-}
 
 /**
  * DELETE /api/admin/reservations/[id]
@@ -41,15 +35,12 @@ export async function DELETE(
     }
 
     const data = doc.data()!;
+    const facility = await getFacilityById(data.facilityId);
 
     // Google Calendar のイベントを削除（失敗してもFirestoreは更新する）
-    if (data.googleEventId) {
+    if (data.googleEventId && facility) {
       try {
-        const { getFacilityById } = await import("@/lib/facilities");
-        const facility = await getFacilityById(data.facilityId);
-        if (facility) {
-          await deleteCalendarEvent(facility.calendarId, data.googleEventId);
-        }
+        await deleteCalendarEvent(facility.calendarId, data.googleEventId);
       } catch (calErr) {
         console.error("[admin/reservations] Calendar delete error:", calErr);
       }
@@ -67,6 +58,15 @@ export async function DELETE(
       tx.update(docRef, { status: "cancelled", cancelledAt: new Date().toISOString() });
       tx.delete(slotRef);
     });
+
+    // トレーラー等: 管理者キャンセルでも解錠コードを即時無効化（残存させない）。
+    if (data.switchBotKeyId && facility?.switchBotDeviceId) {
+      try {
+        await deletePasscode(facility.switchBotDeviceId, data.switchBotKeyId as number);
+      } catch (err) {
+        console.error("[admin/reservations] passcode revoke failed:", err);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

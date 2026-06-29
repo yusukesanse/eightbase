@@ -35,6 +35,126 @@ export function intervalsOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
+/** reservationLocks の1件（重なり判定に使う最小形）。 */
+export interface LockLike {
+  status?: string;
+  startTime?: string;
+  endTime?: string;
+  /** 決済前 pending の失効時刻 ISO8601。これを過ぎた pending は「空き」扱い（TTL解放）。 */
+  pendingExpiresAt?: string;
+}
+
+/**
+ * このロックが新規予約をブロックするか。
+ * - cancelled は非ブロッキング。
+ * - pendingExpiresAt があり now を過ぎていれば非ブロッキング（決済未了で失効＝空き扱い）。
+ * - それ以外はブロッキング（confirmed / 未失効の pending）。
+ */
+export function isLockBlocking(lock: LockLike, nowIso: string): boolean {
+  if (lock.status === "cancelled") return false;
+  // TTL解放は pending のみ。confirmed は pendingExpiresAt が残っていても常にブロッキング。
+  if (lock.status === "pending" && lock.pendingExpiresAt && lock.pendingExpiresAt <= nowIso) {
+    return false;
+  }
+  return true;
+}
+
+/** 予約の日付(YYYY-MM-DD)+時刻(HH:MM)を JST として epoch ms に変換（SwitchBot有効期間用）。 */
+export function reservationEpochMs(date: string, time: string): number {
+  return new Date(`${date}T${time}:00+09:00`).getTime();
+}
+
+/** reservationLocks のドキュメントID（facilityId_date_start_end をURLエンコード）。全経路で共用。 */
+export function buildReservationSlotKey(
+  facilityId: string,
+  date: string,
+  startTime: string,
+  endTime: string
+): string {
+  return encodeURIComponent(`${facilityId}_${date}_${startTime}_${endTime}`);
+}
+
+/**
+ * 決済前の仮押さえ（pending_payment）でブロック中のスロットを返す（空き表示への反映用）。
+ * これらは Google Calendar にイベントを作らない（確定時に作る）ため、別途取得して空き表示に足す。
+ * confirmed のロックは Calendar 側に出るのでここには含めない（getBookedSlots と二重計上しない）。
+ */
+export async function getPendingLockedSlots(
+  db: FirebaseFirestore.Firestore,
+  facilityId: string,
+  date: string,
+  nowIso: string
+): Promise<{ start: string; end: string }[]> {
+  const snap = await db
+    .collection("reservationLocks")
+    .where("facilityId", "==", facilityId)
+    .where("date", "==", date)
+    .get();
+  const out: { start: string; end: string }[] = [];
+  for (const doc of snap.docs) {
+    const l = doc.data() as {
+      startTime?: string;
+      endTime?: string;
+      status?: string;
+      pendingExpiresAt?: string;
+    };
+    if (l.status !== "pending" || !l.startTime || !l.endTime) continue;
+    // TTL 超過の pending は空き扱い（仮押さえ解放）
+    if (l.pendingExpiresAt && l.pendingExpiresAt <= nowIso) continue;
+    out.push({ start: l.startTime, end: l.endTime });
+  }
+  return out;
+}
+
+/**
+ * transaction 内で「対象スロットが空いているか」を判定し、埋まっていれば throw "ALREADY_BOOKED"。
+ * - facilityId+date の全ロックを読み、isLockBlocking かつ時間帯が overlap するものがあれば拒否。
+ * - 完全一致キーのブロッキングロックも拒否（保険）。
+ * - 失効した pending（TTL超過）は空き扱い（isLockBlocking が false）。
+ * 通常予約POST・トレーラー仮押さえの両方で共用し、ロック解釈を一本化する。
+ */
+export async function assertSlotFreeInTx(
+  tx: FirebaseFirestore.Transaction,
+  db: FirebaseFirestore.Firestore,
+  params: {
+    facilityId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    nowIso: string;
+  }
+): Promise<void> {
+  const { facilityId, date, startTime, endTime, nowIso } = params;
+  const reqStart = timeToMin(startTime);
+  const reqEnd = timeToMin(endTime);
+
+  const locksSnap = await tx.get(
+    db
+      .collection("reservationLocks")
+      .where("facilityId", "==", facilityId)
+      .where("date", "==", date)
+  );
+  for (const lockDoc of locksSnap.docs) {
+    const l = lockDoc.data();
+    if (!isLockBlocking(l, nowIso)) continue;
+    if (
+      typeof l.startTime === "string" &&
+      typeof l.endTime === "string" &&
+      intervalsOverlap(reqStart, reqEnd, timeToMin(l.startTime), timeToMin(l.endTime))
+    ) {
+      throw new Error("ALREADY_BOOKED");
+    }
+  }
+
+  const slotRef = db
+    .collection("reservationLocks")
+    .doc(buildReservationSlotKey(facilityId, date, startTime, endTime));
+  const slotDoc = await tx.get(slotRef);
+  if (slotDoc.exists && isLockBlocking(slotDoc.data() ?? {}, nowIso)) {
+    throw new Error("ALREADY_BOOKED");
+  }
+}
+
 export type SlotValidationReason =
   | "INVALID_RANGE"
   | "PAST_DATE"

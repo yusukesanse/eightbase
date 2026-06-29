@@ -1,20 +1,30 @@
 /**
  * 利用者認証ヘルパー（portal API 認可の統一窓口）
  *
- * requireActiveUser(req):
- *   セッションから lineUserId を取得し、authorizedUsers で active=true を確認。
- *   無効/未登録ユーザーは null を返す。一覧・詳細などの「閲覧系」API で使う。
+ * 身分は authorizedUsers.role で表す（"member" | "guest"。role 未設定の既存レコードは member 扱い）。
  *
- * requireProfileComplete(req):
- *   上記に加え authorizedUsers.profileComplete=true を要求する。
- *   投稿・予約・麻雀（参加表明/申告）など「プロフィール登録後にのみ許可する操作系」API で使う。
+ * requireGameUser(req):
+ *   active なユーザーなら role 不問（member も guest も可）。profileComplete は要求しない。
+ *   麻雀リーグ/CS/ランキングなど「ゲーム機能」API で使う（ゲストに開放する対象）。
+ *
+ * requireMember(req):
+ *   active かつ role !== "guest"（＝会員のみ。ゲストを除外）。会員専用の閲覧系 API で使う。
+ *
+ * requireMemberProfileComplete(req):
+ *   上記に加え profileComplete=true を要求。投稿・予約など会員専用の操作系 API で使う。
+ *
+ * requireActiveUser / requireProfileComplete:
+ *   後方互換の別名。**ゲストを除外する**（= requireMember / requireMemberProfileComplete に委譲）。
+ *   ゲストに開くゲーム系 API は requireGameUser へ明示的に付け替えること（既定は安全側＝ゲスト遮断）。
  *
  * いずれもプレビューモードでは GET/HEAD/OPTIONS のみ仮ユーザーを返す（読み取り専用）。
+ * 認証バイパス（demo/開発・本番無効）時は固定テストユーザーを通す。
  */
 
 import type { NextRequest } from "next/server";
 import { getSessionUserId } from "./session";
 import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
+import { isAuthBypassEnabled, DEMO_BYPASS_USER_ID } from "./env";
 import { getDb } from "./firebaseAdmin";
 
 /**
@@ -35,12 +45,23 @@ async function getActiveAuthorizedUser(
   return snap.docs[0].data();
 }
 
-export async function requireActiveUser(
+/**
+ * session / 認証バイパス / プレビューを解決し、active なユーザーを返す共通プロローグ。
+ * - バイパス/プレビューは「仮ユーザー」で user=null（role/profile チェックの対象外＝従来どおり通す）。
+ * - 実ユーザーは authorizedUsers の active レコードを user に入れて返す。
+ * 解決できなければ null。
+ */
+async function resolveActiveUser(
   req: NextRequest
-): Promise<string | null> {
+): Promise<{ lineUserId: string; user: FirebaseFirestore.DocumentData | null } | null> {
+  // demo/開発: 認証バイパス（本番では常に無効）
+  if (isAuthBypassEnabled()) return { lineUserId: DEMO_BYPASS_USER_ID, user: null };
+
   // プレビューモード: 読み取り専用で仮ユーザー
   if (await isPreviewMode(req)) {
-    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return PREVIEW_USER_ID;
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      return { lineUserId: PREVIEW_USER_ID, user: null };
+    }
     return null;
   }
 
@@ -50,24 +71,52 @@ export async function requireActiveUser(
   const user = await getActiveAuthorizedUser(lineUserId);
   if (!user) return null;
 
-  return lineUserId;
+  return { lineUserId, user };
 }
 
-export async function requireProfileComplete(
+/** role==="guest" か（user=null の仮ユーザーは guest 扱いしない）。 */
+function isGuest(user: FirebaseFirestore.DocumentData | null): boolean {
+  return user?.role === "guest";
+}
+
+/**
+ * ゲーム機能用: active なら member/guest どちらでも可。profileComplete は要求しない。
+ */
+export async function requireGameUser(req: NextRequest): Promise<string | null> {
+  const r = await resolveActiveUser(req);
+  return r ? r.lineUserId : null;
+}
+
+/**
+ * 会員専用（閲覧系）: active かつ role!=="guest"。ゲストを除外する。
+ */
+export async function requireMember(req: NextRequest): Promise<string | null> {
+  const r = await resolveActiveUser(req);
+  if (!r) return null;
+  if (isGuest(r.user)) return null;
+  return r.lineUserId;
+}
+
+/**
+ * 会員専用＋プロフィール完了（投稿/予約など操作系）。ゲスト除外＋profileComplete。
+ */
+export async function requireMemberProfileComplete(
   req: NextRequest
 ): Promise<string | null> {
-  // プレビューモード: 読み取り専用で仮ユーザー（操作系は基本 GET 以外なので拒否される）
-  if (await isPreviewMode(req)) {
-    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return PREVIEW_USER_ID;
-    return null;
-  }
-
-  const lineUserId = await getSessionUserId(req);
-  if (!lineUserId) return null;
-
-  const user = await getActiveAuthorizedUser(lineUserId);
-  if (!user) return null;
-  if (!user.profileComplete) return null;
-
-  return lineUserId;
+  const r = await resolveActiveUser(req);
+  if (!r) return null;
+  if (isGuest(r.user)) return null;
+  // 仮ユーザー(user=null=バイパス/プレビュー)は profileComplete チェック対象外（従来どおり）
+  if (r.user && !r.user.profileComplete) return null;
+  return r.lineUserId;
 }
+
+/**
+ * @deprecated 会員機能は requireMember を使う。ゲストを除外する点が新しい（後方互換の別名）。
+ */
+export const requireActiveUser = requireMember;
+
+/**
+ * @deprecated 会員操作は requireMemberProfileComplete を使う（後方互換の別名）。
+ */
+export const requireProfileComplete = requireMemberProfileComplete;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireActiveUser } from "@/lib/auth";
+import { requireGameUser } from "@/lib/auth";
 import { computePlayerHistory, getActiveSeason } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyPlayerHistory } from "@/lib/previewDummy";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * 指定プレイヤーの、指定シーズン（未指定はアクティブ）の戦歴。
  * 順位リストのタップから開く戦歴ビュー用。
  *
- * 認可: requireActiveUser（閲覧系。リーグの公開競技データ）。
+ * 認可: requireGameUser（閲覧系。リーグの公開競技データ）。
  *   ※ ゲスト機能着手時に requireGameUser へ切替予定（ゲストも閲覧対象/閲覧者になる）。
  */
 export async function GET(
@@ -19,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ lineUserId: string }> }
 ) {
   try {
-    const userId = await requireActiveUser(req);
+    const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
