@@ -17,7 +17,7 @@ function GuestInner() {
   const router = useRouter();
   const code = params.get("code") || "";
 
-  const [phase, setPhase] = useState<"loading" | "needs-line" | "confirm" | "error">("loading");
+  const [phase, setPhase] = useState<"loading" | "needs-line" | "confirm" | "tip" | "error">("loading");
   const [statusText, setStatusText] = useState("LINEと連携しています…");
   const [name, setName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -107,7 +107,43 @@ function GuestInner() {
       /* 名前保存失敗でもゲームには入れる */
     }
     setSaving(false);
-    goGame();
+    setPhase("tip"); // 登録完了 → 次回の開き方を案内
+  }
+
+  // ── 登録完了 + 次回の開き方の案内 ──
+  if (phase === "tip") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <div className="text-center mb-4">
+            <div className="w-12 h-12 rounded-full bg-[#EAF7C9] flex items-center justify-center mx-auto mb-3">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6f9023" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+            </div>
+            <h1 className="text-base font-bold text-[#1c1f21]">登録が完了しました</h1>
+          </div>
+
+          <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/80 leading-relaxed">
+            <p className="font-bold text-[#1c1f21] mb-1.5">次回の開き方</p>
+            <p className="mb-2">
+              次にこのページを開くときは、<strong>LINEアプリの「ホーム」</strong>を開き、
+              <strong>「ミニアプリ（最近使ったサービス）」</strong>から「EIGHT BASE」を選んでください。
+            </p>
+            <p className="text-xs text-[#231714]/55">
+              ※ お送りした招待メールのリンクからも、いつでも開けます。
+            </p>
+          </div>
+
+          <button
+            onClick={goGame}
+            className="mt-5 w-full py-3 rounded-2xl text-sm font-bold bg-[#2f7d57] text-white"
+          >
+            麻雀リーグを開く
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // ── 氏名確認画面 ──
