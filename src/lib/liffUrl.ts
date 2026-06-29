@@ -1,3 +1,5 @@
+import { getAppEnv } from "./env";
+
 /**
  * LINEミニアプリ(LIFF)として開くURLを生成する共通ヘルパー（サーバー側）。
  *
@@ -5,16 +7,25 @@
  * 「LINEミニアプリの中で開く／戻す」を実現する。用途:
  *   - Messaging API の通知ボタン（マイ予約 / コンテンツ公開 / 掲示板 / CS）
  *   - Square 決済後のリダイレクト先（決済を終えてミニアプリに戻す）
+ *   - ゲスト招待のワンタイムURL（/guest?code=）
  *
- * LIFF ID は環境ごとの値を使う（本番=prod / demo=demo。各Vercelプロジェクトが自環境の
- * LIFF IDを設定している）。万一 LIFF ID 未設定のときだけ PORTAL_URL の通常URLへフォールバック
- * してリンク自体は壊さない。
- *
- * ⚠️ 通知ボタンや決済リダイレクトに PORTAL_URL を直接入れず、必ずこの helper を経由すること
- *    （ブラウザで開いてしまうミスの再発防止）。
+ * ⚠️ LIFF ID は **クライアントの detectEnv(liff.ts) と一致** させる必要がある（URLのLIFF IDと
+ *    liff.init のLIFF IDが食い違うと LIFF 初期化に失敗するため）。クライアントは host で判定する:
+ *      本番ドメイン→prod / *.vercel.app→review / localhost→dev
+ *    サーバー側は同等の対応を APP_ENV で行う:
+ *      production→_PROD / demo(=*.vercel.app=review)→_REVIEW / local→base(_DEV)
+ *    対応する値が無ければ安全なフォールバック、最後は PORTAL_URL の通常URLにしてリンクは壊さない。
  */
 export function liffUrl(path: string): string {
+  const appEnv = getAppEnv();
+  const byEnv =
+    appEnv === "production"
+      ? process.env.NEXT_PUBLIC_LIFF_ID_PROD
+      : appEnv === "demo"
+        ? process.env.NEXT_PUBLIC_LIFF_ID_REVIEW
+        : process.env.NEXT_PUBLIC_LIFF_ID;
   const liffId =
+    byEnv ||
     process.env.NEXT_PUBLIC_LIFF_ID_PROD ||
     process.env.NEXT_PUBLIC_LIFF_ID ||
     process.env.NEXT_PUBLIC_LIFF_ID_REVIEW ||
