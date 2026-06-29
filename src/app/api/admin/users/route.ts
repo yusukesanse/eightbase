@@ -140,6 +140,7 @@ export async function GET(req: NextRequest) {
         tenantName: d.tenantName,
         lineUserId: d.lineUserId ?? null,
         active: d.active,
+        role: d.role === "guest" ? "guest" : "member",
         profileComplete: !!d.profileComplete,
         profile: d.profile ?? null,
         pictureUrl: lineData?.pictureUrl ?? null,
@@ -165,8 +166,11 @@ export async function GET(req: NextRequest) {
 
 /**
  * PATCH /api/admin/users
- * ユーザーのステータス変更（有効化/無効化）やパスワードリセット。
- * Body: { id, active?, newPassword? }
+ * ユーザーのステータス変更（有効化/無効化）・パスワードリセット・会員昇格。
+ * Body: { id, active?, newPassword?, role? }
+ *
+ * role を "member" にするとゲストを会員に昇格できる（同一 lineUserId のレコードを更新する
+ * ため、過去のリーグ戦績は lineUserId 起点でそのまま継承される）。
  */
 export async function PATCH(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
@@ -174,7 +178,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, active, newPassword } = await req.json();
+    const { id, active, newPassword, role } = await req.json();
     if (!id) {
       return NextResponse.json({ error: "id は必須です" }, { status: 400 });
     }
@@ -188,6 +192,7 @@ export async function PATCH(req: NextRequest) {
 
     const updates: Record<string, unknown> = {};
     if (active !== undefined) updates.active = active;
+    if (role === "member" || role === "guest") updates.role = role;
     if (newPassword) {
       const salt = crypto.randomBytes(16).toString("hex");
       updates.salt = salt;
