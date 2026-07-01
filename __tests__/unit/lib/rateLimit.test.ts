@@ -2,7 +2,13 @@
  * 単体テスト: src/lib/rateLimit.ts
  * レートリミッター機能のテスト
  */
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkRateLimit,
+  getClientIp,
+  recordFailure,
+  isBlockedByFailures,
+  resetRateLimit,
+} from "@/lib/rateLimit";
 
 describe("rateLimit — レートリミッター", () => {
   // UT-RL-001: 初回リクエストはOK
@@ -51,6 +57,66 @@ describe("rateLimit — レートリミッター", () => {
     return new Promise<void>((resolve) => {
       setTimeout(() => {
         expect(checkRateLimit(key, max, windowMs)).toBe(true);
+        resolve();
+      }, 150);
+    });
+  });
+});
+
+describe("failure-based ブロック（招待コードhash単位の総当たり対策）", () => {
+  // UT-RL-101: 失敗が閾値未満ならブロックされない
+  test("失敗回数が閾値未満なら isBlockedByFailures は false", () => {
+    const key = "fail-key-101";
+    recordFailure(key, 60000);
+    recordFailure(key, 60000);
+    expect(isBlockedByFailures(key, 5)).toBe(false);
+  });
+
+  // UT-RL-102: 失敗が閾値以上でブロック
+  test("失敗回数が閾値以上で isBlockedByFailures は true", () => {
+    const key = "fail-key-102";
+    for (let i = 0; i < 5; i++) recordFailure(key, 60000);
+    expect(isBlockedByFailures(key, 5)).toBe(true);
+  });
+
+  // UT-RL-103: recordFailure は現在の失敗回数を返す
+  test("recordFailure は加算後の失敗回数を返す", () => {
+    const key = "fail-key-103";
+    expect(recordFailure(key, 60000)).toBe(1);
+    expect(recordFailure(key, 60000)).toBe(2);
+    expect(recordFailure(key, 60000)).toBe(3);
+  });
+
+  // UT-RL-104: 失敗カウンタと通常カウンタは独立（名前空間分離）
+  test("失敗カウンタは checkRateLimit のカウンタと独立している", () => {
+    const key = "fail-key-104";
+    // 通常カウンタを使い切っても失敗カウンタには影響しない
+    checkRateLimit(key, 1, 60000);
+    checkRateLimit(key, 1, 60000);
+    expect(isBlockedByFailures(key, 1)).toBe(false);
+    recordFailure(key, 60000);
+    expect(isBlockedByFailures(key, 1)).toBe(true);
+  });
+
+  // UT-RL-105: reset で失敗カウンタもクリアされる
+  test("resetRateLimit で失敗カウンタがクリアされる", () => {
+    const key = "fail-key-105";
+    for (let i = 0; i < 3; i++) recordFailure(key, 60000);
+    expect(isBlockedByFailures(key, 3)).toBe(true);
+    resetRateLimit(key);
+    expect(isBlockedByFailures(key, 3)).toBe(false);
+  });
+
+  // UT-RL-106: 窓の期限切れで失敗回数がリセットされる
+  test("窓の期限後は失敗回数がリセットされる", () => {
+    const key = "fail-key-106";
+    recordFailure(key, 100);
+    recordFailure(key, 100);
+    expect(isBlockedByFailures(key, 2)).toBe(true);
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(isBlockedByFailures(key, 2)).toBe(false);
+        expect(recordFailure(key, 100)).toBe(1); // 新しい窓で1から
         resolve();
       }, 150);
     });

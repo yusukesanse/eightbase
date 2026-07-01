@@ -6,8 +6,8 @@ import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import { Avatar } from "@/components/ui/LineContact";
 import type {
   MahjongStanding,
-  MahjongTable,
-  MahjongTableMember,
+  PublicMahjongTable,
+  PublicMahjongTableMember,
   MahjongScheduleEntry,
   MahjongSeasonSummary,
 } from "@/types";
@@ -69,7 +69,7 @@ export function MahjongLeagueView() {
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
-  const [tables, setTables] = useState<MahjongTable[]>([]);
+  const [tables, setTables] = useState<PublicMahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
   // シーズン切替（順位/戦歴の閲覧にのみ効く。参加/申告はアクティブシーズン固定）
   const [seasons, setSeasons] = useState<MahjongSeasonSummary[]>([]);
@@ -192,13 +192,11 @@ export function MahjongLeagueView() {
           schedule={schedule}
           enteredDates={enteredDates}
           tables={tables}
-          currentUserId={currentUserId}
           onChanged={loadCore}
         />
       ) : (
         <ReportTab
           tables={tables}
-          currentUserId={currentUserId}
           onChanged={loadCore}
         />
       )}
@@ -262,13 +260,11 @@ function JoinTab({
   schedule,
   enteredDates,
   tables,
-  currentUserId,
   onChanged,
 }: {
   schedule: MahjongScheduleEntry[];
   enteredDates: Set<string>;
-  tables: MahjongTable[];
-  currentUserId?: string;
+  tables: PublicMahjongTable[];
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -365,7 +361,6 @@ function JoinTab({
         <TableMembersModal
           date={viewDate}
           tables={viewTables}
-          currentUserId={currentUserId}
           onClose={() => setViewDate(null)}
         />
       )}
@@ -377,12 +372,10 @@ function JoinTab({
 function TableMembersModal({
   date,
   tables,
-  currentUserId,
   onClose,
 }: {
   date: string;
-  tables: MahjongTable[];
-  currentUserId?: string;
+  tables: PublicMahjongTable[];
   onClose: () => void;
 }) {
   const sorted = tables
@@ -410,7 +403,7 @@ function TableMembersModal({
                   第{t.round}回戦
                 </div>
               ) : null}
-              <TableBoard table={t} currentUserId={currentUserId} />
+              <TableBoard table={t} />
             </div>
           ))}
         </div>
@@ -431,14 +424,12 @@ function TableMembersModal({
 
 function ReportTab({
   tables,
-  currentUserId,
   onChanged,
 }: {
-  tables: MahjongTable[];
-  currentUserId?: string;
+  tables: PublicMahjongTable[];
   onChanged: () => void;
 }) {
-  const [reportTable, setReportTable] = useState<MahjongTable | null>(null);
+  const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
 
   if (tables.length === 0) {
     return (
@@ -456,7 +447,7 @@ function ReportTab({
   return (
     <div className="flex flex-col gap-5">
       {sorted.map((t) => {
-        const me = t.members.find((m) => m.lineUserId === currentUserId);
+        const me = t.members.find((m) => m.isCurrentUser);
         const reportedCount = t.members.filter((m) => m.points !== null).length;
         const needReport = !!me && me.points === null && t.status !== "completed";
         const reported = !!me && me.points !== null;
@@ -477,7 +468,7 @@ function ReportTab({
             </div>
 
             {/* 緑フェルトの卓 */}
-            <TableBoard table={t} currentUserId={currentUserId} />
+            <TableBoard table={t} />
 
             {/* アクション */}
             {t.status === "completed" ? (
@@ -521,7 +512,7 @@ function ReportTab({
 }
 
 /* 緑フェルトの卓ボード（席グリッド）。申告タブと参加タブの卓確定表示で共用 */
-function TableBoard({ table, currentUserId }: { table: MahjongTable; currentUserId?: string }) {
+function TableBoard({ table }: { table: PublicMahjongTable }) {
   return (
     <div
       className="rounded-[20px] p-4"
@@ -535,7 +526,7 @@ function TableBoard({ table, currentUserId }: { table: MahjongTable; currentUser
       )}
       <div className="grid grid-cols-2 gap-2.5">
         {table.members.map((m, i) => (
-          <Seat key={m.lineUserId} m={m} seat={SEATS[i] ?? ""} me={m.lineUserId === currentUserId} />
+          <Seat key={i} m={m} seat={SEATS[i] ?? ""} me={m.isCurrentUser} />
         ))}
       </div>
     </div>
@@ -543,7 +534,7 @@ function TableBoard({ table, currentUserId }: { table: MahjongTable; currentUser
 }
 
 /* 緑フェルト上の席（東南西北） */
-function Seat({ m, seat, me }: { m: MahjongTableMember; seat: string; me: boolean }) {
+function Seat({ m, seat, me }: { m: PublicMahjongTableMember; seat: string; me: boolean }) {
   const done = m.points !== null;
   return (
     <div
@@ -588,7 +579,7 @@ function ReportModal({
   onClose,
   onDone,
 }: {
-  table: MahjongTable;
+  table: PublicMahjongTable;
   onClose: () => void;
   onDone: () => void;
 }) {

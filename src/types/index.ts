@@ -397,6 +397,38 @@ export interface MahjongTable {
   updatedAt: string;
 }
 
+/**
+ * 卓メンバーの **公開用**（クライアント返却用）表現。
+ * LINE 内部ID（lineUserId）は出さず、自席判定は `isCurrentUser` で行う。
+ */
+export interface PublicMahjongTableMember {
+  displayName: string;
+  pictureUrl?: string;
+  points: number | null;
+  rank: number | null;
+  reportedAt: string | null;
+  /** この席がリクエスト元ユーザー自身か（内部IDを露出せず自席強調/申告可否に使う） */
+  isCurrentUser: boolean;
+}
+
+/**
+ * 卓の **公開用**（クライアント返却用）表現。
+ * `memberIds` / `members[].lineUserId` / `createdBy` などの内部IDは含めない。
+ */
+export interface PublicMahjongTable {
+  tableId: string;
+  seasonId: string;
+  eventDate: string;
+  status: MahjongTableStatus;
+  round?: number;
+  tableLabel?: string;
+  createdAt: string;
+  updatedAt: string;
+  members: PublicMahjongTableMember[];
+  /** リクエスト元がこの卓のメンバーか（自分の卓判定用） */
+  mine: boolean;
+}
+
 /** リーグ戦 開催日への参加表明 */
 export interface MahjongEntry {
   entryId: string;

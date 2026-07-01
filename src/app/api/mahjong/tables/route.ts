@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason } from "@/lib/mahjong";
+import { getActiveSeason, toPublicMahjongTable } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyTables } from "@/lib/previewDummy";
 import type { MahjongTable, MahjongTableMember } from "@/types";
@@ -22,9 +22,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    // プレビューモード: ダミーの卓を返す（本番には出ない）
+    // プレビューモード: ダミーの卓を返す（本番には出ない）。内部IDは露出させない。
     if (isDummyDataEnabled()) {
-      return NextResponse.json(dummyTables);
+      return NextResponse.json({
+        tables: dummyTables.tables.map((t) => toPublicMahjongTable(t, userId)),
+        seasonId: dummyTables.seasonId,
+      });
     }
 
     const season = await getActiveSeason();
@@ -48,7 +51,11 @@ export async function GET(req: NextRequest) {
 
     tables.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-    return NextResponse.json({ tables, seasonId: season.seasonId });
+    // 内部ID（memberIds/lineUserId/createdBy）を落として公開用に変換して返す。
+    return NextResponse.json({
+      tables: tables.map((t) => toPublicMahjongTable(t, userId)),
+      seasonId: season.seasonId,
+    });
   } catch (error) {
     console.error("[mahjong/tables] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });

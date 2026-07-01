@@ -20,12 +20,46 @@ export interface LineProfile {
  * アクセストークンの検証結果。
  * - "valid":   有効なトークン
  * - "expired": LINE は受理したが有効期限切れ（expires_in <= 0）
- * - "invalid": verify エンドポイントが失敗、または通信エラー
+ * - "invalid": verify エンドポイントが失敗、client_id 不一致、または通信エラー
  */
 export type LineTokenStatus = "valid" | "expired" | "invalid";
 
 /**
+ * このアプリが想定する LINE Login/LIFF チャネルID（= verify レスポンスの client_id）を返す。
+ *
+ * - 明示指定 `LINE_LOGIN_CHANNEL_ID`（カンマ区切りで複数可）があれば最優先。
+ * - 無ければ各環境の LIFF ID（`NEXT_PUBLIC_LIFF_ID(_REVIEW/_PROD)`）の
+ *   ハイフン前プレフィックス（= チャネルID）から導出する。
+ *   ※ LIFF ID は `{channelId}-{suffix}` 形式で、prefix が発行元チャネルIDに一致する。
+ *
+ * どれも設定されていない場合は空集合を返し、呼び出し側は client_id 検証をスキップする
+ * （env 未設定の開発環境で誤ってログイン不能にしないための fail-open。警告は出す）。
+ */
+export function getExpectedLineChannelIds(): Set<string> {
+  const ids = new Set<string>();
+
+  const explicit = process.env.LINE_LOGIN_CHANNEL_ID ?? "";
+  for (const raw of explicit.split(",")) {
+    const v = raw.trim();
+    if (v) ids.add(v);
+  }
+  if (ids.size > 0) return ids;
+
+  for (const liffId of [
+    process.env.NEXT_PUBLIC_LIFF_ID,
+    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW,
+    process.env.NEXT_PUBLIC_LIFF_ID_PROD,
+  ]) {
+    const prefix = (liffId ?? "").split("-")[0].trim();
+    if (prefix) ids.add(prefix);
+  }
+  return ids;
+}
+
+/**
  * LINE OAuth の verify エンドポイントでアクセストークンを検証する。
+ * 有効期限に加え、**トークンの発行元チャネル（client_id）が当アプリの想定チャネルと
+ * 一致するか**も検証する（他チャネルで発行されたトークンでの成りすまし・不正ログイン防止）。
  * 例外（通信エラー等）は握りつぶして "invalid" を返す。
  */
 export async function verifyLineAccessToken(
@@ -40,7 +74,21 @@ export async function verifyLineAccessToken(
       return "invalid";
     }
     const data = await res.json();
-    return data.expires_in > 0 ? "valid" : "expired";
+    if (!(data.expires_in > 0)) return "expired";
+
+    // client_id（発行元チャネル）が想定チャネルと一致するか検証
+    const expected = getExpectedLineChannelIds();
+    if (expected.size === 0) {
+      console.warn(
+        "[lineAuth] 想定チャネルID未設定のため client_id 検証をスキップします（LINE_LOGIN_CHANNEL_ID もしくは NEXT_PUBLIC_LIFF_ID を設定してください）"
+      );
+    } else if (!expected.has(String(data.client_id))) {
+      console.warn(
+        `[lineAuth] client_id mismatch: got="${data.client_id}" expected=${JSON.stringify(Array.from(expected))}`
+      );
+      return "invalid";
+    }
+    return "valid";
   } catch (e) {
     console.warn("[lineAuth] token verify error:", e);
     return "invalid";

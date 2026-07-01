@@ -14,9 +14,18 @@ function buildGuestInviteUrl(passcode: string): string {
   return liffUrl(`/guest?code=${encodeURIComponent(passcode)}`);
 }
 
+// 会員招待の有効期限（メール入力式のワンタイムパスワード）
 const INVITATION_EXPIRY_DAYS = 7;
+// ゲスト招待の有効期限。ゲストURLは "最初に開いた1名" が登録できる first-clicker 方式で
+// 流出時のリスクが高いため、会員より短くする（別定数）。
+const GUEST_INVITATION_EXPIRY_DAYS = 2;
 const MAX_PASSCODE_ATTEMPTS = 5;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 身分ごとの有効期限日数を返す。 */
+function expiryDaysForRole(role: "member" | "guest"): number {
+  return role === "guest" ? GUEST_INVITATION_EXPIRY_DAYS : INVITATION_EXPIRY_DAYS;
+}
 
 /**
  * GET /api/admin/invitations
@@ -133,7 +142,8 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const expiryDays = expiryDaysForRole(role);
+    const expiresAt = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);
     const nowStr = now.toISOString();
     const trimmedName = displayName.trim();
 
@@ -178,7 +188,7 @@ export async function POST(req: NextRequest) {
     let emailSent = false;
     try {
       if (role === "guest") {
-        await sendGuestInviteEmail(trimmedEmail, trimmedName, buildGuestInviteUrl(passcode));
+        await sendGuestInviteEmail(trimmedEmail, trimmedName, buildGuestInviteUrl(passcode), expiryDays);
       } else {
         await sendPasscodeEmail(trimmedEmail, trimmedName, passcode);
       }
@@ -263,8 +273,11 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    // 再発行時も身分に応じた有効期限（ゲストは短縮）でリセットする。
+    const role = data.role === "guest" ? "guest" : "member";
+    const expiryDays = expiryDaysForRole(role);
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);
 
     await docRef.update({
       passcodeHash: pHash,
@@ -275,13 +288,12 @@ export async function PATCH(req: NextRequest) {
     });
 
     // メール再送（member: パスコード / guest: ワンタイムURL）
-    const role = data.role === "guest" ? "guest" : "member";
     let emailSent = false;
     const savedEmail = data.email as string | undefined;
     if (savedEmail) {
       try {
         if (role === "guest") {
-          await sendGuestInviteEmail(savedEmail, data.displayName || "", buildGuestInviteUrl(passcode));
+          await sendGuestInviteEmail(savedEmail, data.displayName || "", buildGuestInviteUrl(passcode), expiryDays);
         } else {
           await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
         }
