@@ -15,8 +15,44 @@ import {
   type MahjongStanding,
   type MahjongTable,
   type MahjongTableMember,
+  type PublicMahjongTable,
   type ScoreboardGameId,
 } from "@/types";
+
+// ─── レスポンス sanitize ────────────────────────────────────────────────────────
+
+/**
+ * 卓を **公開用**（クライアント返却用）に変換する。
+ * LINE 内部ID（`memberIds` / `members[].lineUserId` / `createdBy`）を落とし、
+ * 自席・自卓の判定に必要な `isCurrentUser` / `mine` を **サーバー側で** 付与する。
+ *
+ * ゲスト開放APIの応答から内部IDを露出させないための唯一の変換点。
+ * ※ 内部IDが必要な管理者APIでは使わないこと。
+ */
+export function toPublicMahjongTable(
+  table: MahjongTable,
+  userId: string
+): PublicMahjongTable {
+  return {
+    tableId: table.tableId,
+    seasonId: table.seasonId,
+    eventDate: table.eventDate,
+    status: table.status,
+    round: table.round,
+    tableLabel: table.tableLabel,
+    createdAt: table.createdAt,
+    updatedAt: table.updatedAt,
+    mine: table.memberIds.includes(userId),
+    members: table.members.map((m) => ({
+      displayName: m.displayName,
+      pictureUrl: m.pictureUrl,
+      points: m.points,
+      rank: m.rank,
+      reportedAt: m.reportedAt,
+      isCurrentUser: m.lineUserId === userId,
+    })),
+  };
+}
 
 // ─── 検証 ─────────────────────────────────────────────────────────────────────
 

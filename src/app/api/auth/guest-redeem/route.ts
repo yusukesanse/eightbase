@@ -1,13 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Firestore } from "firebase-admin/firestore";
 import { signSession, setSessionCookie } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { hashPasscode } from "@/lib/passcode";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkRateLimit,
+  getClientIp,
+  recordFailure,
+  isBlockedByFailures,
+} from "@/lib/rateLimit";
 import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
 
 export const dynamic = "force-dynamic";
 
 const INVALID_MSG = "この招待リンクは無効です（使用済み・期限切れの可能性があります）";
+const TOO_MANY_MSG = "リクエストが多すぎます。しばらく待ってからお試しください";
+
+// レートリミット窓（10分）
+const RL_WINDOW_MS = 10 * 60 * 1000;
+// 招待コードhash単位: 総試行上限（window内）と、失敗が続いたら一時拒否する閾値
+const CODE_MAX_ATTEMPTS = 10;
+const CODE_MAX_FAILURES = 5;
+
+/**
+ * 既に登録済みの **有効な** LINE ユーザーとしてログインさせる。
+ * - 招待トークンを消費しない（会員/ゲスト両対応・無駄打ち防止）。
+ * - active な authorizedUsers が無ければ null（＝ここではログインさせない）。
+ *
+ * 直叩き・並行リダンプ時に、無効化済み(active=false)ユーザーを誤ってログインさせないための共通経路。
+ */
+async function loginExistingActiveUser(
+  db: Firestore,
+  lineUserId: string,
+  linePictureUrl: string,
+  lineDisplayName: string,
+  nowIso: string
+): Promise<NextResponse | null> {
+  const existing = await db
+    .collection("authorizedUsers")
+    .where("lineUserId", "==", lineUserId)
+    .where("active", "==", true)
+    .limit(1)
+    .get();
+  if (existing.empty) return null;
+
+  const ex = existing.docs[0].data();
+  await db.collection("users").doc(lineUserId).set(
+    { lineUserId, pictureUrl: linePictureUrl, lineDisplayName, updatedAt: nowIso },
+    { merge: true }
+  );
+  const sessionToken = await signSession(lineUserId);
+  const res = NextResponse.json({
+    success: true,
+    alreadyRegistered: true,
+    role: ex.role === "guest" ? "guest" : "member",
+    displayName: ex.displayName ?? lineDisplayName,
+  });
+  setSessionCookie(res, sessionToken);
+  return res;
+}
 
 /**
  * POST /api/auth/guest-redeem
@@ -31,11 +82,20 @@ export async function POST(req: NextRequest) {
 
     // ── IP レートリミット ──
     const clientIp = getClientIp(req);
-    if (!checkRateLimit(`guest:ip:${clientIp}`, 10, 10 * 60 * 1000)) {
-      return NextResponse.json(
-        { error: "リクエストが多すぎます。しばらく待ってからお試しください" },
-        { status: 429 }
-      );
+    if (!checkRateLimit(`guest:ip:${clientIp}`, 10, RL_WINDOW_MS)) {
+      return NextResponse.json({ error: TOO_MANY_MSG }, { status: 429 });
+    }
+
+    // ── 招待コードhash単位のレートリミット（コード総当たり対策） ──
+    // 平文コードではなく hash をキーにする（ログ/メモリに平文を残さない）。
+    const pHash = hashPasscode(code);
+    const codeKey = `guest:code:${pHash}`;
+    // 失敗が続いているコードは一時拒否（有効/無効を問わず総当たりを止める）。
+    if (
+      isBlockedByFailures(codeKey, CODE_MAX_FAILURES) ||
+      !checkRateLimit(codeKey, CODE_MAX_ATTEMPTS, RL_WINDOW_MS)
+    ) {
+      return NextResponse.json({ error: TOO_MANY_MSG }, { status: 429 });
     }
 
     // ── LINE アクセストークン検証 → プロフィール取得 ──
@@ -54,48 +114,32 @@ export async function POST(req: NextRequest) {
     const lineDisplayName = profile.displayName;
     const linePictureUrl = profile.pictureUrl;
 
-    if (!checkRateLimit(`guest:line:${lineUserId}`, 5, 10 * 60 * 1000)) {
-      return NextResponse.json(
-        { error: "リクエストが多すぎます。しばらく待ってからお試しください" },
-        { status: 429 }
-      );
+    if (!checkRateLimit(`guest:line:${lineUserId}`, 5, RL_WINDOW_MS)) {
+      return NextResponse.json({ error: TOO_MANY_MSG }, { status: 429 });
     }
 
     const db = getDb();
     const nowIso = new Date().toISOString();
 
-    // ── 既にこのLINEが登録済みなら、トークンを消費せずログイン（会員/ゲスト両方） ──
-    const existing = await db
-      .collection("authorizedUsers")
-      .where("lineUserId", "==", lineUserId)
-      .where("active", "==", true)
-      .limit(1)
-      .get();
-    if (!existing.empty) {
-      const ex = existing.docs[0].data();
-      await db.collection("users").doc(lineUserId).set(
-        { lineUserId, pictureUrl: linePictureUrl, lineDisplayName, updatedAt: nowIso },
-        { merge: true }
-      );
-      const sessionToken = await signSession(lineUserId);
-      const res = NextResponse.json({
-        success: true,
-        alreadyRegistered: true,
-        role: ex.role === "guest" ? "guest" : "member",
-        displayName: ex.displayName ?? lineDisplayName,
-      });
-      setSessionCookie(res, sessionToken);
-      return res;
-    }
+    // ── 既にこのLINEが登録済み(active)なら、トークンを消費せずログイン（会員/ゲスト両方） ──
+    const existingLogin = await loginExistingActiveUser(
+      db,
+      lineUserId,
+      linePictureUrl,
+      lineDisplayName,
+      nowIso
+    );
+    if (existingLogin) return existingLogin;
 
     // ── ゲスト招待を検索・原子的に消費 ──
-    const pHash = hashPasscode(code);
     const inviteSnap = await db
       .collection("invitations")
       .where("passcodeHash", "==", pHash)
       .limit(1)
       .get();
     if (inviteSnap.empty) {
+      // 存在しないコード＝総当たりの兆候。失敗として記録し閾値超で一時拒否する。
+      recordFailure(codeKey, RL_WINDOW_MS);
       return NextResponse.json({ error: INVALID_MSG }, { status: 400 });
     }
     const inviteDocRef = inviteSnap.docs[0].ref;
@@ -155,13 +199,22 @@ export async function POST(req: NextRequest) {
     });
 
     if ("error" in result) {
-      // 並行で既に登録された → そのままログインさせる（トークンは既に他で消費済み）
+      // 並行で既に登録された → 改めて active ユーザーを確認してからログインさせる。
+      // （active=false の無効化済みユーザーをそのままログインさせない・role も実データで判定）
       if (result.error === "ALREADY") {
-        const sessionToken = await signSession(lineUserId);
-        const res = NextResponse.json({ success: true, alreadyRegistered: true, role: "guest" });
-        setSessionCookie(res, sessionToken);
-        return res;
+        const login = await loginExistingActiveUser(
+          db,
+          lineUserId,
+          linePictureUrl,
+          lineDisplayName,
+          nowIso
+        );
+        if (login) return login;
+        // active なユーザーが見つからない（無効化済み等）→ 招待は無効として扱う。
+        return NextResponse.json({ error: INVALID_MSG }, { status: 400 });
       }
+      // 招待が無効/期限切れ/使用済み等 → 失敗として記録（総当たり検知）。
+      recordFailure(codeKey, RL_WINDOW_MS);
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 

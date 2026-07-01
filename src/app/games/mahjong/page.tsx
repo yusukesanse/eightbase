@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
 import type {
   MahjongStanding,
-  MahjongTable,
+  PublicMahjongTable,
   MahjongScheduleEntry,
   MahjongCsEvent,
 } from "@/types";
@@ -84,7 +84,7 @@ export default function MahjongLeaguePage() {
         ) : tab === "league" ? (
           <LeaguePyramid standings={standings} currentUserId={currentUserId} />
         ) : tab === "entry" ? (
-          <EntryScoreTab currentUserId={currentUserId} />
+          <EntryScoreTab />
         ) : (
           <CsTab currentUserId={currentUserId} />
         )}
@@ -103,15 +103,15 @@ function EmptyCard({ text }: { text: string }) {
 
 /* ───────── 参加・スコア申告タブ ───────── */
 
-function EntryScoreTab({ currentUserId }: { currentUserId?: string }) {
+function EntryScoreTab() {
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [eventDate, setEventDate] = useState<string>("");
   const [entered, setEntered] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
-  const [tables, setTables] = useState<MahjongTable[]>([]);
+  const [tables, setTables] = useState<PublicMahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [reportTable, setReportTable] = useState<MahjongTable | null>(null);
+  const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
 
   // 開催日（リーグ戦のみ・今日以降の直近、なければ最新）
   useEffect(() => {
@@ -145,7 +145,7 @@ function EntryScoreTab({ currentUserId }: { currentUserId?: string }) {
       setEntered(!!eData.entered);
       setEntryCount((eData.entries ?? []).length);
       setTables(
-        (tData.tables ?? []).filter((t: MahjongTable) => t.eventDate === eventDate)
+        (tData.tables ?? []).filter((t: PublicMahjongTable) => t.eventDate === eventDate)
       );
     } catch {
       setTables([]);
@@ -242,7 +242,7 @@ function EntryScoreTab({ currentUserId }: { currentUserId?: string }) {
               .slice()
               .sort((a, b) => (a.round ?? 0) - (b.round ?? 0))
               .map((t) => {
-                const me = t.members.find((m) => m.lineUserId === currentUserId);
+                const me = t.members.find((m) => m.isCurrentUser);
                 const needReport = me && me.points === null && t.status !== "completed";
                 return (
                   <div key={t.tableId} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
@@ -262,16 +262,16 @@ function EntryScoreTab({ currentUserId }: { currentUserId?: string }) {
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {t.members.map((m) => (
+                      {t.members.map((m, i) => (
                         <div
-                          key={m.lineUserId}
+                          key={i}
                           className={`rounded-xl p-2.5 ${
-                            m.lineUserId === currentUserId ? "bg-[#A5C1C8]/10" : "bg-gray-50"
+                            m.isCurrentUser ? "bg-[#A5C1C8]/10" : "bg-gray-50"
                           }`}
                         >
                           <div className="text-[11px] font-medium text-[#231714] truncate">
                             {m.displayName}
-                            {m.lineUserId === currentUserId && (
+                            {m.isCurrentUser && (
                               <span className="ml-1 text-[#A5C1C8]">（自分）</span>
                             )}
                           </div>
@@ -325,7 +325,7 @@ function ReportModal({
   onClose,
   onDone,
 }: {
-  table: MahjongTable;
+  table: PublicMahjongTable;
   onClose: () => void;
   onDone: () => void;
 }) {

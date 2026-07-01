@@ -85,12 +85,14 @@ export async function sendPasscodeEmail(
 export async function sendGuestInviteEmail(
   to: string,
   displayName: string,
-  url: string
+  url: string,
+  expiryDays = 2
 ): Promise<void> {
   const resend = getResend();
 
   const safeName = escapeHtml(displayName);
   const safeUrl = escapeHtml(url);
+  const safeExpiry = escapeHtml(String(expiryDays));
 
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
@@ -122,7 +124,7 @@ export async function sendGuestInviteEmail(
         </p>
 
         <p style="font-size: 12px; color: #231714; opacity: 0.5; line-height: 1.6;">
-          ※ このリンクの有効期限は7日間です。<br />
+          ※ このリンクの有効期限は${safeExpiry}日間です。<br />
           ※ <strong>最初に開いた1名のみ</strong>参加登録されます（1回限り）。<br />
           ※ 心当たりがない場合は、このメールを無視してください。
         </p>
