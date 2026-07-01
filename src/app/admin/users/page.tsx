@@ -75,6 +75,7 @@ type SortKey = "displayName" | "email" | "tenantName" | "lineUserId" | "lastLogi
 type SortDir = "asc" | "desc";
 type StatusFilter = "all" | "active" | "inactive";
 type LineFilter = "all" | "linked" | "unlinked";
+type RoleFilter = "all" | "member" | "guest";
 
 const GENDER_LABELS: Record<string, string> = {
   male: "男性",
@@ -429,6 +430,7 @@ export default function AdminUsersPage() {
   // フィルター
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [lineFilter, setLineFilter] = useState<LineFilter>("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
 
   // 招待モーダル
   const [showAddForm, setShowAddForm] = useState(false);
@@ -458,7 +460,7 @@ export default function AdminUsersPage() {
       "姓", "名", "セイ", "メイ", "メールアドレス", "電話番号",
       "生年月日", "性別", "職業・会社名", "利用目的",
       "住所種別", "郵便番号", "都道府県", "市区町村", "番地", "建物名",
-      "LINE連携", "LINE表示名", "ステータス", "登録日", "最終ログイン",
+      "区分", "LINE連携", "LINE表示名", "ステータス", "登録日", "最終ログイン",
     ];
 
     const rows = target.map((u) => {
@@ -480,6 +482,7 @@ export default function AdminUsersPage() {
         p?.city ?? "",
         p?.address ?? "",
         p?.building ?? "",
+        u.role === "guest" ? "ゲスト" : "会員",
         u.lineUserId ? "連携済み" : "未連携",
         u.lineDisplayName ?? "",
         u.active ? "有効" : "無効",
@@ -542,6 +545,12 @@ export default function AdminUsersPage() {
       result = result.filter((u) => !u.lineUserId);
     }
 
+    if (roleFilter === "member") {
+      result = result.filter((u) => u.role !== "guest");
+    } else if (roleFilter === "guest") {
+      result = result.filter((u) => u.role === "guest");
+    }
+
     result.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -577,9 +586,14 @@ export default function AdminUsersPage() {
     });
 
     return result;
-  }, [users, searchQuery, statusFilter, lineFilter, sortKey, sortDir]);
+  }, [users, searchQuery, statusFilter, lineFilter, roleFilter, sortKey, sortDir]);
 
-  const hasActiveFilter = statusFilter !== "all" || lineFilter !== "all" || searchQuery.trim() !== "";
+  // 区分ごとの件数（全体・「分けて表示」の把握用）
+  const memberCount = useMemo(() => users.filter((u) => u.role !== "guest").length, [users]);
+  const guestCount = users.length - memberCount;
+
+  const hasActiveFilter =
+    statusFilter !== "all" || lineFilter !== "all" || roleFilter !== "all" || searchQuery.trim() !== "";
 
   async function fetchUsers() {
     try {
@@ -761,9 +775,21 @@ export default function AdminUsersPage() {
           <option value="unlinked">未連携のみ</option>
         </select>
 
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+          className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors ${
+            roleFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/60"
+          }`}
+        >
+          <option value="all">区分：すべて</option>
+          <option value="member">会員のみ（{memberCount}）</option>
+          <option value="guest">ゲストのみ（{guestCount}）</option>
+        </select>
+
         {hasActiveFilter && (
           <button
-            onClick={() => { setSearchQuery(""); setStatusFilter("all"); setLineFilter("all"); }}
+            onClick={() => { setSearchQuery(""); setStatusFilter("all"); setLineFilter("all"); setRoleFilter("all"); }}
             className="px-3 py-2.5 text-xs text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-[#231714]/5 transition-colors flex items-center gap-1"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -889,6 +915,7 @@ export default function AdminUsersPage() {
               ) : (
                 <>全 {users.length} 名</>
               )}
+              <span className="ml-2 text-xs text-[#231714]/40">（会員 {memberCount}・ゲスト {guestCount}）</span>
             </p>
             <p className="text-xs text-[#231714]/30">行をクリックで詳細表示</p>
           </div>
@@ -927,7 +954,14 @@ export default function AdminUsersPage() {
                           </div>
                         )}
                         <div>
-                          <p className="font-medium text-[#231714]">{user.displayName}</p>
+                          <p className="font-medium text-[#231714] flex items-center gap-1.5">
+                            {user.displayName}
+                            {user.role === "guest" && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 bg-[#231714]/5 text-[#231714]/60 text-[10px] rounded-full font-medium">
+                                ゲスト
+                              </span>
+                            )}
+                          </p>
                           <p className="text-xs text-[#231714]/40">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
                         </div>
                       </div>
