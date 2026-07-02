@@ -168,6 +168,9 @@ export interface GameParticipant {
 // ─── スコアボード ─────────────────────────────────────────────────────────────
 
 /** シーズン（ランキング集計期間） */
+/** 麻雀リーグの順位集計方式（アベレージ / 合計点。既定はアベレージ） */
+export type MahjongRankingMetric = "average" | "total";
+
 export interface Season {
   seasonId: string;
   name: string;
@@ -176,6 +179,8 @@ export interface Season {
   endDate: string;        // YYYY-MM-DD
   active: boolean;
   csConfig: Record<ScoreboardGameId, { topN: number }>;
+  /** 麻雀の順位方式（未設定は "average"）。合計点/アベレージを運用で切替可能にするための設定。 */
+  rankingMetric?: MahjongRankingMetric;
   createdAt: string;
   updatedAt: string;
 }

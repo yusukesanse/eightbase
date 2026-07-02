@@ -12,12 +12,18 @@ import {
   type MahjongLeagueTier,
   type MahjongPlayerHistory,
   type MahjongSeasonSummary,
+  type MahjongRankingMetric,
   type MahjongStanding,
   type MahjongTable,
   type MahjongTableMember,
   type PublicMahjongTable,
   type ScoreboardGameId,
 } from "@/types";
+
+/** rankingMetric を正規化（未知/未設定は "average"）。 */
+export function normalizeRankingMetric(v: unknown): MahjongRankingMetric {
+  return v === "total" ? "total" : "average";
+}
 
 // ─── レスポンス sanitize ────────────────────────────────────────────────────────
 
@@ -145,9 +151,20 @@ export function tierForRank(rank: number): MahjongLeagueTier {
  *   3. 試合数降順 → 名前順（連対率も同じ場合の決定的フォールバック）
  */
 export async function computeStandings(
-  seasonId: string
+  seasonId: string,
+  metricOverride?: MahjongRankingMetric
 ): Promise<MahjongStanding[]> {
   const db = getDb();
+  // 順位方式（シーズン設定 rankingMetric。未設定/指定なしは "average"）。
+  let metric: MahjongRankingMetric = metricOverride ?? "average";
+  if (!metricOverride) {
+    try {
+      const seasonDoc = await db.collection("seasons").doc(seasonId).get();
+      metric = normalizeRankingMetric(seasonDoc.data()?.rankingMetric);
+    } catch {
+      metric = "average"; // シーズン取得失敗時は既定（アベレージ）
+    }
+  }
   // 複合インデックス不要: seasonId のみで where し、status は JS 側でフィルタ
   const snap = await db
     .collection("mahjongTables")
@@ -204,9 +221,10 @@ export async function computeStandings(
     csEligible: s.gamesPlayed >= MAHJONG_CS_MIN_GAMES,
   }));
 
+  // 順位キー: metric（合計点 or アベレージ）降順 → 連対率 → 試合数 → 名前
   standings.sort(
     (a, b) =>
-      b.average - a.average ||
+      (metric === "total" ? b.totalPoints - a.totalPoints : b.average - a.average) ||
       b.top2Rate - a.top2Rate ||
       b.gamesPlayed - a.gamesPlayed ||
       a.displayName.localeCompare(b.displayName, "ja")

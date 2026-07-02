@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
       endDate,
       active: true,
       csConfig: finalCsConfig,
+      // 麻雀の順位方式（アベレージ / 合計点。未指定はアベレージ）
+      rankingMetric: body.rankingMetric === "total" ? "total" : "average",
       createdAt: now,
       updatedAt: now,
     };

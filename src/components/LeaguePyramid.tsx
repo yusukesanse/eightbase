@@ -35,12 +35,16 @@ export function LeaguePyramid({
   standings,
   currentUserId,
   onSelectPlayer,
+  rankingMetric = "average",
 }: {
   standings: MahjongStanding[];
   currentUserId?: string;
   /** 順位リストの行タップ（戦歴ビューを開く） */
   onSelectPlayer?: (lineUserId: string) => void;
+  /** 順位方式（"average" | "total"）。順位キーの強調と注記に使う。 */
+  rankingMetric?: "average" | "total";
 }) {
+  const byTotal = rankingMetric === "total";
   const byTier: Record<MahjongLeagueTier, MahjongStanding[]> = { M1: [], M2: [], M3: [] };
   standings.forEach((s) => byTier[s.tier].push(s));
   TIER_ORDER.forEach((t) => byTier[t].sort((a, b) => a.rank - b.rank));
@@ -109,11 +113,20 @@ export function LeaguePyramid({
                           <span>連対 {pct(s.top2Rate)}</span>
                         </div>
                       </div>
-                      <div className="text-right shrink-0 min-w-[58px]">
+                      <div className="text-right shrink-0 min-w-[64px]">
                         <div className="text-[16.5px] font-black text-[#1c1f21] tabular-nums leading-none">
-                          {Math.round(s.average).toLocaleString()}
+                          {byTotal
+                            ? s.totalPoints.toLocaleString()
+                            : Math.round(s.average).toLocaleString()}
                         </div>
-                        <div className="text-[9.5px] font-bold text-[#97999d] mt-0.5">AVG</div>
+                        <div className="text-[9.5px] font-bold text-[#97999d] mt-0.5">
+                          {byTotal ? "合計点" : "AVG"}
+                        </div>
+                        <div className="text-[10px] text-[#97999d] tabular-nums mt-0.5">
+                          {byTotal
+                            ? `AVG ${Math.round(s.average).toLocaleString()}`
+                            : `計 ${s.totalPoints.toLocaleString()}`}
+                        </div>
                       </div>
                     </button>
                   );
@@ -125,7 +138,7 @@ export function LeaguePyramid({
       </div>
 
       <p className="text-[11px] text-[#97999d] leading-relaxed px-1">
-        順位はシーズン通算アベレージ順。アベレージが同じ場合は 連対率 → 試合数 → 名前順。毎月のリーグ戦後にリーグの入れ替えがあります。
+        順位はシーズン通算{byTotal ? "合計点" : "アベレージ"}順。同点の場合は 連対率 → 試合数 → 名前順。毎月のリーグ戦後にリーグの入れ替えがあります。
       </p>
     </div>
   );

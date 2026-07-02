@@ -21,6 +21,7 @@ const EMPTY_FORM = {
   gameCategory: "mahjong" as ScoreboardGameId,
   startDate: "",
   endDate: "",
+  rankingMetric: "average" as "average" | "total",
 };
 
 /* ───────── メインコンポーネント ───────── */
@@ -74,6 +75,7 @@ export default function SeasonsPage() {
       gameCategory: s.gameCategory ?? "mahjong",
       startDate: s.startDate,
       endDate: s.endDate,
+      rankingMetric: s.rankingMetric === "total" ? "total" : "average",
     });
     setModalOpen(true);
   }
@@ -88,6 +90,7 @@ export default function SeasonsPage() {
         gameCategory: form.gameCategory,
         startDate: form.startDate,
         endDate: form.endDate,
+        rankingMetric: form.rankingMetric,
       };
 
       const url = editing
@@ -340,6 +343,26 @@ export default function SeasonsPage() {
                   />
                 </div>
               </div>
+
+              {/* 麻雀: 順位方式（アベレージ / 合計点） */}
+              {form.gameCategory === "mahjong" && (
+                <div>
+                  <label className={labelClass}>順位方式（麻雀）</label>
+                  <select
+                    value={form.rankingMetric}
+                    onChange={(e) =>
+                      setForm({ ...form, rankingMetric: e.target.value === "total" ? "total" : "average" })
+                    }
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#231714]"
+                  >
+                    <option value="average">アベレージ（通算平均点）</option>
+                    <option value="total">合計点（通算合計）</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    順位の決定に使う指標。同点時は連対率→試合数→名前順。既定はアベレージ。
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">

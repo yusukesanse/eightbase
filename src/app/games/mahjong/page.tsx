@@ -31,6 +31,7 @@ export default function MahjongLeaguePage() {
   }
   const [standings, setStandings] = useState<MahjongStanding[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+  const [rankingMetric, setRankingMetric] = useState<"average" | "total">("average");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function MahjongLeaguePage() {
       .then((d) => {
         setStandings(d.standings ?? []);
         setCurrentUserId(d.currentUserId);
+        setRankingMetric(d.rankingMetric === "total" ? "total" : "average");
       })
       .catch(() => setStandings([]))
       .finally(() => setLoading(false));
@@ -82,7 +84,7 @@ export default function MahjongLeaguePage() {
             <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : tab === "league" ? (
-          <LeaguePyramid standings={standings} currentUserId={currentUserId} />
+          <LeaguePyramid standings={standings} currentUserId={currentUserId} rankingMetric={rankingMetric} />
         ) : tab === "entry" ? (
           <EntryScoreTab />
         ) : (

@@ -67,6 +67,7 @@ export function MahjongLeagueView() {
 
   const [standings, setStandings] = useState<MahjongStanding[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+  const [rankingMetric, setRankingMetric] = useState<"average" | "total">("average");
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
   const [tables, setTables] = useState<PublicMahjongTable[]>([]);
@@ -104,6 +105,7 @@ export function MahjongLeagueView() {
       const tData = await tRes.json();
       setStandings(sData.standings ?? []);
       setCurrentUserId(sData.currentUserId);
+      setRankingMetric(sData.rankingMetric === "total" ? "total" : "average");
       setViewSeasonId(sData.seasonId ?? selectedSeasonId ?? undefined);
       const league = (schData.schedule ?? []).filter(
         (x: MahjongScheduleEntry) => x.type === "league"
@@ -185,6 +187,7 @@ export function MahjongLeagueView() {
             standings={standings}
             currentUserId={currentUserId}
             onSelectPlayer={setHistoryPlayer}
+            rankingMetric={rankingMetric}
           />
         </div>
       ) : subTab === "join" ? (

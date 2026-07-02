@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { computeStandings, getActiveSeason } from "@/lib/mahjong";
+import { computeStandings, getActiveSeason, normalizeRankingMetric } from "@/lib/mahjong";
+import { getDb } from "@/lib/firebaseAdmin";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyStandings } from "@/lib/previewDummy";
 
@@ -34,7 +35,10 @@ export async function GET(req: NextRequest) {
     }
 
     const standings = await computeStandings(seasonId);
-    return NextResponse.json({ standings, seasonId, currentUserId: userId });
+    // 現在の順位方式（UIのラベル用）
+    const seasonDoc = await getDb().collection("seasons").doc(seasonId).get();
+    const rankingMetric = normalizeRankingMetric(seasonDoc.data()?.rankingMetric);
+    return NextResponse.json({ standings, seasonId, currentUserId: userId, rankingMetric });
   } catch (error) {
     console.error("[mahjong/standings] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
