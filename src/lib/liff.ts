@@ -1,6 +1,8 @@
 "use client";
 
 import type { Liff } from "@line/liff";
+import { isDevLoginEnabled } from "@/lib/env";
+import { buildDevToken, getStoredDevIdentity } from "@/lib/devLogin";
 
 let liffInstance: Liff | null = null;
 
@@ -143,9 +145,52 @@ interface LiffLoginApiResponse {
 export type LiffLoginResult =
   | { kind: "redirecting" } // LINE ログインへリダイレクトした
   | { kind: "needs-line-login" } // 外部ブラウザ等でログイン不可
+  | { kind: "needs-dev-login" } // Dev ログイン有効だがテストユーザー未選択（/dev-login へ）
   | { kind: "linked"; profileComplete: boolean } // サーバーセッション発行済み
   | { kind: "needs-linking"; lineUserId: string; displayName: string; pictureUrl: string }
   | { kind: "no-access"; error?: string };
+
+/** アクセストークン＋クライアントプロフィールで /api/auth/liff-login を叩き結果を返す。 */
+async function postLiffLogin(
+  accessToken: string,
+  liffProfile: { userId?: string; displayName?: string; pictureUrl?: string }
+): Promise<LiffLoginResult> {
+  const res = await fetch("/api/auth/liff-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken, liffProfile }),
+    credentials: "include",
+  });
+
+  const data: LiffLoginApiResponse = await res.json().catch(() => ({}));
+
+  if (res.ok && data.success) {
+    return { kind: "linked", profileComplete: !!data.profileComplete };
+  }
+  if (data.needsLinking) {
+    return {
+      kind: "needs-linking",
+      lineUserId: data.lineUserId ?? "",
+      displayName: data.displayName ?? "",
+      pictureUrl: data.pictureUrl ?? "",
+    };
+  }
+  return { kind: "no-access", error: data.error };
+}
+
+/**
+ * 認証用アクセストークンを取得する。
+ * - Dev ログイン（非本番）: 選択済みテストユーザーの Devトークン（未選択は null）。
+ * - 通常: LIFF のアクセストークン。
+ */
+export async function getAuthAccessToken(): Promise<string | null> {
+  if (isDevLoginEnabled()) {
+    const id = getStoredDevIdentity();
+    return id ? buildDevToken(id) : null;
+  }
+  const liff = await initLiff();
+  return liff.getAccessToken();
+}
 
 /**
  * LIFF を初期化し、LINE ログイン状態を確認して /api/auth/liff-login で
@@ -160,6 +205,17 @@ export type LiffLoginResult =
  * セッション切替後の表示キャッシュ破棄（clearAuthCache）と画面遷移は呼び出し側で行う。
  */
 export async function runLiffServerLogin(): Promise<LiffLoginResult> {
+  // Dev ログイン（非本番）: LIFF を通さず、選択済みテストユーザーの Devトークンでセッション発行。
+  if (isDevLoginEnabled()) {
+    const identity = getStoredDevIdentity();
+    if (!identity) return { kind: "needs-dev-login" };
+    return postLiffLogin(buildDevToken(identity), {
+      userId: identity.userId,
+      displayName: identity.displayName,
+      pictureUrl: identity.pictureUrl ?? "",
+    });
+  }
+
   const liff = await initLiff();
 
   if (!liff.isLoggedIn()) {
@@ -184,27 +240,7 @@ export async function runLiffServerLogin(): Promise<LiffLoginResult> {
     console.warn("[liff] getProfile() failed:", e);
   }
 
-  const res = await fetch("/api/auth/liff-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken, liffProfile }),
-    credentials: "include",
-  });
-
-  const data: LiffLoginApiResponse = await res.json().catch(() => ({}));
-
-  if (res.ok && data.success) {
-    return { kind: "linked", profileComplete: !!data.profileComplete };
-  }
-  if (data.needsLinking) {
-    return {
-      kind: "needs-linking",
-      lineUserId: data.lineUserId ?? "",
-      displayName: data.displayName ?? "",
-      pictureUrl: data.pictureUrl ?? "",
-    };
-  }
-  return { kind: "no-access", error: data.error };
+  return postLiffLogin(accessToken, liffProfile);
 }
 
 /**

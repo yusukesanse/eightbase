@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
+import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 
 /** ゲスト用の簡易ナビ（ゲーム機能のみ）。 */
 const GUEST_MENUS = [
@@ -78,14 +79,14 @@ const MENUS = [
 
 export function RichMenu() {
   const pathname = usePathname();
-  const [role, setRole] = useState<"member" | "guest">("member");
+  const [role, setRole] = useState<UserRole>("member");
 
   useEffect(() => {
     let alive = true;
     fetch("/api/auth/check", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        if (alive && d.authorized) setRole(d.role === "guest" ? "guest" : "member");
+        if (alive && d.authorized) setRole(normalizeRole(d.role));
       })
       .catch(() => {});
     return () => {
@@ -93,8 +94,10 @@ export function RichMenu() {
     };
   }, []);
 
-  const menus = role === "guest" ? GUEST_MENUS : MENUS;
-  const cols = role === "guest" ? "grid-cols-1" : "grid-cols-5";
+  // ゲスト・エイト社員はゲーム系のみ（1列メニュー）
+  const gamesOnly = isGamesOnlyRole(role);
+  const menus = gamesOnly ? GUEST_MENUS : MENUS;
+  const cols = gamesOnly ? "grid-cols-1" : "grid-cols-5";
 
   return (
     <nav className={clsx("fixed bottom-0 left-0 right-0 max-w-4xl mx-auto bg-white border-t border-gray-200 grid z-50", cols)}>

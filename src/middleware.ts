@@ -6,7 +6,12 @@ import { NextRequest, NextResponse } from "next/server";
  * 環境変数 CUSTOMER_DOMAIN / ADMIN_DOMAIN でドメインを設定。
  * - 顧客ドメイン → /admin/* へのアクセスをブロック
  * - 管理ドメイン → /admin/* のみ許可
- * - *.vercel.app / localhost → 開発環境は制限なし
+ * - 上記いずれにも一致しない *.vercel.app / localhost → 開発環境として制限なし
+ *
+ * 評価順は「ドメイン一致 → その後に vercel.app/localhost 例外」。
+ * これにより demo で ADMIN_DOMAIN/CUSTOMER_DOMAIN に vercel.app ドメイン
+ * （例: eightbase-demo-admin.vercel.app）を割り当てても分離が効く。
+ * 一致しないランダムな *.vercel.app（プレビュー等）は従来どおり無制限。
  */
 
 const CUSTOMER_DOMAIN = process.env.CUSTOMER_DOMAIN || "";
@@ -45,18 +50,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 開発環境・Vercelプレビューは制限なし
-  if (
-    host.includes("localhost") ||
-    host.includes("vercel.app")
-  ) {
-    return NextResponse.next();
-  }
-
-  // ドメインが未設定の場合は制限なし
-  if (!CUSTOMER_DOMAIN && !ADMIN_DOMAIN) {
-    return NextResponse.next();
-  }
+  // ── ドメインベースのルーティング（設定済み & ホスト一致を最優先で評価） ──
+  // vercel.app / localhost の例外より先に判定する。これにより demo で
+  // ADMIN_DOMAIN/CUSTOMER_DOMAIN に vercel.app ドメインを割り当てても分離が効く。
 
   // 管理者ドメイン: /admin/* 以外へのアクセスは /admin にリダイレクト
   if (ADMIN_DOMAIN && host === ADMIN_DOMAIN) {
@@ -71,6 +67,20 @@ export function middleware(req: NextRequest) {
     if (pathname.startsWith("/admin")) {
       return NextResponse.rewrite(new URL("/not-found", req.url));
     }
+    return NextResponse.next();
+  }
+
+  // ── 上記いずれのドメインにも一致しないホスト ──
+  // 開発環境・Vercelプレビュー（ランダムな *.vercel.app）は制限なし
+  if (
+    host.includes("localhost") ||
+    host.includes("vercel.app")
+  ) {
+    return NextResponse.next();
+  }
+
+  // ドメインが未設定の場合も制限なし
+  if (!CUSTOMER_DOMAIN && !ADMIN_DOMAIN) {
     return NextResponse.next();
   }
 

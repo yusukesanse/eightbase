@@ -10,6 +10,7 @@ import {
   isBlockedByFailures,
 } from "@/lib/rateLimit";
 import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
+import { normalizeRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ async function loginExistingActiveUser(
   const res = NextResponse.json({
     success: true,
     alreadyRegistered: true,
-    role: ex.role === "guest" ? "guest" : "member",
+    role: normalizeRole(ex.role),
     displayName: ex.displayName ?? lineDisplayName,
   });
   setSessionCookie(res, sessionToken);

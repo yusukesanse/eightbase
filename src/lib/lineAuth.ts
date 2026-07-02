@@ -9,6 +9,9 @@
  * Messaging API（push/multicast）の実装は `src/lib/line.ts` 側にある。
  */
 
+import { isDevLoginEnabled } from "./env";
+import { isDevToken, parseDevToken } from "./devLogin";
+
 /** LINE プロフィール（必要な項目のみ） */
 export interface LineProfile {
   userId: string;
@@ -65,6 +68,10 @@ export function getExpectedLineChannelIds(): Set<string> {
 export async function verifyLineAccessToken(
   accessToken: string
 ): Promise<LineTokenStatus> {
+  // Dev ログイン（非本番のみ）: 合成トークンは LINE を呼ばず、内容が妥当なら有効扱い。
+  if (isDevLoginEnabled() && isDevToken(accessToken)) {
+    return parseDevToken(accessToken) ? "valid" : "invalid";
+  }
   try {
     const res = await fetch(
       `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`
@@ -102,6 +109,13 @@ export async function verifyLineAccessToken(
 export async function fetchLineProfile(
   accessToken: string
 ): Promise<LineProfile | null> {
+  // Dev ログイン（非本番のみ）: 合成トークンから疑似プロフィールを返す。
+  if (isDevLoginEnabled() && isDevToken(accessToken)) {
+    const id = parseDevToken(accessToken);
+    return id
+      ? { userId: id.userId, displayName: id.displayName, pictureUrl: id.pictureUrl ?? "" }
+      : null;
+  }
   try {
     const res = await fetch("https://api.line.me/v2/profile", {
       headers: { Authorization: `Bearer ${accessToken}` },

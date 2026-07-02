@@ -3,7 +3,8 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { initLiff } from "@/lib/liff";
+import { initLiff, getAuthAccessToken } from "@/lib/liff";
+import { isDevLoginEnabled } from "@/lib/env";
 import { clearAuthCache } from "@/components/AuthGuard";
 
 const GUEST_HOME = "/games/mahjong";
@@ -37,23 +38,33 @@ function GuestInner() {
     let alive = true;
     (async () => {
       try {
-        const liff = await initLiff();
-        if (!liff.isLoggedIn()) {
-          if (liff.isInClient()) {
-            // LINEアプリ内: ログインへ（戻り先はこのURL=code付き）
-            liff.login({ redirectUri: window.location.href });
+        let accessToken: string | null;
+        if (isDevLoginEnabled()) {
+          // Dev ログイン（非本番）: LIFF を通さず Devトークンで redeem。未選択なら選択画面へ。
+          accessToken = await getAuthAccessToken();
+          if (!accessToken) {
+            window.location.replace("/dev-login");
             return;
           }
-          if (alive) setPhase("needs-line");
-          return;
-        }
-        const accessToken = liff.getAccessToken();
-        if (!accessToken) {
-          if (alive) {
-            setPhase("error");
-            setErrorMsg("LINE情報の取得に失敗しました。LINEアプリで開き直してください。");
+        } else {
+          const liff = await initLiff();
+          if (!liff.isLoggedIn()) {
+            if (liff.isInClient()) {
+              // LINEアプリ内: ログインへ（戻り先はこのURL=code付き）
+              liff.login({ redirectUri: window.location.href });
+              return;
+            }
+            if (alive) setPhase("needs-line");
+            return;
           }
-          return;
+          accessToken = liff.getAccessToken();
+          if (!accessToken) {
+            if (alive) {
+              setPhase("error");
+              setErrorMsg("LINE情報の取得に失敗しました。LINEアプリで開き直してください。");
+            }
+            return;
+          }
         }
         const res = await fetch("/api/auth/guest-redeem", {
           method: "POST",

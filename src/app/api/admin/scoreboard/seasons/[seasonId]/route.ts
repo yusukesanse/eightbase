@@ -113,6 +113,11 @@ export async function PUT(
       updates.csConfig = merged;
     }
 
+    // rankingMetric（麻雀の順位方式）
+    if (body.rankingMetric !== undefined) {
+      updates.rankingMetric = body.rankingMetric === "total" ? "total" : "average";
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "更新するフィールドがありません" }, { status: 400 });
     }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import dayjs from "dayjs";
+import { ROLE_LABELS, type UserRole } from "@/lib/roles";
 
 /* ─── 型定義 ─── */
 
@@ -58,7 +59,7 @@ interface User {
   tenantName: string;
   lineUserId: string | null;
   active: boolean;
-  role: "member" | "guest";
+  role: UserRole;
   profileComplete: boolean;
   profile: UserProfile | null;
   memberProfile: MemberProfileData | null;
@@ -75,7 +76,7 @@ type SortKey = "displayName" | "email" | "tenantName" | "lineUserId" | "lastLogi
 type SortDir = "asc" | "desc";
 type StatusFilter = "all" | "active" | "inactive";
 type LineFilter = "all" | "linked" | "unlinked";
-type RoleFilter = "all" | "member" | "guest";
+type RoleFilter = "all" | "member" | "guest" | "staff";
 
 const GENDER_LABELS: Record<string, string> = {
   male: "男性",
@@ -142,14 +143,14 @@ function UserDetailPanel({
   onToggleActive,
   onReissuePasscode,
   onDelete,
-  onPromote,
+  onSetRole,
 }: {
   user: User;
   onClose: () => void;
   onToggleActive: (user: User) => void;
   onReissuePasscode: (user: User) => void;
   onDelete: (user: User) => void;
-  onPromote: (user: User) => void;
+  onSetRole: (user: User, role: UserRole) => void;
 }) {
   const p = user.profile;
   const mp = user.memberProfile;
@@ -221,9 +222,9 @@ function UserDetailPanel({
 
               <div className="flex items-center gap-2 mt-3">
                 <Badge active={user.active} />
-                {user.role === "guest" && (
+                {user.role !== "member" && (
                   <span className="inline-flex items-center px-2 py-0.5 bg-[#2f7d57]/10 text-[#2f7d57] text-xs rounded-full font-medium">
-                    ゲスト
+                    {ROLE_LABELS[user.role]}
                   </span>
                 )}
                 {user.lineUserId ? (
@@ -376,20 +377,29 @@ function UserDetailPanel({
             )}
           </div>
 
-          {/* ゲスト → 会員へ昇格（同一LINE IDのまま role を更新＝戦績は継承） */}
-          {user.role === "guest" && (
-            <div className="pt-3">
-              <button
-                onClick={() => onPromote(user)}
-                className="w-full py-2.5 text-sm border border-[#2f7d57]/40 text-[#2f7d57] rounded-xl hover:bg-[#2f7d57]/10 transition-colors font-medium"
-              >
-                会員に昇格する
-              </button>
-              <p className="text-xs text-[#231714]/30 text-center mt-2">
-                全機能を利用可能に。麻雀の戦績はそのまま引き継がれます（プロフィール登録は別途必要）。
-              </p>
+          {/* 区分変更（同一LINE IDのまま role を更新＝戦績は継承） */}
+          <div className="pt-3">
+            <p className="text-xs font-bold text-[#231714]/50 mb-1.5">区分</p>
+            <div className="flex gap-2">
+              {(["member", "guest", "staff"] as UserRole[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => user.role !== r && onSetRole(user, r)}
+                  disabled={user.role === r}
+                  className={`flex-1 py-2 text-sm rounded-xl font-medium transition-colors ${
+                    user.role === r
+                      ? "bg-[#231714] text-white cursor-default"
+                      : "border border-[#231714]/15 text-[#231714] hover:bg-[#231714]/5"
+                  }`}
+                >
+                  {ROLE_LABELS[r]}
+                </button>
+              ))}
             </div>
-          )}
+            <p className="text-xs text-[#231714]/30 mt-2">
+              会員=全機能／ゲスト・エイト社員=ゲームのみ。麻雀の戦績は区分を変えても引き継がれます（会員化時はプロフィール登録が別途必要）。
+            </p>
+          </div>
 
           {/* 完全削除ボタン */}
           <div className="pt-4 border-t border-[#231714]/5">
@@ -482,7 +492,7 @@ export default function AdminUsersPage() {
         p?.city ?? "",
         p?.address ?? "",
         p?.building ?? "",
-        u.role === "guest" ? "ゲスト" : "会員",
+        ROLE_LABELS[u.role],
         u.lineUserId ? "連携済み" : "未連携",
         u.lineDisplayName ?? "",
         u.active ? "有効" : "無効",
@@ -545,10 +555,8 @@ export default function AdminUsersPage() {
       result = result.filter((u) => !u.lineUserId);
     }
 
-    if (roleFilter === "member") {
-      result = result.filter((u) => u.role !== "guest");
-    } else if (roleFilter === "guest") {
-      result = result.filter((u) => u.role === "guest");
+    if (roleFilter !== "all") {
+      result = result.filter((u) => u.role === roleFilter);
     }
 
     result.sort((a, b) => {
@@ -589,8 +597,9 @@ export default function AdminUsersPage() {
   }, [users, searchQuery, statusFilter, lineFilter, roleFilter, sortKey, sortDir]);
 
   // 区分ごとの件数（全体・「分けて表示」の把握用）
-  const memberCount = useMemo(() => users.filter((u) => u.role !== "guest").length, [users]);
-  const guestCount = users.length - memberCount;
+  const memberCount = useMemo(() => users.filter((u) => u.role === "member").length, [users]);
+  const guestCount = useMemo(() => users.filter((u) => u.role === "guest").length, [users]);
+  const staffCount = useMemo(() => users.filter((u) => u.role === "staff").length, [users]);
 
   const hasActiveFilter =
     statusFilter !== "all" || lineFilter !== "all" || roleFilter !== "all" || searchQuery.trim() !== "";
@@ -626,21 +635,21 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handlePromote(user: User) {
-    if (!confirm(`${user.displayName} さんを会員に昇格しますか？（全機能が利用可能になります。麻雀の戦績は引き継がれます）`)) return;
+  async function handleSetRole(user: User, role: UserRole) {
+    if (!confirm(`${user.displayName} さんの区分を「${ROLE_LABELS[role]}」に変更しますか？（麻雀の戦績は引き継がれます）`)) return;
     try {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ id: user.id, role: "member" }),
+        body: JSON.stringify({ id: user.id, role }),
       });
       if (!res.ok) throw new Error();
-      setActionMsg(`${user.displayName} を会員に昇格しました`);
+      setActionMsg(`${user.displayName} を「${ROLE_LABELS[role]}」に変更しました`);
       setSelectedUser(null);
       await fetchUsers();
     } catch {
-      setActionMsg("昇格に失敗しました");
+      setActionMsg("区分変更に失敗しました");
     }
   }
 
@@ -785,6 +794,7 @@ export default function AdminUsersPage() {
           <option value="all">区分：すべて</option>
           <option value="member">会員のみ（{memberCount}）</option>
           <option value="guest">ゲストのみ（{guestCount}）</option>
+          <option value="staff">エイト社員のみ（{staffCount}）</option>
         </select>
 
         {hasActiveFilter && (
@@ -892,7 +902,7 @@ export default function AdminUsersPage() {
           onToggleActive={handleToggleActive}
           onReissuePasscode={(u) => { setResetTarget(u); }}
           onDelete={(u) => { setDeleteTarget(u); }}
-          onPromote={handlePromote}
+          onSetRole={handleSetRole}
         />
       )}
 
@@ -915,7 +925,7 @@ export default function AdminUsersPage() {
               ) : (
                 <>全 {users.length} 名</>
               )}
-              <span className="ml-2 text-xs text-[#231714]/40">（会員 {memberCount}・ゲスト {guestCount}）</span>
+              <span className="ml-2 text-xs text-[#231714]/40">（会員 {memberCount}・ゲスト {guestCount}・エイト社員 {staffCount}）</span>
             </p>
             <p className="text-xs text-[#231714]/30">行をクリックで詳細表示</p>
           </div>
@@ -956,9 +966,9 @@ export default function AdminUsersPage() {
                         <div>
                           <p className="font-medium text-[#231714] flex items-center gap-1.5">
                             {user.displayName}
-                            {user.role === "guest" && (
+                            {user.role !== "member" && (
                               <span className="inline-flex items-center px-1.5 py-0.5 bg-[#231714]/5 text-[#231714]/60 text-[10px] rounded-full font-medium">
-                                ゲスト
+                                {ROLE_LABELS[user.role]}
                               </span>
                             )}
                           </p>

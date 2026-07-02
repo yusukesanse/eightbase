@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { initLiff } from "@/lib/liff";
+import { getAuthAccessToken } from "@/lib/liff";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 
@@ -86,6 +86,10 @@ export default function LoginPage() {
         case "linked":
           // boot() 内で表示キャッシュ破棄＋遷移済み
           return;
+        case "needs-dev-login":
+          // Dev ログイン有効だがテストユーザー未選択 → 選択画面へ
+          window.location.replace("/dev-login");
+          return;
         case "needs-linking":
           setLineInfo({
             lineUserId: result.lineUserId,
@@ -119,8 +123,7 @@ export default function LoginPage() {
     setStatus("linking");
 
     try {
-      const liff = await initLiff();
-      const accessToken = liff.getAccessToken();
+      const accessToken = await getAuthAccessToken();
       if (!accessToken) {
         setLinkError("LINE アカウント情報を確認できませんでした。もう一度お試しください。");
         setStatus("needs-linking");

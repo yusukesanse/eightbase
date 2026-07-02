@@ -6,13 +6,17 @@
 import {
   getExpectedLineChannelIds,
   verifyLineAccessToken,
+  fetchLineProfile,
 } from "@/lib/lineAuth";
+import { buildDevToken } from "@/lib/devLogin";
 
 const ENV_KEYS = [
   "LINE_LOGIN_CHANNEL_ID",
   "NEXT_PUBLIC_LIFF_ID",
   "NEXT_PUBLIC_LIFF_ID_REVIEW",
   "NEXT_PUBLIC_LIFF_ID_PROD",
+  "NEXT_PUBLIC_DEV_LOGIN",
+  "NEXT_PUBLIC_APP_ENV",
 ] as const;
 
 const savedEnv: Record<string, string | undefined> = {};
@@ -97,5 +101,53 @@ describe("verifyLineAccessToken — client_id 検証", () => {
     process.env.LINE_LOGIN_CHANNEL_ID = "12345";
     mockVerify({ error: "invalid_token" }, false);
     expect(await verifyLineAccessToken("tok")).toBe("invalid");
+  });
+});
+
+describe("Dev ログイン（LINE切り離し）: Devトークン解決", () => {
+  const devToken = buildDevToken({ userId: "dev-u1", displayName: "テスト太郎", pictureUrl: "p" });
+
+  test("DEV_LOGIN 有効(非本番)なら Devトークンは LINE を呼ばず valid", async () => {
+    process.env.NEXT_PUBLIC_DEV_LOGIN = "on"; // APP_ENV 未設定 = local = 非本番
+    const fetchSpy = jest.spyOn(global, "fetch");
+    expect(await verifyLineAccessToken(devToken)).toBe("valid");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  test("DEV_LOGIN 有効なら fetchLineProfile が合成プロフィールを返す", async () => {
+    process.env.NEXT_PUBLIC_DEV_LOGIN = "on";
+    expect(await fetchLineProfile(devToken)).toEqual({
+      userId: "dev-u1",
+      displayName: "テスト太郎",
+      pictureUrl: "p",
+    });
+  });
+
+  test("壊れた Devトークンは invalid", async () => {
+    process.env.NEXT_PUBLIC_DEV_LOGIN = "on";
+    expect(await verifyLineAccessToken("dev.%%%")).toBe("invalid");
+  });
+
+  test("本番(APP_ENV=production)では DEV_LOGIN 無効 → Devトークンも通常のLINE検証に回る", async () => {
+    process.env.NEXT_PUBLIC_DEV_LOGIN = "on";
+    process.env.NEXT_PUBLIC_APP_ENV = "production";
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ expires_in: 3600, client_id: "x" }),
+      text: async () => "",
+    } as Response);
+    await verifyLineAccessToken(devToken);
+    expect(fetchSpy).toHaveBeenCalled(); // 短絡せず LINE verify を叩く
+  });
+
+  test("DEV_LOGIN 無効なら Devトークンは短絡しない（LINEへ）", async () => {
+    // NEXT_PUBLIC_DEV_LOGIN 未設定
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ expires_in: 3600, client_id: "x" }),
+      text: async () => "",
+    } as Response);
+    await verifyLineAccessToken(devToken);
+    expect(fetchSpy).toHaveBeenCalled();
   });
 });
