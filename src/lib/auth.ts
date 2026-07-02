@@ -24,6 +24,7 @@
 import type { NextRequest } from "next/server";
 import { getSessionUserId } from "./session";
 import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
+import { isGamesOnlyRole } from "./roles";
 import { getDb } from "./firebaseAdmin";
 
 /**
@@ -70,13 +71,16 @@ async function resolveActiveUser(
   return { lineUserId, user };
 }
 
-/** role==="guest" か（user=null の仮ユーザーは guest 扱いしない）。 */
-function isGuest(user: FirebaseFirestore.DocumentData | null): boolean {
-  return user?.role === "guest";
+/**
+ * ゲーム限定 role（guest / staff=エイト社員）か。会員専用機能から除外するのに使う。
+ * user=null の仮ユーザー（バイパス/プレビュー）は除外しない（従来どおり通す）。
+ */
+function isGamesOnly(user: FirebaseFirestore.DocumentData | null): boolean {
+  return isGamesOnlyRole(user?.role);
 }
 
 /**
- * ゲーム機能用: active なら member/guest どちらでも可。profileComplete は要求しない。
+ * ゲーム機能用: active なら member/guest/staff いずれも可。profileComplete は要求しない。
  */
 export async function requireGameUser(req: NextRequest): Promise<string | null> {
   const r = await resolveActiveUser(req);
@@ -84,12 +88,12 @@ export async function requireGameUser(req: NextRequest): Promise<string | null> 
 }
 
 /**
- * 会員専用（閲覧系）: active かつ role!=="guest"。ゲストを除外する。
+ * 会員専用（閲覧系）: active かつ会員のみ。ゲスト/エイト社員（ゲーム限定）を除外する。
  */
 export async function requireMember(req: NextRequest): Promise<string | null> {
   const r = await resolveActiveUser(req);
   if (!r) return null;
-  if (isGuest(r.user)) return null;
+  if (isGamesOnly(r.user)) return null;
   return r.lineUserId;
 }
 
@@ -101,7 +105,7 @@ export async function requireMemberProfileComplete(
 ): Promise<string | null> {
   const r = await resolveActiveUser(req);
   if (!r) return null;
-  if (isGuest(r.user)) return null;
+  if (isGamesOnly(r.user)) return null;
   // 仮ユーザー(user=null=バイパス/プレビュー)は profileComplete チェック対象外（従来どおり）
   if (r.user && !r.user.profileComplete) return null;
   return r.lineUserId;

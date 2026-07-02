@@ -5,6 +5,7 @@ import Image from "next/image";
 import ShibaGame from "@/components/ShibaGame";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { isDevLoginEnabled } from "@/lib/env";
+import { isGamesOnlyRole } from "@/lib/roles";
 
 const LOGGED_OUT_FLAG = "eb_logged_out";
 
@@ -56,12 +57,11 @@ export default function HomePage() {
         .then((r) => r.json())
         .then((d) => {
           if (d?.authorized) {
-            const home =
-              d.role === "guest"
-                ? "/games/mahjong"
-                : d.profileComplete
-                  ? "/reservation"
-                  : "/setup-profile";
+            const home = isGamesOnlyRole(d.role)
+              ? "/games/mahjong"
+              : d.profileComplete
+                ? "/reservation"
+                : "/setup-profile";
             window.location.replace(home);
           } else {
             window.location.replace("/dev-login");

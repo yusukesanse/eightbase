@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { signSession, setSessionCookie } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isDevLoginEnabled } from "@/lib/env";
+import { isGamesOnlyRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
 const PRESETS = {
   member: { lineUserId: "dev-member-01", displayName: "会員テスト", role: "member" as const, profileComplete: true },
   guest: { lineUserId: "dev-guest-01", displayName: "ゲストテスト", role: "guest" as const, profileComplete: false },
+  staff: { lineUserId: "dev-staff-01", displayName: "エイト社員テスト", role: "staff" as const, profileComplete: false },
 };
 
 export async function POST(req: NextRequest) {
@@ -29,8 +31,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const kind: "member" | "guest" | "new" =
-      body?.role === "guest" ? "guest" : body?.role === "new" ? "new" : "member";
+    const kind: "member" | "guest" | "staff" | "new" =
+      body?.role === "guest"
+        ? "guest"
+        : body?.role === "staff"
+          ? "staff"
+          : body?.role === "new"
+            ? "new"
+            : "member";
 
     // 目標のテストユーザー（member/guest は固定ID、new は毎回別ID＝オンボーディング検証用）
     const target =
@@ -91,12 +99,11 @@ export async function POST(req: NextRequest) {
 
     // 遷移先は AuthGuard の判定と一致させる（ループ防止）:
     // guest→ゲーム / member未完了→プロフィール設定 / member完了→予約ホーム
-    const home =
-      target.role === "guest"
-        ? "/games/mahjong"
-        : target.profileComplete
-          ? "/reservation"
-          : "/setup-profile";
+    const home = isGamesOnlyRole(target.role)
+      ? "/games/mahjong"
+      : target.profileComplete
+        ? "/reservation"
+        : "/setup-profile";
 
     const token = await signSession(target.lineUserId);
     const res = NextResponse.json({

@@ -117,8 +117,13 @@ export async function seedDemoMahjong(): Promise<Record<string, number>> {
     tableCount++;
   }
 
-  // 4) 当日の卓（未申告 reporting）＝申告タブ確認用。会員/ゲスト両方を含める。
-  const liveGroup = [PLAYERS[0], PLAYERS[1], PLAYERS[2], PLAYERS[3]];
+  // 4) 当日の卓（未申告 reporting）＝申告タブ確認用。会員/ゲスト/エイト社員を含める。
+  const liveGroup: P[] = [
+    PLAYERS[0], // 会員テスト
+    PLAYERS[1], // ゲストテスト
+    { lineUserId: "dev-staff-01", displayName: "エイト社員テスト" },
+    PLAYERS[2],
+  ];
   await db.collection("mahjongTables").doc("dev-tbl-live").set({
     seasonId: SEASON_ID,
     eventDate: UPCOMING_DATE,

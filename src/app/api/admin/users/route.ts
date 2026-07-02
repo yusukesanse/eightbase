@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyAdminUsers } from "@/lib/previewDummyAdmin";
+import { normalizeRole } from "@/lib/roles";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -140,7 +141,7 @@ export async function GET(req: NextRequest) {
         tenantName: d.tenantName,
         lineUserId: d.lineUserId ?? null,
         active: d.active,
-        role: d.role === "guest" ? "guest" : "member",
+        role: normalizeRole(d.role),
         profileComplete: !!d.profileComplete,
         profile: d.profile ?? null,
         pictureUrl: lineData?.pictureUrl ?? null,
@@ -192,7 +193,7 @@ export async function PATCH(req: NextRequest) {
 
     const updates: Record<string, unknown> = {};
     if (active !== undefined) updates.active = active;
-    if (role === "member" || role === "guest") updates.role = role;
+    if (role === "member" || role === "guest" || role === "staff") updates.role = role;
     if (newPassword) {
       const salt = crypto.randomBytes(16).toString("hex");
       updates.salt = salt;

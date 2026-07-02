@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { clearAllCache, getCacheOwner, setCacheOwner } from "@/lib/swrCache";
 import { clearPostsCache } from "@/lib/timelineCache";
 import { clearEventGoods } from "@/lib/eventGoods";
+import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 
 /**
  * 認証チェックで判明した現在ユーザーと、キャッシュ所有者を突き合わせる。
@@ -36,7 +37,7 @@ const GUEST_HOME = "/games/mahjong";
  * 認証状態は表示用キャッシュ(swrCache)と同列に扱わない: 表示データより短い TTL にし、
  * すぐに /api/auth/check で取り直す。最終的な可否判定はサーバー側(各API)が担保する。
  */
-let authCache: { authorized: boolean; profileComplete: boolean; role: "member" | "guest"; checkedAt: number } | null = null;
+let authCache: { authorized: boolean; profileComplete: boolean; role: UserRole; checkedAt: number } | null = null;
 const CACHE_TTL = 60 * 1000; // 認証は短期のみ（60秒）
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -63,8 +64,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // キャッシュが有効なら即authorized（ゲスト/プロフィール未完了の分岐のみ）
     if (authCache && Date.now() - authCache.checkedAt < CACHE_TTL) {
       if (authCache.authorized) {
-        if (authCache.role === "guest") {
-          // ゲストはゲーム系のみ。setup-profile は強制しない。
+        if (isGamesOnlyRole(authCache.role)) {
+          // ゲスト/エイト社員はゲーム系のみ。setup-profile は強制しない。
           if (!isGuestAllowedPath(pathname)) {
             router.replace(GUEST_HOME);
             return;
@@ -97,14 +98,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           authCache = {
             authorized: !!data.authorized,
             profileComplete: !!data.profileComplete,
-            role: data.role === "guest" ? "guest" : "member",
+            role: normalizeRole(data.role),
             checkedAt: Date.now(),
           };
           if (data.authorized) {
             // ユーザーIDが変わっていたら前ユーザーの表示キャッシュを破棄
             if (data.lineUserId) reconcileCacheOwner(data.lineUserId);
-            if (authCache.role === "guest") {
-              // ゲストはゲーム系のみ。setup-profile は強制しない。
+            if (isGamesOnlyRole(authCache.role)) {
+              // ゲスト/エイト社員はゲーム系のみ。setup-profile は強制しない。
               if (!isGuestAllowedPath(pathname)) {
                 router.replace(GUEST_HOME);
                 return;

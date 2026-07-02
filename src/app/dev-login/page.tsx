@@ -32,7 +32,7 @@ export default function DevLoginPage() {
     );
   }
 
-  async function quickLogin(role: "member" | "guest" | "new") {
+  async function quickLogin(role: "member" | "guest" | "staff" | "new") {
     setBusy(role);
     setError(null);
     try {
@@ -121,6 +121,9 @@ export default function DevLoginPage() {
           </button>
           <button className={`${btn} bg-[#2f7d57] text-white`} disabled={!!busy} onClick={() => quickLogin("guest")}>
             {busy === "guest" ? "処理中..." : "ゲストとしてログイン（ゲームのみ）"}
+          </button>
+          <button className={`${btn} bg-[#1172a5] text-white`} disabled={!!busy} onClick={() => quickLogin("staff")}>
+            {busy === "staff" ? "処理中..." : "エイト社員としてログイン（ゲームのみ・支払い免除）"}
           </button>
           <button className={`${btn} bg-white text-[#231714] border border-[#231714]/15`} disabled={!!busy} onClick={() => quickLogin("new")}>
             {busy === "new" ? "処理中..." : "新規登録を試す（プロフィール設定から）"}

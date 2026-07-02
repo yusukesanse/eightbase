@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isPreviewMode, PREVIEW_USER_ID } from "@/lib/preview";
 import { isReviewModeEnabled } from "@/lib/reviewMode";
+import { normalizeRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       authorized: true,
       lineUserId,
       profileComplete: !!userData.profileComplete,
-      role: userData.role === "guest" ? "guest" : "member",
+      role: normalizeRole(userData.role),
     });
   } catch (error) {
     console.error("[auth/check] error:", error);
