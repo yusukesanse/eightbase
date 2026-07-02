@@ -19,6 +19,7 @@ export default function DevLoginPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guestCode, setGuestCode] = useState("");
+  const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
   if (!enabled) {
     return (
@@ -66,6 +67,26 @@ export default function DevLoginPage() {
     const rand = Math.random().toString(36).slice(2, 8);
     setStoredDevIdentity({ userId: `dev-invite-${rand}`, displayName: "招待ゲスト" });
     window.location.href = `/guest?code=${encodeURIComponent(code)}`;
+  }
+
+  async function seedGameData() {
+    setBusy("seed");
+    setSeedMsg(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/dev/seed", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || "投入に失敗しました");
+      } else {
+        const s = data.summary || {};
+        setSeedMsg(`投入しました（卓${s.tables ?? 0}・参加${s.entries ?? 0}・CS${s.csEvents ?? 0}・選手${s.players ?? 0}）。ログイン後にリーグ/CS画面で確認できます。`);
+      }
+    } catch {
+      setError("通信エラーが発生しました");
+    } finally {
+      setBusy(null);
+    }
   }
 
   function logout() {
@@ -120,6 +141,25 @@ export default function DevLoginPage() {
           <button className={`${btn} bg-white text-[#231714] border border-[#231714]/15 !py-2.5`} onClick={tryGuestCode}>
             この招待コードで登録を試す（/guest へ）
           </button>
+        </div>
+
+        {/* 検証用ゲームデータの投入（実データ・冪等） */}
+        <div className="mt-6 rounded-xl border border-[#231714]/10 p-3 space-y-2">
+          <label className="block text-[11px] font-bold text-[#231714]/60">
+            ゲーム確認用データ（麻雀リーグ/順位/申告/CS）を投入
+          </label>
+          <p className="text-[11px] text-[#231714]/40 leading-relaxed">
+            demo Firestore に実データを作成します（何度押しても重複しません）。会員/ゲストで
+            ログインするとリーグ画面などにデータが表示されます。
+          </p>
+          <button
+            className={`${btn} bg-white text-[#231714] border border-[#231714]/15 !py-2.5`}
+            disabled={!!busy}
+            onClick={seedGameData}
+          >
+            {busy === "seed" ? "投入中..." : "検証用ゲームデータを投入する"}
+          </button>
+          {seedMsg && <p className="text-[11px] text-[#2f7d57] font-bold">{seedMsg}</p>}
         </div>
 
         <button className="mt-5 w-full py-2 text-xs font-bold text-[#231714]/50" onClick={logout}>
