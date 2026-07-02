@@ -17,8 +17,7 @@ jest.mock("@/lib/preview", () => ({
   PREVIEW_USER_ID: "preview-user",
 }));
 jest.mock("@/lib/env", () => ({
-  isAuthBypassEnabled: () => false,
-  DEMO_BYPASS_USER_ID: "demo-bypass-user",
+  isDevLoginEnabled: () => false,
 }));
 jest.mock("@/lib/firebaseAdmin", () => ({
   getDb: () => ({

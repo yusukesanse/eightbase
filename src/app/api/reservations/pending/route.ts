@@ -9,7 +9,7 @@ import {
 } from "@/lib/reservations";
 import { createReservationPaymentLink } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
-import { isAuthBypassEnabled } from "@/lib/env";
+import { isDevLoginEnabled } from "@/lib/env";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
@@ -82,9 +82,9 @@ export async function POST(req: NextRequest) {
     // 失敗時は仮押さえを作る前に中断（不要なpendingロックを残さない）。
     //
     // 戻り先は LINEミニアプリ(LIFF)へ戻すため LIFF URL を使う（決済後にミニアプリ内へ復帰）。
-    // ただし demo のブラウザ検証（認証バイパス時）は LIFF を開けないので Web URL にする。
+    // ただし demo のブラウザ検証（Dev ログイン時）は LIFF を開けないので Web URL にする。
     const completePath = `/reservation/complete?rid=${reservationRef.id}`;
-    const redirectUrl = isAuthBypassEnabled()
+    const redirectUrl = isDevLoginEnabled()
       ? `${req.headers.get("origin") || req.nextUrl.origin}${completePath}`
       : liffUrl(completePath);
     let paymentLink: { url: string; orderId: string };

@@ -24,7 +24,6 @@
 import type { NextRequest } from "next/server";
 import { getSessionUserId } from "./session";
 import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
-import { isAuthBypassEnabled, DEMO_BYPASS_USER_ID } from "./env";
 import { getDb } from "./firebaseAdmin";
 
 /**
@@ -54,9 +53,6 @@ async function getActiveAuthorizedUser(
 async function resolveActiveUser(
   req: NextRequest
 ): Promise<{ lineUserId: string; user: FirebaseFirestore.DocumentData | null } | null> {
-  // demo/開発: 認証バイパス（本番では常に無効）
-  if (isAuthBypassEnabled()) return { lineUserId: DEMO_BYPASS_USER_ID, user: null };
-
   // プレビューモード: 読み取り専用で仮ユーザー
   if (await isPreviewMode(req)) {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {

@@ -21,7 +21,7 @@ function reconcileCacheOwner(userId: string) {
   setCacheOwner(userId);
 }
 
-const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest"];
+const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest", "/dev-login"];
 const PUBLIC_PREFIXES = ["/admin"];
 
 /** ゲスト(role=guest)が閲覧できるのはゲーム系ルートのみ。会員専用ルートはブロック。 */

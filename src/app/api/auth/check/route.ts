@@ -3,26 +3,18 @@ import { getSessionUserId } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isPreviewMode, PREVIEW_USER_ID } from "@/lib/preview";
 import { isReviewModeEnabled } from "@/lib/reviewMode";
-import { isAuthBypassEnabled, DEMO_BYPASS_USER_ID } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/auth/check
  * セッション Cookie (JWT) を検証し、認証状態とプロフィール完了状態を返す。
+ *
+ * Dev ログイン（非本番）は固定ユーザーを短絡せず、実 `__session`（Devトークン経由で発行）を
+ * 通常経路で検証する。未登録の Dev ユーザーは authorized:false（＝登録フロー検証の起点）。
  */
 export async function GET(req: NextRequest) {
   try {
-    // demo/開発: 認証バイパス（本番では常に無効）。固定テストユーザーで認証OKを返す。
-    if (isAuthBypassEnabled()) {
-      return NextResponse.json({
-        authorized: true,
-        lineUserId: DEMO_BYPASS_USER_ID,
-        profileComplete: true,
-        role: "member",
-      });
-    }
-
     // プレビューモード: 即座に認証OKを返す
     if (await isPreviewMode(req)) {
       return NextResponse.json({
