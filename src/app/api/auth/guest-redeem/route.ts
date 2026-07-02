@@ -150,8 +150,9 @@ export async function POST(req: NextRequest) {
       if (!inviteDoc.exists) return { error: INVALID_MSG, status: 400 };
       const invite = inviteDoc.data()!;
 
-      // ゲスト招待であること
-      if (invite.role !== "guest") return { error: INVALID_MSG, status: 400 };
+      // URL招待（ゲスト / エイト社員）であること。会員招待(OTP)はこの経路では引き換えない。
+      if (invite.role !== "guest" && invite.role !== "staff") return { error: INVALID_MSG, status: 400 };
+      const inviteRole: "guest" | "staff" = invite.role === "staff" ? "staff" : "guest";
       // 使用済み / 無効化 / 期限切れ
       if (invite.usedAt || invite.lineUserId) return { error: INVALID_MSG, status: 400 };
       if (invite.revokedAt) return { error: INVALID_MSG, status: 400 };
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
           displayName,
           lineUserId,
           active: true,
-          role: "guest",
+          role: inviteRole,
           profileComplete: false,
           createdAt: nowIso,
           lastLoginAt: nowIso,

@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
   }
   const userRef = snap.docs[0].ref;
   const data = snap.docs[0].data();
-  if (data.role !== "guest") {
-    return NextResponse.json({ error: "ゲストのみ利用できます" }, { status: 403 });
+  // ゲスト/エイト社員（URL招待でオンボードする身分）のみ。会員は別フロー。
+  if (data.role !== "guest" && data.role !== "staff") {
+    return NextResponse.json({ error: "この操作はゲスト/エイト社員のみ利用できます" }, { status: 403 });
   }
 
   const nowIso = new Date().toISOString();

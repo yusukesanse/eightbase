@@ -1024,14 +1024,15 @@ function InviteModal({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"member" | "guest">("member");
+  const [role, setRole] = useState<UserRole>("member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passcode, setPasscode] = useState<string | null>(null);
   const [guestUrl, setGuestUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const isGuest = role === "guest";
+  // ゲスト/エイト社員は「ワンタイムURL」方式（会員は OTP）
+  const usesUrl = role === "guest" || role === "staff";
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -1088,21 +1089,21 @@ function InviteModal({
               </div>
               <h3 className="text-base font-semibold text-[#231714]">
                 {emailSent
-                  ? isGuest ? "ゲスト招待メールを送信しました" : "招待メールを送信しました"
-                  : isGuest ? "ゲスト招待URLを発行しました" : "ワンタイムパスワードを発行しました"}
+                  ? usesUrl ? `${ROLE_LABELS[role]}招待メールを送信しました` : "招待メールを送信しました"
+                  : usesUrl ? "招待URLを発行しました" : "ワンタイムパスワードを発行しました"}
               </h3>
               <p className="text-xs text-[#231714]/50 mt-1">
                 {emailSent
-                  ? isGuest
-                    ? `${email} 宛に参加用URLをメール送信しました（有効期限: 7日間）`
+                  ? usesUrl
+                    ? `${email} 宛に参加用URLをメール送信しました（有効期限: 2日間）`
                     : `${email} 宛にパスワードをメール送信しました（有効期限: 7日間）`
-                  : isGuest
-                    ? `${name} さんにこのURLをLINEで開いてもらってください（有効期限: 7日間）`
+                  : usesUrl
+                    ? `${name} さんにこのURLをLINEで開いてもらってください（有効期限: 2日間）`
                     : `${name} さんにこのパスワードを伝えてください（有効期限: 7日間）`}
               </p>
               {!emailSent && (
                 <p className="text-xs text-orange-500 mt-1">
-                  ※ メール送信に失敗しました。手動で{isGuest ? "URL" : "パスワード"}をお伝えください。
+                  ※ メール送信に失敗しました。手動で{usesUrl ? "URL" : "パスワード"}をお伝えください。
                 </p>
               )}
             </div>
@@ -1110,7 +1111,7 @@ function InviteModal({
             {/* メール送信失敗時のみ手動共有用の値（member=パスコード / guest=URL）を表示 */}
             {fallbackValue && (
               <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-                {isGuest ? (
+                {usesUrl ? (
                   <p className="text-xs font-mono text-[#231714] break-all">{fallbackValue}</p>
                 ) : (
                   <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{fallbackValue}</p>
@@ -1128,7 +1129,7 @@ function InviteModal({
                 </button>
               )}
               <button
-                onClick={() => onCreated(`${name} さん${isGuest ? "にゲスト招待" : emailSent ? "に招待メール" : "のワンタイムパスワード"}${emailSent ? "を送信" : "を発行"}しました`)}
+                onClick={() => onCreated(`${name} さん${usesUrl ? `に${ROLE_LABELS[role]}招待` : emailSent ? "に招待メール" : "のワンタイムパスワード"}${emailSent ? "を送信" : "を発行"}しました`)}
                 className={`${fallbackValue ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
@@ -1139,17 +1140,20 @@ function InviteModal({
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">ユーザーを招待</h3>
             <p className="text-xs text-[#231714]/50 mb-4">
-              {isGuest
-                ? "ゲストは麻雀リーグなどのゲーム機能のみ利用できます。メールのワンタイムURLを開くと参加登録されます（予約・掲示板等は不可）。"
+              {usesUrl
+                ? role === "staff"
+                  ? "エイト社員はゲーム機能のみ利用でき、麻雀の参加費は不要です。メールのワンタイムURLを開くと登録されます（予約・掲示板等は不可）。"
+                  : "ゲストは麻雀リーグなどのゲーム機能のみ利用できます。メールのワンタイムURLを開くと参加登録されます（予約・掲示板等は不可）。"
                 : "会員は全機能を利用できます。ワンタイムパスワードを発行し、利用者がLINEのログイン画面で入力してアカウントを作成します。"}
             </p>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-[#231714]/60 mb-1">種別</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {([
                     { v: "member", label: "会員", desc: "全機能" },
                     { v: "guest", label: "ゲスト", desc: "ゲームのみ" },
+                    { v: "staff", label: "エイト社員", desc: "ゲームのみ・支払い不要" },
                   ] as const).map((opt) => (
                     <button
                       key={opt.v}
@@ -1199,7 +1203,7 @@ function InviteModal({
                   キャンセル
                 </button>
                 <button type="submit" disabled={loading} className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">
-                  {loading ? "発行中..." : isGuest ? "ゲスト招待を送信" : "パスワードを発行"}
+                  {loading ? "発行中..." : usesUrl ? "招待URLを送信" : "パスワードを発行"}
                 </button>
               </div>
             </form>

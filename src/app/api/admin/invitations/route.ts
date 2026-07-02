@@ -23,8 +23,14 @@ const MAX_PASSCODE_ATTEMPTS = 5;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** 身分ごとの有効期限日数を返す。 */
-function expiryDaysForRole(role: "member" | "guest"): number {
-  return role === "guest" ? GUEST_INVITATION_EXPIRY_DAYS : INVITATION_EXPIRY_DAYS;
+function expiryDaysForRole(role: "member" | "guest" | "staff"): number {
+  // ゲスト/エイト社員はURL方式（first-clicker）で流出リスクがあるため短め。
+  return role === "member" ? INVITATION_EXPIRY_DAYS : GUEST_INVITATION_EXPIRY_DAYS;
+}
+
+/** URL(first-clicker)方式で招待する身分か（＝ゲスト/エイト社員）。会員はOTP方式。 */
+function usesUrlInvite(role: "member" | "guest" | "staff"): boolean {
+  return role === "guest" || role === "staff";
 }
 
 /**
@@ -98,7 +104,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const { displayName, email, role: rawRole } = await req.json();
-    const role: "member" | "guest" = rawRole === "guest" ? "guest" : "member";
+    const role: "member" | "guest" | "staff" =
+      rawRole === "guest" ? "guest" : rawRole === "staff" ? "staff" : "member";
     if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
       return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
     }
@@ -187,7 +194,7 @@ export async function POST(req: NextRequest) {
     // member: ワンタイムパスコード（ログイン画面で入力）/ guest: ワンタイムURL（踏むと登録）
     let emailSent = false;
     try {
-      if (role === "guest") {
+      if (usesUrlInvite(role)) {
         await sendGuestInviteEmail(trimmedEmail, trimmedName, buildGuestInviteUrl(passcode), expiryDays);
       } else {
         await sendPasscodeEmail(trimmedEmail, trimmedName, passcode);
@@ -211,8 +218,8 @@ export async function POST(req: NextRequest) {
       success: true,
       id: inviteRef.id,
       role,
-      passcode: emailSent || role === "guest" ? undefined : passcode,
-      guestUrl: emailSent || role !== "guest" ? undefined : buildGuestInviteUrl(passcode),
+      passcode: emailSent || usesUrlInvite(role) ? undefined : passcode,
+      guestUrl: emailSent || !usesUrlInvite(role) ? undefined : buildGuestInviteUrl(passcode),
       emailSent,
       expiresAt: expiresAt.toISOString(),
     });
@@ -273,8 +280,9 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // 再発行時も身分に応じた有効期限（ゲストは短縮）でリセットする。
-    const role = data.role === "guest" ? "guest" : "member";
+    // 再発行時も身分に応じた有効期限（ゲスト/エイト社員は短縮）でリセットする。
+    const role: "member" | "guest" | "staff" =
+      data.role === "guest" ? "guest" : data.role === "staff" ? "staff" : "member";
     const expiryDays = expiryDaysForRole(role);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);
@@ -292,7 +300,7 @@ export async function PATCH(req: NextRequest) {
     const savedEmail = data.email as string | undefined;
     if (savedEmail) {
       try {
-        if (role === "guest") {
+        if (usesUrlInvite(role)) {
           await sendGuestInviteEmail(savedEmail, data.displayName || "", buildGuestInviteUrl(passcode), expiryDays);
         } else {
           await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
@@ -316,8 +324,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       success: true,
       role,
-      passcode: emailSent || role === "guest" ? undefined : passcode,
-      guestUrl: emailSent || role !== "guest" ? undefined : buildGuestInviteUrl(passcode),
+      passcode: emailSent || usesUrlInvite(role) ? undefined : passcode,
+      guestUrl: emailSent || !usesUrlInvite(role) ? undefined : buildGuestInviteUrl(passcode),
       emailSent,
       expiresAt: expiresAt.toISOString(),
     });
