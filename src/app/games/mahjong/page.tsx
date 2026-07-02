@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
-import type {
-  MahjongStanding,
-  PublicMahjongTable,
-  MahjongScheduleEntry,
-  MahjongCsEvent,
+import {
+  MAHJONG_MAX_ENTRIES_PER_DATE,
+  type MahjongStanding,
+  type PublicMahjongTable,
+  type MahjongScheduleEntry,
+  type MahjongCsEvent,
 } from "@/types";
 
 type Tab = "league" | "entry" | "cs";
@@ -189,6 +190,7 @@ function EntryScoreTab() {
   }
 
   const dateLabel = formatJpDate(eventDate);
+  const full = !entered && entryCount >= MAHJONG_MAX_ENTRIES_PER_DATE;
 
   return (
     <div className="space-y-4">
@@ -215,21 +217,23 @@ function EntryScoreTab() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-bold text-[#231714]">{dateLabel} のリーグ戦</span>
-          <span className="text-xs text-[#231714]/40">参加 {entryCount}名</span>
+          <span className={`text-xs ${full ? "text-[#d8533a] font-bold" : "text-[#231714]/40"}`}>
+            参加 {entryCount}/{MAHJONG_MAX_ENTRIES_PER_DATE}名{full ? "・満員" : ""}
+          </span>
         </div>
         <p className="text-[11px] text-[#231714]/40 mb-3 leading-relaxed">
-          卓は参加表明者をもとに運営が自動で組みます。
+          卓は参加表明者をもとに運営が自動で組みます。先着{MAHJONG_MAX_ENTRIES_PER_DATE}名まで。
         </p>
         <button
           onClick={toggleEntry}
-          disabled={busy}
+          disabled={busy || full}
           className={`w-full py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-50 ${
             entered
               ? "bg-gray-100 text-[#231714]/60"
               : "bg-[#B0E401] text-[#231714] shadow-sm"
           }`}
         >
-          {busy ? "処理中..." : entered ? "参加表明済み（取り消す）" : "このリーグ戦に参加する"}
+          {busy ? "処理中..." : entered ? "参加表明済み（取り消す）" : full ? "満員（先着8名）" : "このリーグ戦に参加する"}
         </button>
       </div>
 

@@ -10,7 +10,7 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { tierForRank } from "@/lib/mahjong";
-import type { MahjongTableMember } from "@/types";
+import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongTableMember } from "@/types";
 
 const SEASON_ID = "dev-mh-season";
 const PAST_DATE = "2026-06-13";
@@ -145,19 +145,25 @@ export async function seedDemoMahjong(): Promise<Record<string, number>> {
   });
   tableCount++;
 
-  // 5) 参加表明（今後の開催日に会員/ゲストが参加中）
+  // 5) 参加表明
   let entryCount = 0;
-  for (const p of [PLAYERS[0], PLAYERS[1]]) {
-    await db.collection("mahjongEntries").doc(`dev-ent-${p.lineUserId}`).set({
+  const addEntry = async (date: string, p: P) => {
+    await db.collection("mahjongEntries").doc(`dev-ent-${date}-${p.lineUserId}`).set({
       seasonId: SEASON_ID,
-      eventDate: UPCOMING_DATE,
+      eventDate: date,
       lineUserId: p.lineUserId,
       displayName: p.displayName,
       pictureUrl: "",
       enteredAt: nowIso,
     });
     entryCount++;
-  }
+  };
+  // (a) 今後の開催日(UPCOMING)に会員/ゲストが参加中＝「参加中」表示の確認用
+  for (const p of [PLAYERS[0], PLAYERS[1]]) await addEntry(UPCOMING_DATE, p);
+  // (b) 別の開催日(FULL_DATE)を先着8名で満員に＝「満員・参加ボタン非活性」の確認用
+  //     テストログインユーザー(member/guest/staff)は含めないので、ログイン時に満員表示になる
+  const FULL_DATE = "2026-08-08";
+  for (const p of PLAYERS.slice(2, 2 + MAHJONG_MAX_ENTRIES_PER_DATE)) await addEntry(FULL_DATE, p);
 
   // 6) CS（参戦者一覧＝上位8名。ブラケットは entry フェーズ）
   const csTop = [PLAYERS[0], PLAYERS[1], PLAYERS[2], PLAYERS[8], PLAYERS[5], PLAYERS[9], PLAYERS[3], PLAYERS[6]];

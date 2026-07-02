@@ -4,12 +4,13 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
 import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import { Avatar } from "@/components/ui/LineContact";
-import type {
-  MahjongStanding,
-  PublicMahjongTable,
-  PublicMahjongTableMember,
-  MahjongScheduleEntry,
-  MahjongSeasonSummary,
+import {
+  MAHJONG_MAX_ENTRIES_PER_DATE,
+  type MahjongStanding,
+  type PublicMahjongTable,
+  type PublicMahjongTableMember,
+  type MahjongScheduleEntry,
+  type MahjongSeasonSummary,
 } from "@/types";
 
 // 卓の席順（卓内の並び順から東南西北を割り当て）
@@ -70,6 +71,7 @@ export function MahjongLeagueView() {
   const [rankingMetric, setRankingMetric] = useState<"average" | "total">("average");
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
+  const [entryCountByDate, setEntryCountByDate] = useState<Record<string, number>>({});
   const [tables, setTables] = useState<PublicMahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
   // シーズン切替（順位/戦歴の閲覧にのみ効く。参加/申告はアクティブシーズン固定）
@@ -113,8 +115,9 @@ export function MahjongLeagueView() {
       setSchedule(league);
       setTables(tData.tables ?? []);
 
-      // 参加表明状況を各開催日ぶん取得
+      // 参加表明状況＋参加人数を各開催日ぶん取得
       const entered = new Set<string>();
+      const counts: Record<string, number> = {};
       await Promise.all(
         league.map(async (s: MahjongScheduleEntry) => {
           try {
@@ -123,12 +126,14 @@ export function MahjongLeagueView() {
             });
             const d = await r.json();
             if (d.entered) entered.add(s.date);
+            counts[s.date] = (d.entries ?? []).length;
           } catch {
             /* noop */
           }
         })
       );
       setEnteredDates(entered);
+      setEntryCountByDate(counts);
     } catch {
       /* noop */
     } finally {
@@ -194,6 +199,7 @@ export function MahjongLeagueView() {
         <JoinTab
           schedule={schedule}
           enteredDates={enteredDates}
+          entryCountByDate={entryCountByDate}
           tables={tables}
           onChanged={loadCore}
         />
@@ -262,11 +268,13 @@ function SeasonSelector({
 function JoinTab({
   schedule,
   enteredDates,
+  entryCountByDate,
   tables,
   onChanged,
 }: {
   schedule: MahjongScheduleEntry[];
   enteredDates: Set<string>;
+  entryCountByDate: Record<string, number>;
   tables: PublicMahjongTable[];
   onChanged: () => void;
 }) {
@@ -315,6 +323,8 @@ function JoinTab({
         const confirmed = tables.some((t) => t.eventDate === s.date);
         const { md, wd } = dateParts(s.date);
         const highlight = !past && (confirmed || entered);
+        const count = entryCountByDate[s.date] ?? 0;
+        const full = !entered && count >= MAHJONG_MAX_ENTRIES_PER_DATE;
         return (
           <div
             key={s.scheduleId}
@@ -327,7 +337,15 @@ function JoinTab({
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[14.5px] font-extrabold text-[#231714]">リーグ戦</div>
-              <div className="text-[12px] text-[#231714]/50 mt-0.5">{s.startTime}〜{s.endTime}</div>
+              <div className="text-[12px] text-[#231714]/50 mt-0.5">
+                {s.startTime}〜{s.endTime}
+                {!past && !confirmed && (
+                  <span className={`ml-2 ${full ? "text-[#d8533a] font-bold" : ""}`}>
+                    参加 {count}/{MAHJONG_MAX_ENTRIES_PER_DATE}
+                    {full ? "・満員" : ""}
+                  </span>
+                )}
+              </div>
             </div>
             {past ? (
               <span className="text-[11px] text-[#231714]/30 font-bold shrink-0">終了</span>
@@ -344,7 +362,7 @@ function JoinTab({
             ) : (
               <button
                 onClick={() => toggle(s.date, entered)}
-                disabled={busy === s.date}
+                disabled={busy === s.date || full}
                 className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform"
                 style={
                   entered
@@ -353,7 +371,7 @@ function JoinTab({
                 }
               >
                 {entered && busy !== s.date && <CheckIcon />}
-                {busy === s.date ? "..." : entered ? "参加中" : "参加する"}
+                {busy === s.date ? "..." : entered ? "参加中" : full ? "満員" : "参加する"}
               </button>
             )}
           </div>

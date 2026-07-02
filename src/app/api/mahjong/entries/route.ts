@@ -4,7 +4,7 @@ import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyEntries } from "@/lib/previewDummy";
-import type { MahjongEntry } from "@/types";
+import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +97,30 @@ export async function POST(req: NextRequest) {
       enteredAt: new Date().toISOString(),
     };
 
-    await ref.set(entry, { merge: true });
+    // 参加枠は先着 MAHJONG_MAX_ENTRIES_PER_DATE 名。並行表明の競合を避けるため transaction で
+    // 「同開催日の既存件数」を数え、自分が未表明なら上限チェック（複合インデックス回避のため
+    // seasonId のみで取得し eventDate は JS 側でフィルタ）。
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(
+          db.collection("mahjongEntries").where("seasonId", "==", season.seasonId)
+        );
+        const sameDate = snap.docs.filter((d) => d.data().eventDate === eventDate);
+        const already = sameDate.some((d) => d.id === entryId);
+        if (!already && sameDate.length >= MAHJONG_MAX_ENTRIES_PER_DATE) {
+          throw new Error("FULL");
+        }
+        tx.set(ref, entry, { merge: true });
+      });
+    } catch (e) {
+      if (e instanceof Error && e.message === "FULL") {
+        return NextResponse.json(
+          { error: `参加枠が満員です（先着${MAHJONG_MAX_ENTRIES_PER_DATE}名）`, full: true },
+          { status: 409 }
+        );
+      }
+      throw e;
+    }
     return NextResponse.json({ entry: { ...entry, entryId } }, { status: 201 });
   } catch (error) {
     console.error("[mahjong/entries] POST error:", error);

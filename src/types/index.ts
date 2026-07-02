@@ -448,6 +448,9 @@ export interface MahjongEntry {
 /** CS（チャンピオンシップ）出場に必要なリーグ戦試合数 */
 export const MAHJONG_CS_MIN_GAMES = 5;
 
+/** リーグ戦1開催日あたりの参加枠（先着）。これを超える参加表明は不可。 */
+export const MAHJONG_MAX_ENTRIES_PER_DATE = 8;
+
 /** 通算成績（standings APIの計算結果） */
 export interface MahjongStanding {
   lineUserId: string;
