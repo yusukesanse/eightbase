@@ -3,107 +3,81 @@
 /**
  * Dev ログイン（検証環境専用・LINE/LIFF 切り離し）。
  *
- * テストユーザー（lineUserId/表示名）を選び、Devトークン経由で本番同一フローを検証する。
- * - 本番では `isDevLoginEnabled()` が常に false → 無効画面を表示。
- * - ここで選んだ識別子は localStorage に保存され、`/`・`/login`・`/guest` が Devトークンとして使う。
+ * ボタン1つで「会員 / ゲスト / 新規」のテストユーザーとして即アプリに入る。
+ * サーバー(`/api/dev/quick-login`)が authorizedUsers を upsert して実 `__session` を張るため、
+ * 選んだユーザーは **管理者アプリの顧客一覧にも表示**される。
+ * - 本番では `isDevLoginEnabled()` が常に false → 無効画面。
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { isDevLoginEnabled } from "@/lib/env";
-import {
-  getStoredDevIdentity,
-  setStoredDevIdentity,
-  clearStoredDevIdentity,
-  type DevIdentity,
-} from "@/lib/devLogin";
+import { setStoredDevIdentity, clearStoredDevIdentity } from "@/lib/devLogin";
 import { clearAuthCache } from "@/components/AuthGuard";
-
-const PRESETS: { label: string; id: DevIdentity; note: string }[] = [
-  { label: "会員テスト", id: { userId: "dev-member-01", displayName: "会員テスト" }, note: "固定ID（招待して会員登録すると以後は会員）" },
-  { label: "ゲストテスト", id: { userId: "dev-guest-01", displayName: "ゲストテスト" }, note: "固定ID（ゲスト招待で登録）" },
-];
-
-function randomNewUser(): DevIdentity {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return { userId: `dev-new-${rand}`, displayName: "新規テスト" };
-}
 
 export default function DevLoginPage() {
   const enabled = isDevLoginEnabled();
-  const [userId, setUserId] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [pictureUrl, setPictureUrl] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [guestCode, setGuestCode] = useState("");
-  const [current, setCurrent] = useState<DevIdentity | null>(null);
-
-  useEffect(() => {
-    const id = getStoredDevIdentity();
-    setCurrent(id);
-    if (id) {
-      setUserId(id.userId);
-      setDisplayName(id.displayName);
-      setPictureUrl(id.pictureUrl ?? "");
-    }
-  }, []);
 
   if (!enabled) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 text-center">
         <p className="text-sm font-medium text-[#231714]">Dev ログインは無効です</p>
         <p className="text-xs text-[#231714]/50 mt-1">
-          この画面は検証環境（非本番・<code>NEXT_PUBLIC_DEV_LOGIN=on</code>）でのみ利用できます。
+          検証環境（非本番・<code>NEXT_PUBLIC_DEV_LOGIN=on</code>）でのみ利用できます。
         </p>
       </div>
     );
   }
 
-  function persist(): DevIdentity | null {
-    const uid = userId.trim();
-    if (!uid) return null;
-    const identity: DevIdentity = {
-      userId: uid,
-      displayName: displayName.trim() || uid,
-      pictureUrl: pictureUrl.trim(),
-    };
-    // ユーザー切替時は前ユーザーの表示キャッシュを破棄
-    clearAuthCache();
-    setStoredDevIdentity(identity);
-    setCurrent(identity);
-    return identity;
+  async function quickLogin(role: "member" | "guest" | "new") {
+    setBusy(role);
+    setError(null);
+    try {
+      // 前ユーザーの表示キャッシュ・Dev識別子を破棄してから切替
+      clearAuthCache();
+      clearStoredDevIdentity();
+      const res = await fetch("/api/dev/quick-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || "ログインに失敗しました");
+        setBusy(null);
+        return;
+      }
+      // フルリロードで遷移（AuthGuard を新セッションで再評価）
+      window.location.href = data.home || "/";
+    } catch {
+      setError("通信エラーが発生しました");
+      setBusy(null);
+    }
   }
 
-  function applyPreset(id: DevIdentity) {
-    setUserId(id.userId);
-    setDisplayName(id.displayName);
-    setPictureUrl(id.pictureUrl ?? "");
-  }
-
-  function go(path: string) {
-    if (!persist()) return;
-    window.location.href = path;
-  }
-
-  function goGuest() {
-    if (!persist()) return;
+  // 管理者が発行した実ゲスト招待コードで redeem を試す（新規ゲスト identity で /guest へ）
+  function tryGuestCode() {
     const code = guestCode.trim();
-    window.location.href = code ? `/guest?code=${encodeURIComponent(code)}` : "/guest";
+    if (!code) return;
+    clearAuthCache();
+    const rand = Math.random().toString(36).slice(2, 8);
+    setStoredDevIdentity({ userId: `dev-invite-${rand}`, displayName: "招待ゲスト" });
+    window.location.href = `/guest?code=${encodeURIComponent(code)}`;
   }
 
-  function reset() {
+  function logout() {
     clearAuthCache();
     clearStoredDevIdentity();
-    setCurrent(null);
-    setUserId("");
-    setDisplayName("");
-    setPictureUrl("");
+    fetch("/api/auth/logout", { method: "POST", credentials: "include" }).finally(() => {
+      window.location.href = "/dev-login";
+    });
   }
 
-  const inputCls =
-    "w-full px-3 py-2 text-sm border border-[#231714]/15 rounded-lg bg-white focus:outline-none focus:border-[#231714]";
-  const btnPrimary =
-    "w-full py-2.5 rounded-xl text-sm font-bold text-white bg-[#231714] active:scale-[0.99] transition";
-  const btnSub =
-    "w-full py-2.5 rounded-xl text-sm font-bold text-[#231714] bg-white border border-[#231714]/15 active:scale-[0.99] transition";
+  const btn =
+    "w-full py-3.5 rounded-2xl text-sm font-bold active:scale-[0.99] transition disabled:opacity-50";
 
   return (
     <div className="min-h-screen bg-gray-50 px-5 py-8">
@@ -113,65 +87,44 @@ export default function DevLoginPage() {
           <h1 className="text-lg font-bold text-[#231714]">Dev ログイン</h1>
         </div>
         <p className="text-xs text-[#231714]/50 mb-5">
-          LINE/LIFF を通さずにテストユーザーで顧客アプリ・登録フローを検証します。本番では無効です。
+          ボタンを押すとテストユーザーとしてそのままアプリに入ります（LINE不要）。選んだユーザーは管理画面の顧客一覧にも出ます。
         </p>
 
-        {current && (
-          <div className="mb-4 rounded-xl bg-[#A5C1C8]/15 border border-[#A5C1C8]/40 px-4 py-3">
-            <p className="text-[11px] text-[#231714]/50">現在の選択ユーザー</p>
-            <p className="text-sm font-bold text-[#231714]">
-              {current.displayName} <span className="font-mono text-xs text-[#231714]/50">({current.userId})</span>
-            </p>
-          </div>
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
-        {/* プリセット */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {PRESETS.map((p) => (
-            <button key={p.id.userId} onClick={() => applyPreset(p.id)} title={p.note}
-              className="px-3 py-1.5 text-xs font-bold rounded-full bg-white border border-[#231714]/15 text-[#231714]">
-              {p.label}
-            </button>
-          ))}
-          <button onClick={() => applyPreset(randomNewUser())} title="毎回別ID＝未登録ユーザー"
-            className="px-3 py-1.5 text-xs font-bold rounded-full bg-white border border-[#231714]/15 text-[#231714]">
-            新規ユーザー生成
+        <div className="space-y-3">
+          <button className={`${btn} bg-[#231714] text-white`} disabled={!!busy} onClick={() => quickLogin("member")}>
+            {busy === "member" ? "処理中..." : "会員としてログイン（予約・掲示板など全機能）"}
+          </button>
+          <button className={`${btn} bg-[#2f7d57] text-white`} disabled={!!busy} onClick={() => quickLogin("guest")}>
+            {busy === "guest" ? "処理中..." : "ゲストとしてログイン（ゲームのみ）"}
+          </button>
+          <button className={`${btn} bg-white text-[#231714] border border-[#231714]/15`} disabled={!!busy} onClick={() => quickLogin("new")}>
+            {busy === "new" ? "処理中..." : "新規登録を試す（プロフィール設定から）"}
           </button>
         </div>
 
-        {/* 入力 */}
-        <div className="space-y-3 mb-5">
-          <div>
-            <label className="block text-[11px] font-bold text-[#231714]/60 mb-1">lineUserId（疑似）</label>
-            <input className={inputCls} value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="dev-member-01" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-[#231714]/60 mb-1">表示名</label>
-            <input className={inputCls} value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="会員テスト" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-[#231714]/60 mb-1">画像URL（任意）</label>
-            <input className={inputCls} value={pictureUrl} onChange={(e) => setPictureUrl(e.target.value)} placeholder="https://..." />
-          </div>
+        {/* 実ゲスト招待コードの検証（任意） */}
+        <div className="mt-6 rounded-xl border border-[#231714]/10 p-3 space-y-2">
+          <label className="block text-[11px] font-bold text-[#231714]/60">
+            管理画面で発行したゲスト招待コードを試す（任意）
+          </label>
+          <input
+            className="w-full px-3 py-2 text-sm border border-[#231714]/15 rounded-lg bg-white focus:outline-none focus:border-[#231714]"
+            value={guestCode}
+            onChange={(e) => setGuestCode(e.target.value)}
+            placeholder="EB-XXXXXX（URLの code= の値）"
+          />
+          <button className={`${btn} bg-white text-[#231714] border border-[#231714]/15 !py-2.5`} onClick={tryGuestCode}>
+            この招待コードで登録を試す（/guest へ）
+          </button>
         </div>
 
-        {/* 導線 */}
-        <div className="space-y-2.5">
-          <button className={btnPrimary} onClick={() => go("/")}>
-            顧客アプリを開く（登録済みユーザーで閲覧）
-          </button>
-          <button className={btnSub} onClick={() => go("/login")}>
-            会員登録／ログイン（OTP入力へ）
-          </button>
-          <div className="rounded-xl border border-[#231714]/10 p-3 space-y-2">
-            <label className="block text-[11px] font-bold text-[#231714]/60">ゲスト招待コード</label>
-            <input className={inputCls} value={guestCode} onChange={(e) => setGuestCode(e.target.value)} placeholder="招待メールの code" />
-            <button className={btnSub} onClick={goGuest}>ゲスト招待を試す（/guest へ）</button>
-          </div>
-          <button className="w-full py-2 text-xs font-bold text-[#231714]/50" onClick={reset}>
-            選択ユーザーをクリア（ログアウト相当）
-          </button>
-        </div>
+        <button className="mt-5 w-full py-2 text-xs font-bold text-[#231714]/50" onClick={logout}>
+          ログアウト（セッション破棄）
+        </button>
       </div>
     </div>
   );

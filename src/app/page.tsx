@@ -5,7 +5,6 @@ import Image from "next/image";
 import ShibaGame from "@/components/ShibaGame";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { isDevLoginEnabled } from "@/lib/env";
-import { getStoredDevIdentity } from "@/lib/devLogin";
 
 const LOGGED_OUT_FLAG = "eb_logged_out";
 
@@ -50,14 +49,25 @@ export default function HomePage() {
   }, [boot]);
 
   useEffect(() => {
-    // Dev ログイン（非本番）: LIFF を通さず、選択済みテストユーザーで通常ブートを実行。
-    // 未選択なら /dev-login へ誘導（本番では isDevLoginEnabled() が常に false）。
+    // Dev ログイン（非本番）: 実セッションの有無で分岐（本番では常に false）。
+    // ログイン済み → ロールに応じたホームへ / 未ログイン → /dev-login のワンクリック画面へ。
     if (isDevLoginEnabled()) {
-      if (!getStoredDevIdentity()) {
-        window.location.replace("/dev-login");
-        return;
-      }
-      runBoot();
+      fetch("/api/auth/check", { credentials: "include" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.authorized) {
+            const home =
+              d.role === "guest"
+                ? "/games/mahjong"
+                : d.profileComplete
+                  ? "/reservation"
+                  : "/setup-profile";
+            window.location.replace(home);
+          } else {
+            window.location.replace("/dev-login");
+          }
+        })
+        .catch(() => window.location.replace("/dev-login"));
       return;
     }
 
