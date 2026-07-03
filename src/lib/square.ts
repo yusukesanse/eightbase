@@ -6,11 +6,9 @@
  *   生成した注文ID(orderId)を予約に保存し、決済後リダイレクトでは rid から予約→保存orderId を引き、
  *   注文→決済を取得して完了・金額を照合する（verifySquareOrderPayment）。
  *   ※静的共有リンクは Square がリダイレクトに識別子を付けず注文も使い回すため不採用。
- * 旧 verifySquarePayment（referenceId=userId 前提）は後方互換で残置。
  */
 
 import { SquareClient, SquareEnvironment } from "square";
-import type { Facility } from "@/types";
 
 /**
  * Square 決済の用途。用途ごとに別アカウント/店舗(Location)へ売上を分けられる。
@@ -69,34 +67,6 @@ export function getSquareLocationId(purpose: SquarePurpose = "reservation"): str
   return locationId;
 }
 
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    throw new Error("予約時刻の形式が不正です");
-  }
-  return hours * 60 + minutes;
-}
-
-export function calculateReservationAmount(
-  facility: Facility,
-  startTime: string,
-  endTime: string
-): number {
-  if (!facility.requirePayment) return 0;
-  const hourlyRate = facility.hourlyRate ?? 0;
-  if (hourlyRate <= 0) {
-    throw new Error("施設の決済設定が不正です");
-  }
-
-  const start = timeToMinutes(startTime);
-  const end = timeToMinutes(endTime);
-  if (end <= start) {
-    throw new Error("予約終了時刻が開始時刻以前です");
-  }
-
-  return Math.round((hourlyRate * (end - start)) / 60);
-}
-
 export async function getSquarePayment(
   paymentId: string,
   purpose: SquarePurpose = "reservation"
@@ -104,34 +74,6 @@ export async function getSquarePayment(
   const client = getSquareClient(purpose);
   const response = await client.payments.get({ paymentId });
   return response.payment;
-}
-
-export async function verifySquarePayment({
-  paymentId,
-  expectedAmount,
-  userId,
-}: {
-  paymentId: string;
-  expectedAmount: number;
-  userId: string;
-}): Promise<void> {
-  const payment = await getSquarePayment(paymentId);
-  if (!payment) {
-    throw new Error("決済情報が見つかりません");
-  }
-  if (payment.status !== "COMPLETED") {
-    throw new Error("決済が完了していません");
-  }
-
-  const amount = payment.amountMoney?.amount;
-  if (amount === undefined || amount === null || BigInt(expectedAmount) !== BigInt(amount)) {
-    throw new Error("決済金額が予約金額と一致しません");
-  }
-
-  const expectedReferenceId = userId.substring(0, 40);
-  if (payment.referenceId !== expectedReferenceId) {
-    throw new Error("決済ユーザーが一致しません");
-  }
 }
 
 /**
@@ -231,35 +173,4 @@ export async function createReservationPaymentLink({
     throw new Error("決済リンクの生成に失敗しました");
   }
   return { url: link.url, orderId: link.orderId };
-}
-
-/**
- * Square 決済の返金を実行
- * @returns 返金ID（成功時）
- * @throws 返金失敗時にエラー
- */
-export async function refundSquarePayment(
-  paymentId: string,
-  amountYen: number
-): Promise<string> {
-  const client = getSquareClient();
-  const crypto = await import("crypto");
-  const idempotencyKey = crypto.randomUUID();
-
-  const response = await client.refunds.refundPayment({
-    idempotencyKey,
-    paymentId,
-    amountMoney: {
-      amount: BigInt(amountYen),
-      currency: "JPY",
-    },
-    reason: "予約作成失敗のため自動返金",
-  });
-
-  const refund = response.refund;
-  if (!refund || !refund.id) {
-    throw new Error("返金レスポンスが不正です");
-  }
-
-  return refund.id;
 }

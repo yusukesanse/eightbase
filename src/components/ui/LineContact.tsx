@@ -1,7 +1,5 @@
 "use client";
 
-import { BottomSheet, CenterModal } from "./Sheet";
-
 /**
  * メンバー一覧・掲示板で共用する「LINEで連絡」フローの部品群。
  * - LINE送信は現時点ではUIのみ（スタブ）。実送信は将来 LIFF/Messaging API に接続する。
@@ -130,91 +128,5 @@ export function SheetButton({
       {line && <LineGlyph size={18} />}
       {children}
     </button>
-  );
-}
-
-/** LINE連絡シート（宛先行＋メッセージ入力＋注記）。 */
-export function LineComposeSheet({
-  open,
-  name,
-  photo,
-  subtitle,
-  value,
-  onChange,
-  onBack,
-  onSend,
-}: {
-  open: boolean;
-  name: string;
-  photo?: string | null;
-  subtitle: string;
-  value: string;
-  onChange: (v: string) => void;
-  onBack: () => void;
-  onSend: () => void;
-}) {
-  return (
-    <BottomSheet
-      open={open}
-      title="LINEで連絡"
-      onClose={onBack}
-      footer={
-        <>
-          <SheetButton variant="secondary" onClick={onBack}>戻る</SheetButton>
-          <SheetButton line disabled={!value.trim()} onClick={onSend}>LINEで送信</SheetButton>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3.5">
-        <div className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[#f6f8f9]">
-          <Avatar src={photo} name={name} size="sm" />
-          <div className="min-w-0">
-            <div className="text-[14px] font-bold text-[#1c1f21] truncate">{name}</div>
-            <div className="text-[12px] text-[#6d6f74]">{subtitle}</div>
-          </div>
-          <div className="ml-auto">
-            <LineGlyph size={22} />
-          </div>
-        </div>
-        <textarea
-          rows={4}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="メッセージを入力"
-          style={{ fontSize: "16px" }}
-          className="w-full px-3 py-2.5 text-[15px] leading-relaxed text-[#1c1f21] bg-white rounded-[10px] border border-[#e4e7e9] focus:outline-none focus:border-[#a5c1c7] resize-none"
-        />
-        <p className="text-[12px] text-[#97999d] leading-relaxed">
-          送信するとお互いのLINEアカウントが連携され、以降はLINEのトークでやり取りできます。
-        </p>
-      </div>
-    </BottomSheet>
-  );
-}
-
-/** 送信完了シート（センターモーダル）。 */
-export function LineSentSheet({
-  open,
-  name,
-  onClose,
-}: {
-  open: boolean;
-  name: string;
-  onClose: () => void;
-}) {
-  return (
-    <CenterModal open={open} onClose={onClose} footer={<SheetButton fullWidth onClick={onClose}>閉じる</SheetButton>}>
-      <div className="flex flex-col items-center text-center gap-3 pt-1">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: LINE_GREEN }}>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
-          </svg>
-        </div>
-        <div className="text-[17px] font-bold text-[#1c1f21]">LINEに送信しました</div>
-        <div className="text-[13px] text-[#6d6f74] leading-relaxed">
-          {name}さんへのメッセージをLINEのトークに送信しました。
-        </div>
-      </div>
-    </CenterModal>
   );
 }

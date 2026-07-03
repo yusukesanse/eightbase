@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 
 /**
- * デザインハンドオフ準拠のボトムシート / センターモーダル。
- * - スクリム rgba(28,31,33,0.38)、上スライド（ebSheetUp）/ ポップ（ebPop）。
- * - メンバー一覧・掲示板の詳細/連絡/完了シートで共用する。
+ * デザインハンドオフ準拠のボトムシート。
+ * スクリム rgba(28,31,33,0.38)、上スライド（ebSheetUp）。メンバー一覧・掲示板の詳細シートで共用。
  */
 
 const SCRIM = "rgba(28,31,33,0.38)";
@@ -84,38 +83,6 @@ export function BottomSheet({
             {footer}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-export function CenterModal({
-  open,
-  onClose,
-  footer,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  footer?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center px-8"
-      style={{ background: SCRIM, animation: "ebFadeIn 160ms ease-out" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[320px] bg-white rounded-2xl shadow-xl p-5"
-        style={{ animation: "ebPop 200ms cubic-bezier(0.2,0,0.2,1)" }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div>{children}</div>
-        {footer && <div className="mt-5">{footer}</div>}
       </div>
     </div>
   );

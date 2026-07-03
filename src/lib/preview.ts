@@ -30,12 +30,6 @@ export async function isPreviewMode(req: NextRequest): Promise<boolean> {
   }
 }
 
-/** プレビュー中の書き込み操作かどうかを判定 */
-export async function isPreviewWriteRequest(req: NextRequest): Promise<boolean> {
-  if (!isWriteMethod(req.method)) return false;
-  return isPreviewMode(req);
-}
-
 /** プレビュー用 JWT を生成（activate API で使用） */
 export async function signPreviewToken(): Promise<string> {
   return new SignJWT({ preview: true })

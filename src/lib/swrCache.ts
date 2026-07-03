@@ -118,20 +118,6 @@ export function writeCache<T>(
   }
 }
 
-/** 特定キーのキャッシュを破棄する。 */
-export function clearCache(
-  key: string,
-  options?: { storage?: CacheStorageKind }
-): void {
-  const store = getStore(options?.storage ?? "session");
-  if (!store) return;
-  try {
-    store.removeItem(storageKey(key));
-  } catch {
-    // 無視
-  }
-}
-
 /**
  * このキャッシュ機構（swr: プレフィックス）で保存した全データを session/local
  * 両方から破棄する。ログイン/ログアウトでユーザーが切り替わるときに呼び、

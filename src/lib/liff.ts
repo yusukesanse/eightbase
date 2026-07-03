@@ -90,47 +90,6 @@ export async function initLiff(): Promise<Liff> {
   return liff;
 }
 
-/**
- * LINE ユーザー ID を取得する（ログイン必須）。
- * 未ログインの場合、LINE ログインへリダイレクトする。
- */
-export async function getLineUserId(): Promise<string> {
-  const liff = await initLiff();
-
-  if (!liff.isLoggedIn()) {
-    liff.login({ redirectUri: window.location.href });
-    throw new Error("Redirecting to LINE login");
-  }
-
-  const profile = await liff.getProfile();
-  return profile.userId;
-}
-
-/**
- * ログイン済みなら LINE ユーザー ID を返す。
- * 未ログインの場合はリダイレクトせず null を返す。
- */
-export async function tryGetLineUserId(): Promise<string | null> {
-  try {
-    const liff = await initLiff();
-    if (!liff.isLoggedIn()) return null;
-    const profile = await liff.getProfile();
-    return profile.userId;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * LINE ログインへリダイレクトする。
- */
-export async function loginWithLine(): Promise<void> {
-  const liff = await initLiff();
-  if (!liff.isLoggedIn()) {
-    liff.login({ redirectUri: window.location.href });
-  }
-}
-
 /** /api/auth/liff-login のレスポンス形 */
 interface LiffLoginApiResponse {
   success?: boolean;

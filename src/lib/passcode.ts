@@ -23,7 +23,3 @@ export function hashPasscode(passcode: string): string {
   const normalized = passcode.trim().toUpperCase();
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }
-
-export function verifyPasscode(plaintext: string, storedHash: string): boolean {
-  return hashPasscode(plaintext) === storedHash;
-}

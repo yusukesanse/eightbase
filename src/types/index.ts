@@ -1,16 +1,6 @@
 // ─── ユーザー ───────────────────────────────────────────────────────────────
 export type UserRole = "tenant" | "coworking" | "admin";
 
-export interface NufUser {
-  lineUserId: string;
-  displayName: string;
-  pictureUrl?: string;
-  tenantId: string;
-  tenantName: string;
-  role: UserRole;
-  createdAt: string; // ISO8601
-}
-
 // ─── 施設 ────────────────────────────────────────────────────────────────────
 export type FacilityType = "meeting_room" | "booth" | "activity";
 
@@ -72,14 +62,6 @@ export interface Reservation {
   switchBotPasscodeExpiresAt?: string; // パスコード失効（=予約終了）ISO8601
   switchBotStatus?: "issued" | "pending" | "failed"; // 発行状態（failed=要手動再発行）
   createdAt: string;
-}
-
-// ─── 空き確認 API ─────────────────────────────────────────────────────────────
-export interface AvailabilityRequest {
-  facilityId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
 }
 
 export type UnavailableReason = "ALREADY_BOOKED" | "OUT_OF_HOURS" | "PAST_DATE";
@@ -158,13 +140,6 @@ export interface Game {
   updatedAt: string;
 }
 
-export interface GameParticipant {
-  lineUserId: string;
-  displayName: string;
-  pictureUrl?: string;
-  joinedAt: string;       // ISO8601
-}
-
 // ─── スコアボード ─────────────────────────────────────────────────────────────
 
 /** シーズン（ランキング集計期間） */
@@ -183,48 +158,6 @@ export interface Season {
   rankingMetric?: MahjongRankingMetric;
   createdAt: string;
   updatedAt: string;
-}
-
-/** 種目別スコア詳細 */
-export interface MahjongDetails {
-  rounds: { rank: number; score: number }[];
-}
-
-export interface PokerDetails {
-  tournamentRank: number;
-  chipCount: number;
-  bountyCount?: number;
-}
-
-export interface BilliardsDetails {
-  matches: { result: "win" | "lose" | "draw"; points: number }[];
-}
-
-export interface DartsDetails {
-  gameType?: string;
-  rank: number;
-  points: number;
-}
-
-export type ScoreDetails =
-  | MahjongDetails
-  | PokerDetails
-  | BilliardsDetails
-  | DartsDetails;
-
-/** 個人スコア（1ゲーム×1ユーザー） */
-export interface Score {
-  scoreId: string;
-  gameId: string;
-  gameCategory: ScoreboardGameId;
-  lineUserId: string;
-  seasonId: string;
-  yearMonth: string;      // YYYY-MM（月間クエリ用）
-  totalScore: number;
-  details: ScoreDetails;
-  playedAt: string;       // ISO8601
-  recordedBy: string;
-  createdAt: string;
 }
 
 /** ランキングエントリ */
@@ -320,8 +253,6 @@ export const INDUSTRY_OPTIONS = [
   "その他",
 ] as const;
 
-export type Industry = (typeof INDUSTRY_OPTIONS)[number];
-
 export interface MemberProfile {
   catchphrase: string;
   skills: string[];
@@ -341,21 +272,6 @@ export interface MemberProfile {
 }
 
 // ─── 掲示板投稿 ─────────────────────────────────────────────────────────────
-
-export type PostType = "offer" | "request";
-
-export interface TimelinePost {
-  postId: string;
-  authorId: string;
-  authorName: string;
-  authorPictureUrl: string;
-  type: PostType;
-  content: string;
-  tags: string[];
-  likes: string[];
-  commentCount: number;
-  createdAt: string;
-}
 
 // ─── 麻雀リーグ / CS / スケジュール（別モジュールへ分離） ───
 export * from "./mahjong";
