@@ -7,20 +7,19 @@ import { isDevLoginEnabled } from "@/lib/env";
 import type { MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer } from "@/types";
 
 /**
- * CS > 麻雀（TILES 案）
- * - 王者の表彰台（金銀銅・王冠）：決勝卓の確定結果から上位3名
- * - トーナメント ブラケット：予選→準決→決勝→優勝 を列で横スクロール表示。
- *   勝ち上がりを緑で強調。デモ時のみ各卓に「結果入力」（ボトムシート）を出す。
+ * CS > 麻雀（TILES 案）— 縦トーナメント表
+ * - 最上部に王冠（優勝者 / 未定）、下へ 決勝→準決→予選 と枝分かれする木構造で表示。
+ * - 勝ち上がりは緑で強調、M1シードは S バッジ。
+ * - デモ時のみ各卓に「結果入力」。自分の卓は着順、他卓は勝者タップ（手動）。
  */
 
 const MEDAL: Record<number, string> = { 1: "#d8a526", 2: "#b9c0c6", 3: "#c97b3c" };
 const SUCCESS = "#8aab36";
 const SUCCESS_INK = "#6f9023";
 const M1 = "#a2125a";
-
-function fmtPts(p: number | null): string {
-  return p == null ? "—" : p.toLocaleString();
-}
+const LINE = "#d5dadd";
+const CARD_W = 158;
+const GAP = 12;
 
 export function MahjongCsView() {
   const [event, setEvent] = useState<MahjongCsEvent | null>(null);
@@ -46,18 +45,17 @@ export function MahjongCsView() {
     load();
   }, [load]);
 
-  // デモ検証（非本番＋demoDummyイベント）: demoユーザーが勝敗を入力してCSを進められる。
   const demo = isDevLoginEnabled() && !!(event as { demoDummy?: boolean } | null)?.demoDummy;
 
   const reportMatch = useCallback(
-    async (csEventId: string, matchId: string, meRank?: number) => {
+    async (csEventId: string, matchId: string, body: { meRank?: number; winnerId?: string }) => {
       setBusy(true);
       try {
         await fetch("/api/mahjong/cs/match", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ csEventId, matchId, meRank }),
+          body: JSON.stringify({ csEventId, matchId, ...body }),
         });
         setInputMatch(null);
         await load();
@@ -84,105 +82,45 @@ export function MahjongCsView() {
   }
 
   const seedSet = new Set(event.entrants.filter((e) => e.seed).map((e) => e.lineUserId));
-
-  // 表彰台：決勝卓の確定結果から上位3名
-  const finalRound =
-    event.rounds.find((r) => r.label.includes("決勝")) ?? event.rounds[event.rounds.length - 1];
-  const finalMatch = finalRound?.matches.find((m) => m.status === "completed");
-  const podium = finalMatch
-    ? [...finalMatch.players]
-        .filter((p) => p.rank != null)
-        .sort((a, b) => a.rank! - b.rank!)
-        .slice(0, 3)
-        .map((p) => ({ place: p.rank!, name: p.displayName, pictureUrl: p.pictureUrl, points: p.points }))
-    : [];
   const champ = event.championId ? event.entrants.find((e) => e.lineUserId === event.championId) : null;
+  // 木は上から 決勝→準決→予選。rounds は予選→決勝の順なので反転。
+  const roundsTopDown = [...event.rounds].reverse();
 
   return (
-    <div className="flex flex-col gap-[18px]">
-      {/* ── 王者・表彰台 ── */}
-      <div
-        className="rounded-[22px] px-[18px] pt-5 relative overflow-hidden"
-        style={{ background: "radial-gradient(120% 80% at 50% 0%, #2b2f31, #16191b)" }}
-      >
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(60% 40% at 50% 6%, rgba(216,165,38,.28), transparent 70%)" }} />
-        <div className="relative text-center mb-3">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d8a526" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
-            <path d="M6 4h12v3a6 6 0 01-12 0V4z" />
-            <path d="M6 5H3v2a3 3 0 003 3M18 5h3v2a3 3 0 01-3 3M9 16h6M8 20h8M12 16v4" />
-          </svg>
-          <div className="text-[13px] font-black text-white tracking-[0.06em] mt-1">{event.name}</div>
-          <div className="text-[11px] text-white/60 mt-0.5">{event.eventDate}</div>
-        </div>
-
-        {podium.length > 0 ? (
-          <div className="relative flex items-end justify-center gap-3 pb-0">
-            {[podium.find((p) => p.place === 2), podium.find((p) => p.place === 1), podium.find((p) => p.place === 3)]
-              .filter((p): p is NonNullable<typeof p> => !!p)
-              .map((p) => {
-                const h = p.place === 1 ? 92 : p.place === 2 ? 66 : 52;
-                const col = MEDAL[p.place];
-                return (
-                  <div key={p.place} className="flex flex-col items-center flex-1 max-w-[100px]">
-                    <div className="relative">
-                      <Avatar src={p.pictureUrl} name={p.name} size={p.place === 1 ? 58 : 46} style={{ boxShadow: `0 0 0 3px ${col}` }} />
-                      {p.place === 1 && <div className="absolute left-1/2 -translate-x-1/2 text-[18px]" style={{ top: -16 }}>👑</div>}
-                    </div>
-                    <div className="text-[12.5px] font-extrabold text-white mt-1.5 text-center whitespace-nowrap">{p.name}</div>
-                    <div className="text-[11px] font-extrabold tabular-nums" style={{ color: col }}>{fmtPts(p.points)}</div>
-                    <div
-                      className="w-full mt-1.5 flex items-start justify-center pt-2"
-                      style={{ height: h, borderRadius: "8px 8px 0 0", background: `linear-gradient(180deg, ${col}, color-mix(in srgb, ${col} 55%, #16191b))`, boxShadow: "inset 0 2px 0 rgba(255,255,255,.3)" }}
-                    >
-                      <span className="font-black text-white/90" style={{ fontSize: p.place === 1 ? 22 : 17 }}>{p.place}</span>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        ) : champ ? (
-          <div className="relative flex flex-col items-center pb-5">
-            <div className="relative">
-              <Avatar src={champ.pictureUrl} name={champ.displayName} size={64} style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
-              <div className="absolute left-1/2 -translate-x-1/2 text-[20px]" style={{ top: -18 }}>👑</div>
-            </div>
-            <div className="text-[15px] font-black text-white mt-2">{champ.displayName}</div>
-            <div className="text-[11px] font-extrabold" style={{ color: MEDAL[1] }}>WINNER</div>
-          </div>
-        ) : (
-          <div className="relative text-center text-white/60 text-[12px] pb-5">勝ち上がると王者が表示されます</div>
-        )}
+    <div className="flex flex-col gap-4">
+      {/* イベントヘッダー */}
+      <div className="rounded-2xl px-4 py-3 text-center" style={{ background: "radial-gradient(120% 90% at 50% 0%, #2b2f31, #16191b)" }}>
+        <div className="text-[13px] font-black text-white tracking-[0.06em]">{event.name}</div>
+        <div className="text-[11px] text-white/55 mt-0.5">{event.eventDate}</div>
       </div>
 
-      {/* ── トーナメント ブラケット ── */}
-      <div>
-        <div className="flex items-baseline justify-between px-0.5 mb-2">
-          <p className="text-[12px] font-black text-[#1c1f21]">トーナメント表</p>
-          <span className="text-[10.5px] text-[#97999d]">← 横にスクロール →</span>
-        </div>
-        <p className="text-[11px] text-[#231714]/50 leading-relaxed px-0.5 mb-3">
-          M1リーグ所属者は<b style={{ color: M1 }}>準決勝シード</b>。各卓の上位が次へ勝ち上がり、決勝1位が優勝。
-        </p>
+      <p className="text-[11px] text-[#231714]/50 leading-relaxed px-0.5">
+        M1リーグ所属者は<b style={{ color: M1 }}>準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
+      </p>
 
-        {event.rounds.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
-            トーナメント表はまだ公開されていません
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-4 px-4 pb-2">
-            <div className="flex gap-2.5 items-stretch" style={{ width: "max-content" }}>
-              {event.rounds.map((round, ri) => {
-                const gold = round.label.includes("決勝") && round.type === "final";
-                return (
-                  <div key={ri} className="shrink-0 w-[172px] flex flex-col">
-                    <div className="flex items-baseline gap-1.5 mb-2 px-0.5">
-                      <span className="text-[12px] font-black" style={{ color: gold ? MEDAL[1] : "#1c1f21" }}>{round.label}</span>
-                      <span className="text-[10px] text-[#97999d]">上位{round.advanceCount}</span>
-                    </div>
-                    <div className="flex flex-col gap-2 flex-1">
-                      {round.matches.map((m) => (
+      {event.rounds.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+          トーナメント表はまだ公開されていません
+        </div>
+      ) : (
+        <div className="overflow-x-auto -mx-4 px-4 pb-1">
+          <div className="flex flex-col items-center mx-auto" style={{ width: "max-content", minWidth: "100%" }}>
+            {/* 王冠（優勝者） */}
+            <ChampCrown champ={champ} />
+            <Stem />
+
+            {roundsTopDown.map((round, i) => {
+              const gold = round.type === "final";
+              return (
+                <div key={i} className="flex flex-col items-center">
+                  <div className="flex items-baseline gap-1.5 mb-1.5">
+                    <span className="text-[11.5px] font-black" style={{ color: gold ? MEDAL[1] : "#5f6266" }}>{round.label}</span>
+                    <span className="text-[9.5px] text-[#97999d]">上位{round.advanceCount}通過</span>
+                  </div>
+                  <div className="flex justify-center" style={{ gap: GAP }}>
+                    {round.matches.map((m) => (
+                      <div key={m.matchId} style={{ width: CARD_W }}>
                         <MatchCard
-                          key={m.matchId}
                           match={m}
                           advanceCount={round.advanceCount}
                           gold={gold}
@@ -191,55 +129,79 @@ export function MahjongCsView() {
                           demo={demo}
                           onInput={() => setInputMatch(m)}
                         />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* 優勝カラム */}
-              <div className="shrink-0 w-[132px] flex flex-col">
-                <div className="text-[12px] font-black mb-2 px-0.5" style={{ color: MEDAL[1] }}>優勝</div>
-                <div
-                  className="flex-1 rounded-xl flex flex-col items-center justify-center gap-2 p-3 text-center"
-                  style={{ background: champ ? "radial-gradient(120% 90% at 50% 0%, #2b2f31, #16191b)" : "#f6f8f9", boxShadow: champ ? undefined : "inset 0 0 0 1px #eceff1" }}
-                >
-                  {champ ? (
-                    <>
-                      <div className="relative">
-                        <Avatar src={champ.pictureUrl} name={champ.displayName} size={48} style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
-                        <div className="absolute left-1/2 -translate-x-1/2 text-[16px]" style={{ top: -13 }}>👑</div>
                       </div>
-                      <div className="text-[12px] font-black text-white">{champ.displayName}</div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-[26px] opacity-30">🏆</div>
-                      <div className="text-[11px] text-[#97999d]">未定</div>
-                    </>
+                    ))}
+                  </div>
+                  {/* 次ラウンド（下）への接続線 */}
+                  {i < roundsTopDown.length - 1 && (
+                    <Connector lowerCount={roundsTopDown[i + 1].matches.length} />
                   )}
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* ── デモ: 結果入力シート ── */}
       {inputMatch && event && (
         <CsInputSheet
           match={inputMatch}
           meId={currentUserId}
+          advanceCount={roundsTopDown.flatMap((r) => r.matches.map((m) => ({ id: m.matchId, a: r.advanceCount }))).find((x) => x.id === inputMatch.matchId)?.a ?? 1}
           busy={busy}
           onClose={() => setInputMatch(null)}
-          onReport={(meRank) => reportMatch(event.csEventId, inputMatch.matchId, meRank)}
+          onReport={(body) => reportMatch(event.csEventId, inputMatch.matchId, body)}
         />
       )}
     </div>
   );
 }
 
-/** ブラケット内の1試合カード。 */
+/** 木の頂点：王冠＋優勝者（未定なら🏆）。 */
+function ChampCrown({ champ }: { champ?: { displayName: string; pictureUrl?: string } | null }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="text-[22px] leading-none">👑</div>
+      {champ ? (
+        <div className="mt-1 flex flex-col items-center rounded-2xl px-3 py-2" style={{ background: "radial-gradient(120% 90% at 50% 0%, #2b2f31, #16191b)" }}>
+          <Avatar src={champ.pictureUrl} name={champ.displayName} size={40} style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
+          <div className="text-[12px] font-black text-white mt-1">{champ.displayName}</div>
+          <div className="text-[9px] font-extrabold tracking-wide" style={{ color: MEDAL[1] }}>WINNER</div>
+        </div>
+      ) : (
+        <div className="mt-0.5 text-[10.5px] text-[#97999d]">優勝者 未定</div>
+      )}
+    </div>
+  );
+}
+
+/** 縦の線（1本）。 */
+function Stem() {
+  return <div style={{ width: 2, height: 16, background: LINE }} />;
+}
+
+/** ラウンド間の接続線：上の1本 → 横バー → 下の各卓へ分岐。 */
+function Connector({ lowerCount }: { lowerCount: number }) {
+  if (lowerCount <= 1) {
+    return <div style={{ width: 2, height: 20, background: LINE }} />;
+  }
+  const barW = (lowerCount - 1) * (CARD_W + GAP);
+  return (
+    <div className="flex flex-col items-center">
+      <div style={{ width: 2, height: 10, background: LINE }} />
+      <div style={{ width: barW, height: 2, background: LINE }} />
+      <div className="flex justify-center" style={{ gap: GAP }}>
+        {Array.from({ length: lowerCount }).map((_, i) => (
+          <div key={i} className="flex justify-center" style={{ width: CARD_W }}>
+            <div style={{ width: 2, height: 10, background: LINE }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 1試合カード。 */
 function MatchCard({
   match,
   advanceCount,
@@ -344,45 +306,46 @@ function BracketSlot({
   );
 }
 
-/** デモ用: 選んだ試合の結果を入力（同卓は自分の着順、居ない試合は自動補完）。 */
+/** デモ用: 選んだ試合の結果を手動入力。自分の卓は着順、他卓は勝者タップ。 */
 function CsInputSheet({
   match,
   meId,
+  advanceCount,
   busy,
   onClose,
   onReport,
 }: {
   match: MahjongCsMatch;
   meId?: string;
+  advanceCount: number;
   busy: boolean;
   onClose: () => void;
-  onReport: (meRank?: number) => void;
+  onReport: (body: { meRank?: number; winnerId?: string }) => void;
 }) {
   const n = match.players.length;
   const iAmIn = !!meId && match.players.some((p) => p.lineUserId === meId);
   return (
     <BottomSheet open title={`${match.label} の結果（デモ）`} onClose={onClose}>
-      <div className="flex flex-col gap-1.5 mb-4">
-        {match.players.map((p) => (
-          <div key={p.lineUserId} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
-            <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
-            <span className="text-[13px] font-bold text-[#1c1f21]">
-              {p.displayName}
-              {p.lineUserId === meId && <span className="ml-1 text-[10px] font-extrabold text-[#5f7a80]">あなた</span>}
-            </span>
-          </div>
-        ))}
-      </div>
-
       {iAmIn ? (
         <>
+          <div className="flex flex-col gap-1.5 mb-4">
+            {match.players.map((p) => (
+              <div key={p.lineUserId} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
+                <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
+                <span className="text-[13px] font-bold text-[#1c1f21]">
+                  {p.displayName}
+                  {p.lineUserId === meId && <span className="ml-1 text-[10px] font-extrabold text-[#5f7a80]">あなた</span>}
+                </span>
+              </div>
+            ))}
+          </div>
           <div className="text-[11px] font-extrabold text-[#97999d] mb-2">あなたの順位を選ぶ</div>
           <div className="flex gap-2">
             {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
               <button
                 key={r}
                 disabled={busy}
-                onClick={() => onReport(r)}
+                onClick={() => onReport({ meRank: r })}
                 className="flex-1 py-3 rounded-xl text-[15px] font-black transition-all disabled:opacity-50"
                 style={
                   r === 1
@@ -394,17 +357,30 @@ function CsInputSheet({
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-[#97999d] mt-2.5">1着＝勝ち上がり。上位者が次へ進み、3着以下だと敗退（次へ進めません）。</p>
+          <p className="text-[11px] text-[#97999d] mt-2.5">
+            上位{advanceCount}名が次へ勝ち上がります。{advanceCount + 1}着以下だと敗退（次へ進めません）。
+          </p>
         </>
       ) : (
-        <button
-          disabled={busy}
-          onClick={() => onReport()}
-          className="w-full py-3 rounded-xl text-[14px] font-extrabold text-white disabled:opacity-50"
-          style={{ background: "#2f7d57" }}
-        >
-          {busy ? "反映中..." : "この卓の結果を自動で入れる"}
-        </button>
+        <>
+          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">勝者（1着）を選ぶ</div>
+          <div className="flex flex-col gap-1.5">
+            {match.players.map((p) => (
+              <button
+                key={p.lineUserId}
+                disabled={busy}
+                onClick={() => onReport({ winnerId: p.lineUserId })}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left active:scale-[0.99] transition-transform disabled:opacity-50"
+                style={{ background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #e4e7e9" }}
+              >
+                <Avatar src={p.pictureUrl} name={p.displayName} size={30} />
+                <span className="flex-1 text-[13px] font-bold text-[#1c1f21]">{p.displayName}</span>
+                <span className="text-[10px] font-extrabold text-[#2f7d57]">この人を1着に →</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-[#97999d] mt-2.5">選んだ人が1着、残りは並び順で順位付けされ、上位{advanceCount}名が勝ち上がります。</p>
+        </>
       )}
     </BottomSheet>
   );

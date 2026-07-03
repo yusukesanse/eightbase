@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
  * demoユーザー1人でCSトーナメントを進められるようにする利用者向け入力。
  * 本番のCS結果入力は管理者API（/api/admin/mahjong/cs/[id]/match）が担う。ここは触らない。
  *
- * body: { csEventId: string, matchId: string, meRank?: number }
- *  - meRank: demoユーザーがその試合の何着になるか（同卓ならその順位、他は自動補完）。
- *    省略時は1着扱い。demoユーザーが居ない試合はダミーを自動で埋める。
+ * body: { csEventId: string, matchId: string, meRank?: number, winnerId?: string }
+ *  - meRank: demoユーザーが同卓のとき、その順位（1着=勝ち上がり）。他プレイヤーは残り順位で補完。
+ *  - winnerId: demoユーザーが居ない卓で「1着（勝者）」に指定するプレイヤー。残りは並び順で補完。
+ *  いずれも手動指定。合致が無ければ並び順で順位付け。
  *
  * 1試合を completed にし、ラウンドが揃えば次ラウンドを自動生成、決勝完了で優勝確定(finished)。
  */
@@ -33,6 +34,7 @@ export async function PATCH(req: NextRequest) {
     const csEventId: unknown = body?.csEventId;
     const matchId: unknown = body?.matchId;
     const meRank: unknown = body?.meRank;
+    const winnerId: unknown = body?.winnerId;
     if (typeof csEventId !== "string" || typeof matchId !== "string") {
       return NextResponse.json({ error: "csEventId と matchId は必須です" }, { status: 400 });
     }
@@ -70,14 +72,23 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "この試合は確定済みです" }, { status: 400 });
     }
 
-    // 順位割り当て: demoユーザーは meRank、他は残りの順位を並び順で埋める。点数は順位から機械的に。
+    // 順位割り当て（手動指定）: 同卓の demoユーザーは meRank、居ない卓は winnerId を1着に。
+    // 指定プレイヤーを固定し、残りは並び順で順位を埋める。点数は順位から機械的に。
     const n = match.players.length;
     const hasMe = match.players.some((p) => p.lineUserId === userId);
-    const myRank = hasMe ? Math.min(Math.max(Number(meRank) || 1, 1), n) : null;
-    const remaining = Array.from({ length: n }, (_, i) => i + 1).filter((r) => r !== myRank);
+    let anchorId: string | null = null;
+    let anchorRank: number | null = null;
+    if (hasMe) {
+      anchorId = userId;
+      anchorRank = Math.min(Math.max(Number(meRank) || 1, 1), n);
+    } else if (typeof winnerId === "string" && match.players.some((p) => p.lineUserId === winnerId)) {
+      anchorId = winnerId;
+      anchorRank = 1;
+    }
+    const remaining = Array.from({ length: n }, (_, i) => i + 1).filter((r) => r !== anchorRank);
     let ri = 0;
     match.players = match.players.map((p) => {
-      const rank = p.lineUserId === userId && myRank ? myRank : remaining[ri++];
+      const rank = p.lineUserId === anchorId && anchorRank ? anchorRank : remaining[ri++];
       return { ...p, rank, points: 40000 - (rank - 1) * 10000 };
     });
     match.status = "completed";
