@@ -26,6 +26,17 @@ const EMPTY_NEWS: NewsItem[] = [];
 export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
+  // 麻雀参加費のSquare決済からの戻り（?mjpay=）は「ゲーム」タブを開く
+  //（MahjongLeagueView が ?mjpay を確定処理し「支払い完了」バナーを表示する）。
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      new URL(window.location.href).searchParams.has("mjpay")
+    ) {
+      setActiveTab("games");
+    }
+  }, []);
+
   // ゲスト/エイト社員はゲーム機能のみ → 「ゲーム」タブだけ表示し既定にする。
   const [gamesOnly, setGamesOnly] = useState(false);
   useEffect(() => {

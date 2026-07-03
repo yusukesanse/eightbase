@@ -68,7 +68,7 @@ export function JoinTab({
     try {
       const r = await startEntryPayment(date);
       if (r.ok) {
-        // Square 決済ページへ同一 webview で遷移（戻りは /games/mahjong?mjpay=... で確定）
+        // Square 決済ページへ同一 webview で遷移（戻りは /info?mjpay=... で確定）
         window.location.href = r.paymentUrl;
       } else {
         setPayMsg(r.message);

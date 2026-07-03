@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mahjong/entries/complete  Body: { rid }（= エントリーID）
- * Square 決済後リダイレクト（/games/mahjong?mjpay=...）からの参加費確定処理。
+ * Square 決済後リダイレクト（/info?mjpay=...）からの参加費確定処理。
  *  1. rid → pending エントリーを特定（本人）。注文IDは pay 時にエントリーへ保存済み。
  *  2. Square API で取引照合（金額 3,000 / COMPLETED / 再利用なし）
  *  3. squareOrders/{orderId} の一意 doc で「再利用防止」と「paid 化」を1 transaction に原子化

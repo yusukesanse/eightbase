@@ -84,7 +84,7 @@ export default function HomePage() {
           body: JSON.stringify({ role }),
         })
           .then((r) => r.json())
-          .then((res) => window.location.replace(res.home ?? "/games/mahjong"))
+          .then((res) => window.location.replace(res.home ?? "/info"))
           .catch(() => {
             setStatusText("ログインに失敗しました。ページを再読み込みしてください。");
             setPhase("error");
