@@ -14,7 +14,7 @@ import {
   type MahjongSeasonSummary,
   type MahjongPaymentStatus,
 } from "@/types";
-import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
+import { startEntryPayment, cancelEntryPayment, completeEntryPayment } from "@/lib/mahjongPayment";
 
 // 卓の席順（卓内の並び順から東南西北を割り当て）
 const SEATS = ["東", "南", "西", "北"] as const;
@@ -88,6 +88,8 @@ export function MahjongLeagueView() {
   const [viewSeasonId, setViewSeasonId] = useState<string | undefined>(undefined);
   // 戦歴ビューの対象プレイヤー
   const [historyPlayer, setHistoryPlayer] = useState<string | null>(null);
+  // WP3: 参加費決済の戻り（?mjpay=）結果バナー
+  const [payBanner, setPayBanner] = useState<{ ok: boolean; text: string } | null>(null);
 
   // シーズン一覧（セレクタ用・初回のみ）
   useEffect(() => {
@@ -159,10 +161,42 @@ export function MahjongLeagueView() {
     loadCore();
   }, [loadCore]);
 
+  // Square 参加費決済の戻り: ?mjpay=<エントリーID> を確定処理する（決済導線はこのビューに集約）
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const rid = url.searchParams.get("mjpay");
+    if (!rid) return;
+    setSubTab("join");
+    completeEntryPayment(rid).then((r) => {
+      setPayBanner({
+        ok: r.ok,
+        text: r.ok ? "参加費のお支払いが完了しました。" : r.message || "決済の確認に失敗しました",
+      });
+      if (r.ok) loadCore();
+      url.searchParams.delete("mjpay");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    });
+    // 初回マウント時のみ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const isParticipating = enteredDates.size > 0 || tables.length > 0;
 
   return (
     <div>
+      {payBanner && (
+        <div
+          className={`mb-3 rounded-2xl px-4 py-3 text-[13px] font-bold flex items-center justify-between gap-2 ${
+            payBanner.ok ? "bg-[#eef4dd] text-[#5f7d1e]" : "bg-[#fdece8] text-[#d8533a]"
+          }`}
+        >
+          <span>{payBanner.text}</span>
+          <button onClick={() => setPayBanner(null)} className="shrink-0 font-black opacity-60">
+            ×
+          </button>
+        </div>
+      )}
       {/* サブタブ */}
       <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1">
         {(
