@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     // 仮押さえ失効: ただし決済が成立していれば黙って課金せず管理者へ返金依頼を通知する。
     if (entry.pendingExpiresAt && entry.pendingExpiresAt <= dayjs().toISOString()) {
       try {
-        await verifySquareOrderPayment({ orderId, expectedAmount });
+        await verifySquareOrderPayment({ orderId, expectedAmount, purpose: "mahjong" });
         // orderId を一度だけ記録し、初回のみ通知（リトライで返金通知が重複しないように）。
         let firstTime = false;
         const expiredOrderRef = db.collection("squareOrders").doc(orderId);

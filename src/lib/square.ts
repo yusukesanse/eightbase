@@ -11,32 +11,62 @@
 
 import { SquareClient, SquareEnvironment } from "square";
 import type { Facility } from "@/types";
-let _client: SquareClient | null = null;
 
-export function getSquareClient(): SquareClient {
-  if (_client) return _client;
+/**
+ * Square 決済の用途。用途ごとに別アカウント/店舗(Location)へ売上を分けられる。
+ * - reservation … 施設予約（トレーラー等）。従来の SQUARE_* を使用。
+ * - mahjong     … 麻雀リーグ参加費。SQUARE_MAHJONG_* を優先し、未設定時は SQUARE_* にフォールバック。
+ */
+export type SquarePurpose = "reservation" | "mahjong";
 
-  const token = process.env.SQUARE_ACCESS_TOKEN;
-  if (!token) {
-    throw new Error("SQUARE_ACCESS_TOKEN が設定されていません");
-  }
+// 用途ごとにクライアントをキャッシュ（トークン/環境が異なるため共有しない）。
+const _clients: Partial<Record<SquarePurpose, SquareClient>> = {};
 
-  const environment = process.env.SQUARE_ENVIRONMENT === "production"
-    ? SquareEnvironment.Production
-    : SquareEnvironment.Sandbox;
+/** 用途に応じた Square 資格情報を解決する（mahjong は専用→共通の順にフォールバック）。 */
+function resolveSquareEnv(purpose: SquarePurpose): {
+  token?: string;
+  environment: SquareEnvironment;
+  locationId?: string;
+} {
+  const pick = (mahjongVar: string | undefined, sharedVar: string | undefined) =>
+    purpose === "mahjong" ? mahjongVar ?? sharedVar : sharedVar;
 
-  _client = new SquareClient({
-    token,
-    environment,
-  });
-
-  return _client;
+  const token = pick(process.env.SQUARE_MAHJONG_ACCESS_TOKEN, process.env.SQUARE_ACCESS_TOKEN);
+  const envStr = pick(process.env.SQUARE_MAHJONG_ENVIRONMENT, process.env.SQUARE_ENVIRONMENT);
+  const locationId = pick(process.env.SQUARE_MAHJONG_LOCATION_ID, process.env.SQUARE_LOCATION_ID);
+  const environment =
+    envStr === "production" ? SquareEnvironment.Production : SquareEnvironment.Sandbox;
+  return { token, environment, locationId };
 }
 
-export function getSquareLocationId(): string {
-  const id = process.env.SQUARE_LOCATION_ID;
-  if (!id) throw new Error("SQUARE_LOCATION_ID が設定されていません");
-  return id;
+export function getSquareClient(purpose: SquarePurpose = "reservation"): SquareClient {
+  const cached = _clients[purpose];
+  if (cached) return cached;
+
+  const { token, environment } = resolveSquareEnv(purpose);
+  if (!token) {
+    throw new Error(
+      purpose === "mahjong"
+        ? "SQUARE_MAHJONG_ACCESS_TOKEN（未設定時は SQUARE_ACCESS_TOKEN）が設定されていません"
+        : "SQUARE_ACCESS_TOKEN が設定されていません"
+    );
+  }
+
+  const client = new SquareClient({ token, environment });
+  _clients[purpose] = client;
+  return client;
+}
+
+export function getSquareLocationId(purpose: SquarePurpose = "reservation"): string {
+  const { locationId } = resolveSquareEnv(purpose);
+  if (!locationId) {
+    throw new Error(
+      purpose === "mahjong"
+        ? "SQUARE_MAHJONG_LOCATION_ID（未設定時は SQUARE_LOCATION_ID）が設定されていません"
+        : "SQUARE_LOCATION_ID が設定されていません"
+    );
+  }
+  return locationId;
 }
 
 function timeToMinutes(time: string): number {
@@ -67,8 +97,11 @@ export function calculateReservationAmount(
   return Math.round((hourlyRate * (end - start)) / 60);
 }
 
-export async function getSquarePayment(paymentId: string) {
-  const client = getSquareClient();
+export async function getSquarePayment(
+  paymentId: string,
+  purpose: SquarePurpose = "reservation"
+) {
+  const client = getSquareClient(purpose);
   const response = await client.payments.get({ paymentId });
   return response.payment;
 }
@@ -140,11 +173,13 @@ export function assertSquarePaymentValid(
 export async function verifySquareOrderPayment({
   orderId,
   expectedAmount,
+  purpose = "reservation",
 }: {
   orderId: string;
   expectedAmount: number;
+  purpose?: SquarePurpose;
 }): Promise<{ orderId: string; paymentId: string }> {
-  const client = getSquareClient();
+  const client = getSquareClient(purpose);
   const orderRes = await client.orders.get({ orderId });
   const order = orderRes.order;
   if (!order) {
@@ -154,17 +189,18 @@ export async function verifySquareOrderPayment({
   if (!paymentId) {
     throw new Error("注文に決済が紐づいていません");
   }
-  const payment = await getSquarePayment(paymentId);
+  const payment = await getSquarePayment(paymentId, purpose);
   assertSquarePaymentValid(payment, expectedAmount);
   return { orderId, paymentId };
 }
 
 /**
- * 予約ごとの Square Payment Link（動的リンク）を生成する。
+ * 用途ごとの Square Payment Link（動的リンク）を生成する。
  *
- * 静的リンクと異なり redirect_url に予約ID(`?rid=...`)を埋め込めるため、決済後に
- * どの予約の決済かを確実に特定できる。生成した注文ID(orderId)を予約に保存し、
+ * 静的リンクと異なり redirect_url に識別子(`?rid=...`/`?mjpay=...`)を埋め込めるため、決済後に
+ * どの予約/参加の決済かを確実に特定できる。生成した注文ID(orderId)を保存し、
  * 戻り後に COMPLETED/金額を `verifySquareOrderPayment` で照合する。
+ * purpose で用途別アカウント/店舗（reservation / mahjong）を切り替える。
  * @returns { url, orderId }
  * @throws 生成失敗時にエラー
  */
@@ -172,19 +208,21 @@ export async function createReservationPaymentLink({
   amount,
   name,
   redirectUrl,
+  purpose = "reservation",
 }: {
   amount: number;
   name: string;
   redirectUrl: string;
+  purpose?: SquarePurpose;
 }): Promise<{ url: string; orderId: string }> {
-  const client = getSquareClient();
+  const client = getSquareClient(purpose);
   const { randomUUID } = await import("crypto");
   const res = await client.checkout.paymentLinks.create({
     idempotencyKey: randomUUID(),
     quickPay: {
       name,
       priceMoney: { amount: BigInt(amount), currency: "JPY" },
-      locationId: getSquareLocationId(),
+      locationId: getSquareLocationId(purpose),
     },
     checkoutOptions: { redirectUrl },
   });

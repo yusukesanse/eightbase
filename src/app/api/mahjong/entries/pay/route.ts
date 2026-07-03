@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
         amount: MAHJONG_ENTRY_FEE,
         name: "麻雀リーグ参加費",
         redirectUrl,
+        purpose: "mahjong",
       });
     } catch (e) {
       console.error("[mahjong/entries/pay] payment link failed:", e);
