@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Avatar } from "@/components/ui/LineContact";
-import type { MahjongCsEvent, MahjongCsMatchPlayer } from "@/types";
+import { isDevLoginEnabled } from "@/lib/env";
+import type { MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer } from "@/types";
 
 /**
  * CS > 麻雀（TILES 案）
@@ -23,9 +24,10 @@ export function MahjongCsView() {
   const [event, setEvent] = useState<MahjongCsEvent | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [busyMatch, setBusyMatch] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
+  const load = useCallback(() => {
+    return Promise.all([
       fetch("/api/mahjong/cs", { credentials: "include" }).then((r) => r.json()),
       fetch("/api/mahjong/standings", { credentials: "include" }).then((r) => r.json()),
     ])
@@ -36,6 +38,31 @@ export function MahjongCsView() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // デモ検証（非本番＋demoDummyイベント）: demoユーザーが勝敗を入力してCSを進められる。
+  const demo = isDevLoginEnabled() && !!(event as { demoDummy?: boolean } | null)?.demoDummy;
+
+  const reportMatch = useCallback(
+    async (csEventId: string, matchId: string, meRank?: number) => {
+      setBusyMatch(matchId);
+      try {
+        await fetch("/api/mahjong/cs/match", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ csEventId, matchId, meRank }),
+        });
+        await load();
+      } finally {
+        setBusyMatch(null);
+      }
+    },
+    [load]
+  );
 
   if (loading) {
     return (
@@ -166,6 +193,14 @@ export function MahjongCsView() {
                               />
                             ))}
                         </div>
+                        {demo && m.status !== "completed" && event && (
+                          <DemoMatchControl
+                            match={m}
+                            meId={currentUserId}
+                            busy={busyMatch === m.matchId}
+                            onReport={(meRank) => reportMatch(event.csEventId, m.matchId, meRank)}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -220,6 +255,58 @@ function Slot({
         <span className="text-[10px] text-[#97999d]">—</span>
       ) : (
         <span className="text-[10px] text-[#97999d] tabular-nums">{p.rank != null ? `${p.rank}着` : "—"}</span>
+      )}
+    </div>
+  );
+}
+
+/** デモ用: この試合の結果を入力（demoユーザーは自分の着順を選択、居ない試合は自動補完）。 */
+function DemoMatchControl({
+  match,
+  meId,
+  busy,
+  onReport,
+}: {
+  match: MahjongCsMatch;
+  meId?: string;
+  busy: boolean;
+  onReport: (meRank?: number) => void;
+}) {
+  const n = match.players.length;
+  const iAmIn = !!meId && match.players.some((p) => p.lineUserId === meId);
+  return (
+    <div className="mt-2 rounded-[10px] bg-[#f6f8f9] px-2.5 py-2" style={{ boxShadow: "inset 0 0 0 1px #eceff1" }}>
+      {iAmIn ? (
+        <>
+          <div className="text-[10.5px] font-bold text-[#5f7a80] mb-1.5">あなたの結果（デモ）</div>
+          <div className="flex gap-1.5">
+            {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
+              <button
+                key={r}
+                disabled={busy}
+                onClick={() => onReport(r)}
+                className="flex-1 py-1.5 rounded-lg text-[12px] font-black transition-all disabled:opacity-50"
+                style={
+                  r === 1
+                    ? { background: "#2f7d57", color: "#fff" }
+                    : { background: "#fff", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+                }
+              >
+                {r}着
+              </button>
+            ))}
+          </div>
+          <div className="text-[9.5px] text-[#97999d] mt-1">1着＝勝ち上がり。3着以下で敗退UIを確認できます。</div>
+        </>
+      ) : (
+        <button
+          disabled={busy}
+          onClick={() => onReport()}
+          className="w-full py-1.5 rounded-lg text-[12px] font-bold text-[#40434a] bg-white disabled:opacity-50"
+          style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
+        >
+          {busy ? "反映中..." : "この卓の結果を自動で入れる（デモ）"}
+        </button>
       )}
     </div>
   );

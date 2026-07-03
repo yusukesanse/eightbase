@@ -14,7 +14,8 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { tierForRank } from "@/lib/mahjong";
-import { MAHJONG_ENTRY_FEE, MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongTableMember } from "@/types";
+import { generatePrelimRound } from "@/lib/mahjongCs";
+import { MAHJONG_ENTRY_FEE, MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongCsEntrant, type MahjongTableMember } from "@/types";
 
 const DUMMY_FLAG = { demoDummy: true } as const;
 
@@ -169,22 +170,26 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
   const slots = Math.min(7, MAHJONG_MAX_ENTRIES_PER_DATE - 1);
   for (const p of DUMMIES.slice(0, slots)) await paidEntry(today, p);
 
-  // 5) CS（参戦者一覧＝上位8名）
+  // 5) CS（参戦者＝上位8名）。予選ラウンドを生成して「展開(running)」状態で投入し、
+  //    利用者アプリからdemoユーザーが勝敗入力→準決→決勝→優勝/敗北UIまで確認できるようにする。
+  //    demoユーザー(rank1)は M1シード（seed=true）＝予選免除・準決から登場。
   const csTop = standingPlayers.slice(0, 8);
+  const entrants: MahjongCsEntrant[] = csTop.map((p, i) => ({
+    lineUserId: p.lineUserId,
+    displayName: p.displayName,
+    pictureUrl: "",
+    tier: tierForRank(i + 1),
+    rank: i + 1,
+    seed: i === 0,
+  }));
+  const prelim = generatePrelimRound(entrants);
   await db.collection("mahjongCsEvents").doc(`demo-cs-${seasonId}`).set({
     seasonId,
     name: "検証CS",
     eventDate: futureDate,
-    status: "setup",
-    entrants: csTop.map((p, i) => ({
-      lineUserId: p.lineUserId,
-      displayName: p.displayName,
-      pictureUrl: "",
-      tier: tierForRank(i + 1),
-      rank: i + 1,
-      seed: i === 0,
-    })),
-    rounds: [],
+    status: prelim ? "running" : "setup",
+    entrants,
+    rounds: prelim ? [prelim] : [],
     createdAt: nowIso,
     updatedAt: nowIso,
     ...DUMMY_FLAG,
