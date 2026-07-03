@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { getBookedSlots } from "@/lib/googleCalendar";
-import { requireActiveUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { getPendingLockedSlots } from "@/lib/reservations";
 import dayjs from "dayjs";
 
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Response: { [date: string]: { start: string; end: string }[] }
  */
 export async function GET(req: NextRequest) {
-  const userId = await requireActiveUser(req);
+  const userId = await requireMember(req);
   if (!userId) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
+import { requireMember, requireMemberProfileComplete } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendCommentNotification } from "@/lib/line";
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const lineUserId = await requireActiveUser(req);
+    const lineUserId = await requireMember(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -64,7 +64,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const lineUserId = await requireProfileComplete(req);
+    const lineUserId = await requireMemberProfileComplete(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

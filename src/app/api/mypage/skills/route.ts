@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireActiveUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const lineUserId = await requireActiveUser(req);
+    const lineUserId = await requireMember(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

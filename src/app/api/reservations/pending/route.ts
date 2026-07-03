@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
-import { requireProfileComplete } from "@/lib/auth";
+import { requireMemberProfileComplete } from "@/lib/auth";
 import {
   validateReservationSlot,
   assertSlotFreeInTx,
@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireProfileComplete(req);
+    const userId = await requireMemberProfileComplete(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

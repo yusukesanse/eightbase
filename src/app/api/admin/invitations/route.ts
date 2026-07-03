@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
+import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
 import { sendPasscodeEmail, sendGuestInviteEmail } from "@/lib/email";
 import { liffUrl } from "@/lib/liffUrl";
 
@@ -28,7 +29,7 @@ function expiryDaysForRole(role: "member" | "guest" | "staff"): number {
 
 /** URL(first-clicker)方式で招待する身分か（＝ゲスト/エイト社員）。会員はOTP方式。 */
 function usesUrlInvite(role: "member" | "guest" | "staff"): boolean {
-  return role === "guest" || role === "staff";
+  return isGamesOnlyRole(role);
 }
 
 /**
@@ -99,8 +100,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { displayName, email, role: rawRole } = await req.json();
-    const role: "member" | "guest" | "staff" =
-      rawRole === "guest" ? "guest" : rawRole === "staff" ? "staff" : "member";
+    const role = normalizeRole(rawRole);
     if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
       return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
     }
@@ -276,8 +276,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // 再発行時も身分に応じた有効期限（ゲスト/エイト社員は短縮）でリセットする。
-    const role: "member" | "guest" | "staff" =
-      data.role === "guest" ? "guest" : data.role === "staff" ? "staff" : "member";
+    const role = normalizeRole(data.role);
     const expiryDays = expiryDaysForRole(role);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);

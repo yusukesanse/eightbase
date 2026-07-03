@@ -3,7 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed } from "@/lib/line";
-import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
+import { requireMember, requireMemberProfileComplete } from "@/lib/auth";
 import {
   validateReservationSlot,
   assertSlotFreeInTx,
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 // ─── GET: マイ予約一覧 ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const userId = await requireActiveUser(req);
+  const userId = await requireMember(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 // ─── POST: 予約登録 ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireProfileComplete(req);
+    const userId = await requireMemberProfileComplete(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

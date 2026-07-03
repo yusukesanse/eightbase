@@ -13,9 +13,7 @@
  * requireMemberProfileComplete(req):
  *   上記に加え profileComplete=true を要求。投稿・予約など会員専用の操作系 API で使う。
  *
- * requireActiveUser / requireProfileComplete:
- *   後方互換の別名。**ゲストを除外する**（= requireMember / requireMemberProfileComplete に委譲）。
- *   ゲストに開くゲーム系 API は requireGameUser へ明示的に付け替えること（既定は安全側＝ゲスト遮断）。
+ * ゲストに開くゲーム系 API は requireGameUser を明示的に使うこと（既定は安全側＝ゲスト遮断）。
  *
  * いずれもプレビューモードでは GET/HEAD/OPTIONS のみ仮ユーザーを返す（読み取り専用）。
  * 認証バイパス（demo/開発・本番無効）時は固定テストユーザーを通す。
@@ -122,13 +120,3 @@ export async function requireMemberProfileComplete(
   if (r.user && !r.user.profileComplete) return null;
   return r.lineUserId;
 }
-
-/**
- * @deprecated 会員機能は requireMember を使う。ゲストを除外する点が新しい（後方互換の別名）。
- */
-export const requireActiveUser = requireMember;
-
-/**
- * @deprecated 会員操作は requireMemberProfileComplete を使う（後方互換の別名）。
- */
-export const requireProfileComplete = requireMemberProfileComplete;

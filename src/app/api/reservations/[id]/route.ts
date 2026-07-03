@@ -3,7 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationCancelled } from "@/lib/line";
-import { requireActiveUser } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { buildReservationSlotKey } from "@/lib/reservations";
 import { deletePasscode } from "@/lib/switchbot";
 import { notifyAdmin } from "@/lib/adminNotify";
@@ -16,7 +16,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const userId = await requireActiveUser(req);
+  const userId = await requireMember(req);
   if (!userId) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
