@@ -28,9 +28,15 @@ export function ReportTab({
     .slice()
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || (a.round ?? 0) - (b.round ?? 0));
 
-  // 半荘の進行（全4半荘・完了数）。1半荘＝1卓を申告すると次の半荘に進む。
+  // 卓確認/申告は「直近の開催日」の半荘だけを対象にする（過去日の完了卓は戦歴側で確認）。
+  // これにより進行カウント（全4半荘）が過去日の卓を数えて 5/4 等になる不具合を防ぐ。
   const MAX_HANCHAN = 4;
-  const completedHanchan = tables.filter((t) => t.status === "completed").length;
+  const currentDate = sorted[0]?.eventDate;
+  const dayTables = sorted.filter((t) => t.eventDate === currentDate);
+  const completedHanchan = Math.min(
+    dayTables.filter((t) => t.status === "completed").length,
+    MAX_HANCHAN
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -41,7 +47,7 @@ export function ReportTab({
         </div>
         <span className="text-[13px] font-black" style={{ color: ACCENT }}>{completedHanchan}/{MAX_HANCHAN} 半荘 完了</span>
       </div>
-      {sorted.map((t) => {
+      {dayTables.map((t) => {
         const me = t.members.find((m) => m.isCurrentUser);
         const reportedCount = t.members.filter((m) => m.points !== null).length;
         const needReport = !!me && me.points === null && t.status !== "completed";
