@@ -9,6 +9,7 @@ import {
   type MahjongPaymentStatus,
 } from "@/types";
 import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
+import { isDevLoginEnabled } from "@/lib/env";
 import {
   ACCENT,
   CONFIRM,
@@ -46,6 +47,8 @@ export function JoinTab({
   const [payMsg, setPayMsg] = useState<string | null>(null);
   const [cancelDate, setCancelDate] = useState<string | null>(null);
   const today = todayJst();
+  // DEV-ONLY（develop 専用 / main へ入れない）: 支払い済み/返金対応中からリセットする導線を出す。
+  const demo = isDevLoginEnabled();
 
   async function toggle(date: string, entered: boolean) {
     setBusy(date);
@@ -176,9 +179,27 @@ export function JoinTab({
                 >
                   支払いをキャンセル
                 </button>
+                {demo && (
+                  <button
+                    onClick={() => toggle(s.date, true)}
+                    className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2"
+                  >
+                    リセット（デモ）
+                  </button>
+                )}
               </div>
             ) : needsPay && payStatus === "cancelRequested" ? (
-              <span className="shrink-0 text-[11px] font-bold text-[#b48f13]">返金対応中</span>
+              <div className="shrink-0 flex flex-col items-end gap-1">
+                <span className="text-[11px] font-bold text-[#b48f13]">返金対応中</span>
+                {demo && (
+                  <button
+                    onClick={() => toggle(s.date, true)}
+                    className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2"
+                  >
+                    リセット（デモ）
+                  </button>
+                )}
+              </div>
             ) : needsPay ? (
               // 未払い（当日）: 参加費を支払う
               <button

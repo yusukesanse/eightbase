@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
+import { isProduction } from "@/lib/env";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -166,9 +167,15 @@ export async function DELETE(req: NextRequest) {
 
     const entryId = `${season.seasonId}_${eventDate}_${userId}`;
     const ref = getDb().collection("mahjongEntries").doc(entryId);
+    const snap = await ref.get();
+    // DEV-ONLY（develop 専用 / main へ入れない）: 非本番は支払い状態に関わらず取消可。
+    // デモで「参加→支払う→キャンセル→返金対応中」から抜け、支払いUIを繰り返し検証できるように。
+    if (!isProduction()) {
+      if (snap.exists) await ref.delete();
+      return NextResponse.json({ success: true });
+    }
     // 支払い済み/返金対応中の参加は取消不可（参加費レコードの消失・返金漏れを防ぐ）。
     // 参加費のキャンセルは /api/mahjong/entries/cancel-payment（管理者手動返金）へ誘導。
-    const snap = await ref.get();
     const status = snap.exists ? (snap.data() as MahjongEntry).paymentStatus : undefined;
     if (status === "paid" || status === "cancelRequested") {
       return NextResponse.json(
