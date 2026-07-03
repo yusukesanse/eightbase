@@ -21,7 +21,7 @@ interface P {
   displayName: string;
 }
 const PLAYERS: P[] = [
-  { lineUserId: "dev-member-01", displayName: "会員テスト" },
+  { lineUserId: "dev-member-01", displayName: "demoユーザー" },
   { lineUserId: "dev-guest-01", displayName: "ゲストテスト" },
   { lineUserId: "dev-u3", displayName: "佐藤 みなみ" },
   { lineUserId: "dev-u4", displayName: "鈴木 健太" },

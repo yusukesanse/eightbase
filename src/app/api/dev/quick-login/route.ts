@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * Body: { role: "member" | "guest" | "new" }
  */
 const PRESETS = {
-  member: { lineUserId: "dev-member-01", displayName: "会員テスト", role: "member" as const, profileComplete: true },
+  member: { lineUserId: "dev-member-01", displayName: "demoユーザー", role: "member" as const, profileComplete: true },
   guest: { lineUserId: "dev-guest-01", displayName: "ゲストテスト", role: "guest" as const, profileComplete: false },
   staff: { lineUserId: "dev-staff-01", displayName: "エイト社員テスト", role: "staff" as const, profileComplete: false },
 };

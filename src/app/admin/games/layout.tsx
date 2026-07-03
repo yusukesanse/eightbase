@@ -3,8 +3,12 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
-const TABS = [
+const TABS: { href: string; label: string; exact: boolean }[] = [
   { href: "/admin/games/seasons", label: "シーズン", exact: false },
+  // 検証データ投入ツールは非本番のみ表示（APIも本番では404）
+  ...(process.env.NEXT_PUBLIC_APP_ENV !== "production"
+    ? [{ href: "/admin/games/demo-data", label: "検証データ", exact: false }]
+    : []),
 ];
 
 export default function GamesLayout({ children }: { children: React.ReactNode }) {
