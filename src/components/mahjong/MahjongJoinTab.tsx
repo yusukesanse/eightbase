@@ -110,7 +110,7 @@ export function JoinTab({
     <div className="flex flex-col gap-2.5">
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
         参加したい開催日に表明してください。卓組みは当日、管理者が確定します。
-        {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は開催当日にお支払いください。`}
+        {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は参加確定後にお支払いください（期限＝開催当日の開始時刻）。`}
       </p>
       {payMsg && (
         <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">
@@ -126,10 +126,10 @@ export function JoinTab({
         const highlight = !past && (confirmed || entered);
         const count = entryCountByDate[s.date] ?? 0;
         const full = !entered && count >= MAHJONG_MAX_ENTRIES_PER_DATE;
-        // WP3: 支払い要（member/guest）が開催当日に参加費を払う導線
-        const isToday = s.date === today;
+        // WP3: 参加確定（先着8名入り）した支払い要(member/guest)は即「支払う」導線へ。
+        // 支払い期限（開催当日の開始時刻）はサーバー側 /api/mahjong/entries/pay が判定する。
         const payStatus = paymentStatusByDate[s.date] ?? null;
-        const needsPay = entered && paymentRequired && isToday;
+        const needsPay = entered && paymentRequired;
         return (
           <div
             key={s.scheduleId}

@@ -71,27 +71,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 支払い期限＝開催当日ゲーム開始時刻。当日以外・開始時刻超過は不可（Asia/Tokyo 基準）。
-    if (eventDate !== todayJst()) {
+    // 参加確定後はいつでも支払い可。支払い期限＝開催当日ゲーム開始時刻（Asia/Tokyo 基準）。
+    // - 過去日: 不可（PAST_EVENT）
+    // - 当日: 開始時刻を過ぎたら締切（CLOSED）
+    // - 未来日: 可
+    const today = todayJst();
+    if (eventDate < today) {
       return NextResponse.json(
-        { error: "NOT_TODAY", message: "参加費のお支払いは開催当日のみ可能です。" },
+        { error: "PAST_EVENT", message: "終了した開催日です。" },
         { status: 400 }
       );
     }
-    const schedSnap = await db
-      .collection("mahjongSchedule")
-      .where("seasonId", "==", season.seasonId)
-      .get();
-    const sched = schedSnap.docs
-      .map((d) => d.data() as MahjongScheduleEntry)
-      .find((s) => s.date === eventDate);
-    if (sched?.startTime) {
-      const deadline = new Date(`${eventDate}T${sched.startTime}:00+09:00`);
-      if (new Date() >= deadline) {
-        return NextResponse.json(
-          { error: "CLOSED", message: "受付を終了しました（開始時刻を過ぎています）。" },
-          { status: 400 }
-        );
+    if (eventDate === today) {
+      const schedSnap = await db
+        .collection("mahjongSchedule")
+        .where("seasonId", "==", season.seasonId)
+        .get();
+      const sched = schedSnap.docs
+        .map((d) => d.data() as MahjongScheduleEntry)
+        .find((s) => s.date === eventDate);
+      if (sched?.startTime) {
+        const deadline = new Date(`${eventDate}T${sched.startTime}:00+09:00`);
+        if (new Date() >= deadline) {
+          return NextResponse.json(
+            { error: "CLOSED", message: "受付を終了しました（開始時刻を過ぎています）。" },
+            { status: 400 }
+          );
+        }
       }
     }
 
