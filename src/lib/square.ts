@@ -67,6 +67,17 @@ export function getSquareLocationId(purpose: SquarePurpose = "reservation"): str
   return locationId;
 }
 
+/** Square SDK エラーから人間可読な詳細を取り出す（非本番のデバッグ表示用）。 */
+export function squareErrorDetail(e: unknown): string {
+  if (e && typeof e === "object") {
+    const anyE = e as { errors?: unknown; body?: unknown; message?: string };
+    if (anyE.errors) return JSON.stringify(anyE.errors);
+    if (anyE.body) return typeof anyE.body === "string" ? anyE.body : JSON.stringify(anyE.body);
+    if (anyE.message) return anyE.message;
+  }
+  return String(e);
+}
+
 export async function getSquarePayment(
   paymentId: string,
   purpose: SquarePurpose = "reservation"

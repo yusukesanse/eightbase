@@ -3,9 +3,9 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
-import { createReservationPaymentLink } from "@/lib/square";
+import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
-import { isDevLoginEnabled } from "@/lib/env";
+import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import { MAHJONG_ENTRY_FEE, type MahjongEntry, type MahjongScheduleEntry } from "@/types";
@@ -121,7 +121,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: "PAYMENT_LINK_FAILED",
-          message: "決済リンクの生成に失敗しました。時間をおいてお試しください。",
+          message: isProduction()
+            ? "決済リンクの生成に失敗しました。時間をおいてお試しください。"
+            : `決済リンク生成に失敗: ${squareErrorDetail(e)}`,
         },
         { status: 502 }
       );
