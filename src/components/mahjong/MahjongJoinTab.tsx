@@ -196,11 +196,13 @@ export function JoinTab({
                 className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform"
                 style={
                   entered
-                    ? { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }
-                    : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+                    ? { background: "#eef4ee", color: ACCENT, boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } // 参加中（済）
+                    : full
+                      ? { background: "#f6f8f9", color: "#97999d", boxShadow: "inset 0 0 0 1px #e4e7e9" } // 満員
+                      : { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` } // 参加する（CTA）
                 }
               >
-                {entered && busy !== s.date && <CheckIcon />}
+                {entered && busy !== s.date && <CheckIcon color={ACCENT} />}
                 {busy === s.date ? "..." : entered ? "参加中" : full ? "満員" : "参加する"}
               </button>
             )}
