@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { initLiff, getAuthAccessToken } from "@/lib/liff";
+import { initLiff } from "@/lib/liff";
 import { isDevLoginEnabled } from "@/lib/env";
 import { clearAuthCache } from "@/components/AuthGuard";
 
@@ -40,12 +40,9 @@ function GuestInner() {
       try {
         let accessToken: string | null;
         if (isDevLoginEnabled()) {
-          // Dev ログイン（非本番）: LIFF を通さず Devトークンで redeem。未選択なら選択画面へ。
-          accessToken = await getAuthAccessToken();
-          if (!accessToken) {
-            window.location.replace("/dev-login");
-            return;
-          }
+          // 開発環境（LINE非連携）は招待redeemを通さず、入口 `/` の固定ロール自動ログインに委ねる。
+          window.location.replace("/");
+          return;
         } else {
           const liff = await initLiff();
           if (!liff.isLoggedIn()) {

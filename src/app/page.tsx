@@ -5,9 +5,30 @@ import Image from "next/image";
 import ShibaGame from "@/components/ShibaGame";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { isDevLoginEnabled } from "@/lib/env";
-import { isGamesOnlyRole } from "@/lib/roles";
+import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
+import { clearAuthCache } from "@/components/AuthGuard";
 
 const LOGGED_OUT_FLAG = "eb_logged_out";
+
+/**
+ * 開発環境（固定ログイン）のロールをドメインで決める。
+ * ゲスト用ドメイン（NEXT_PUBLIC_GUEST_DOMAIN）なら guest、それ以外は会員(member)。
+ */
+function devFixedRole(): "member" | "guest" {
+  const guestDomain = process.env.NEXT_PUBLIC_GUEST_DOMAIN;
+  if (guestDomain && typeof window !== "undefined" && window.location.host === guestDomain) {
+    return "guest";
+  }
+  return "member";
+}
+
+function roleHome(role: string, profileComplete: boolean): string {
+  return isGamesOnlyRole(role)
+    ? "/games/mahjong"
+    : profileComplete
+      ? "/reservation"
+      : "/setup-profile";
+}
 
 export default function HomePage() {
   const boot = useLiffBoot();
@@ -36,8 +57,8 @@ export default function HomePage() {
         // boot() 内で表示キャッシュ破棄＋遷移済み
         return;
       case "needs-dev-login":
-        // Dev ログイン有効だがテストユーザー未選択 → 選択画面へ
-        window.location.replace("/dev-login");
+        // 開発環境の入口 `/` へ（ドメインごとの固定ロールで自動ログイン）
+        window.location.replace("/");
         return;
       case "needs-linking":
       case "needs-line-login":
@@ -50,24 +71,36 @@ export default function HomePage() {
   }, [boot]);
 
   useEffect(() => {
-    // Dev ログイン（非本番）: 実セッションの有無で分岐（本番では常に false）。
-    // ログイン済み → ロールに応じたホームへ / 未ログイン → /dev-login のワンクリック画面へ。
+    // 開発環境（非本番・LINE非連携）: URLごとに固定ロールで自動ログインする（本番では常に false）。
+    // 利用者ドメイン=会員 / ゲスト用ドメイン=ゲスト。別ロールのセッションが残っていても上書きする。
     if (isDevLoginEnabled()) {
+      const role = devFixedRole();
+      const loginAs = () => {
+        clearAuthCache();
+        fetch("/api/dev/quick-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ role }),
+        })
+          .then((r) => r.json())
+          .then((res) => window.location.replace(res.home ?? "/games/mahjong"))
+          .catch(() => {
+            setStatusText("ログインに失敗しました。ページを再読み込みしてください。");
+            setPhase("error");
+          });
+      };
       fetch("/api/auth/check", { credentials: "include" })
         .then((r) => r.json())
         .then((d) => {
-          if (d?.authorized) {
-            const home = isGamesOnlyRole(d.role)
-              ? "/games/mahjong"
-              : d.profileComplete
-                ? "/reservation"
-                : "/setup-profile";
-            window.location.replace(home);
+          // 既にこのドメインの固定ロールでログイン済みならそのままホームへ。
+          if (d?.authorized && normalizeRole(d.role) === role) {
+            window.location.replace(roleHome(d.role, d.profileComplete));
           } else {
-            window.location.replace("/dev-login");
+            loginAs();
           }
         })
-        .catch(() => window.location.replace("/dev-login"));
+        .catch(loginAs);
       return;
     }
 

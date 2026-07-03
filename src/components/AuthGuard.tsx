@@ -6,6 +6,7 @@ import { clearAllCache, getCacheOwner, setCacheOwner } from "@/lib/swrCache";
 import { clearPostsCache } from "@/lib/timelineCache";
 import { clearEventGoods } from "@/lib/eventGoods";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
+import { isDevLoginEnabled } from "@/lib/env";
 
 /**
  * 認証チェックで判明した現在ユーザーと、キャッシュ所有者を突き合わせる。
@@ -22,8 +23,13 @@ function reconcileCacheOwner(userId: string) {
   setCacheOwner(userId);
 }
 
-const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest", "/dev-login"];
+const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest"];
 const PUBLIC_PREFIXES = ["/admin"];
+
+/** 未認証時の遷移先。開発（固定ログイン）は `/` で自動ログイン、本番は `/login`。 */
+function loginPath(): string {
+  return isDevLoginEnabled() ? "/" : "/login";
+}
 
 /** ゲスト(role=guest)が閲覧できるのはゲーム系ルートのみ。会員専用ルートはブロック。 */
 function isGuestAllowedPath(pathname: string): boolean {
@@ -81,7 +87,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return;
       }
       setStatus("unauthorized");
-      router.replace("/login");
+      router.replace(loginPath());
       return;
     }
 
@@ -120,19 +126,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             setStatus("authorized");
           } else {
             setStatus("unauthorized");
-            router.replace("/login");
+            router.replace(loginPath());
           }
         } else {
           authCache = null;
           setStatus("unauthorized");
-          router.replace("/login");
+          router.replace(loginPath());
         }
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         authCache = null;
         setStatus("unauthorized");
-        router.replace("/login");
+        router.replace(loginPath());
       });
 
     return () => {

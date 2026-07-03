@@ -87,8 +87,8 @@ export default function LoginPage() {
           // boot() 内で表示キャッシュ破棄＋遷移済み
           return;
         case "needs-dev-login":
-          // Dev ログイン有効だがテストユーザー未選択 → 選択画面へ
-          window.location.replace("/dev-login");
+          // 開発環境の入口 `/` へ（ドメインごとの固定ロールで自動ログイン）
+          window.location.replace("/");
           return;
         case "needs-linking":
           setLineInfo({

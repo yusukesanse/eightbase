@@ -16,6 +16,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 const CUSTOMER_DOMAIN = process.env.CUSTOMER_DOMAIN || "";
 const ADMIN_DOMAIN = process.env.ADMIN_DOMAIN || "";
+// ゲスト用ドメイン（開発環境で固定ゲストログイン）。利用者ドメインと同様に /admin を隠す。
+const GUEST_DOMAIN = process.env.NEXT_PUBLIC_GUEST_DOMAIN || "";
+
+/** 利用者アプリ側ドメイン（利用者/ゲスト）か。/admin を隠す対象。 */
+function isCustomerHost(host: string): boolean {
+  return (
+    (!!CUSTOMER_DOMAIN && host === CUSTOMER_DOMAIN) ||
+    (!!GUEST_DOMAIN && host === GUEST_DOMAIN)
+  );
+}
 
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
@@ -36,11 +46,7 @@ export function middleware(req: NextRequest) {
 
   // 利用者ドメインでは管理API(/api/admin)も隠す（URL分離・多層防御。checkAdminAuth に加えた保険）。
   // 静的/API の一括通過より前に評価する（そうしないと下で通過してしまうため）。
-  if (
-    CUSTOMER_DOMAIN &&
-    host === CUSTOMER_DOMAIN &&
-    pathname.startsWith("/api/admin")
-  ) {
+  if (isCustomerHost(host) && pathname.startsWith("/api/admin")) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -72,8 +78,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 顧客ドメイン: /admin/* へのアクセスは 404
-  if (CUSTOMER_DOMAIN && host === CUSTOMER_DOMAIN) {
+  // 利用者/ゲストドメイン: /admin/* へのアクセスは 404
+  if (isCustomerHost(host)) {
     if (pathname.startsWith("/admin")) {
       return NextResponse.rewrite(new URL("/not-found", req.url));
     }

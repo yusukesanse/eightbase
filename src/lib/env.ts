@@ -28,9 +28,9 @@ export function isDemo(): boolean {
 /**
  * 「Dev ログイン」= 非本番（demo / local）の固定ログイン。**本番では常に無効**。
  *
- * 開発環境では LINE/LIFF を通さず、`/dev-login` で選んだテストユーザーの「Devトークン」
- * （`src/lib/devLogin.ts`）を LINE アクセストークンの代わりに使い、`src/lib/lineAuth.ts` が
- * 合成プロフィールに解決する。実 `__session` を張って authorizedUsers 参照など本番同一経路を通す。
+ * 開発環境では LINE/LIFF を通さず、入口 `/` がドメインごとの固定ロール（利用者=会員 /
+ * NEXT_PUBLIC_GUEST_DOMAIN=ゲスト）で `/api/dev/quick-login` を叩き、実 `__session` を張って
+ * authorizedUsers 参照など本番同一経路を通す。
  * 本番判定は `NEXT_PUBLIC_APP_ENV=production`（isProduction）を唯一の真実とする。
  */
 export function isDevLoginEnabled(): boolean {
