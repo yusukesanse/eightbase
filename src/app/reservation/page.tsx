@@ -7,6 +7,8 @@ import type { Facility } from "@/types";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import ReactMarkdown from "react-markdown";
 import clsx from "clsx";
+import { timeToMin, generateSlots } from "./slots";
+import { FacilityPill } from "./FacilityPill";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -24,27 +26,6 @@ const EMPTY_SLOTS: { start: string; end: string }[] = [];
 // 予約確定時はサーバー(POST /api/reservations)が必ず最新を再検証するため、多少古い表示でも
 // ダブルブッキングは起きない。
 const AVAIL_TTL = 30_000;
-
-function timeToMin(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
-
-/**
- * タイムスロット生成（closeTime を含む）
- * closeTime は終了時刻としてのみ選択可能
- */
-function generateSlots(openTime: string, closeTime: string): string[] {
-  const start = timeToMin(openTime);
-  const end = timeToMin(closeTime);
-  const slots: string[] = [];
-  for (let t = start; t <= end; t += 30) {
-    const h = Math.floor(t / 60);
-    const m = t % 60;
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-  }
-  return slots;
-}
 
 // ─── メインページ ────────────────────────────────────────────────────────────
 
@@ -906,34 +887,5 @@ export default function ReservationPage() {
         )}
       </div>
     </div>
-  );
-}
-
-// ─── サブコンポーネント ──────────────────────────────────────────────────────
-
-function FacilityPill({
-  facility,
-  selected,
-  onSelect,
-}: {
-  facility: Facility;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      onClick={onSelect}
-      className={clsx(
-        "px-4 py-2 rounded-xl text-xs font-medium transition-all active:scale-95",
-        selected
-          ? "bg-[#231714] text-white shadow-sm"
-          : "bg-[#FAFAFA] text-[#231714] border border-gray-100 hover:border-[#A5C1C8]/40"
-      )}
-    >
-      {facility.name}
-      <span className={clsx("ml-1.5 text-[10px]", selected ? "text-white/60" : "text-[#231714]/30")}>
-        {facility.capacity}名
-      </span>
-    </button>
   );
 }
