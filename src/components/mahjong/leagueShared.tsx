@@ -9,8 +9,6 @@ import { Avatar } from "@/components/ui/LineContact";
 import type { PublicMahjongTable, PublicMahjongTableMember } from "@/types";
 export { todayJst } from "@/lib/date";
 
-// 卓の席順（卓内の並び順から東南西北を割り当て）
-export const SEATS = ["東", "南", "西", "北"] as const;
 // 麻雀リーグのアクセント（フェルト緑系・TILES案）
 export const ACCENT = "#2f7d57";
 // 卓確定の色（CSメダル金系・参加中の緑と区別する）
@@ -62,15 +60,15 @@ export function TableBoard({ table }: { table: PublicMahjongTable }) {
       )}
       <div className="grid grid-cols-2 gap-2.5">
         {table.members.map((m, i) => (
-          <Seat key={i} m={m} seat={SEATS[i] ?? ""} me={m.isCurrentUser} />
+          <Seat key={i} m={m} me={m.isCurrentUser} />
         ))}
       </div>
     </div>
   );
 }
 
-/* 緑フェルト上の席（東南西北） */
-function Seat({ m, seat, me }: { m: PublicMahjongTableMember; seat: string; me: boolean }) {
+/* 緑フェルト上の席 */
+function Seat({ m, me }: { m: PublicMahjongTableMember; me: boolean }) {
   const done = m.points !== null;
   return (
     <div
@@ -82,15 +80,7 @@ function Seat({ m, seat, me }: { m: PublicMahjongTableMember; seat: string; me: 
       }
     >
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <Avatar src={m.pictureUrl} name={m.displayName} size={30} />
-          <span
-            className="absolute -left-1 -top-1.5 w-4 h-4 rounded-full text-white text-[10px] font-black flex items-center justify-center"
-            style={{ background: "#d8533a", boxShadow: "0 0 0 1.5px rgba(255,255,255,.9)" }}
-          >
-            {seat}
-          </span>
-        </div>
+        <Avatar src={m.pictureUrl} name={m.displayName} size={30} />
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-extrabold truncate" style={{ color: me ? "#1c1f21" : "#fff" }}>{m.displayName}</div>
           <div className="text-[10.5px] font-bold" style={{ color: me ? "#97999d" : "rgba(255,255,255,.7)" }}>

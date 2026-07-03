@@ -322,7 +322,7 @@ function TableMembersModal({
           </span>
           <h3 className="text-base font-bold text-[#1c1f21]">{formatJpDate(date)} の卓</h3>
         </div>
-        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">同卓メンバー（席順：東→南→西→北）</p>
+        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">同卓メンバー</p>
 
         <div className="flex flex-col gap-4">
           {sorted.map((t) => (
