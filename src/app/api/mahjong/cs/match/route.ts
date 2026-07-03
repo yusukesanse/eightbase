@@ -8,6 +8,7 @@ import type { MahjongCsEvent } from "@/types";
 export const dynamic = "force-dynamic";
 
 /**
+ * DEV-ONLY（develop 専用 / main へ入れない）
  * PATCH /api/mahjong/cs/match  （デモ検証専用・非本番＋demoDummyイベントのみ）
  *
  * demoユーザー1人でCSトーナメントを進められるようにする利用者向け入力。

@@ -26,7 +26,10 @@ function reconcileCacheOwner(userId: string) {
 const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest"];
 const PUBLIC_PREFIXES = ["/admin"];
 
-/** 未認証時の遷移先。開発（固定ログイン）は `/` で自動ログイン、本番は `/login`。 */
+/**
+ * 未認証時の遷移先。本番は `/login`。
+ * DEV-ONLY 分岐（develop 専用）: 開発は `/` へ送り固定ロールで自動ログインさせる。
+ */
 function loginPath(): string {
   return isDevLoginEnabled() ? "/" : "/login";
 }

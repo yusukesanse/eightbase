@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isProduction } from "@/lib/env";
-import { seedDemoParticipants, clearDemoParticipants } from "@/lib/demoSeed";
+import { seedDemoParticipants, clearDemoParticipants } from "@/dev-only/demoSeed";
 
 export const dynamic = "force-dynamic";
 
 /**
+ * DEV-ONLY（develop 専用 / main へ入れない）
  * 検証用ダミー参加者データの投入/削除（管理・非本番専用）。
  *  POST   { seasonId }  … 指定シーズンにダミーを投入（支払い済み参加・順位・当日卓・CS）
  *  DELETE               … demoDummy タグのゲームデータを一括削除（シーズン/アカウントは残す）

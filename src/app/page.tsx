@@ -71,8 +71,8 @@ export default function HomePage() {
   }, [boot]);
 
   useEffect(() => {
-    // 開発環境（非本番・LINE非連携）: URLごとに固定ロールで自動ログインする（本番では常に false）。
-    // 利用者ドメイン=会員 / ゲスト用ドメイン=ゲスト。別ロールのセッションが残っていても上書きする。
+    // DEV-ONLY（develop 専用 / main へ入れない）: 非本番のみ URLごと固定ロールで自動ログイン。
+    // 本番は isDevLoginEnabled()===false で下の通常フロー（LIFF）に進む。
     if (isDevLoginEnabled()) {
       const role = devFixedRole();
       const loginAs = () => {

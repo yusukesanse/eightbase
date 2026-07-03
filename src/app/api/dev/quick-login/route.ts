@@ -7,6 +7,7 @@ import { isGamesOnlyRole } from "@/lib/roles";
 export const dynamic = "force-dynamic";
 
 /**
+ * DEV-ONLY（develop 専用 / main へ入れない）
  * POST /api/dev/quick-login  （検証環境専用・LINE切り離し）
  *
  * ワンクリックで「会員 / ゲスト / 新規」のテストユーザーとして実 `__session` を発行する。

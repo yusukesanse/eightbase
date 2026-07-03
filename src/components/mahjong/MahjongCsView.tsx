@@ -45,6 +45,7 @@ export function MahjongCsView() {
     load();
   }, [load]);
 
+  // DEV-ONLY（develop 専用 / main へ入れない）: デモCSのみ結果入力UIを出す。本番は false。
   const demo = isDevLoginEnabled() && !!(event as { demoDummy?: boolean } | null)?.demoDummy;
 
   const reportMatch = useCallback(

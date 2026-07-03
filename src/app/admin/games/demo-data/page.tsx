@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Season } from "@/types";
 
 /**
+ * DEV-ONLY（develop 専用 / main へ入れない）
  * 検証データ（麻雀・非本番専用）
  * 管理者が作った実シーズンへダミー参加者データを投入/削除する独立ツール。
  * - ダミーは支払い済み参加・順位・当日卓・CS を含む（demoDummy タグ付き）。

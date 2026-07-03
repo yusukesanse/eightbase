@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { isDevLoginEnabled } from "@/lib/env";
-import { seedDemoMahjong } from "@/lib/devSeed";
+import { seedDemoMahjong } from "@/dev-only/devSeed";
 
 export const dynamic = "force-dynamic";
 
 /**
+ * DEV-ONLY（develop 専用 / main へ入れない）
  * POST /api/dev/seed  （検証環境専用）
  * 麻雀の検証データ（シーズン/日程/卓/参加/CS）を Firestore に投入する。冪等。
  * 非本番（Dev ログイン）でのみ動作。本番は 404。
