@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { validateTableReports } from "@/lib/mahjong";
+import { isProduction } from "@/lib/env";
 import type { MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
+
+// デモ検証専用: 当日卓の最大半荘数と、順位→持ち点の標準配分（合計100,000）。
+const DEMO_MAX_ROUNDS = 4;
+const DEMO_RANK_POINTS: Record<number, number> = { 1: 40000, 2: 30000, 3: 20000, 4: 10000 };
 
 /**
  * POST /api/mahjong/tables/[tableId]/report
@@ -68,9 +73,59 @@ export async function POST(
         };
       }
 
+      const nowIso = new Date().toISOString();
+
+      // ── デモ検証専用の自動補完（本番・通常ユーザーには一切適用しない） ──
+      // 対象は `demoDummy:true` の当日卓かつ非本番のみ。demoユーザー1人の申告で
+      // 他ダミーを標準配分で補完し、半荘を成立（completed）させ、次半荘を自動生成する。
+      const isDemoTable =
+        !isProduction() && (table as { demoDummy?: boolean }).demoDummy === true;
+      if (isDemoTable) {
+        const remainingRanks = [1, 2, 3, 4].filter((r) => r !== rank);
+        let ri = 0;
+        const filled = table.members.map((m) => {
+          const r = m.lineUserId === userId ? rank : remainingRanks[ri++];
+          return { ...m, points: DEMO_RANK_POINTS[r], rank: r, reportedAt: nowIso };
+        });
+        tx.update(ref, { members: filled, status: "completed", updatedAt: nowIso });
+
+        // 次の半荘を自動生成（同じ4人・最大4半荘）。以降も同じデモ分岐で成立できる。
+        const nextRound = (table.round ?? 1) + 1;
+        let nextTableId: string | null = null;
+        if (nextRound <= DEMO_MAX_ROUNDS) {
+          nextTableId = `demo-tbl-${table.seasonId}-live-r${nextRound}`;
+          tx.set(db.collection("mahjongTables").doc(nextTableId), {
+            seasonId: table.seasonId,
+            eventDate: table.eventDate,
+            createdBy: "system",
+            memberIds: table.memberIds,
+            members: table.members.map((m) => ({
+              lineUserId: m.lineUserId,
+              displayName: m.displayName,
+              pictureUrl: m.pictureUrl ?? "",
+              points: null,
+              rank: null,
+              reportedAt: null,
+            })),
+            status: "reporting",
+            round: nextRound,
+            tableLabel: table.tableLabel ?? "A",
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            demoDummy: true,
+          });
+        }
+        return {
+          status: 200 as const,
+          validation: { ok: true, allReported: true, total: 100000 },
+          tableStatus: "completed" as const,
+          demo: { nextRound: nextTableId ? nextRound : null },
+        };
+      }
+
       const members = table.members.map((m) =>
         m.lineUserId === userId
-          ? { ...m, points, rank, reportedAt: new Date().toISOString() }
+          ? { ...m, points, rank, reportedAt: nowIso }
           : m
       );
 
@@ -80,7 +135,7 @@ export async function POST(
       tx.update(ref, {
         members,
         status,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
       });
 
       return { status: 200 as const, validation, tableStatus: status };
