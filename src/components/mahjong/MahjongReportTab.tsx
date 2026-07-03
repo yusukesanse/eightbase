@@ -142,7 +142,7 @@ function ReportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 pb-8 safe-area-pb max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#1c1f21]">スコアを申告</h3>
@@ -151,39 +151,28 @@ function ReportModal({
         </p>
 
         <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mb-2">最終持ち点</label>
-        <div className="flex items-center gap-2">
-          <div
-            className="flex-1 flex items-baseline gap-2 pb-1.5"
-            style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}
-          >
-            <input
-              ref={pointsRef}
-              type="number"
-              inputMode="numeric"
-              step={100}
-              autoFocus
-              value={points}
-              onChange={(e) => setPoints(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") pointsRef.current?.blur();
-              }}
-              placeholder="25000"
-              className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-              style={{ fontSize: "30px" }}
-            />
-            <span className="text-[14px] font-bold text-[#97999d]">点</span>
-          </div>
-          {/* 数字キーボードを閉じて値を確定（下部シートがキーボードに隠れる対策） */}
-          <button
-            type="button"
-            onClick={() => pointsRef.current?.blur()}
-            className="shrink-0 inline-flex items-center gap-1 rounded-xl px-3.5 py-2.5 text-[13px] font-extrabold text-white active:scale-95 transition-transform"
-            style={{ background: ACCENT }}
-          >
-            <CheckIcon size={15} />確定
-          </button>
+        <div
+          className="flex items-baseline gap-2 pb-1.5"
+          style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}
+        >
+          <input
+            ref={pointsRef}
+            type="number"
+            inputMode="numeric"
+            step={100}
+            autoFocus
+            value={points}
+            onChange={(e) => setPoints(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") pointsRef.current?.blur();
+            }}
+            placeholder="25000"
+            className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
+            style={{ fontSize: "30px" }}
+          />
+          <span className="text-[14px] font-bold text-[#97999d]">点</span>
         </div>
-        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（4人の合計が100,000点）。「確定」でキーボードを閉じます</div>
+        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。</div>
 
         <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
         <div className="flex gap-2">
