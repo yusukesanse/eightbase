@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
-import { isDummyDataEnabled } from "@/lib/env";
-import { PREVIEW_ADMIN_EMAIL } from "@/lib/preview";
-import { dummyAdminAdminUsers } from "@/lib/previewDummyAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -22,16 +19,6 @@ export async function GET(req: NextRequest) {
   const email = await checkAdminAuth(req);
   if (!email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // プレビューモード: ダミーの管理者一覧を返す（架空データ / 本番には出ない）
-  if (isDummyDataEnabled()) {
-    return NextResponse.json({
-      admins: dummyAdminAdminUsers.admins,
-      currentEmail: PREVIEW_ADMIN_EMAIL,
-      currentIsSuperAdmin: false,
-      _preview: true,
-    });
   }
 
   try {

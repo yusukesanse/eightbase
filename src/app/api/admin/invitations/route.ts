@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminInvitations } from "@/lib/previewDummyAdmin";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
 import { sendPasscodeEmail, sendGuestInviteEmail } from "@/lib/email";
@@ -40,9 +38,6 @@ function usesUrlInvite(role: "member" | "guest" | "staff"): boolean {
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (isDummyDataEnabled()) {
-    return NextResponse.json(dummyAdminInvitations);
   }
 
   try {

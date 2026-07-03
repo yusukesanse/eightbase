@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
 import { listSeasons } from "@/lib/mahjong";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummySeasons } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +16,6 @@ export async function GET(req: NextRequest) {
     const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    // プレビューモード: ダミーのシーズン一覧（本番には出ない）
-    if (isDummyDataEnabled()) {
-      return NextResponse.json({ seasons: dummySeasons });
     }
 
     const seasons = await listSeasons("mahjong");

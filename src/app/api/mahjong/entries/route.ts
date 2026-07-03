@@ -3,8 +3,6 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyEntries } from "@/lib/previewDummy";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +20,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
     const { lineUserId: userId, role } = auth;
-
-    // プレビューモード: ダミー参加表明を返す（本番には出ない / eventDate不問）
-    if (isDummyDataEnabled()) {
-      return NextResponse.json(dummyEntries);
-    }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
     if (!eventDate || !DATE_RE.test(eventDate)) {

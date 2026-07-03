@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
 import { computePlayerHistory, getActiveSeason } from "@/lib/mahjong";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyPlayerHistory } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +23,6 @@ export async function GET(
     }
 
     const targetId = decodeURIComponent((await params).lineUserId);
-
-    // プレビューモード: ダミー戦歴（本番には出ない）
-    if (isDummyDataEnabled()) {
-      const seasonId = req.nextUrl.searchParams.get("seasonId") ?? undefined;
-      return NextResponse.json(dummyPlayerHistory(targetId, seasonId));
-    }
 
     let seasonId = req.nextUrl.searchParams.get("seasonId");
     if (!seasonId) {

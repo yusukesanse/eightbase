@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFacilities } from "@/lib/facilities";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyFacilities } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +10,6 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    // プレビューモード: ダミー施設を返す（本番には出ない）
-    if (isDummyDataEnabled()) {
-      return NextResponse.json({ facilities: dummyFacilities }, { headers: { "Cache-Control": "no-store" } });
-    }
 
     const facilities = await getFacilities();
     // calendarId はクライアントに不要なので除外

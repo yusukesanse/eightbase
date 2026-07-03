@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminFacilities } from "@/lib/previewDummyAdmin";
 import {
   getAllFacilities,
   createFacility,
@@ -69,11 +67,6 @@ export async function GET(req: NextRequest) {
   const isAdmin = await checkAdminAuth(req);
   if (!isAdmin) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
-
-  // プレビューモード: ダミー施設を返す（架空のcalendarId / 本番には出ない）
-  if (isDummyDataEnabled()) {
-    return NextResponse.json(dummyAdminFacilities);
   }
 
   // マイグレーション実行（初回のみ）

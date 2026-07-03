@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { isDummyDataEnabled } from "@/lib/env";
-import { buildDummyRanking } from "@/lib/previewDummy";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -33,11 +31,6 @@ export async function GET(req: NextRequest) {
 
     if (!VALID_GAME_IDS.includes(gameCategory)) {
       return NextResponse.json({ error: "Invalid gameCategory" }, { status: 400 });
-    }
-
-    // プレビューモード: ダミーランキングを返す（本番には出ない）
-    if (isDummyDataEnabled()) {
-      return NextResponse.json(buildDummyRanking(period, gameCategory, yearMonth));
     }
 
     const db = getDb();

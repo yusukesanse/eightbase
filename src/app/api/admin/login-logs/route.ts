@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminLoginLogs } from "@/lib/previewDummyAdmin";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +12,6 @@ export async function GET(req: NextRequest) {
   const email = await checkAdminAuth(req);
   if (!email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (isDummyDataEnabled()) {
-    return NextResponse.json(dummyAdminLoginLogs);
   }
 
   try {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminStats } from "@/lib/previewDummyAdmin";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +12,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // プレビューモード: ダミー統計を返す（架空データ / 本番には出ない）
-  if (isDummyDataEnabled()) {
-    return NextResponse.json(dummyAdminStats);
   }
 
   try {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminUsers } from "@/lib/previewDummyAdmin";
 import { normalizeRole } from "@/lib/roles";
 import crypto from "crypto";
 
@@ -85,11 +83,6 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // プレビューモード: ダミーのユーザー一覧を返す（架空データ / 本番には出ない）
-  if (isDummyDataEnabled()) {
-    return NextResponse.json({ ...dummyAdminUsers, _preview: true });
   }
 
   try {

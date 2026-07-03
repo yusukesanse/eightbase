@@ -1,7 +1,7 @@
 /**
  * 検証環境（demo/非本番）向けの麻雀ゲームデータ投入。
  *
- * `EIGHTBASE_DUMMY_DATA`（全GETモック）と違い、**実データを Firestore に書く**ので、
+ * **実データを Firestore に書く**ので、
  * quick-login の実ユーザー（管理画面にも表示）と共存したまま、リーグ/順位/申告/CS を確認できる。
  * - 固定 doc ID で set() する＝**冪等**（何度押しても重複しない）。
  * - `dev-member-01` / `dev-guest-01`（quick-login の固定ユーザー）を含めるので「自分」ハイライトも一致。

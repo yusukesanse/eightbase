@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
 import { computeStandings, getActiveSeason, normalizeRankingMetric } from "@/lib/mahjong";
 import { getDb } from "@/lib/firebaseAdmin";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyStandings } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +16,6 @@ export async function GET(req: NextRequest) {
     const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    // プレビューモード: ダミー順位表を返す（Firestoreは参照しない / 本番には出ない）
-    if (isDummyDataEnabled()) {
-      return NextResponse.json(dummyStandings);
     }
 
     let seasonId = req.nextUrl.searchParams.get("seasonId");

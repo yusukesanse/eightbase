@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, toPublicMahjongTable } from "@/lib/mahjong";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyTables } from "@/lib/previewDummy";
 import type { MahjongTable, MahjongTableMember } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +18,6 @@ export async function GET(req: NextRequest) {
     const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    // プレビューモード: ダミーの卓を返す（本番には出ない）。内部IDは露出させない。
-    if (isDummyDataEnabled()) {
-      return NextResponse.json({
-        tables: dummyTables.tables.map((t) => toPublicMahjongTable(t, userId)),
-        seasonId: dummyTables.seasonId,
-      });
     }
 
     const season = await getActiveSeason();

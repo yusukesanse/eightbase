@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminNotifications } from "@/lib/previewDummyAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +11,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
-
-  if (isDummyDataEnabled()) {
-    return NextResponse.json({ notifications: dummyAdminNotifications });
   }
 
   const db = getDb();

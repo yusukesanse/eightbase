@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyAdminNews } from "@/lib/previewDummyAdmin";
 import { broadcastContentPublished } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -32,11 +30,6 @@ const NEWS_UPDATE_FIELDS = [
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // プレビューモード: ダミーニュースを返す（架空データ / 本番には出ない）
-  if (isDummyDataEnabled()) {
-    return NextResponse.json(dummyAdminNews);
   }
 
   try {

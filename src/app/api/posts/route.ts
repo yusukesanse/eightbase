@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveUser, requireProfileComplete } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyPosts } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +17,6 @@ export async function GET(req: NextRequest) {
     const lineUserId = await requireActiveUser(req);
     if (!lineUserId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    // プレビューモード: ダミーデータを返す（Firestoreは参照しない / 本番には出ない）
-    if (isDummyDataEnabled()) {
-      const t = new URL(req.url).searchParams.get("type") || "";
-      const posts = t === "offer" || t === "request" ? dummyPosts.filter((p) => p.type === t) : dummyPosts;
-      return NextResponse.json(posts);
     }
 
     const { searchParams } = new URL(req.url);

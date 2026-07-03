@@ -26,21 +26,6 @@ export function isDemo(): boolean {
 }
 
 /**
- * ダミーデータ（モックデータ）を各 GET API が返してよい環境か。
- *
- * env フラグ `EIGHTBASE_DUMMY_DATA` が有効、かつ production でないときだけ true。
- * - production では二重に封じる: 万一フラグが本番 env に紛れても runtime で false を返し、
- *   さらに `scripts/check-env.mjs` が本番ビルドでこのフラグを検出するとビルド失敗させる。
- * - プレビューモード（Cookie ベースの認証バイパス / `src/lib/preview.ts`）とは独立。
- *   dev/staging はプレビューに関係なくダミーを表示し、本番は常に実データ。
- */
-export function isDummyDataEnabled(): boolean {
-  if (isProduction()) return false;
-  const raw = (process.env.EIGHTBASE_DUMMY_DATA ?? "").toLowerCase();
-  return raw === "on" || raw === "1" || raw === "true" || raw === "yes";
-}
-
-/**
  * demo / 開発専用の「Dev ログイン」。LINE/LIFF を通さずに本番同一フローを検証するための抜け穴。
  *
  * env フラグ `NEXT_PUBLIC_DEV_LOGIN` が有効、かつ production でないときだけ true。

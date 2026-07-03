@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
-import { isDummyDataEnabled } from "@/lib/env";
-import { dummyGames } from "@/lib/previewDummy";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +13,6 @@ export async function GET(req: NextRequest) {
     const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    // プレビューモード: ダミーゲーム一覧を返す（本番には出ない）
-    if (isDummyDataEnabled()) {
-      return NextResponse.json(dummyGames);
     }
 
     const db = getDb();
