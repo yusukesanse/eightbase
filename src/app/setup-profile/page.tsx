@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
+import { lookupAddressByPostalCode } from "@/lib/address";
 import { clearAuthCache } from "@/components/AuthGuard";
 
 const PREFECTURES = [
@@ -132,16 +133,8 @@ export default function SetupProfilePage() {
   }, [router]);
 
   async function lookupPostalCode() {
-    const code = form.postalCode.replace(/[-\s]/g, "");
-    if (code.length !== 7) return;
-    try {
-      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${code}`);
-      const data = await res.json();
-      if (data.results?.[0]) {
-        const r = data.results[0];
-        setForm((prev) => ({ ...prev, prefecture: r.address1, city: r.address2 + r.address3 }));
-      }
-    } catch { /* ignore */ }
+    const addr = await lookupAddressByPostalCode(form.postalCode);
+    if (addr) setForm((prev) => ({ ...prev, prefecture: addr.prefecture, city: addr.city }));
   }
 
   function updateForm(key: keyof FormData, value: string) {
