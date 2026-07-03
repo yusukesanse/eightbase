@@ -22,15 +22,21 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = getDb();
-    const snap = await db
-      .collection("seasons")
-      .orderBy("startDate", "desc")
-      .get();
+    // orderBy("startDate") は startDate を持たないシーズンを結果から除外してしまうため使わない
+    // （seed/旧UIで startDate 未設定のシーズンが管理画面から消える不具合を回避）。
+    // 全件取得して JS 側で新しい順（startDate 降順・未設定は末尾）に並べる＝利用者側 listSeasons と一致。
+    const snap = await db.collection("seasons").get();
 
-    const seasons = snap.docs.map((doc) => ({
-      seasonId: doc.id,
-      ...doc.data(),
-    }));
+    const seasons = snap.docs
+      .map((doc) => ({
+        seasonId: doc.id,
+        ...doc.data(),
+      }))
+      .sort((a, b) => {
+        const sa = (a as { startDate?: string }).startDate || "";
+        const sb = (b as { startDate?: string }).startDate || "";
+        return sb.localeCompare(sa);
+      });
 
     return NextResponse.json({ seasons });
   } catch (error) {
