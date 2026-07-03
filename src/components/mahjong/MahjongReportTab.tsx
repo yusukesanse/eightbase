@@ -140,7 +140,7 @@ function ReportModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div
         className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 pb-8 safe-area-pb max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
