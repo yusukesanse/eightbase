@@ -31,7 +31,7 @@ export type LineTokenStatus = "valid" | "expired" | "invalid";
  * このアプリが想定する LINE Login/LIFF チャネルID（= verify レスポンスの client_id）を返す。
  *
  * - 明示指定 `LINE_LOGIN_CHANNEL_ID`（カンマ区切りで複数可）があれば最優先。
- * - 無ければ各環境の LIFF ID（`NEXT_PUBLIC_LIFF_ID(_REVIEW/_PROD)`）の
+ * - 無ければ LIFF ID（`NEXT_PUBLIC_LIFF_ID(_PROD)`）の
  *   ハイフン前プレフィックス（= チャネルID）から導出する。
  *   ※ LIFF ID は `{channelId}-{suffix}` 形式で、prefix が発行元チャネルIDに一致する。
  *
@@ -50,7 +50,6 @@ export function getExpectedLineChannelIds(): Set<string> {
 
   for (const liffId of [
     process.env.NEXT_PUBLIC_LIFF_ID,
-    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW,
     process.env.NEXT_PUBLIC_LIFF_ID_PROD,
   ]) {
     const prefix = (liffId ?? "").split("-")[0].trim();

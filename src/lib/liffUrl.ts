@@ -9,26 +9,15 @@ import { getAppEnv } from "./env";
  *   - Square 決済後のリダイレクト先（決済を終えてミニアプリに戻す）
  *   - ゲスト招待のワンタイムURL（/guest?code=）
  *
- * ⚠️ LIFF ID は **クライアントの detectEnv(liff.ts) と一致** させる必要がある（URLのLIFF IDと
- *    liff.init のLIFF IDが食い違うと LIFF 初期化に失敗するため）。クライアントは host で判定する:
- *      本番ドメイン→prod / *.vercel.app→review / localhost→dev
- *    サーバー側は同等の対応を APP_ENV で行う:
- *      production→_PROD / demo(=*.vercel.app=review)→_REVIEW / local→base(_DEV)
- *    対応する値が無ければ安全なフォールバック、最後は PORTAL_URL の通常URLにしてリンクは壊さない。
+ * ⚠️ LIFF は**本番のみ使用**（開発環境は Dev ログインで LINE 非連携）。本番は
+ *    `NEXT_PUBLIC_LIFF_ID_PROD`（無ければ `NEXT_PUBLIC_LIFF_ID`）を使う。LIFF ID が無ければ
+ *    PORTAL_URL の通常URLにフォールバックしてリンクは壊さない。
  */
 export function liffUrl(path: string): string {
-  const appEnv = getAppEnv();
-  const byEnv =
-    appEnv === "production"
-      ? process.env.NEXT_PUBLIC_LIFF_ID_PROD
-      : appEnv === "demo"
-        ? process.env.NEXT_PUBLIC_LIFF_ID_REVIEW
-        : process.env.NEXT_PUBLIC_LIFF_ID;
   const liffId =
-    byEnv ||
+    (getAppEnv() === "production" ? process.env.NEXT_PUBLIC_LIFF_ID_PROD : undefined) ||
     process.env.NEXT_PUBLIC_LIFF_ID_PROD ||
     process.env.NEXT_PUBLIC_LIFF_ID ||
-    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW ||
     "";
   const portal = process.env.NEXT_PUBLIC_PORTAL_URL || "";
   const clean = path.startsWith("/") ? path : `/${path}`;

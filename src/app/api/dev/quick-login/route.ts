@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * authorizedUsers にレコードを upsert するので、**管理者アプリの顧客一覧にも表示される**
  * （＝管理側で確認・昇格・無効化などの操作対象になる）。
  *
- * - `NEXT_PUBLIC_DEV_LOGIN` 有効（非本番）でのみ動作。本番は 404。
+ * - 非本番（Dev ログイン）でのみ動作。本番は 404。
  * - OTP / LINE を通さないため無限ループが起きない（home は AuthGuard の判定と一致させる）。
  *
  * Body: { role: "member" | "guest" | "new" }

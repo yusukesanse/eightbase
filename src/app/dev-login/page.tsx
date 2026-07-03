@@ -26,7 +26,7 @@ export default function DevLoginPage() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 text-center">
         <p className="text-sm font-medium text-[#231714]">Dev ログインは無効です</p>
         <p className="text-xs text-[#231714]/50 mt-1">
-          検証環境（非本番・<code>NEXT_PUBLIC_DEV_LOGIN=on</code>）でのみ利用できます。
+          検証環境（非本番）でのみ利用できます。
         </p>
       </div>
     );

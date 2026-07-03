@@ -26,21 +26,15 @@ export function isDemo(): boolean {
 }
 
 /**
- * demo / 開発専用の「Dev ログイン」。LINE/LIFF を通さずに本番同一フローを検証するための抜け穴。
+ * 「Dev ログイン」= 非本番（demo / local）の固定ログイン。**本番では常に無効**。
  *
- * env フラグ `NEXT_PUBLIC_DEV_LOGIN` が有効、かつ production でないときだけ true。
- * - production では二重に封じる: isProduction() で常に false ＋ `scripts/check-env.mjs` が
- *   本番ビルドでこのフラグを検出するとビルド失敗させる。
- * - NEXT_PUBLIC_* なのはクライアント（/・/login・/guest の LIFF 省略・/dev-login）でも判定するため。
- *   値は秘匿情報ではない。
- * - 有効時は「Devトークン」（`src/lib/devLogin.ts`）を LINE アクセストークンの代わりに使い、
- *   `src/lib/lineAuth.ts` が合成プロフィールに解決する。**固定ユーザーの短絡はしない**
- *   （実 `__session` を張って authorizedUsers 参照など本番同一経路を通す）。
+ * 開発環境では LINE/LIFF を通さず、`/dev-login` で選んだテストユーザーの「Devトークン」
+ * （`src/lib/devLogin.ts`）を LINE アクセストークンの代わりに使い、`src/lib/lineAuth.ts` が
+ * 合成プロフィールに解決する。実 `__session` を張って authorizedUsers 参照など本番同一経路を通す。
+ * 本番判定は `NEXT_PUBLIC_APP_ENV=production`（isProduction）を唯一の真実とする。
  */
 export function isDevLoginEnabled(): boolean {
-  if (isProduction()) return false;
-  const raw = (process.env.NEXT_PUBLIC_DEV_LOGIN ?? "").toLowerCase();
-  return raw === "on" || raw === "1" || raw === "true" || raw === "yes";
+  return !isProduction();
 }
 
 /** vercel.app / localhost を含む = 本番ドメインではない、と判定 */

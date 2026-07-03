@@ -81,12 +81,20 @@ if (appEnv === "production") {
       "ADMIN_SIMPLE_PASSWORD は本番では設定しないでください（dev/staging 専用のパスワードログイン）"
     );
   }
-  // Dev ログイン（dev/staging 専用・LINE切り離し）が本番に紛れていないか
-  if (["on", "1", "true", "yes"].includes((env.NEXT_PUBLIC_DEV_LOGIN || "").toLowerCase())) {
-    errors.push(
-      `NEXT_PUBLIC_DEV_LOGIN="${env.NEXT_PUBLIC_DEV_LOGIN}" は本番では無効化してください（dev/staging 専用の Dev ログイン）`
-    );
-  }
+}
+
+// 本番ドメインを指しているのに APP_ENV≠production ＝ Dev ログイン（非本番=固定ログイン）が
+// 本番に出てしまう取り違え。全環境で検出して失敗させる。
+if (
+  appEnv !== "production" &&
+  env.NEXT_PUBLIC_PORTAL_URL &&
+  !looksNonProdUrl(env.NEXT_PUBLIC_PORTAL_URL)
+) {
+  errors.push(
+    `NEXT_PUBLIC_PORTAL_URL="${env.NEXT_PUBLIC_PORTAL_URL}" は本番ドメインですが ` +
+      `NEXT_PUBLIC_APP_ENV="${appEnv}"。本番は APP_ENV=production を設定してください` +
+      `（未設定だと Dev ログインが有効なままになります）`
+  );
 }
 
 // ── 結果出力 ──

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/dev/seed  （検証環境専用）
  * 麻雀の検証データ（シーズン/日程/卓/参加/CS）を Firestore に投入する。冪等。
- * `NEXT_PUBLIC_DEV_LOGIN` 有効（非本番）でのみ動作。本番は 404。
+ * 非本番（Dev ログイン）でのみ動作。本番は 404。
  */
 export async function POST() {
   if (!isDevLoginEnabled()) {

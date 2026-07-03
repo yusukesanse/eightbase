@@ -7,72 +7,15 @@ import { buildDevToken, getStoredDevIdentity } from "@/lib/devLogin";
 let liffInstance: Liff | null = null;
 
 /**
- * 環境ごとの LIFF ID マッピング。
- * LINE Developers Console の各チャネル（開発用/審査用/本番用）の
- * エンドポイント URL に ?env=dev / ?env=review / ?env=prod を付与し、
- * そのクエリパラメータで正しい LIFF ID を判定する。
- *
- * すべての LIFF ID は環境変数から読み込む。
- * - NEXT_PUBLIC_LIFF_ID         → dev 用
- * - NEXT_PUBLIC_LIFF_ID_REVIEW  → review 用
- * - NEXT_PUBLIC_LIFF_ID_PROD    → prod 用
- */
-const LIFF_ID_MAP: Record<string, string | undefined> = {
-  dev: process.env.NEXT_PUBLIC_LIFF_ID,
-  review: process.env.NEXT_PUBLIC_LIFF_ID_REVIEW,
-  prod: process.env.NEXT_PUBLIC_LIFF_ID_PROD,
-};
-
-type LiffEnv = "dev" | "review" | "prod";
-
-/** env を判定できない場合のデフォルト（SSR時のみ使用） */
-const DEFAULT_ENV: LiffEnv = "dev";
-
-/**
- * 環境を判定する。
- * 1. URL の ?env= が dev/review/prod のいずれかなら最優先（チャネル別エンドポイントの明示指定）。
- * 2. なければホスト名から推定する:
- *      localhost / 127.0.0.1 / *.local → dev
- *      *.vercel.app（プレビュー）       → review
- *      それ以外（本番ドメイン）          → prod
- * これにより ?env を付け忘れた本番URLで dev 用 LIFF ID が使われるのを防ぐ。
- */
-function detectEnv(): LiffEnv {
-  if (typeof window === "undefined") return DEFAULT_ENV;
-
-  const explicit = new URLSearchParams(window.location.search).get("env");
-  if (explicit === "dev" || explicit === "review" || explicit === "prod") {
-    return explicit;
-  }
-
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".local")) {
-    return "dev";
-  }
-  if (host.endsWith(".vercel.app")) {
-    return "review";
-  }
-  return "prod";
-}
-
-/**
- * 判定した環境に対応する LIFF ID を返す。
- * prod 環境では dev 用 LIFF ID へフォールバックしない（本番で dev LIFF ID を使わない）。
+ * 本番の LIFF ID を返す。**LIFF は本番のみ使用**（開発環境は Dev ログインで LINE 非連携）。
+ * `NEXT_PUBLIC_LIFF_ID_PROD`（無ければ `NEXT_PUBLIC_LIFF_ID`）から読む。
  */
 function detectLiffId(): string {
-  const env = detectEnv();
-  const liffId = LIFF_ID_MAP[env];
-  if (liffId) return liffId;
-
-  // dev/review は未設定時に dev 用へフォールバック可。prod はフォールバックさせない。
-  if (env !== "prod") {
-    const devId = LIFF_ID_MAP.dev;
-    if (devId) {
-      console.warn(`[LIFF] env="${env}" の LIFF ID 未設定のため dev 用にフォールバックします。`);
-      return devId;
-    }
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID_PROD || process.env.NEXT_PUBLIC_LIFF_ID;
+  if (!liffId) {
+    throw new Error("[LIFF] NEXT_PUBLIC_LIFF_ID_PROD が未設定です。");
   }
-  throw new Error(`[LIFF] No LIFF ID configured for env="${env}". 環境変数を確認してください。`);
+  return liffId;
 }
 
 /**
@@ -208,26 +151,38 @@ export async function runLiffServerLogin(): Promise<LiffLoginResult> {
  * それ以外（外部ブラウザ）では通常の window.open でフォールバックする。
  */
 export async function openExternalUrl(url: string): Promise<void> {
-  try {
-    const liff = await initLiff();
-    liff.openWindow({ url, external: true });
-  } catch {
-    if (typeof window !== "undefined") {
-      window.open(url, "_blank", "noopener,noreferrer");
+  // 開発環境（LINE非連携）は LIFF を使わず通常のブラウザ遷移。
+  if (!isDevLoginEnabled()) {
+    try {
+      const liff = await initLiff();
+      liff.openWindow({ url, external: true });
+      return;
+    } catch {
+      /* LIFF 外はフォールバック */
     }
+  }
+  if (typeof window !== "undefined") {
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 }
 
 /**
- * LINE プロフィールを取得する（ログイン必須）。
+ * LINE プロフィールを取得する（表示名等）。
+ * 開発環境では選択中のテストユーザーを LINE プロフィール相当として返す（LIFF 不使用）。
  */
 export async function getLineProfile() {
+  if (isDevLoginEnabled()) {
+    const id = getStoredDevIdentity();
+    return {
+      userId: id?.userId ?? "",
+      displayName: id?.displayName ?? "",
+      pictureUrl: id?.pictureUrl ?? "",
+    };
+  }
   const liff = await initLiff();
-
   if (!liff.isLoggedIn()) {
     liff.login({ redirectUri: window.location.href });
     throw new Error("Redirecting to LINE login");
   }
-
   return liff.getProfile();
 }
