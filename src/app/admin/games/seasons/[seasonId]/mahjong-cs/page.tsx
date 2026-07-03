@@ -3,16 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import DatePicker from "@/components/ui/DatePicker";
 import type { MahjongCsEvent, MahjongCsMatch, MahjongLeagueTier } from "@/types";
+import { todayJst } from "@/lib/date";
 
 const TIER_STYLES: Record<MahjongLeagueTier, string> = {
   M1: "bg-yellow-100 text-yellow-700",
   M2: "bg-sky-100 text-sky-700",
   M3: "bg-orange-50 text-orange-600",
 };
-
-function todayJst(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
-}
 
 export default function SeasonMahjongCsPage() {
   const [events, setEvents] = useState<MahjongCsEvent[]>([]);

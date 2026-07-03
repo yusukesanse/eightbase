@@ -1,9 +1,7 @@
-/** 予約タイムスロットの純粋ヘルパー（予約画面から分離）。 */
+import { timeToMin } from "@/lib/date";
 
-export function timeToMin(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
+/** 予約タイムスロットのヘルパー（予約画面）。時刻→分は共通の timeToMin を利用。 */
+export { timeToMin };
 
 /**
  * タイムスロット生成（closeTime を含む）

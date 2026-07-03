@@ -12,15 +12,11 @@
  */
 
 import type { Facility } from "@/types";
+import { timeToMin, todayJst } from "./date";
+export { timeToMin }; // 後方互換: 一部APIが @/lib/reservations から import している
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
-
-/** "HH:MM" → 0時からの分。 */
-export function timeToMin(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
 
 /**
  * 半開区間 [aStart, aEnd) と [bStart, bEnd) が重なるか（分単位）。
@@ -199,9 +195,7 @@ export function validateReservationSlot(
   const availableDays = facility.availableDays ?? [1, 2, 3, 4, 5];
 
   // 過去日チェック（Asia/Tokyo 基準）
-  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(
-    new Date()
-  );
+  const today = todayJst();
   if (date < today) {
     return { ok: false, reason: "PAST_DATE", message: "過去の日付は予約できません。" };
   }

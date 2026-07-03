@@ -6,6 +6,7 @@ import { TopBar } from "@/components/ui/TopBar";
 import type { Facility } from "@/types";
 import type { AvailabilityResponse } from "@/types";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
+import { timeToMin } from "@/lib/date";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -23,11 +24,6 @@ function generateSlots(startMin: number, endMin: number): string[] {
     slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
   }
   return slots;
-}
-
-function timeToMin(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
 }
 
 type CellState = "booked" | "free" | "sel-start" | "sel-range" | "sel-end";

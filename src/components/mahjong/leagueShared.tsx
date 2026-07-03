@@ -7,6 +7,7 @@
 
 import { Avatar } from "@/components/ui/LineContact";
 import type { PublicMahjongTable, PublicMahjongTableMember } from "@/types";
+export { todayJst } from "@/lib/date";
 
 // 卓の席順（卓内の並び順から東南西北を割り当て）
 export const SEATS = ["東", "南", "西", "北"] as const;
@@ -20,10 +21,6 @@ export function dateParts(d: string): { md: string; wd: string } {
   const dt = new Date(d + "T00:00:00");
   const w = ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
   return { md: `${parts[1]}/${parts[2]}`, wd: w };
-}
-
-export function todayJst(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 }
 
 export function formatJpDate(d: string): string {

@@ -6,6 +6,7 @@ import { mahjongPaymentRequired } from "@/lib/roles";
 import { createReservationPaymentLink } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled } from "@/lib/env";
+import { todayJst } from "@/lib/date";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import { MAHJONG_ENTRY_FEE, type MahjongEntry, type MahjongScheduleEntry } from "@/types";
 import dayjs from "dayjs";
@@ -71,10 +72,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 支払い期限＝開催当日ゲーム開始時刻。当日以外・開始時刻超過は不可（Asia/Tokyo 基準）。
-    const todayJst = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(
-      new Date()
-    );
-    if (eventDate !== todayJst) {
+    if (eventDate !== todayJst()) {
       return NextResponse.json(
         { error: "NOT_TODAY", message: "参加費のお支払いは開催当日のみ可能です。" },
         { status: 400 }

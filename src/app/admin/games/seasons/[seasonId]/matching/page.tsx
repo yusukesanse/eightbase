@@ -3,15 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import DatePicker from "@/components/ui/DatePicker";
 import type { MahjongEntry, MahjongTable, MahjongScheduleEntry } from "@/types";
+import { todayJst } from "@/lib/date";
 
 interface AdminUser {
   lineUserId: string | null;
   displayName: string;
   pictureUrl?: string | null;
-}
-
-function todayJst(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 }
 
 export default function SeasonMatchingPage() {

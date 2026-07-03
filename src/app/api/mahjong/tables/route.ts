@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, toPublicMahjongTable } from "@/lib/mahjong";
+import { todayJst } from "@/lib/date";
 import type { MahjongTable, MahjongTableMember } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -118,10 +119,7 @@ export async function POST() {
     });
 
     const now = new Date();
-    // JST の日付（YYYY-MM-DD）
-    const eventDate = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Asia/Tokyo",
-    }).format(now);
+    const eventDate = todayJst(); // JST の日付（YYYY-MM-DD）
 
     const table: Omit<MahjongTable, "tableId"> = {
       seasonId: season.seasonId,

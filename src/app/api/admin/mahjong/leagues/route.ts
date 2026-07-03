@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { todayJst } from "@/lib/date";
 import {
   buildLeagueAssignmentEntries,
   countCompletedTables,
@@ -60,9 +61,7 @@ export async function POST(req: NextRequest) {
     const eventDate: string =
       typeof body?.eventDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.eventDate)
         ? body.eventDate
-        : new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(
-            new Date()
-          );
+        : todayJst();
 
     const season = await getActiveSeason();
     if (!season) {

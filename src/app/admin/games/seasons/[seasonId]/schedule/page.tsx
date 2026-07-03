@@ -4,10 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import DatePicker from "@/components/ui/DatePicker";
 import TimePicker from "@/components/ui/TimePicker";
 import type { MahjongScheduleEntry } from "@/types";
-
-function todayJst(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
-}
+import { todayJst } from "@/lib/date";
 
 export default function SeasonSchedulePage() {
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
