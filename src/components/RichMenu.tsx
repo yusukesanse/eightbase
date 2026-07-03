@@ -6,12 +6,12 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 
-/** ゲスト用の簡易ナビ（ゲーム機能のみ）。 */
+/** ゲスト用の簡易ナビ（ゲーム機能のみ・全ゲームのハブ=/info ゲームタブ）。 */
 const GUEST_MENUS = [
   {
-    href: "/games/mahjong",
-    label: "麻雀リーグ",
-    match: ["/games"],
+    href: "/info",
+    label: "ゲーム",
+    match: ["/info", "/games"],
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
         <rect x="4" y="2" width="14" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.5" />

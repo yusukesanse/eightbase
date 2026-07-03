@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NufEvent, NewsItem, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
+import { isGamesOnlyRole } from "@/lib/roles";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -25,6 +26,20 @@ const EMPTY_NEWS: NewsItem[] = [];
 export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
+  // ゲスト/エイト社員はゲーム機能のみ → 「ゲーム」タブだけ表示し既定にする。
+  const [gamesOnly, setGamesOnly] = useState(false);
+  useEffect(() => {
+    fetch("/api/auth/check", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.authorized && isGamesOnlyRole(d.role)) {
+          setGamesOnly(true);
+          setActiveTab("games");
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const visibleTabs = gamesOnly ? TABS.filter((t) => t.id === "games") : TABS;
 
   // 前回表示を即出し→裏で再取得（数分キャッシュ）。
   // events/news の各ページとキーを共有するのでページ間遷移でも再利用される。
@@ -56,7 +71,7 @@ export default function InfoPage() {
 
       {/* タブバー */}
       <div className="bg-white border-b border-gray-100 flex sticky top-0 z-10">
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
