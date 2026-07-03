@@ -28,8 +28,19 @@ export function ReportTab({
     .slice()
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || (a.round ?? 0) - (b.round ?? 0));
 
+  // 半荘の進行（全4半荘・完了数）。1半荘＝1卓を申告すると次の半荘に進む。
+  const MAX_HANCHAN = 4;
+  const completedHanchan = tables.filter((t) => t.status === "completed").length;
+
   return (
     <div className="flex flex-col gap-5">
+      <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
+        <div>
+          <div className="text-[12px] font-extrabold text-[#40434a]">全{MAX_HANCHAN}半荘制</div>
+          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">1半荘ごとに申告すると次の半荘に進みます</div>
+        </div>
+        <span className="text-[13px] font-black" style={{ color: ACCENT }}>{completedHanchan}/{MAX_HANCHAN} 半荘 完了</span>
+      </div>
       {sorted.map((t) => {
         const me = t.members.find((m) => m.isCurrentUser);
         const reportedCount = t.members.filter((m) => m.points !== null).length;
@@ -42,12 +53,12 @@ export function ReportTab({
               <span className="text-[13px] font-extrabold text-[#231714]">{formatJpDate(t.eventDate)}</span>
               {t.round ? (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>
-                  第{t.round}回戦
+                  第{t.round}半荘
                 </span>
               ) : null}
               <span className="flex-1" />
               <span className="text-[11px] font-bold" style={{ color: reportedCount === 4 ? "#6f9023" : "#97999d" }}>
-                {reportedCount}/4 申告
+                {reportedCount}/4人 申告
               </span>
             </div>
 
