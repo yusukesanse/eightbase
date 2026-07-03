@@ -24,7 +24,7 @@
 import type { NextRequest } from "next/server";
 import { getSessionUserId } from "./session";
 import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
-import { isGamesOnlyRole } from "./roles";
+import { isGamesOnlyRole, normalizeRole, type UserRole } from "./roles";
 import { getDb } from "./firebaseAdmin";
 
 /**
@@ -85,6 +85,18 @@ function isGamesOnly(user: FirebaseFirestore.DocumentData | null): boolean {
 export async function requireGameUser(req: NextRequest): Promise<string | null> {
   const r = await resolveActiveUser(req);
   return r ? r.lineUserId : null;
+}
+
+/**
+ * ゲーム機能用（role も返す版）: 参加費の支払い要否判定（mahjongPaymentRequired）に使う。
+ * 仮ユーザー（バイパス/プレビュー・user=null）は role 未設定＝member 扱い。
+ */
+export async function requireGameUserWithRole(
+  req: NextRequest
+): Promise<{ lineUserId: string; role: UserRole } | null> {
+  const r = await resolveActiveUser(req);
+  if (!r) return null;
+  return { lineUserId: r.lineUserId, role: normalizeRole(r.user?.role) };
 }
 
 /**

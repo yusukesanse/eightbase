@@ -434,6 +434,15 @@ export interface PublicMahjongTable {
   mine: boolean;
 }
 
+/**
+ * 参加費（3,000円）の支払い状態（WP3）。
+ * - pending: 決済リンク発行済み・未確定（pendingExpiresAt でTTL）
+ * - paid: 決済確定（卓組対象になる）
+ * - cancelRequested: 利用者がキャンセル依頼（自動返金せず管理者へ手動返金通知）
+ * staff（エイト社員）等 支払い免除者にはこのフィールドを付与しない。
+ */
+export type MahjongPaymentStatus = "pending" | "paid" | "cancelRequested";
+
 /** リーグ戦 開催日への参加表明 */
 export interface MahjongEntry {
   entryId: string;
@@ -443,6 +452,12 @@ export interface MahjongEntry {
   displayName: string;
   pictureUrl?: string;
   enteredAt: string;
+  // ─ WP3: 参加費支払い（会員/ゲストのみ。staffは免除＝未設定）─
+  paymentStatus?: MahjongPaymentStatus;
+  paymentTransactionId?: string; // Square orderId（決済照合用・本人以外へは非公開）
+  paymentAmount?: number;        // 決済額（円）＝ MAHJONG_ENTRY_FEE
+  paidAt?: string;               // 決済確定時刻 ISO8601
+  pendingExpiresAt?: string;     // 決済リンクのTTL失効 ISO8601
 }
 
 /** CS（チャンピオンシップ）出場に必要なリーグ戦試合数 */
@@ -450,6 +465,9 @@ export const MAHJONG_CS_MIN_GAMES = 5;
 
 /** リーグ戦1開催日あたりの参加枠（先着）。これを超える参加表明は不可。 */
 export const MAHJONG_MAX_ENTRIES_PER_DATE = 8;
+
+/** リーグ戦の参加費（円・税込）。支払い対象は staff 以外（member / guest）。 */
+export const MAHJONG_ENTRY_FEE = 3000;
 
 /** 通算成績（standings APIの計算結果） */
 export interface MahjongStanding {

@@ -11,7 +11,8 @@ import dayjs from "dayjs";
 
 export type AdminNotificationType =
   | "switchbot_failed" // 解錠コード発行失敗
-  | "trailer_cancel"; // トレーラー予約の取消（手動返金対応依頼）
+  | "trailer_cancel" // トレーラー予約の取消（手動返金対応依頼）
+  | "mahjong_refund"; // 麻雀参加費の返金対応依頼（キャンセル/期限切れ後決済）
 
 export async function notifyAdmin(
   type: AdminNotificationType,

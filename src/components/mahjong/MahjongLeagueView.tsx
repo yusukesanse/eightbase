@@ -6,12 +6,15 @@ import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import { Avatar } from "@/components/ui/LineContact";
 import {
   MAHJONG_MAX_ENTRIES_PER_DATE,
+  MAHJONG_ENTRY_FEE,
   type MahjongStanding,
   type PublicMahjongTable,
   type PublicMahjongTableMember,
   type MahjongScheduleEntry,
   type MahjongSeasonSummary,
+  type MahjongPaymentStatus,
 } from "@/types";
+import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 
 // 卓の席順（卓内の並び順から東南西北を割り当て）
 const SEATS = ["東", "南", "西", "北"] as const;
@@ -72,6 +75,11 @@ export function MahjongLeagueView() {
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
   const [entryCountByDate, setEntryCountByDate] = useState<Record<string, number>>({});
+  // WP3: 参加費（3,000円）の支払い要否（member/guest=要, staff=不要）と開催日ごとの自分の支払い状態
+  const [paymentRequired, setPaymentRequired] = useState(false);
+  const [paymentStatusByDate, setPaymentStatusByDate] = useState<
+    Record<string, MahjongPaymentStatus | null>
+  >({});
   const [tables, setTables] = useState<PublicMahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
   // シーズン切替（順位/戦歴の閲覧にのみ効く。参加/申告はアクティブシーズン固定）
@@ -115,9 +123,11 @@ export function MahjongLeagueView() {
       setSchedule(league);
       setTables(tData.tables ?? []);
 
-      // 参加表明状況＋参加人数を各開催日ぶん取得
+      // 参加表明状況＋参加人数＋自分の支払い状態を各開催日ぶん取得
       const entered = new Set<string>();
       const counts: Record<string, number> = {};
+      const payByDate: Record<string, MahjongPaymentStatus | null> = {};
+      let payRequired = false;
       await Promise.all(
         league.map(async (s: MahjongScheduleEntry) => {
           try {
@@ -127,6 +137,8 @@ export function MahjongLeagueView() {
             const d = await r.json();
             if (d.entered) entered.add(s.date);
             counts[s.date] = (d.entries ?? []).length;
+            if (d.me?.paymentRequired) payRequired = true;
+            payByDate[s.date] = d.me?.paymentStatus ?? null;
           } catch {
             /* noop */
           }
@@ -134,6 +146,8 @@ export function MahjongLeagueView() {
       );
       setEnteredDates(entered);
       setEntryCountByDate(counts);
+      setPaymentRequired(payRequired);
+      setPaymentStatusByDate(payByDate);
     } catch {
       /* noop */
     } finally {
@@ -201,6 +215,8 @@ export function MahjongLeagueView() {
           enteredDates={enteredDates}
           entryCountByDate={entryCountByDate}
           tables={tables}
+          paymentRequired={paymentRequired}
+          paymentStatusByDate={paymentStatusByDate}
           onChanged={loadCore}
         />
       ) : (
@@ -270,17 +286,24 @@ function JoinTab({
   enteredDates,
   entryCountByDate,
   tables,
+  paymentRequired,
+  paymentStatusByDate,
   onChanged,
 }: {
   schedule: MahjongScheduleEntry[];
   enteredDates: Set<string>;
   entryCountByDate: Record<string, number>;
   tables: PublicMahjongTable[];
+  paymentRequired: boolean;
+  paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   // 卓確定の同卓メンバーを表示する対象日
   const [viewDate, setViewDate] = useState<string | null>(null);
+  // 参加費のエラー表示／キャンセル確認対象日
+  const [payMsg, setPayMsg] = useState<string | null>(null);
+  const [cancelDate, setCancelDate] = useState<string | null>(null);
   const today = todayJst();
 
   async function toggle(date: string, entered: boolean) {
@@ -292,6 +315,37 @@ function JoinTab({
         credentials: "include",
         body: entered ? undefined : JSON.stringify({ eventDate: date }),
       });
+      onChanged();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function pay(date: string) {
+    setBusy(date);
+    setPayMsg(null);
+    try {
+      const r = await startEntryPayment(date);
+      if (r.ok) {
+        // Square 決済ページへ同一 webview で遷移（戻りは /games/mahjong?mjpay=... で確定）
+        window.location.href = r.paymentUrl;
+      } else {
+        setPayMsg(r.message);
+        setBusy(null);
+      }
+    } catch {
+      setPayMsg("決済の開始に失敗しました");
+      setBusy(null);
+    }
+  }
+
+  async function confirmCancel(date: string) {
+    setBusy(date);
+    setPayMsg(null);
+    try {
+      const r = await cancelEntryPayment(date);
+      if (!r.ok) setPayMsg(r.message ?? "キャンセルに失敗しました");
+      setCancelDate(null);
       onChanged();
     } finally {
       setBusy(null);
@@ -315,7 +369,13 @@ function JoinTab({
     <div className="flex flex-col gap-2.5">
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
         参加したい開催日に表明してください。卓組みは当日、管理者が確定します。
+        {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は開催当日にお支払いください。`}
       </p>
+      {payMsg && (
+        <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">
+          {payMsg}
+        </div>
+      )}
       {schedule.map((s) => {
         const entered = enteredDates.has(s.date);
         const past = s.date < today;
@@ -325,6 +385,10 @@ function JoinTab({
         const highlight = !past && (confirmed || entered);
         const count = entryCountByDate[s.date] ?? 0;
         const full = !entered && count >= MAHJONG_MAX_ENTRIES_PER_DATE;
+        // WP3: 支払い要（member/guest）が開催当日に参加費を払う導線
+        const isToday = s.date === today;
+        const payStatus = paymentStatusByDate[s.date] ?? null;
+        const needsPay = entered && paymentRequired && isToday;
         return (
           <div
             key={s.scheduleId}
@@ -359,6 +423,31 @@ function JoinTab({
                 <CheckIcon />卓確定
                 <ChevronRight size={13} />
               </button>
+            ) : needsPay && payStatus === "paid" ? (
+              // 支払い済み: バッジ＋キャンセル依頼
+              <div className="shrink-0 flex flex-col items-end gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}>
+                  <CheckIcon color="#6f9023" size={13} />支払い済み
+                </span>
+                <button
+                  onClick={() => setCancelDate(s.date)}
+                  className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2"
+                >
+                  支払いをキャンセル
+                </button>
+              </div>
+            ) : needsPay && payStatus === "cancelRequested" ? (
+              <span className="shrink-0 text-[11px] font-bold text-[#b48f13]">返金対応中</span>
+            ) : needsPay ? (
+              // 未払い（当日）: 参加費を支払う
+              <button
+                onClick={() => pay(s.date)}
+                disabled={busy === s.date}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white"
+                style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}
+              >
+                {busy === s.date ? "..." : `支払う ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
+              </button>
             ) : (
               <button
                 onClick={() => toggle(s.date, entered)}
@@ -385,6 +474,61 @@ function JoinTab({
           onClose={() => setViewDate(null)}
         />
       )}
+
+      {cancelDate && (
+        <CancelPayModal
+          date={cancelDate}
+          busy={busy === cancelDate}
+          onConfirm={() => confirmCancel(cancelDate)}
+          onClose={() => setCancelDate(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* 参加費キャンセル依頼の確認（自動返金なし・管理者が手動返金） */
+function CancelPayModal({
+  date,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  date: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-[#1c1f21]">参加費のキャンセル</h3>
+        <p className="text-[12.5px] text-[#231714]/60 mt-2 leading-relaxed">
+          {formatJpDate(date)} の参加費のキャンセルを依頼します。<br />
+          <span className="font-bold text-[#231714]/80">アプリ内では自動返金されません。</span>
+          管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
+        </p>
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
+            style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
+          >
+            やめる
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
+            style={{ background: "#d8533a" }}
+          >
+            {busy ? "送信中..." : "キャンセルを依頼"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

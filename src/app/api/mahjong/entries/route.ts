@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { requireGameUser } from "@/lib/auth";
+import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { mahjongPaymentRequired } from "@/lib/roles";
 import { isDummyDataEnabled } from "@/lib/env";
 import { dummyEntries } from "@/lib/previewDummy";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
@@ -16,10 +17,11 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await requireGameUser(req);
-    if (!userId) {
+    const auth = await requireGameUserWithRole(req);
+    if (!auth) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
+    const { lineUserId: userId, role } = auth;
 
     // プレビューモード: ダミー参加表明を返す（本番には出ない / eventDate不問）
     if (isDummyDataEnabled()) {
@@ -31,22 +33,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
 
+    const paymentRequired = mahjongPaymentRequired(role);
     const season = await getActiveSeason();
-    if (!season) return NextResponse.json({ entries: [], entered: false });
+    if (!season) {
+      return NextResponse.json({
+        entries: [],
+        entered: false,
+        me: { entered: false, paymentRequired, paymentStatus: null },
+      });
+    }
 
     const snap = await getDb()
       .collection("mahjongEntries")
       .where("seasonId", "==", season.seasonId)
       .get();
 
-    const entries = snap.docs
+    const rawEntries = snap.docs
       .map((d) => ({ ...(d.data() as MahjongEntry), entryId: d.id }))
       .filter((e) => e.eventDate === eventDate)
       .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt));
 
+    const myEntry = rawEntries.find((e) => e.lineUserId === userId);
+
+    // 一覧は他人の決済照合情報（注文ID・仮押さえ失効時刻）を伏せて返す。
+    const entries = rawEntries.map((e) => {
+      const rest = { ...e };
+      delete rest.paymentTransactionId;
+      delete rest.pendingExpiresAt;
+      return rest;
+    });
+
     return NextResponse.json({
       entries,
-      entered: entries.some((e) => e.lineUserId === userId),
+      entered: !!myEntry,
+      me: {
+        entered: !!myEntry,
+        paymentRequired,
+        paymentStatus: myEntry?.paymentStatus ?? null,
+      },
     });
   } catch (error) {
     console.error("[mahjong/entries] GET error:", error);
@@ -148,7 +172,21 @@ export async function DELETE(req: NextRequest) {
     if (!season) return NextResponse.json({ success: true });
 
     const entryId = `${season.seasonId}_${eventDate}_${userId}`;
-    await getDb().collection("mahjongEntries").doc(entryId).delete();
+    const ref = getDb().collection("mahjongEntries").doc(entryId);
+    // 支払い済み/返金対応中の参加は取消不可（参加費レコードの消失・返金漏れを防ぐ）。
+    // 参加費のキャンセルは /api/mahjong/entries/cancel-payment（管理者手動返金）へ誘導。
+    const snap = await ref.get();
+    const status = snap.exists ? (snap.data() as MahjongEntry).paymentStatus : undefined;
+    if (status === "paid" || status === "cancelRequested") {
+      return NextResponse.json(
+        {
+          error: "PAID_LOCKED",
+          message: "参加費お支払い済みのため取り消せません。キャンセルは「支払いをキャンセル」から依頼してください。",
+        },
+        { status: 409 }
+      );
+    }
+    await ref.delete();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[mahjong/entries] DELETE error:", error);

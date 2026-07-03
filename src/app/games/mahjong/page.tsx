@@ -5,11 +5,18 @@ import { useRouter } from "next/navigation";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
 import {
   MAHJONG_MAX_ENTRIES_PER_DATE,
+  MAHJONG_ENTRY_FEE,
   type MahjongStanding,
   type PublicMahjongTable,
   type MahjongScheduleEntry,
   type MahjongCsEvent,
+  type MahjongPaymentStatus,
 } from "@/types";
+import {
+  startEntryPayment,
+  completeEntryPayment,
+  cancelEntryPayment,
+} from "@/lib/mahjongPayment";
 
 type Tab = "league" | "entry" | "cs";
 
@@ -34,6 +41,9 @@ export default function MahjongLeaguePage() {
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [rankingMetric, setRankingMetric] = useState<"average" | "total">("average");
   const [loading, setLoading] = useState(true);
+  // WP3: 参加費決済の戻り（?mjpay=）結果バナー＋参加タブ再取得トリガー
+  const [payBanner, setPayBanner] = useState<{ ok: boolean; text: string } | null>(null);
+  const [entryReload, setEntryReload] = useState(0);
 
   useEffect(() => {
     fetch("/api/mahjong/standings", { credentials: "include" })
@@ -45,6 +55,24 @@ export default function MahjongLeaguePage() {
       })
       .catch(() => setStandings([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Square 参加費決済の戻り: /games/mahjong?mjpay=<エントリーID> を確定処理する
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const rid = url.searchParams.get("mjpay");
+    if (!rid) return;
+    setTab("entry");
+    completeEntryPayment(rid).then((r) => {
+      setPayBanner({
+        ok: r.ok,
+        text: r.ok ? "参加費のお支払いが完了しました。" : r.message || "決済の確認に失敗しました",
+      });
+      if (r.ok) setEntryReload((n) => n + 1);
+      url.searchParams.delete("mjpay");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    });
   }, []);
 
   return (
@@ -80,6 +108,20 @@ export default function MahjongLeaguePage() {
       </header>
 
       <div className="px-4 pt-4">
+        {payBanner && (
+          <div
+            className={`mb-3 rounded-2xl px-4 py-3 text-[13px] font-bold flex items-center justify-between gap-2 ${
+              payBanner.ok
+                ? "bg-[#eef4dd] text-[#5f7d1e]"
+                : "bg-[#fdece8] text-[#d8533a]"
+            }`}
+          >
+            <span>{payBanner.text}</span>
+            <button onClick={() => setPayBanner(null)} className="shrink-0 text-current/60 font-black">
+              ×
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center h-48">
             <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
@@ -87,7 +129,7 @@ export default function MahjongLeaguePage() {
         ) : tab === "league" ? (
           <LeaguePyramid standings={standings} currentUserId={currentUserId} rankingMetric={rankingMetric} />
         ) : tab === "entry" ? (
-          <EntryScoreTab />
+          <EntryScoreTab reloadSignal={entryReload} />
         ) : (
           <CsTab currentUserId={currentUserId} />
         )}
@@ -106,7 +148,7 @@ function EmptyCard({ text }: { text: string }) {
 
 /* ───────── 参加・スコア申告タブ ───────── */
 
-function EntryScoreTab() {
+function EntryScoreTab({ reloadSignal }: { reloadSignal: number }) {
   const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [eventDate, setEventDate] = useState<string>("");
   const [entered, setEntered] = useState(false);
@@ -115,6 +157,11 @@ function EntryScoreTab() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
+  // WP3: 参加費（3,000円）支払い状態
+  const [paymentRequired, setPaymentRequired] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<MahjongPaymentStatus | null>(null);
+  const [payMsg, setPayMsg] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   // 開催日（リーグ戦のみ・今日以降の直近、なければ最新）
   useEffect(() => {
@@ -147,6 +194,8 @@ function EntryScoreTab() {
       const tData = await tRes.json();
       setEntered(!!eData.entered);
       setEntryCount((eData.entries ?? []).length);
+      setPaymentRequired(!!eData.me?.paymentRequired);
+      setPaymentStatus(eData.me?.paymentStatus ?? null);
       setTables(
         (tData.tables ?? []).filter((t: PublicMahjongTable) => t.eventDate === eventDate)
       );
@@ -159,7 +208,40 @@ function EntryScoreTab() {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    // reloadSignal は決済確定後の再取得トリガー
+  }, [refresh, reloadSignal]);
+
+  async function pay() {
+    if (!eventDate) return;
+    setBusy(true);
+    setPayMsg(null);
+    try {
+      const r = await startEntryPayment(eventDate);
+      if (r.ok) {
+        window.location.href = r.paymentUrl;
+      } else {
+        setPayMsg(r.message);
+        setBusy(false);
+      }
+    } catch {
+      setPayMsg("決済の開始に失敗しました");
+      setBusy(false);
+    }
+  }
+
+  async function confirmCancelPayment() {
+    if (!eventDate) return;
+    setBusy(true);
+    setPayMsg(null);
+    try {
+      const r = await cancelEntryPayment(eventDate);
+      if (!r.ok) setPayMsg(r.message ?? "キャンセルに失敗しました");
+      setCancelOpen(false);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function toggleEntry() {
     if (!eventDate) return;
@@ -191,6 +273,8 @@ function EntryScoreTab() {
 
   const dateLabel = formatJpDate(eventDate);
   const full = !entered && entryCount >= MAHJONG_MAX_ENTRIES_PER_DATE;
+  // 支払い済み/返金対応中は参加取消不可（キャンセルは支払いキャンセル導線へ）
+  const paymentLocked = paymentStatus === "paid" || paymentStatus === "cancelRequested";
 
   return (
     <div className="space-y-4">
@@ -223,18 +307,57 @@ function EntryScoreTab() {
         </div>
         <p className="text-[11px] text-[#231714]/40 mb-3 leading-relaxed">
           卓は参加表明者をもとに運営が自動で組みます。先着{MAHJONG_MAX_ENTRIES_PER_DATE}名まで。
+          {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は開催当日にお支払いください。`}
         </p>
         <button
           onClick={toggleEntry}
-          disabled={busy || full}
+          disabled={busy || full || paymentLocked}
           className={`w-full py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-50 ${
             entered
               ? "bg-gray-100 text-[#231714]/60"
               : "bg-[#B0E401] text-[#231714] shadow-sm"
           }`}
         >
-          {busy ? "処理中..." : entered ? "参加表明済み（取り消す）" : full ? "満員（先着8名）" : "このリーグ戦に参加する"}
+          {busy && !cancelOpen
+            ? "処理中..."
+            : paymentLocked
+              ? "参加確定（お支払い済み）"
+              : entered
+                ? "参加表明済み（取り消す）"
+                : full
+                  ? "満員（先着8名）"
+                  : "このリーグ戦に参加する"}
         </button>
+
+        {/* WP3: 参加費（開催当日・支払い対象=member/guest） */}
+        {entered && paymentRequired && eventDate === todayStr() && (
+          <div className="mt-3">
+            {paymentStatus === "paid" ? (
+              <div className="flex items-center justify-between gap-2 rounded-2xl px-4 py-3 bg-[#eef4dd]">
+                <span className="text-[13px] font-bold text-[#5f7d1e]">参加費 お支払い済み</span>
+                <button
+                  onClick={() => setCancelOpen(true)}
+                  className="text-[11px] font-bold text-[#231714]/40 underline underline-offset-2"
+                >
+                  支払いをキャンセル
+                </button>
+              </div>
+            ) : paymentStatus === "cancelRequested" ? (
+              <div className="rounded-2xl px-4 py-3 bg-[#faf3df] text-[13px] font-bold text-[#b48f13]">
+                返金対応中です（管理者が対応します）
+              </div>
+            ) : (
+              <button
+                onClick={pay}
+                disabled={busy}
+                className="w-full py-3 rounded-2xl text-sm font-extrabold text-white bg-[#b48f13] shadow-sm active:scale-[0.98] disabled:opacity-50"
+              >
+                {busy ? "処理中..." : `参加費を支払う（¥${MAHJONG_ENTRY_FEE.toLocaleString()}）`}
+              </button>
+            )}
+          </div>
+        )}
+        {payMsg && <p className="mt-2 text-xs font-bold text-[#d8533a]">{payMsg}</p>}
       </div>
 
       {/* 自分の卓 */}
@@ -319,6 +442,31 @@ function EntryScoreTab() {
             refresh();
           }}
         />
+      )}
+
+      {cancelOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setCancelOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-[#231714]">参加費のキャンセル</h3>
+            <p className="text-[12.5px] text-[#231714]/60 mt-2 leading-relaxed">
+              {formatJpDate(eventDate)} の参加費のキャンセルを依頼します。<br />
+              <span className="font-bold text-[#231714]/80">アプリ内では自動返金されません。</span>
+              管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setCancelOpen(false)} className="flex-1 py-3 text-sm font-bold text-[#231714]/60 bg-gray-100 rounded-2xl">
+                やめる
+              </button>
+              <button
+                onClick={confirmCancelPayment}
+                disabled={busy}
+                className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50 bg-[#d8533a]"
+              >
+                {busy ? "送信中..." : "キャンセルを依頼"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -542,4 +690,9 @@ function formatJpDate(d: string): string {
   const dt = new Date(y, m - 1, day);
   const w = ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
   return `${m}月${day}日(${w})`;
+}
+
+/** 今日（Asia/Tokyo 基準の YYYY-MM-DD） */
+function todayStr(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 }
