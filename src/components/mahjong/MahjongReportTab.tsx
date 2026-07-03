@@ -14,6 +14,8 @@ export function ReportTab({
   onChanged: () => void;
 }) {
   const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
+  // 表示中の半荘（round）。null なら「現在打っている半荘」を自動選択。
+  const [viewRound, setViewRound] = useState<number | null>(null);
 
   if (tables.length === 0) {
     return (
@@ -28,81 +30,116 @@ export function ReportTab({
     .slice()
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || (a.round ?? 0) - (b.round ?? 0));
 
-  // 卓確認/申告は「直近の開催日」の半荘だけを対象にする（過去日の完了卓は戦歴側で確認）。
-  // これにより進行カウント（全4半荘）が過去日の卓を数えて 5/4 等になる不具合を防ぐ。
+  // 当日は「固定卓」で計4半荘（卓移動なし）。表示は直近開催日の“現在の半荘”1つだけ
+  // （過去日・過去半荘は出さない＝戦歴側で確認）。
   const MAX_HANCHAN = 4;
   const currentDate = sorted[0]?.eventDate;
-  const dayTables = sorted.filter((t) => t.eventDate === currentDate);
+  const dayTables = sorted
+    .filter((t) => t.eventDate === currentDate)
+    .sort((a, b) => (a.round ?? 1) - (b.round ?? 1));
   const completedHanchan = Math.min(
     dayTables.filter((t) => t.status === "completed").length,
     MAX_HANCHAN
   );
 
+  // 現在の半荘: 未完了の最小round（＝いま打っている半荘）。無ければ最後の半荘。
+  const maxRound = dayTables[dayTables.length - 1]?.round ?? 1;
+  const defaultRound = dayTables.find((t) => t.status !== "completed")?.round ?? maxRound;
+  const round = Math.min(viewRound ?? defaultRound, maxRound);
+  const shown = dayTables.find((t) => (t.round ?? 1) === round) ?? dayTables[dayTables.length - 1];
+
+  if (!shown) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+        まだ卓が組まれていません。
+      </div>
+    );
+  }
+
+  const me = shown.members.find((m) => m.isCurrentUser);
+  const reportedCount = shown.members.filter((m) => m.points !== null).length;
+  const shownRound = shown.round ?? 1;
+  const isCompleted = shown.status === "completed";
+  const needReport = !!me && me.points === null && !isCompleted;
+  const reported = !!me && me.points !== null && !isCompleted; // 申告済み・未確定（本番の待ち）
+  const nextTable = dayTables.find((t) => (t.round ?? 1) === shownRound + 1);
+  const allDone = completedHanchan >= MAX_HANCHAN && !nextTable;
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
+      {/* 進行（同じ卓で計4半荘） */}
       <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
         <div>
-          <div className="text-[12px] font-extrabold text-[#40434a]">全{MAX_HANCHAN}半荘制</div>
-          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">1半荘ごとに申告すると次の半荘に進みます</div>
+          <div className="text-[12px] font-extrabold text-[#40434a]">全{MAX_HANCHAN}半荘制・同じ卓で対戦</div>
+          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">1半荘ごとに申告→確定で次の半荘へ</div>
         </div>
         <span className="text-[13px] font-black" style={{ color: ACCENT }}>{completedHanchan}/{MAX_HANCHAN} 半荘 完了</span>
       </div>
-      {dayTables.map((t) => {
-        const me = t.members.find((m) => m.isCurrentUser);
-        const reportedCount = t.members.filter((m) => m.points !== null).length;
-        const needReport = !!me && me.points === null && t.status !== "completed";
-        const reported = !!me && me.points !== null;
-        return (
-          <div key={t.tableId} className="flex flex-col gap-3">
-            {/* ヘッダー */}
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-extrabold text-[#231714]">{formatJpDate(t.eventDate)}</span>
-              {t.round ? (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>
-                  第{t.round}半荘
-                </span>
-              ) : null}
-              <span className="flex-1" />
-              <span className="text-[11px] font-bold" style={{ color: reportedCount === 4 ? "#6f9023" : "#97999d" }}>
-                {reportedCount}/4人 申告
-              </span>
+
+      {/* 当日の卓（現在の半荘・1つだけ） */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-extrabold text-[#231714]">{formatJpDate(shown.eventDate)}</span>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>
+            第{shownRound}半荘
+          </span>
+          <span className="flex-1" />
+          <span className="text-[11px] font-bold" style={{ color: reportedCount === 4 ? "#6f9023" : "#97999d" }}>
+            {reportedCount}/4人 申告
+          </span>
+        </div>
+
+        <TableBoard table={shown} />
+
+        {needReport ? (
+          <button
+            onClick={() => setReportTable(shown)}
+            className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
+            style={{ background: ACCENT }}
+          >
+            <CheckIcon size={17} />スコアを申告する
+          </button>
+        ) : isCompleted ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold" style={{ background: "#eef4dd", color: "#6f9023" }}>
+              <CheckIcon color="#6f9023" size={16} />第{shownRound}半荘 確定済み
             </div>
-
-            {/* 緑フェルトの卓 */}
-            <TableBoard table={t} />
-
-            {/* アクション */}
-            {t.status === "completed" ? (
-              <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold" style={{ background: "#eef4dd", color: "#6f9023" }}>
-                <CheckIcon color="#6f9023" size={16} />確定済み
-              </div>
-            ) : needReport ? (
+            {nextTable ? (
+              // 全員の申告で確定 → 次の半荘を申告する
               <button
-                onClick={() => setReportTable(t)}
+                onClick={() => {
+                  setViewRound(shownRound + 1);
+                  setReportTable(nextTable);
+                }}
                 className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
                 style={{ background: ACCENT }}
               >
-                <CheckIcon size={17} />スコアを申告する
+                <CheckIcon size={17} />第{shownRound + 1}半荘を申告する
               </button>
-            ) : reported ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-extrabold" style={{ background: "#eef4dd", color: "#6f9023" }}>
-                  <CheckIcon color="#6f9023" size={16} />申告済み — 全員の申告で卓が確定します
-                </div>
-                <button onClick={() => setReportTable(t)} className="w-full py-2 rounded-xl text-[12px] font-bold text-[#231714]/60 bg-gray-100">
-                  申告をやり直す
-                </button>
-              </div>
-            ) : null}
+            ) : allDone ? (
+              <div className="text-center text-[12px] font-bold text-[#6f9023] py-1">全{MAX_HANCHAN}半荘 完了しました</div>
+            ) : (
+              <div className="text-center text-[11px] text-[#97999d] py-1">次の半荘は運営が準備します</div>
+            )}
           </div>
-        );
-      })}
+        ) : reported ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-extrabold" style={{ background: "#eef4dd", color: "#6f9023" }}>
+              <CheckIcon color="#6f9023" size={16} />申告済み — 全員の申告で確定します
+            </div>
+            <button onClick={() => setReportTable(shown)} className="w-full py-2 rounded-xl text-[12px] font-bold text-[#231714]/60 bg-gray-100">
+              申告をやり直す
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {reportTable && (
         <ReportModal
           table={reportTable}
           onClose={() => setReportTable(null)}
           onDone={() => {
+            setViewRound(reportTable.round ?? 1);
             setReportTable(null);
             onChanged();
           }}
