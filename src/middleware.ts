@@ -34,6 +34,16 @@ export function middleware(req: NextRequest) {
     );
   }
 
+  // 利用者ドメインでは管理API(/api/admin)も隠す（URL分離・多層防御。checkAdminAuth に加えた保険）。
+  // 静的/API の一括通過より前に評価する（そうしないと下で通過してしまうため）。
+  if (
+    CUSTOMER_DOMAIN &&
+    host === CUSTOMER_DOMAIN &&
+    pathname.startsWith("/api/admin")
+  ) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   // 静的ファイル・API・_next・プレビュー は常に通す
   if (
     pathname.startsWith("/_next") ||
