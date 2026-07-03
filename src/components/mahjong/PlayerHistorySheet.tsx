@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
+import { BottomSheet } from "@/components/ui/Sheet";
 import type { MahjongPlayerHistory, MahjongLeagueTier } from "@/types";
 
 const TIER_COLOR: Record<MahjongLeagueTier, string> = {
@@ -102,14 +103,7 @@ export function PlayerHistorySheet({
   const tierColor = data?.standing ? TIER_COLOR[data.standing.tier] : "#97999d";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <BottomSheet open onClose={onClose}>
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
@@ -207,16 +201,8 @@ export function PlayerHistorySheet({
               </>
             )}
 
-            <button
-              onClick={onClose}
-              className="mt-5 w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
-              style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-            >
-              閉じる
-            </button>
           </>
         )}
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
