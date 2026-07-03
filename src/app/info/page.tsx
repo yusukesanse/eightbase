@@ -6,7 +6,6 @@ import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NufEvent, NewsItem, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
-import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -368,9 +367,7 @@ interface RankingUser {
 }
 
 function GamesTab() {
-  const [subTab, setSubTab] = useState<"ranking" | "cs">("ranking");
   const [gameCategory, setGameCategory] = useState<ScoreboardGameId>("mahjong");
-  const [csCategory, setCsCategory] = useState<ScoreboardGameId>("mahjong");
 
   // 麻雀以外のランキング
   const [ranking, setRanking] = useState<RankingUser[]>([]);
@@ -385,7 +382,7 @@ function GamesTab() {
   }
 
   useEffect(() => {
-    if (subTab !== "ranking" || gameCategory === "mahjong") return;
+    if (gameCategory === "mahjong") return;
     setRankingLoading(true);
     const params = new URLSearchParams({ gameCategory, period, yearMonth });
     fetch(`/api/games/ranking?${params}`, { credentials: "include", cache: "no-store" })
@@ -393,49 +390,27 @@ function GamesTab() {
       .then((d) => setRanking(d.ranking ?? []))
       .catch(() => setRanking([]))
       .finally(() => setRankingLoading(false));
-  }, [subTab, gameCategory, period, yearMonth]);
+  }, [gameCategory, period, yearMonth]);
 
   return (
     <div>
-      {/* サブタブ: ランキング / CS */}
-      <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1">
-        {([
-          { id: "ranking" as const, label: "ランキング" },
-          { id: "cs" as const, label: "CS" },
-        ]).map((t) => (
+      {/* ゲーム選択（選んだゲームの内容がそのまま表示される） */}
+      <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1 overflow-x-auto">
+        {GAME_CATEGORIES.map((cat) => (
           <button
-            key={t.id}
-            onClick={() => setSubTab(t.id)}
+            key={cat.id}
+            onClick={() => setGameCategory(cat.id as ScoreboardGameId)}
             className={clsx(
-              "flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all",
-              subTab === t.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
+              "flex-1 px-2.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
+              gameCategory === cat.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
             )}
           >
-            {t.label}
+            {cat.label}
           </button>
         ))}
       </div>
 
-      {/* ── ランキングタブ ── */}
-      {subTab === "ranking" && (
-        <div>
-          {/* 種目フィルター */}
-          <div className="flex gap-1 mb-3 bg-[#231714]/5 rounded-xl p-1 overflow-x-auto">
-            {GAME_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setGameCategory(cat.id as ScoreboardGameId)}
-                className={clsx(
-                  "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-                  gameCategory === cat.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          {gameCategory === "mahjong" ? (
+      {gameCategory === "mahjong" ? (
             <MahjongLeagueView />
           ) : (
             <>
@@ -526,35 +501,6 @@ function GamesTab() {
               )}
             </>
           )}
-        </div>
-      )}
-
-      {/* ── CSタブ（4種目） ── */}
-      {subTab === "cs" && (
-        <div>
-          <div className="flex gap-1 mb-3 bg-[#231714]/5 rounded-xl p-1 overflow-x-auto">
-            {GAME_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setCsCategory(cat.id as ScoreboardGameId)}
-                className={clsx(
-                  "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-                  csCategory === cat.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/40"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-          {csCategory === "mahjong" ? (
-            <MahjongCsView />
-          ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
-              準備中です
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
