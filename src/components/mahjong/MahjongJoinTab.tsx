@@ -8,7 +8,7 @@ import {
 } from "@/types";
 import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
-import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS } from "@/lib/date";
+import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import MonthCalendar from "@/components/ui/MonthCalendar";
 import {
   ACCENT,
@@ -141,7 +141,7 @@ export function JoinTab({
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
         毎週土曜が開催日です。カレンダーから参加日を選んでください（参加は1か月に1回）。
         {paymentRequired && `　参加ボタンで仮予約→決済で参加確定。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()}。`}
-        {`　キャンセルは開催${MAHJONG_CANCEL_DEADLINE_DAYS}日前まで（6日前以降は返金不可）。`}
+        {`　${MAHJONG_CANCEL_POLICY}`}
       </p>
       {payMsg && (
         <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>

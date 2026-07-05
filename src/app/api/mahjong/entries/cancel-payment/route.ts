@@ -3,7 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { notifyAdmin } from "@/lib/adminNotify";
-import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS } from "@/lib/date";
+import { canCancelMahjong, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import type { MahjongEntry } from "@/types";
 import dayjs from "dayjs";
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     // キャンセル期限: 開催日の7日前まで。6日前以降は100%返金不可。
     if (!canCancelMahjong(eventDate)) {
       return NextResponse.json(
-        { error: "DEADLINE_PASSED", message: `キャンセルは開催日の${MAHJONG_CANCEL_DEADLINE_DAYS}日前までです（6日前以降は返金できません）。` },
+        { error: "DEADLINE_PASSED", message: MAHJONG_CANCEL_POLICY },
         { status: 409 }
       );
     }
