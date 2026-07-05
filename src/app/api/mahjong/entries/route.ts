@@ -68,11 +68,12 @@ export async function GET(req: NextRequest) {
 
     const myEntry = rawEntries.find((e) => e.lineUserId === userId);
 
-    // 一覧は他人の決済照合情報（注文ID・仮押さえ失効時刻）を伏せて返す。
+    // 一覧は他人の決済照合情報（注文ID・仮押さえ失効時刻）を伏せ、status（仮予約/確定）を付ける。
     const entries = rawEntries.map((e) => {
       const rest = { ...e };
       delete rest.paymentTransactionId;
       delete rest.pendingExpiresAt;
+      rest.status = rest.status ?? (rest.paymentStatus === "paid" ? "paid" : "reserved");
       return rest;
     });
 
@@ -98,10 +99,13 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireGameUser(req);
-    if (!userId) {
+    const auth = await requireGameUserWithRole(req);
+    if (!auth) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
+    const userId = auth.lineUserId;
+    // 支払い必須(member/guest)は仮予約、免除(staff)は参加時点で確定。
+    const status: "reserved" | "paid" = mahjongPaymentRequired(auth.role) ? "reserved" : "paid";
 
     const body = await req.json().catch(() => null);
     const eventDate: unknown = body?.eventDate;
@@ -140,6 +144,7 @@ export async function POST(req: NextRequest) {
       displayName: u.displayName || "ユーザー",
       pictureUrl: u.pictureUrl || "",
       enteredAt: new Date().toISOString(),
+      status,
     };
 
     // 参加は「1ユーザー月1回」。並行表明の競合を避けるため transaction で同月の自分の表明を数える

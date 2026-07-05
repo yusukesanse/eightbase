@@ -95,6 +95,8 @@ export interface MahjongEntry {
   displayName: string;
   pictureUrl?: string;
   enteredAt: string;
+  /** 参加ステータス。reserved=仮予約（未決済）/ paid=参加確定。staffは参加時点でpaid。 */
+  status?: "reserved" | "paid";
   // ─ WP3: 参加費支払い（会員/ゲストのみ。staffは免除＝未設定）─
   paymentStatus?: MahjongPaymentStatus;
   paymentTransactionId?: string; // Square orderId（決済照合用・本人以外へは非公開）

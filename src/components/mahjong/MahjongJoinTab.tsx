@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MAHJONG_ENTRY_FEE,
   type PublicMahjongTable,
@@ -46,7 +46,26 @@ export function JoinTab({
   const [cancelDate, setCancelDate] = useState<string | null>(null);
   // カレンダーで選択中の開催日（土曜）
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // 選択日の参加者一覧（仮予約/確定を区別して表示）
+  const [dateEntries, setDateEntries] = useState<{ lineUserId: string; displayName: string; status?: string }[]>([]);
   const today = todayJst();
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setDateEntries([]);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/mahjong/entries?eventDate=${selectedDate}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setDateEntries(d.entries ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [selectedDate, enteredDates, paymentStatusByDate]);
   // DEV-ONLY（develop 専用 / main へ入れない）: 支払い済み/返金対応中からリセットする導線を出す。
   const demo = isDevLoginEnabled();
 
@@ -219,6 +238,26 @@ export function JoinTab({
         })()
       ) : (
         <div className="text-center text-[12px] text-[#231714]/40 py-4">参加する土曜日をカレンダーから選んでください</div>
+      )}
+
+      {/* この日の参加者（仮予約/確定） */}
+      {selectedDate && dateEntries.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">この日の参加者（{dateEntries.length}名）</div>
+          <div className="flex flex-col gap-1.5">
+            {dateEntries.map((e) => {
+              const conf = e.status === "paid";
+              return (
+                <div key={e.lineUserId} className="flex items-center gap-2">
+                  <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{e.displayName}</span>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>
+                    {conf ? "確定" : "仮予約"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {viewDate && viewTables.length > 0 && (

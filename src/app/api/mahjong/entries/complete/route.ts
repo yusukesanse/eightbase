@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
           createdAt: nowIso,
         });
         tx.update(entryRef, {
+          status: "paid",
           paymentStatus: "paid",
           paidAt: nowIso,
           paymentTransactionId: verified.orderId,
