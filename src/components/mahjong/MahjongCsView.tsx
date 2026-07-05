@@ -26,6 +26,7 @@ export function MahjongCsView() {
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [inputMatch, setInputMatch] = useState<MahjongCsMatch | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -49,15 +50,21 @@ export function MahjongCsView() {
   const demo = isDevLoginEnabled() && !!(event as { demoDummy?: boolean } | null)?.demoDummy;
 
   const reportMatch = useCallback(
-    async (csEventId: string, matchId: string, body: { meRank?: number; winnerId?: string }) => {
+    async (csEventId: string, matchId: string, body: { points?: number; rank?: number; auto?: boolean }) => {
       setBusy(true);
+      setInputError(null);
       try {
-        await fetch("/api/mahjong/cs/match", {
+        const res = await fetch("/api/mahjong/cs/match", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ csEventId, matchId, ...body }),
         });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setInputError(data?.error ?? "反映に失敗しました");
+          return;
+        }
         setInputMatch(null);
         await load();
       } finally {
@@ -116,14 +123,13 @@ export function MahjongCsView() {
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex items-baseline gap-1.5 mb-1.5">
                     <span className="text-[11.5px] font-black" style={{ color: gold ? MEDAL[1] : "#5f6266" }}>{round.label}</span>
-                    <span className="text-[9.5px] text-[#97999d]">上位{round.advanceCount}通過</span>
+                    <span className="text-[9.5px] text-[#97999d]">1着通過</span>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
                     {round.matches.map((m) => (
                       <div key={m.matchId} style={{ width: CARD_W }}>
                         <MatchCard
                           match={m}
-                          advanceCount={round.advanceCount}
                           gold={gold}
                           currentUserId={currentUserId}
                           seedSet={seedSet}
@@ -148,9 +154,12 @@ export function MahjongCsView() {
         <CsInputSheet
           match={inputMatch}
           meId={currentUserId}
-          advanceCount={roundsTopDown.flatMap((r) => r.matches.map((m) => ({ id: m.matchId, a: r.advanceCount }))).find((x) => x.id === inputMatch.matchId)?.a ?? 1}
           busy={busy}
-          onClose={() => setInputMatch(null)}
+          error={inputError}
+          onClose={() => {
+            setInputMatch(null);
+            setInputError(null);
+          }}
           onReport={(body) => reportMatch(event.csEventId, inputMatch.matchId, body)}
         />
       )}
@@ -205,7 +214,6 @@ function Connector({ lowerCount }: { lowerCount: number }) {
 /** 1試合カード。 */
 function MatchCard({
   match,
-  advanceCount,
   gold,
   currentUserId,
   seedSet,
@@ -213,7 +221,6 @@ function MatchCard({
   onInput,
 }: {
   match: MahjongCsMatch;
-  advanceCount: number;
   gold: boolean;
   currentUserId?: string;
   seedSet: Set<string>;
@@ -221,6 +228,7 @@ function MatchCard({
   onInput: () => void;
 }) {
   const done = match.status === "completed";
+  const iAmIn = !!currentUserId && match.players.some((p) => p.lineUserId === currentUserId);
   return (
     <div
       className="rounded-xl bg-white border border-gray-100 shadow-sm p-2"
@@ -243,7 +251,7 @@ function MatchCard({
               p={p}
               me={p.lineUserId === currentUserId}
               seed={seedSet.has(p.lineUserId)}
-              advanced={done && p.rank != null && p.rank <= advanceCount}
+              advanced={done && p.rank === 1}
               pending={!done}
             />
           ))}
@@ -252,9 +260,9 @@ function MatchCard({
         <button
           onClick={onInput}
           className="mt-1.5 w-full py-1.5 rounded-lg text-[11px] font-extrabold text-white active:scale-[0.98] transition-transform"
-          style={{ background: "#2f7d57" }}
+          style={{ background: iAmIn ? "#2f7d57" : "#8a9298" }}
         >
-          結果入力
+          {iAmIn ? "結果を申告" : "この卓を進める（デモ）"}
         </button>
       )}
     </div>
@@ -307,49 +315,65 @@ function BracketSlot({
   );
 }
 
-/** デモ用: 選んだ試合の結果を手動入力。自分の卓は着順、他卓は勝者タップ。 */
+/**
+ * 結果申告シート。リーグ申告と同じ「自己申告」: 自分の点数＋順位だけを送る。
+ * 自分が居ない卓（全ダミー）はデモ用に自動で進める。1着のみ次へ進出。
+ */
 function CsInputSheet({
   match,
   meId,
-  advanceCount,
   busy,
+  error,
   onClose,
   onReport,
 }: {
   match: MahjongCsMatch;
   meId?: string;
-  advanceCount: number;
   busy: boolean;
+  error: string | null;
   onClose: () => void;
-  onReport: (body: { meRank?: number; winnerId?: string }) => void;
+  onReport: (body: { points?: number; rank?: number; auto?: boolean }) => void;
 }) {
   const n = match.players.length;
   const iAmIn = !!meId && match.players.some((p) => p.lineUserId === meId);
+  const [points, setPoints] = useState("");
+  const [rank, setRank] = useState<number | null>(null);
+  const pointsNum = Number(points);
+  const pointsValid = points !== "" && Number.isInteger(pointsNum) && pointsNum % 100 === 0;
+  const canSubmit = iAmIn && pointsValid && rank !== null && !busy;
+
   return (
-    <BottomSheet open title={`${match.label} の結果（デモ）`} onClose={onClose}>
+    <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
       {iAmIn ? (
         <>
-          <div className="flex flex-col gap-1.5 mb-4">
-            {match.players.map((p) => (
-              <div key={p.lineUserId} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
-                <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
-                <span className="text-[13px] font-bold text-[#1c1f21]">
-                  {p.displayName}
-                  {p.lineUserId === meId && <span className="ml-1 text-[10px] font-extrabold text-[#5f7a80]">あなた</span>}
-                </span>
-              </div>
-            ))}
+          <p className="text-[11px] text-[#231714]/50 mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
+
+          <label className="block text-[11px] font-extrabold text-[#97999d] mb-2">最終持ち点</label>
+          <div className="flex items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? "#2f7d57" : "#e4e7e9"}` }}>
+            <input
+              type="number"
+              inputMode="numeric"
+              step={100}
+              autoFocus
+              value={points}
+              onChange={(e) => setPoints(e.target.value)}
+              placeholder="25000"
+              className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
+              style={{ fontSize: "28px" }}
+            />
+            <span className="text-[13px] font-bold text-[#97999d]">点</span>
           </div>
-          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">あなたの順位を選ぶ</div>
+          {n === 4 && <div className="text-[11px] text-[#97999d] mt-1.5">100点単位（同卓4人の合計が100,000点）。</div>}
+
+          <label className="block text-[11px] font-extrabold text-[#97999d] mt-5 mb-2">卓内順位</label>
           <div className="flex gap-2">
             {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
               <button
                 key={r}
-                disabled={busy}
-                onClick={() => onReport({ meRank: r })}
-                className="flex-1 py-3 rounded-xl text-[15px] font-black transition-all disabled:opacity-50"
+                onClick={() => setRank(r)}
+                className="flex-1 py-3 rounded-xl text-[15px] font-black transition-all"
                 style={
-                  r === 1
+                  rank === r
                     ? { background: "#2f7d57", color: "#fff", boxShadow: "0 3px 10px color-mix(in srgb, #2f7d57 40%, transparent)" }
                     : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
                 }
@@ -358,29 +382,44 @@ function CsInputSheet({
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-[#97999d] mt-2.5">
-            上位{advanceCount}名が次へ勝ち上がります。{advanceCount + 1}着以下だと敗退（次へ進めません）。
-          </p>
+          <p className="text-[11px] text-[#97999d] mt-2.5">1着のみ次のラウンドへ進出します。</p>
+
+          {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+
+          <div className="mt-6 flex gap-2">
+            <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
+              キャンセル
+            </button>
+            <button
+              onClick={() => onReport({ points: pointsNum, rank: rank! })}
+              disabled={!canSubmit}
+              className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
+              style={{ background: "#2f7d57" }}
+            >
+              {busy ? "送信中..." : "申告する"}
+            </button>
+          </div>
         </>
       ) : (
         <>
-          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">勝者（1着）を選ぶ</div>
-          <div className="flex flex-col gap-1.5">
+          <p className="text-[11px] text-[#231714]/50 mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
+          <div className="flex flex-col gap-1.5 mb-4">
             {match.players.map((p) => (
-              <button
-                key={p.lineUserId}
-                disabled={busy}
-                onClick={() => onReport({ winnerId: p.lineUserId })}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left active:scale-[0.99] transition-transform disabled:opacity-50"
-                style={{ background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-              >
-                <Avatar src={p.pictureUrl} name={p.displayName} size={30} />
-                <span className="flex-1 text-[13px] font-bold text-[#1c1f21]">{p.displayName}</span>
-                <span className="text-[10px] font-extrabold text-[#2f7d57]">この人を1着に →</span>
-              </button>
+              <div key={p.lineUserId} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
+                <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
+                <span className="text-[13px] font-bold text-[#1c1f21]">{p.displayName}</span>
+              </div>
             ))}
           </div>
-          <p className="text-[11px] text-[#97999d] mt-2.5">選んだ人が1着、残りは並び順で順位付けされ、上位{advanceCount}名が勝ち上がります。</p>
+          {error && <p className="mb-3 text-xs text-red-500">{error}</p>}
+          <button
+            onClick={() => onReport({ auto: true })}
+            disabled={busy}
+            className="w-full py-3 rounded-xl text-[14px] font-extrabold text-white disabled:opacity-50"
+            style={{ background: "#2f7d57" }}
+          >
+            {busy ? "反映中..." : "この卓を自動で進める（デモ）"}
+          </button>
         </>
       )}
     </BottomSheet>

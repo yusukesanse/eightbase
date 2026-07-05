@@ -147,6 +147,49 @@ export function generateNextRound(
   return null; // final の次はない
 }
 
+/** CS仕様: 各試合の1着のみを勝ち上がりとする（advanceCount非依存）。 */
+export function collectTop1(round: MahjongCsRound): MahjongCsMatchPlayer[] {
+  return round.matches
+    .map((m) => advancersOf(m, 1)[0])
+    .filter((p): p is MahjongCsMatchPlayer => !!p);
+}
+
+/**
+ * CS仕様（1着のみ進出）で次ラウンドを生成する。generateNextRound の 1着限定版。
+ * 予選→準決（1着＋シードで4人卓）、準決→決勝（1着で1卓）。advanceCount は 1 固定。
+ */
+export function generateNextRoundCsTop1(
+  prevRound: MahjongCsRound,
+  seedEntrants: MahjongCsEntrant[],
+  rng: () => number = Math.random
+): MahjongCsRound | null {
+  const advancers = collectTop1(prevRound);
+
+  if (prevRound.type === "prelim") {
+    const pool = [...advancers, ...seedEntrants.map(toMatchPlayer)];
+    const shuffled = shuffle(pool, rng);
+    const tables = chunkTables(shuffled, 4);
+    const matches: MahjongCsMatch[] = tables.map((tbl, i) => ({
+      matchId: newMatchId(),
+      label: tables.length === 1 ? "準決勝" : `準決${i + 1}`,
+      players: tbl,
+      status: "reporting",
+    }));
+    return { type: "semi", label: "準決勝", advanceCount: 1, matches };
+  }
+
+  if (prevRound.type === "semi") {
+    return {
+      type: "final",
+      label: "決勝",
+      advanceCount: 1,
+      matches: [{ matchId: newMatchId(), label: "決勝", players: advancers, status: "reporting" }],
+    };
+  }
+
+  return null;
+}
+
 /** 全エントリーが4人以下なら予選・準決なしで一発決勝にする */
 export function generateSingleFinal(
   entrants: MahjongCsEntrant[]
