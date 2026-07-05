@@ -4,11 +4,16 @@ import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
-import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
+import type { MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 開催日は土曜のみ。"YYYY-MM-DD" は UTC 正午基準で曜日判定（TZずれ回避）。 */
+function isSaturday(dateStr: string): boolean {
+  return new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
+}
 
 /**
  * GET /api/mahjong/entries?eventDate=YYYY-MM-DD
@@ -21,13 +26,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
     const { lineUserId: userId, role } = auth;
+    const paymentRequired = mahjongPaymentRequired(role);
+
+    // mine=1: 自分の参加一覧（開催日＋支払い状態）。カレンダー参加UI・月1回制御に使う。
+    if (req.nextUrl.searchParams.get("mine") === "1") {
+      const season = await getActiveSeason();
+      if (!season) return NextResponse.json({ entries: [], paymentRequired });
+      const snap = await getDb()
+        .collection("mahjongEntries")
+        .where("seasonId", "==", season.seasonId)
+        .get();
+      const my = snap.docs
+        .map((d) => d.data() as MahjongEntry)
+        .filter((e) => e.lineUserId === userId)
+        .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
+      return NextResponse.json({ entries: my, paymentRequired });
+    }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
     if (!eventDate || !DATE_RE.test(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
-
-    const paymentRequired = mahjongPaymentRequired(role);
     const season = await getActiveSeason();
     if (!season) {
       return NextResponse.json({
@@ -89,6 +108,9 @@ export async function POST(req: NextRequest) {
     if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
+    if (!isSaturday(eventDate)) {
+      return NextResponse.json({ error: "開催日は土曜日のみです" }, { status: 400 });
+    }
 
     const season = await getActiveSeason();
     if (!season) {
@@ -115,25 +137,28 @@ export async function POST(req: NextRequest) {
       enteredAt: new Date().toISOString(),
     };
 
-    // 参加枠は先着 MAHJONG_MAX_ENTRIES_PER_DATE 名。並行表明の競合を避けるため transaction で
-    // 「同開催日の既存件数」を数え、自分が未表明なら上限チェック（複合インデックス回避のため
-    // seasonId のみで取得し eventDate は JS 側でフィルタ）。
+    // 参加は「1ユーザー月1回」。並行表明の競合を避けるため transaction で同月の自分の表明を数える
+    //（複合インデックス回避のため seasonId のみで取得し、userId/月は JS 側でフィルタ）。
+    const ym = eventDate.slice(0, 7);
     try {
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(
           db.collection("mahjongEntries").where("seasonId", "==", season.seasonId)
         );
-        const sameDate = snap.docs.filter((d) => d.data().eventDate === eventDate);
-        const already = sameDate.some((d) => d.id === entryId);
-        if (!already && sameDate.length >= MAHJONG_MAX_ENTRIES_PER_DATE) {
-          throw new Error("FULL");
+        const myMonth = snap.docs.filter((d) => {
+          const e = d.data();
+          return e.lineUserId === userId && typeof e.eventDate === "string" && e.eventDate.slice(0, 7) === ym;
+        });
+        const already = myMonth.some((d) => d.id === entryId);
+        if (!already && myMonth.length > 0) {
+          throw new Error("MONTHLY_LIMIT");
         }
         tx.set(ref, entry, { merge: true });
       });
     } catch (e) {
-      if (e instanceof Error && e.message === "FULL") {
+      if (e instanceof Error && e.message === "MONTHLY_LIMIT") {
         return NextResponse.json(
-          { error: `参加枠が満員です（先着${MAHJONG_MAX_ENTRIES_PER_DATE}名）`, full: true },
+          { error: "参加は同じ月に1回までです（別の月をお選びください）", monthlyLimit: true },
           { status: 409 }
         );
       }

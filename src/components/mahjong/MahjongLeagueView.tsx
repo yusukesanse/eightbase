@@ -6,7 +6,6 @@ import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import {
   type MahjongStanding,
   type PublicMahjongTable,
-  type MahjongScheduleEntry,
   type MahjongSeasonSummary,
   type MahjongPaymentStatus,
 } from "@/types";
@@ -29,10 +28,8 @@ export function MahjongLeagueView() {
   const [standings, setStandings] = useState<MahjongStanding[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const [rankingMetric, setRankingMetric] = useState<"average" | "total">("average");
-  const [schedule, setSchedule] = useState<MahjongScheduleEntry[]>([]);
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
-  const [entryCountByDate, setEntryCountByDate] = useState<Record<string, number>>({});
-  // WP3: 参加費（3,000円）の支払い要否（member/guest=要, staff=不要）と開催日ごとの自分の支払い状態
+  // 参加費（3,000円）の支払い要否（member/guest=要, staff=不要）と開催日ごとの自分の支払い状態
   const [paymentRequired, setPaymentRequired] = useState(false);
   const [paymentStatusByDate, setPaymentStatusByDate] = useState<
     Record<string, MahjongPaymentStatus | null>
@@ -64,48 +61,29 @@ export function MahjongLeagueView() {
       const standingsUrl = selectedSeasonId
         ? `/api/mahjong/standings?seasonId=${encodeURIComponent(selectedSeasonId)}`
         : "/api/mahjong/standings";
-      const [sRes, schRes, tRes] = await Promise.all([
+      const [sRes, tRes, eRes] = await Promise.all([
         fetch(standingsUrl, { credentials: "include" }),
-        fetch("/api/mahjong/schedule", { credentials: "include" }),
         fetch("/api/mahjong/tables?mine=1", { credentials: "include" }),
+        fetch("/api/mahjong/entries?mine=1", { credentials: "include" }),
       ]);
       const sData = await sRes.json();
-      const schData = await schRes.json();
       const tData = await tRes.json();
+      const eData = await eRes.json();
       setStandings(sData.standings ?? []);
       setCurrentUserId(sData.currentUserId);
       setRankingMetric(sData.rankingMetric === "total" ? "total" : "average");
       setViewSeasonId(sData.seasonId ?? selectedSeasonId ?? undefined);
-      const league = (schData.schedule ?? []).filter(
-        (x: MahjongScheduleEntry) => x.type === "league"
-      );
-      setSchedule(league);
       setTables(tData.tables ?? []);
 
-      // 参加表明状況＋参加人数＋自分の支払い状態を各開催日ぶん取得
+      // 自分の参加日＋支払い状態（月1回制御・カレンダー表示に使う）
       const entered = new Set<string>();
-      const counts: Record<string, number> = {};
       const payByDate: Record<string, MahjongPaymentStatus | null> = {};
-      let payRequired = false;
-      await Promise.all(
-        league.map(async (s: MahjongScheduleEntry) => {
-          try {
-            const r = await fetch(`/api/mahjong/entries?eventDate=${s.date}`, {
-              credentials: "include",
-            });
-            const d = await r.json();
-            if (d.entered) entered.add(s.date);
-            counts[s.date] = (d.entries ?? []).length;
-            if (d.me?.paymentRequired) payRequired = true;
-            payByDate[s.date] = d.me?.paymentStatus ?? null;
-          } catch {
-            /* noop */
-          }
-        })
-      );
+      for (const e of eData.entries ?? []) {
+        entered.add(e.eventDate);
+        payByDate[e.eventDate] = e.paymentStatus ?? null;
+      }
       setEnteredDates(entered);
-      setEntryCountByDate(counts);
-      setPaymentRequired(payRequired);
+      setPaymentRequired(!!eData.paymentRequired);
       setPaymentStatusByDate(payByDate);
     } catch {
       /* noop */
@@ -203,9 +181,7 @@ export function MahjongLeagueView() {
         </div>
       ) : subTab === "join" ? (
         <JoinTab
-          schedule={schedule}
           enteredDates={enteredDates}
-          entryCountByDate={entryCountByDate}
           tables={tables}
           paymentRequired={paymentRequired}
           paymentStatusByDate={paymentStatusByDate}

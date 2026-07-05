@@ -30,17 +30,12 @@ export function ReportTab({
     .slice()
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || (a.round ?? 0) - (b.round ?? 0));
 
-  // 当日は「固定卓」で計4半荘（卓移動なし）。表示は直近開催日の“現在の半荘”1つだけ
-  // （過去日・過去半荘は出さない＝戦歴側で確認）。
-  const MAX_HANCHAN = 4;
+  // 当日は固定卓（卓移動なし）。表示は直近開催日の“現在の半荘”1つだけ
+  // （過去日・過去半荘は出さない＝戦歴側で確認）。半荘数の上限は設けない。
   const currentDate = sorted[0]?.eventDate;
   const dayTables = sorted
     .filter((t) => t.eventDate === currentDate)
     .sort((a, b) => (a.round ?? 1) - (b.round ?? 1));
-  const completedHanchan = Math.min(
-    dayTables.filter((t) => t.status === "completed").length,
-    MAX_HANCHAN
-  );
 
   // 現在の半荘: 未完了の最小round（＝いま打っている半荘）。無ければ最後の半荘。
   const maxRound = dayTables[dayTables.length - 1]?.round ?? 1;
@@ -63,19 +58,9 @@ export function ReportTab({
   const needReport = !!me && me.points === null && !isCompleted;
   const reported = !!me && me.points !== null && !isCompleted; // 申告済み・未確定（本番の待ち）
   const nextTable = dayTables.find((t) => (t.round ?? 1) === shownRound + 1);
-  const allDone = completedHanchan >= MAX_HANCHAN && !nextTable;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 進行（同じ卓で計4半荘） */}
-      <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
-        <div>
-          <div className="text-[12px] font-extrabold text-[#40434a]">全{MAX_HANCHAN}半荘制・同じ卓で対戦</div>
-          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">1半荘ごとに申告→確定で次の半荘へ</div>
-        </div>
-        <span className="text-[13px] font-black" style={{ color: ACCENT }}>{completedHanchan}/{MAX_HANCHAN} 半荘 完了</span>
-      </div>
-
       {/* 当日の卓（現在の半荘・1つだけ） */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -116,8 +101,6 @@ export function ReportTab({
               >
                 <CheckIcon size={17} />第{shownRound + 1}半荘を申告する
               </button>
-            ) : allDone ? (
-              <div className="text-center text-[12px] font-bold text-[#6f9023] py-1">全{MAX_HANCHAN}半荘 完了しました</div>
             ) : (
               <div className="text-center text-[11px] text-[#97999d] py-1">次の半荘は運営が準備します</div>
             )}

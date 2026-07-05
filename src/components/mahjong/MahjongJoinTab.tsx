@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import {
-  MAHJONG_MAX_ENTRIES_PER_DATE,
   MAHJONG_ENTRY_FEE,
   type PublicMahjongTable,
-  type MahjongScheduleEntry,
   type MahjongPaymentStatus,
 } from "@/types";
 import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
+import MonthCalendar from "@/components/ui/MonthCalendar";
 import {
   ACCENT,
   CONFIRM,
@@ -24,17 +23,13 @@ import {
 /* ───────── 参加タブ ───────── */
 
 export function JoinTab({
-  schedule,
   enteredDates,
-  entryCountByDate,
   tables,
   paymentRequired,
   paymentStatusByDate,
   onChanged,
 }: {
-  schedule: MahjongScheduleEntry[];
   enteredDates: Set<string>;
-  entryCountByDate: Record<string, number>;
   tables: PublicMahjongTable[];
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
@@ -46,6 +41,8 @@ export function JoinTab({
   // 参加費のエラー表示／キャンセル確認対象日
   const [payMsg, setPayMsg] = useState<string | null>(null);
   const [cancelDate, setCancelDate] = useState<string | null>(null);
+  // カレンダーで選択中の開催日（土曜）
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const today = todayJst();
   // DEV-ONLY（develop 専用 / main へ入れない）: 支払い済み/返金対応中からリセットする導線を出す。
   const demo = isDevLoginEnabled();
@@ -96,140 +93,94 @@ export function JoinTab({
     }
   }
 
-  if (schedule.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
-        開催予定がまだ登録されていません
-      </div>
-    );
-  }
-
   // 表示中の日の卓（自分の卓のみ ?mine=1 で取得済み）
   const viewTables = viewDate
     ? tables.filter((t) => t.eventDate === viewDate)
     : [];
 
+  // 月1回制御＋土曜のみ。自分の参加日(enteredDates)から選択可否を決める。
+  const enteredArr = Array.from(enteredDates);
+  const isSat = (dateStr: string) => new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
+  const selectable = (dateStr: string) => {
+    if (!isSat(dateStr) || dateStr < today) return false;
+    if (enteredDates.has(dateStr)) return true;
+    const ym = dateStr.slice(0, 7);
+    return !enteredArr.some((e) => e.slice(0, 7) === ym); // 同月に他の参加があれば不可
+  };
+
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
-        参加したい開催日に表明してください。卓組みは当日、管理者が確定します。
-        {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は参加確定後にお支払いください（期限＝開催当日の開始時刻）。`}
+        毎週土曜が開催日です。カレンダーから参加日を選んでください（参加は1か月に1回）。
+        {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は参加後にお支払いください。`}
       </p>
       {payMsg && (
-        <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">
-          {payMsg}
-        </div>
+        <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>
       )}
-      {schedule.map((s) => {
-        const entered = enteredDates.has(s.date);
-        const past = s.date < today;
-        // その日に自分が含まれる卓があれば「卓確定」
-        const confirmed = tables.some((t) => t.eventDate === s.date);
-        const { md, wd } = dateParts(s.date);
-        const highlight = !past && (confirmed || entered);
-        const count = entryCountByDate[s.date] ?? 0;
-        const full = !entered && count >= MAHJONG_MAX_ENTRIES_PER_DATE;
-        // WP3: 参加確定（先着8名入り）した支払い要(member/guest)は即「支払う」導線へ。
-        // 支払い期限（開催当日の開始時刻）はサーバー側 /api/mahjong/entries/pay が判定する。
-        const payStatus = paymentStatusByDate[s.date] ?? null;
-        const needsPay = entered && paymentRequired;
-        return (
-          <div
-            key={s.scheduleId}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
-            style={highlight ? { boxShadow: `inset 0 0 0 1.5px ${confirmed ? CONFIRM : ACCENT}` } : undefined}
-          >
-            <div className="w-[50px] text-center shrink-0">
-              <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-              <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14.5px] font-extrabold text-[#231714]">リーグ戦</div>
-              <div className="text-[12px] text-[#231714]/50 mt-0.5">
-                {s.startTime}〜{s.endTime}
-                {!past && !confirmed && (
-                  <span className={`ml-2 ${full ? "text-[#d8533a] font-bold" : ""}`}>
-                    参加 {count}/{MAHJONG_MAX_ENTRIES_PER_DATE}
-                    {full ? "・満員" : ""}
-                  </span>
-                )}
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <MonthCalendar
+          value={selectedDate}
+          onSelect={setSelectedDate}
+          isSelectable={(d) => selectable(d)}
+          marked={(d) => enteredDates.has(d)}
+          accent={ACCENT}
+        />
+      </div>
+
+      {selectedDate ? (
+        (() => {
+          const entered = enteredDates.has(selectedDate);
+          const confirmed = tables.some((t) => t.eventDate === selectedDate);
+          const payStatus = paymentStatusByDate[selectedDate] ?? null;
+          const needsPay = entered && paymentRequired;
+          const { md, wd } = dateParts(selectedDate);
+          return (
+            <div
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
+              style={{ boxShadow: `inset 0 0 0 1.5px ${confirmed ? CONFIRM : entered ? ACCENT : "#eceff1"}` }}
+            >
+              <div className="w-[50px] text-center shrink-0">
+                <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
+                <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
               </div>
-            </div>
-            {past ? (
-              <span className="text-[11px] text-[#231714]/30 font-bold shrink-0">終了</span>
-            ) : confirmed ? (
-              // 卓確定: タップで同卓メンバーを表示
-              <button
-                onClick={() => setViewDate(s.date)}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold pl-4 pr-3 py-2 active:scale-95 transition-transform"
-                style={{ background: CONFIRM, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}
-              >
-                <CheckIcon />卓確定
-                <ChevronRight size={13} />
-              </button>
-            ) : needsPay && payStatus === "paid" ? (
-              // 支払い済み: バッジ＋キャンセル依頼
-              <div className="shrink-0 flex flex-col items-end gap-1">
-                <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}>
-                  <CheckIcon color="#6f9023" size={13} />支払い済み
-                </span>
-                <button
-                  onClick={() => setCancelDate(s.date)}
-                  className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2"
-                >
-                  支払いをキャンセル
+              <div className="flex-1 min-w-0">
+                <div className="text-[14.5px] font-extrabold text-[#231714]">リーグ戦（土曜）</div>
+                <div className="text-[12px] text-[#231714]/50 mt-0.5">
+                  {confirmed ? "卓が確定しています" : entered ? "参加中" : "この日に参加できます"}
+                </div>
+              </div>
+              {confirmed ? (
+                <button onClick={() => setViewDate(selectedDate)} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold pl-4 pr-3 py-2 active:scale-95 transition-transform" style={{ background: CONFIRM, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
+                  <CheckIcon />卓確定<ChevronRight size={13} />
                 </button>
-                {demo && (
-                  <button
-                    onClick={() => toggle(s.date, true)}
-                    className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2"
-                  >
-                    リセット（デモ）
-                  </button>
-                )}
-              </div>
-            ) : needsPay && payStatus === "cancelRequested" ? (
-              <div className="shrink-0 flex flex-col items-end gap-1">
-                <span className="text-[11px] font-bold text-[#b48f13]">返金対応中</span>
-                {demo && (
-                  <button
-                    onClick={() => toggle(s.date, true)}
-                    className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2"
-                  >
-                    リセット（デモ）
-                  </button>
-                )}
-              </div>
-            ) : needsPay ? (
-              // 未払い（当日）: 参加費を支払う
-              <button
-                onClick={() => pay(s.date)}
-                disabled={busy === s.date}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white"
-                style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}
-              >
-                {busy === s.date ? "..." : `支払う ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
-              </button>
-            ) : (
-              <button
-                onClick={() => toggle(s.date, entered)}
-                disabled={busy === s.date || full}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform"
-                style={
-                  entered
-                    ? { background: "#eef4ee", color: ACCENT, boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } // 参加中（済）
-                    : full
-                      ? { background: "#f6f8f9", color: "#97999d", boxShadow: "inset 0 0 0 1px #e4e7e9" } // 満員
-                      : { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` } // 参加する（CTA）
-                }
-              >
-                {entered && busy !== s.date && <CheckIcon color={ACCENT} />}
-                {busy === s.date ? "..." : entered ? "参加中" : full ? "満員" : "参加する"}
-              </button>
-            )}
-          </div>
-        );
-      })}
+              ) : needsPay && payStatus === "paid" ? (
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />支払い済み</span>
+                  <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">支払いをキャンセル</button>
+                  {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
+                </div>
+              ) : needsPay && payStatus === "cancelRequested" ? (
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="text-[11px] font-bold text-[#b48f13]">返金対応中</span>
+                  {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
+                </div>
+              ) : needsPay ? (
+                <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
+                  {busy === selectedDate ? "..." : `支払う ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
+                </button>
+              ) : (
+                <button onClick={() => toggle(selectedDate, entered)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={entered ? { background: "#eef4ee", color: ACCENT, boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } : { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
+                  {entered && busy !== selectedDate && <CheckIcon color={ACCENT} />}
+                  {busy === selectedDate ? "..." : entered ? "参加中" : "参加する"}
+                </button>
+              )}
+            </div>
+          );
+        })()
+      ) : (
+        <div className="text-center text-[12px] text-[#231714]/40 py-4">参加する土曜日をカレンダーから選んでください</div>
+      )}
 
       {viewDate && viewTables.length > 0 && (
         <TableMembersModal
