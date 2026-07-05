@@ -53,12 +53,12 @@ describe("getExpectedLineChannelIds — 想定チャネルID導出", () => {
     expect(ids).toEqual(new Set(["111", "222"]));
   });
 
-  test("明示 env が無ければ各 LIFF ID のハイフン前プレフィックスから導出する", () => {
+  test("明示 env が無ければ dev/prod LIFF ID のハイフン前プレフィックスから導出する（REVIEWは対象外）", () => {
     process.env.NEXT_PUBLIC_LIFF_ID = "1001-dev";
-    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW = "1002-review";
+    process.env.NEXT_PUBLIC_LIFF_ID_REVIEW = "1002-review"; // review は client_id 検証の対象外（設計）
     process.env.NEXT_PUBLIC_LIFF_ID_PROD = "1003-prod";
     const ids = getExpectedLineChannelIds();
-    expect(ids).toEqual(new Set(["1001", "1002", "1003"]));
+    expect(ids).toEqual(new Set(["1001", "1003"]));
   });
 
   test("何も設定が無ければ空集合", () => {
@@ -140,14 +140,16 @@ describe("Dev ログイン（LINE切り離し）: Devトークン解決", () => 
     expect(fetchSpy).toHaveBeenCalled(); // 短絡せず LINE verify を叩く
   });
 
-  test("DEV_LOGIN 無効なら Devトークンは短絡しない（LINEへ）", async () => {
-    // NEXT_PUBLIC_DEV_LOGIN 未設定
+  test("非本番(APP_ENV≠production)は Devトークンを短絡して valid（LINEを呼ばない）", async () => {
+    // 判定は APP_ENV が唯一の真実（isDevLoginEnabled=!isProduction）。旧 NEXT_PUBLIC_DEV_LOGIN は廃止。
+    // APP_ENV は beforeEach でクリア済み＝非本番なので dev ログイン有効。
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({ expires_in: 3600, client_id: "x" }),
       text: async () => "",
     } as Response);
-    await verifyLineAccessToken(devToken);
-    expect(fetchSpy).toHaveBeenCalled();
+    const status = await verifyLineAccessToken(devToken);
+    expect(status).toBe("valid");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

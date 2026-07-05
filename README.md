@@ -189,11 +189,12 @@ CI・ローカルで再現可能。lint はプロジェクト直下の `.eslintr
 ```sh
 npx tsc --noEmit   # 型チェック（エラー0を維持）
 npm run lint       # ESLint（next lint・非対話）。現状エラー0・警告のみ（img/deps）
-npm test           # Jest（設定に ts-node が必要。CIでは ts-jest/ts-node を導入）
+npm test           # Jest（jest.config.js。ts-jest で実行・ts-node 不要）
 ```
 
 - `npm run lint` は警告（`@next/next/no-img-element` 等）が残るがエラー0で exit 0（CI通過可）。
 - `src/dev-only/**` は lint 対象外（develop専用）。
+- テストは `__tests__/**` と `src/**/*.test.ts` を対象（純ロジックは colocated 推奨）。設定は `jest.config.js`（TS化していたため ts-node が必要だったのを解消）。
 
 ## ライセンス
 

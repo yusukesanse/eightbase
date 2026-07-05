@@ -88,8 +88,15 @@ describe("middleware — 従来挙動の維持", () => {
     expect(isNext(mw(req("eightbase-demo.vercel.app", "/admin")))).toBe(true);
   });
 
-  test("/api/* は常に通す（顧客ドメインでもブロックしない）", () => {
+  test("顧客ドメインの /api/admin は 404 で隠す（URL分離・多層防御）", () => {
     const mw = loadMiddleware({ ADMIN_DOMAIN: ADMIN, CUSTOMER_DOMAIN: CUSTOMER });
-    expect(isNext(mw(req(CUSTOMER, "/api/admin/users")))).toBe(true);
+    const res = mw(req(CUSTOMER, "/api/admin/users"));
+    expect(isNext(res)).toBe(false);
+    expect(res.status).toBe(404);
+  });
+
+  test("顧客ドメインの一般 /api/* は通す", () => {
+    const mw = loadMiddleware({ ADMIN_DOMAIN: ADMIN, CUSTOMER_DOMAIN: CUSTOMER });
+    expect(isNext(mw(req(CUSTOMER, "/api/mahjong/entries")))).toBe(true);
   });
 });
