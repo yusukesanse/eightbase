@@ -10,6 +10,7 @@ import MonthCalendar from "@/components/ui/MonthCalendar";
 export default function MahjongScheduleAdminPage() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [warn, setWarn] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
   const isSat = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay() === 6;
 
@@ -25,13 +26,20 @@ export default function MahjongScheduleAdminPage() {
   async function toggle(date: string) {
     if (!isSat(date) || busy) return;
     setBusy(true);
+    setWarn(null);
     const isClosed = closed.has(date);
-    await fetch(`/api/admin/mahjong/closed-dates${isClosed ? `?date=${date}` : ""}`, {
+    const res = await fetch(`/api/admin/mahjong/closed-dates${isClosed ? `?date=${date}` : ""}`, {
       method: isClosed ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: isClosed ? undefined : JSON.stringify({ date }),
-    }).catch(() => {});
+    }).catch(() => null);
+    // 休催化で既存参加者がいれば返金対応を促す。
+    if (res?.ok && !isClosed) {
+      const d = await res.json().catch(() => ({}));
+      const a = d.affected;
+      if (a?.total > 0) setWarn(`${date}：参加者${a.total}名（支払済${a.paid}名）がいます。返金対応をご確認ください。`);
+    }
     await load();
     setBusy(false);
   }
@@ -52,6 +60,11 @@ export default function MahjongScheduleAdminPage() {
           accent="#c0563c"
         />
       </div>
+      {warn && (
+        <div className="mt-3 rounded-lg bg-[#fff4ec] border border-[#f0c9b0] px-3 py-2 text-xs font-bold text-[#a1502c]">
+          ⚠️ {warn}
+        </div>
+      )}
       <div className="mt-3 text-xs text-[#231714]/50 flex items-center gap-1.5">
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#c0563c" }} />
         赤印＝休催（この土曜は開催しない）

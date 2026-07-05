@@ -28,8 +28,12 @@ export async function POST(req: NextRequest) {
   if (typeof date !== "string" || !DATE_RE.test(date) || !isSaturday(date)) {
     return NextResponse.json({ error: "土曜の日付を指定してください" }, { status: 400 });
   }
-  await getDb().collection("mahjongClosedDates").doc(date).set({ date, closedAt: new Date().toISOString() });
-  return NextResponse.json({ success: true });
+  const db = getDb();
+  await db.collection("mahjongClosedDates").doc(date).set({ date, closedAt: new Date().toISOString() });
+  // 既存参加者を返金対応の判断材料として返す（休催後は startDay で卓を組まない）。
+  const entries = (await db.collection("mahjongEntries").where("eventDate", "==", date).get()).docs.map((d) => d.data());
+  const paid = entries.filter((e) => e.paymentStatus === "paid" || e.status === "paid").length;
+  return NextResponse.json({ success: true, affected: { total: entries.length, paid } });
 }
 
 export async function DELETE(req: NextRequest) {

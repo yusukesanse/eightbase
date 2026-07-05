@@ -34,6 +34,9 @@ export async function startDay(seasonId: string, eventDate: string, demo = false
   const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
   if ((await dayRef.get()).exists) return false;
 
+  // 休催日は自動開始しない（休催化後に paid が残っていても卓を組まない）。
+  if ((await db.collection("mahjongClosedDates").doc(eventDate).get()).exists) return false;
+
   // 既にこの開催日の卓があれば（管理者が手組み等）自動生成しない。
   const tblSnap = await db.collection("mahjongTables").where("seasonId", "==", seasonId).get();
   if (tblSnap.docs.some((d) => (d.data() as MahjongTable).eventDate === eventDate)) return false;
