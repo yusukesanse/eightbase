@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     const nowIso = dayjs().toISOString();
     await entryRef.set(
-      { paymentStatus: "cancelRequested", cancelRequestedAt: nowIso, updatedAt: nowIso },
+      { status: "cancelRequested", paymentStatus: "cancelRequested", cancelRequestedAt: nowIso, updatedAt: nowIso },
       { merge: true }
     );
 

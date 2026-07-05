@@ -95,14 +95,16 @@ export interface MahjongEntry {
   displayName: string;
   pictureUrl?: string;
   enteredAt: string;
-  /** 参加ステータス。reserved=仮予約（未決済）/ paid=参加確定。staffは参加時点でpaid。 */
-  status?: "reserved" | "paid";
+  /** 参加ステータス（状態機械 src/lib/mahjongEntryStatus）。staffは参加時点で paid。 */
+  status?: "reserved" | "paid" | "cancelRequested" | "refunded" | "cancelRejected";
   // ─ WP3: 参加費支払い（会員/ゲストのみ。staffは免除＝未設定）─
   paymentStatus?: MahjongPaymentStatus;
   paymentTransactionId?: string; // Square orderId（決済照合用・本人以外へは非公開）
   paymentAmount?: number;        // 決済額（円）＝ MAHJONG_ENTRY_FEE
   paidAt?: string;               // 決済確定時刻 ISO8601
   cancelRequestedAt?: string;    // キャンセル依頼時刻 ISO8601（監査用）
+  refundProcessedAt?: string;    // 返金/却下の処理時刻 ISO8601（監査用）
+  refundProcessedBy?: string;    // 処理した管理者（監査用）
   pendingExpiresAt?: string;     // 決済リンクのTTL失効 ISO8601
 }
 

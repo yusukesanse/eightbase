@@ -16,6 +16,18 @@ function isSaturday(dateStr: string): boolean {
   return new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
 }
 
+/** 月ロックを解放（そのロックが当該開催日を指しているときのみ）。参加取消で枠を戻す。 */
+async function releaseMonthlyLock(
+  db: FirebaseFirestore.Firestore,
+  seasonId: string,
+  userId: string,
+  eventDate: string
+) {
+  const lockRef = db.collection("mahjongMonthlyLocks").doc(`${seasonId}_${userId}_${eventDate.slice(0, 7)}`);
+  const s = await lockRef.get();
+  if (s.exists && s.data()?.eventDate === eventDate) await lockRef.delete();
+}
+
 /**
  * GET /api/mahjong/entries?eventDate=YYYY-MM-DD
  * 指定開催日の参加表明者一覧（アクティブシーズン）
@@ -148,22 +160,25 @@ export async function POST(req: NextRequest) {
       status,
     };
 
-    // 参加は「1ユーザー月1回」。並行表明の競合を避けるため transaction で同月の自分の表明を数える
-    //（複合インデックス回避のため seasonId のみで取得し、userId/月は JS 側でフィルタ）。
+    // 参加は「1ユーザー月1回」。月ロックdoc(mahjongMonthlyLocks)を transaction 内で
+    // 読んで原子的に確保する（同一docへの並行書き込みは競合検知＝phantomすり抜けを防ぐ）。
+    // 同日は冪等（再表明可）、別日・同月は 409、別月は許可。stale lockは自己回復。
     const ym = eventDate.slice(0, 7);
+    const lockRef = db.collection("mahjongMonthlyLocks").doc(`${season.seasonId}_${userId}_${ym}`);
     try {
       await db.runTransaction(async (tx) => {
-        const snap = await tx.get(
-          db.collection("mahjongEntries").where("seasonId", "==", season.seasonId)
-        );
-        const myMonth = snap.docs.filter((d) => {
-          const e = d.data();
-          return e.lineUserId === userId && typeof e.eventDate === "string" && e.eventDate.slice(0, 7) === ym;
-        });
-        const already = myMonth.some((d) => d.id === entryId);
-        if (!already && myMonth.length > 0) {
-          throw new Error("MONTHLY_LIMIT");
+        const lockSnap = await tx.get(lockRef);
+        const entrySnap = await tx.get(ref);
+        if (!entrySnap.exists && lockSnap.exists) {
+          const lockedDate = lockSnap.data()?.eventDate as string | undefined;
+          if (lockedDate && lockedDate !== eventDate) {
+            // 別日ロックだが、その予約が実在するときだけ拒否（無ければstale＝上書き許可）。
+            const otherRef = db.collection("mahjongEntries").doc(`${season.seasonId}_${lockedDate}_${userId}`);
+            const otherSnap = await tx.get(otherRef);
+            if (otherSnap.exists) throw new Error("MONTHLY_LIMIT");
+          }
         }
+        tx.set(lockRef, { seasonId: season.seasonId, lineUserId: userId, ym, eventDate, updatedAt: new Date().toISOString() });
         tx.set(ref, entry, { merge: true });
       });
     } catch (e) {
@@ -201,13 +216,15 @@ export async function DELETE(req: NextRequest) {
     const season = await getActiveSeason();
     if (!season) return NextResponse.json({ success: true });
 
+    const db = getDb();
     const entryId = `${season.seasonId}_${eventDate}_${userId}`;
-    const ref = getDb().collection("mahjongEntries").doc(entryId);
+    const ref = db.collection("mahjongEntries").doc(entryId);
     const snap = await ref.get();
     // DEV-ONLY（develop 専用 / main へ入れない）: 非本番は支払い状態に関わらず取消可。
     // デモで「参加→支払う→キャンセル→返金対応中」から抜け、支払いUIを繰り返し検証できるように。
     if (!isProduction()) {
       if (snap.exists) await ref.delete();
+      await releaseMonthlyLock(db, season.seasonId, userId, eventDate);
       return NextResponse.json({ success: true });
     }
     // 支払い済み/返金対応中の参加は取消不可（参加費レコードの消失・返金漏れを防ぐ）。
@@ -230,6 +247,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
     await ref.delete();
+    await releaseMonthlyLock(db, season.seasonId, userId, eventDate);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[mahjong/entries] DELETE error:", error);
