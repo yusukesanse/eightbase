@@ -7,6 +7,7 @@ import type {
   MahjongTable,
   MahjongLeagueTier,
   MahjongLeagueAssignment,
+  MahjongDayState,
 } from "@/types";
 
 /* ───────── 定数 ───────── */
@@ -24,31 +25,36 @@ export default function SeasonMahjongPage() {
   const [standings, setStandings] = useState<MahjongStanding[]>([]);
   const [tables, setTables] = useState<MahjongTable[]>([]);
   const [assignments, setAssignments] = useState<MahjongLeagueAssignment[]>([]);
+  const [dayStates, setDayStates] = useState<MahjongDayState[]>([]);
   const [loading, setLoading] = useState(true);
   const [editTable, setEditTable] = useState<MahjongTable | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
-  const [tab, setTab] = useState<"standings" | "tables" | "history">("standings");
+  const [tab, setTab] = useState<"standings" | "tables" | "rotation" | "history">("standings");
 
   const fetchAll = useCallback(async () => {
     if (!seasonId) return;
     setLoading(true);
     try {
-      const [sRes, tRes, lRes] = await Promise.all([
+      const [sRes, tRes, lRes, dRes] = await Promise.all([
         fetch(`/api/admin/mahjong/standings?seasonId=${seasonId}`, { credentials: "same-origin" }),
         fetch(`/api/admin/mahjong/tables?seasonId=${seasonId}`, { credentials: "same-origin" }),
         fetch(`/api/admin/mahjong/leagues?seasonId=${seasonId}`, { credentials: "same-origin" }),
+        fetch(`/api/admin/mahjong/day-states?seasonId=${seasonId}`, { credentials: "same-origin" }),
       ]);
       const sData = await sRes.json();
       const tData = await tRes.json();
       const lData = await lRes.json();
+      const dData = await dRes.json();
       setStandings(sData.standings ?? []);
       setTables(tData.tables ?? []);
       setAssignments(lData.assignments ?? []);
+      setDayStates(dData.dayStates ?? []);
     } catch {
       setStandings([]);
       setTables([]);
       setAssignments([]);
+      setDayStates([]);
     } finally {
       setLoading(false);
     }
@@ -114,6 +120,7 @@ export default function SeasonMahjongPage() {
   const TABS = [
     { id: "standings" as const, label: "通算アベレージ順位表" },
     { id: "tables" as const, label: "卓一覧" },
+    { id: "rotation" as const, label: "当日進行（抜け番）" },
     { id: "history" as const, label: "リーグ確定履歴" },
   ];
 
@@ -254,6 +261,62 @@ export default function SeasonMahjongPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ───── 当日進行（抜け番） ───── */}
+      <section className={tab === "rotation" ? "" : "hidden"}>
+        <h2 className="text-sm font-bold text-[#231714] mb-1">当日進行（抜け番）</h2>
+        <p className="text-xs text-[#231714]/50 mb-3">
+          利用者アプリと同じ mahjongDayState を表示しています（現ラウンド・待機順・直近の交代）。
+        </p>
+        {dayStates.length === 0 ? (
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+            進行中の開催日はありません（参加者から自動で卓が組まれると表示されます）
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {dayStates.map((d) => (
+              <div key={d.eventDate} className="bg-white rounded-xl border border-[#231714]/10 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-[#231714]">{d.eventDate}</span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#A5C1C8]/20 text-[#231714]">
+                    第{d.round}半荘・{(d.tableLabels ?? []).length}卓
+                  </span>
+                </div>
+
+                <div className="text-[11px] font-bold text-[#231714]/50 mb-1">待機順（先頭が次にIN）</div>
+                {(d.waiting ?? []).length === 0 ? (
+                  <div className="text-xs text-[#231714]/40 mb-3">待機者なし</div>
+                ) : (
+                  <ol className="flex flex-wrap gap-1.5 mb-3">
+                    {d.waiting.map((w, i) => (
+                      <li key={w.lineUserId} className="text-xs bg-gray-50 border border-[#231714]/10 rounded-full px-2.5 py-1">
+                        {i + 1}. {w.displayName}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+
+                {d.lastSwap ? (
+                  <div className="rounded-lg bg-gray-50 p-2.5">
+                    <div className="text-[11px] font-bold text-[#231714]/60 mb-1">
+                      直近の交代（第{d.lastSwap.round}半荘 → 第{d.lastSwap.round + 1}半荘）
+                    </div>
+                    {d.lastSwap.reason && (
+                      <div className="text-[11px] font-bold text-[#b48f13] mb-1">{d.lastSwap.reason}</div>
+                    )}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                      <span className="text-[#c0563c] font-bold">OUT: {d.lastSwap.out.map((p) => p.displayName).join("、") || "なし"}</span>
+                      <span className="text-[#6f9023] font-bold">IN: {d.lastSwap.in.map((p) => p.displayName).join("、") || "なし"}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-[#231714]/40">まだ交代はありません（第1半荘）</div>
+                )}
               </div>
             ))}
           </div>
