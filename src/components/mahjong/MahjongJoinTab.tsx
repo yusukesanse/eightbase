@@ -8,6 +8,7 @@ import {
 } from "@/types";
 import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
+import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS } from "@/lib/date";
 import MonthCalendar from "@/components/ui/MonthCalendar";
 import {
   ACCENT,
@@ -115,7 +116,8 @@ export function JoinTab({
     <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
         毎週土曜が開催日です。カレンダーから参加日を選んでください（参加は1か月に1回）。
-        {paymentRequired && `　参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は参加後にお支払いください。`}
+        {paymentRequired && `　参加ボタンで仮予約→決済で参加確定。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()}。`}
+        {`　キャンセルは開催${MAHJONG_CANCEL_DEADLINE_DAYS}日前まで（6日前以降は返金不可）。`}
       </p>
       {payMsg && (
         <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>
@@ -131,12 +133,34 @@ export function JoinTab({
         />
       </div>
 
+      {/* あなたの参加状況（カレンダー下） */}
+      {enteredArr.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">あなたの参加状況</div>
+          <div className="flex flex-col gap-1.5">
+            {[...enteredArr].sort().map((d) => {
+              const st = paymentStatusByDate[d] ?? null;
+              const conf = !paymentRequired || st === "paid";
+              const label = conf ? "参加確定" : st === "cancelRequested" ? "返金対応中" : "仮予約（未決済）";
+              const { md, wd } = dateParts(d);
+              return (
+                <button key={d} onClick={() => setSelectedDate(d)} className="flex items-center gap-2 text-left active:opacity-70">
+                  <span className="text-[13px] font-bold text-[#231714]">{md}（{wd}）</span>
+                  <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full" style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {selectedDate ? (
         (() => {
           const entered = enteredDates.has(selectedDate);
           const confirmed = tables.some((t) => t.eventDate === selectedDate);
           const payStatus = paymentStatusByDate[selectedDate] ?? null;
           const needsPay = entered && paymentRequired;
+          const isConfirmed = entered && (!paymentRequired || payStatus === "paid");
           const { md, wd } = dateParts(selectedDate);
           return (
             <div
@@ -150,7 +174,15 @@ export function JoinTab({
               <div className="flex-1 min-w-0">
                 <div className="text-[14.5px] font-extrabold text-[#231714]">リーグ戦（土曜）</div>
                 <div className="text-[12px] text-[#231714]/50 mt-0.5">
-                  {confirmed ? "卓が確定しています" : entered ? "参加中" : "この日に参加できます"}
+                  {confirmed
+                    ? "卓が確定しています"
+                    : !entered
+                      ? "この日に参加できます"
+                      : isConfirmed
+                        ? "参加確定"
+                        : payStatus === "cancelRequested"
+                          ? "返金対応中"
+                          : "仮予約（未決済）"}
                 </div>
               </div>
               {confirmed ? (
@@ -159,8 +191,12 @@ export function JoinTab({
                 </button>
               ) : needsPay && payStatus === "paid" ? (
                 <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />支払い済み</span>
-                  <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">支払いをキャンセル</button>
+                  <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
+                  {canCancelMahjong(selectedDate) ? (
+                    <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">支払いをキャンセル</button>
+                  ) : (
+                    <span className="text-[10px] text-[#97999d]">キャンセル期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
+                  )}
                   {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
                 </div>
               ) : needsPay && payStatus === "cancelRequested" ? (
@@ -170,7 +206,7 @@ export function JoinTab({
                 </div>
               ) : needsPay ? (
                 <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
-                  {busy === selectedDate ? "..." : `支払う ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
+                  {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
                 </button>
               ) : (
                 <button onClick={() => toggle(selectedDate, entered)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={entered ? { background: "#eef4ee", color: ACCENT, boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } : { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>

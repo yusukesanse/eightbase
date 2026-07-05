@@ -15,12 +15,12 @@ const reportingMembers = (members: RotPlayer[]) =>
   members.map((m) => ({ lineUserId: m.lineUserId, displayName: m.displayName, pictureUrl: m.pictureUrl ?? "", points: null, rank: null, reportedAt: null }));
 
 /**
- * 参加者から初期卓＋待機を作る。8名以下は満席卓のみ（抜け番なし）、9名以上は
- * floor((N-1)/4)卓＝常に待機を1名以上残す。座席・待機は participants の順（FIFO）。
+ * 参加者から初期卓＋待機を作る。卓は常に最大2卓（A/B・同時最大8名）。
+ * 先頭8名をA/B卓に割当、9名以上は待機キュー（FIFO）。座席・待機は participants の順。
  */
 export function buildInitialDay(participants: RotPlayer[]): { tables: { label: string; members: RotPlayer[] }[]; waiting: RotPlayer[] } {
   const n = participants.length;
-  const nTables = n < 9 ? Math.floor(n / 4) : Math.floor((n - 1) / 4);
+  const nTables = Math.min(2, Math.floor(n / 4)); // 2卓固定（最大8名着席）
   const tables = Array.from({ length: nTables }, (_, i) => ({ label: LABELS[i], members: participants.slice(i * 4, i * 4 + 4) }));
   return { tables, waiting: participants.slice(nTables * 4) };
 }
