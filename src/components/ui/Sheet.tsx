@@ -31,6 +31,7 @@ export function BottomSheet({
   footer,
   children,
   closeButton = true,
+  dismissible = true,
 }: {
   open: boolean;
   title?: string;
@@ -38,15 +39,17 @@ export function BottomSheet({
   footer?: React.ReactNode;
   children: React.ReactNode;
   closeButton?: boolean;
+  /** false ならスクリム/Escでは閉じない（明示ボタンのみ）。 */
+  dismissible?: boolean;
 }) {
   useEffect(() => {
-    if (!open) return;
+    if (!open || !dismissible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   if (!open) return null;
 
@@ -54,7 +57,7 @@ export function BottomSheet({
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center"
       style={{ background: SCRIM, animation: "ebFadeIn 160ms ease-out" }}
-      onClick={onClose}
+      onClick={dismissible ? onClose : undefined}
     >
       <div
         className="w-full max-w-md bg-white rounded-t-2xl shadow-xl flex flex-col"

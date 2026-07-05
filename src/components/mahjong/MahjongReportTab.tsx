@@ -427,7 +427,7 @@ function SwapSheet({ swap, onClose }: { swap: MahjongDaySwap; onClose: () => voi
     </div>
   );
   return (
-    <BottomSheet open title="次の卓はこちらです" onClose={onClose}>
+    <BottomSheet open title="次の卓はこちらです" onClose={onClose} dismissible={false} closeButton={false}>
       <p className="text-[12px] text-[#231714]/60 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。</p>
       {swap.reason && (
         <div className="mb-3 rounded-xl bg-[#fdf4e3] px-3 py-2 text-[12px] font-bold text-[#b48f13]">{swap.reason}</div>
