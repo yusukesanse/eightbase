@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { PublicMahjongTable, MahjongDaySwap, MahjongRotMember } from "@/types";
 import { isDevLoginEnabled } from "@/lib/env";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { ACCENT, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/LineContact";
@@ -173,6 +174,8 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
   useEffect(() => {
     load();
   }, [load]);
+  // 他ユーザーの申告・進行を追従（12秒ポーリング＋復帰時）
+  useAutoRefresh(load, 12000);
 
   const advance = useCallback(
     async (myRank?: number) => {

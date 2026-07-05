@@ -11,15 +11,15 @@ export function timeToMin(t: string): number {
   return h * 60 + m;
 }
 
-/** 開催日まで残り日数（Asia/Tokyo・当日=0）。 */
-export function daysUntil(eventDate: string): number {
-  const start = new Date(`${todayJst()}T00:00:00Z`).getTime();
+/** 開催日まで残り日数（Asia/Tokyo・当日=0）。today はテスト用に注入可。 */
+export function daysUntil(eventDate: string, today: string = todayJst()): number {
+  const start = new Date(`${today}T00:00:00Z`).getTime();
   const target = new Date(`${eventDate}T00:00:00Z`).getTime();
   return Math.round((target - start) / 86400000);
 }
 
 /** 麻雀参加費のキャンセル期限（7日前まで可・6日前以降は返金不可）。 */
 export const MAHJONG_CANCEL_DEADLINE_DAYS = 7;
-export function canCancelMahjong(eventDate: string): boolean {
-  return daysUntil(eventDate) >= MAHJONG_CANCEL_DEADLINE_DAYS;
+export function canCancelMahjong(eventDate: string, today: string = todayJst()): boolean {
+  return daysUntil(eventDate, today) >= MAHJONG_CANCEL_DEADLINE_DAYS;
 }

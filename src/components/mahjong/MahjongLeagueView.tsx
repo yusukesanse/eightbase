@@ -10,6 +10,7 @@ import {
   type MahjongPaymentStatus,
 } from "@/types";
 import { completeEntryPayment } from "@/lib/mahjongPayment";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { JoinTab } from "@/components/mahjong/MahjongJoinTab";
 import { ReportTab } from "@/components/mahjong/MahjongReportTab";
 import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
@@ -104,6 +105,8 @@ export function MahjongLeagueView() {
   useEffect(() => {
     loadCore();
   }, [loadCore]);
+  // 参加状況・卓/順位を追従（15秒ポーリング＋復帰時）
+  useAutoRefresh(loadCore, 15000);
 
   // Square 参加費決済の戻り: ?mjpay=<エントリーID> を確定処理する（決済導線はこのビューに集約）
   useEffect(() => {

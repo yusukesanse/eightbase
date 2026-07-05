@@ -4,6 +4,7 @@ import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
+import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS } from "@/lib/date";
 import type { MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -218,6 +219,13 @@ export async function DELETE(req: NextRequest) {
           error: "PAID_LOCKED",
           message: "参加費お支払い済みのため取り消せません。キャンセルは「支払いをキャンセル」から依頼してください。",
         },
+        { status: 409 }
+      );
+    }
+    // 仮予約の解除も paid キャンセルと同じ締切: 開催7日前まで（6日前以降は解除不可）。
+    if (snap.exists && !canCancelMahjong(eventDate)) {
+      return NextResponse.json(
+        { error: "DEADLINE_PASSED", message: `キャンセルは開催日の${MAHJONG_CANCEL_DEADLINE_DAYS}日前までです。` },
         { status: 409 }
       );
     }

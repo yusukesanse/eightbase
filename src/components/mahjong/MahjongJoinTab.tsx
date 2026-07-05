@@ -71,13 +71,18 @@ export function JoinTab({
 
   async function toggle(date: string, entered: boolean) {
     setBusy(date);
+    setPayMsg(null);
     try {
-      await fetch(`/api/mahjong/entries${entered ? `?eventDate=${date}` : ""}`, {
+      const res = await fetch(`/api/mahjong/entries${entered ? `?eventDate=${date}` : ""}`, {
         method: entered ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: entered ? undefined : JSON.stringify({ eventDate: date }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setPayMsg(d.message ?? d.error ?? "処理に失敗しました");
+      }
       onChanged();
     } finally {
       setBusy(null);
@@ -224,13 +229,27 @@ export function JoinTab({
                   {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
                 </div>
               ) : needsPay ? (
-                <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
-                  {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
-                </button>
+                // 仮予約（未決済）: 支払い＋（7日前まで）解除
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
+                    {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
+                  </button>
+                  {canCancelMahjong(selectedDate) ? (
+                    <button onClick={() => toggle(selectedDate, true)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
+                  ) : (
+                    <span className="text-[10px] text-[#97999d]">解除期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
+                  )}
+                </div>
+              ) : entered ? (
+                // 支払い不要（staff等）＝参加確定。解除のみ（7日前まで）
+                canCancelMahjong(selectedDate) ? (
+                  <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
+                ) : (
+                  <span className="shrink-0 text-[10px] text-[#97999d]">解除期限切れ</span>
+                )
               ) : (
-                <button onClick={() => toggle(selectedDate, entered)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={entered ? { background: "#eef4ee", color: ACCENT, boxShadow: `inset 0 0 0 1.5px ${ACCENT}` } : { background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
-                  {entered && busy !== selectedDate && <CheckIcon color={ACCENT} />}
-                  {busy === selectedDate ? "..." : entered ? "参加中" : "参加する"}
+                <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
+                  {busy === selectedDate ? "..." : "参加する"}
                 </button>
               )}
             </div>

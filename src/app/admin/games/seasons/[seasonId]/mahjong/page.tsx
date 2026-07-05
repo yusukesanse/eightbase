@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import type {
   MahjongStanding,
   MahjongTable,
@@ -63,6 +64,8 @@ export default function SeasonMahjongPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+  // 当日進行（抜け番）などを追従（15秒ポーリング＋復帰時）
+  useAutoRefresh(fetchAll, 15000);
 
   async function confirmLeague() {
     if (
