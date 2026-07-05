@@ -168,12 +168,20 @@ export default function SeasonsPage() {
           <h2 className="text-2xl font-bold text-[#231714]">シーズン管理</h2>
           <p className="text-sm text-[#231714]/40 mt-1">ランキング集計期間の作成・管理</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors"
-        >
-          ＋ 新規作成
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/admin/games/mahjong-schedule"
+            className="px-4 py-2 border border-[#231714]/15 text-[#231714] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            麻雀 休催日設定
+          </a>
+          <button
+            onClick={openCreate}
+            className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors"
+          >
+            ＋ 新規作成
+          </button>
+        </div>
       </div>
 
       {/* 一覧 */}

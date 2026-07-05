@@ -111,6 +111,11 @@ export async function POST(req: NextRequest) {
     if (!isSaturday(eventDate)) {
       return NextResponse.json({ error: "開催日は土曜日のみです" }, { status: 400 });
     }
+    // 休催日（管理者が非活性化した土曜）は参加不可
+    const closed = await getDb().collection("mahjongClosedDates").doc(eventDate).get();
+    if (closed.exists) {
+      return NextResponse.json({ error: "この開催日は休催です" }, { status: 409 });
+    }
 
     const season = await getActiveSeason();
     if (!season) {

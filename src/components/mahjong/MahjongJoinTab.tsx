@@ -24,12 +24,14 @@ import {
 
 export function JoinTab({
   enteredDates,
+  closedDates,
   tables,
   paymentRequired,
   paymentStatusByDate,
   onChanged,
 }: {
   enteredDates: Set<string>;
+  closedDates: Set<string>;
   tables: PublicMahjongTable[];
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
@@ -103,6 +105,7 @@ export function JoinTab({
   const isSat = (dateStr: string) => new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
   const selectable = (dateStr: string) => {
     if (!isSat(dateStr) || dateStr < today) return false;
+    if (closedDates.has(dateStr)) return false; // 休催日は選べない
     if (enteredDates.has(dateStr)) return true;
     const ym = dateStr.slice(0, 7);
     return !enteredArr.some((e) => e.slice(0, 7) === ym); // 同月に他の参加があれば不可

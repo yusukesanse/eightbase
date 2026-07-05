@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/firebaseAdmin";
+import { checkAdminAuth } from "@/lib/adminAuth";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * 麻雀の休催日（毎週土曜の開催を個別に止める）。クリックでトグルする前提。
+ *  GET    … 休催日一覧
+ *  POST   { date } … 休催にする（土曜のみ）
+ *  DELETE ?date= … 開催に戻す
+ */
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const isSaturday = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay() === 6;
+
+export async function GET(req: NextRequest) {
+  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const snap = await getDb().collection("mahjongClosedDates").get();
+  const dates = snap.docs.map((d) => (d.data().date as string) || d.id).filter(Boolean);
+  return NextResponse.json({ dates });
+}
+
+export async function POST(req: NextRequest) {
+  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const body = await req.json().catch(() => null);
+  const date: unknown = body?.date;
+  if (typeof date !== "string" || !DATE_RE.test(date) || !isSaturday(date)) {
+    return NextResponse.json({ error: "土曜の日付を指定してください" }, { status: 400 });
+  }
+  await getDb().collection("mahjongClosedDates").doc(date).set({ date, closedAt: new Date().toISOString() });
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const date = req.nextUrl.searchParams.get("date");
+  if (!date || !DATE_RE.test(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
+  await getDb().collection("mahjongClosedDates").doc(date).delete();
+  return NextResponse.json({ success: true });
+}

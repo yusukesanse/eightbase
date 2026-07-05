@@ -45,11 +45,20 @@ export function MahjongLeagueView() {
   // WP3: 参加費決済の戻り（?mjpay=）結果バナー
   const [payBanner, setPayBanner] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // シーズン一覧（セレクタ用・初回のみ）
+  // 休催日（管理者が非活性化した土曜）
+  const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
+
+  // シーズン一覧＋休催日（初回のみ）
   useEffect(() => {
     fetch("/api/mahjong/seasons", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setSeasons(d.seasons ?? []))
+      .catch(() => {
+        /* noop */
+      });
+    fetch("/api/mahjong/closed-dates", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setClosedDates(new Set<string>(d.dates ?? [])))
       .catch(() => {
         /* noop */
       });
@@ -182,6 +191,7 @@ export function MahjongLeagueView() {
       ) : subTab === "join" ? (
         <JoinTab
           enteredDates={enteredDates}
+          closedDates={closedDates}
           tables={tables}
           paymentRequired={paymentRequired}
           paymentStatusByDate={paymentStatusByDate}
