@@ -181,6 +181,20 @@ npx tsc --noEmit     # TypeScript 型チェック
 - `.env.local` は `.gitignore` に含まれています
 - 環境変数は Vercel のプロジェクト設定で一元管理してください
 
+## 開発コマンド（型チェック / lint / テスト）
+
+CI・ローカルで再現可能。lint はプロジェクト直下の `.eslintrc.json`（`next/core-web-vitals`）
+により**非対話で実行**できます（初回セットアップのプロンプトは出ません）。
+
+```sh
+npx tsc --noEmit   # 型チェック（エラー0を維持）
+npm run lint       # ESLint（next lint・非対話）。現状エラー0・警告のみ（img/deps）
+npm test           # Jest（設定に ts-node が必要。CIでは ts-jest/ts-node を導入）
+```
+
+- `npm run lint` は警告（`@next/next/no-img-element` 等）が残るがエラー0で exit 0（CI通過可）。
+- `src/dev-only/**` は lint 対象外（develop専用）。
+
 ## ライセンス
 
 Private — All rights reserved.
