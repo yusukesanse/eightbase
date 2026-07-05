@@ -4,7 +4,21 @@ import { useEffect, useState, useCallback } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { isDevLoginEnabled } from "@/lib/env";
-import type { MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer } from "@/types";
+
+/** 公開DTO（サーバーで lineUserId を除去し isMe/seed を付与）。 */
+interface PubCsPlayer { displayName: string; pictureUrl?: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }
+interface PubCsMatch { matchId: string; label: string; status: "reporting" | "completed"; players: PubCsPlayer[] }
+interface PubCsRound { type: string; label: string; advanceCount: number; matches: PubCsMatch[] }
+interface PubCsEvent {
+  csEventId: string;
+  name: string;
+  eventDate: string;
+  status: string;
+  demoDummy: boolean;
+  champion: { displayName: string; pictureUrl?: string } | null;
+  entrants: { displayName: string; seed: boolean; isMe: boolean }[];
+  rounds: PubCsRound[];
+}
 
 /**
  * CS > 麻雀（TILES 案）— 縦トーナメント表
@@ -22,22 +36,16 @@ const CARD_W = 158;
 const GAP = 12;
 
 export function MahjongCsView() {
-  const [event, setEvent] = useState<MahjongCsEvent | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+  const [event, setEvent] = useState<PubCsEvent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [inputMatch, setInputMatch] = useState<MahjongCsMatch | null>(null);
+  const [inputMatch, setInputMatch] = useState<PubCsMatch | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
-    return Promise.all([
-      fetch("/api/mahjong/cs", { credentials: "include" }).then((r) => r.json()),
-      fetch("/api/mahjong/standings", { credentials: "include" }).then((r) => r.json()),
-    ])
-      .then(([cs, st]) => {
-        setEvent(cs.event ?? null);
-        setCurrentUserId(st.currentUserId);
-      })
+    return fetch("/api/mahjong/cs", { credentials: "include" })
+      .then((r) => r.json())
+      .then((cs) => setEvent(cs.event ?? null))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -47,7 +55,7 @@ export function MahjongCsView() {
   }, [load]);
 
   // DEV-ONLY（develop 専用 / main へ入れない）: デモCSのみ結果入力UIを出す。本番は false。
-  const demo = isDevLoginEnabled() && !!(event as { demoDummy?: boolean } | null)?.demoDummy;
+  const demo = isDevLoginEnabled() && !!event?.demoDummy;
 
   const reportMatch = useCallback(
     async (csEventId: string, matchId: string, body: { points?: number; rank?: number; auto?: boolean }) => {
@@ -89,8 +97,7 @@ export function MahjongCsView() {
     );
   }
 
-  const seedSet = new Set(event.entrants.filter((e) => e.seed).map((e) => e.lineUserId));
-  const champ = event.championId ? event.entrants.find((e) => e.lineUserId === event.championId) : null;
+  const champ = event.champion;
   // 木は上から 決勝→準決→予選。rounds は予選→決勝の順なので反転。
   const roundsTopDown = [...event.rounds].reverse();
 
@@ -131,8 +138,6 @@ export function MahjongCsView() {
                         <MatchCard
                           match={m}
                           gold={gold}
-                          currentUserId={currentUserId}
-                          seedSet={seedSet}
                           demo={demo}
                           onInput={() => setInputMatch(m)}
                         />
@@ -153,7 +158,6 @@ export function MahjongCsView() {
       {inputMatch && event && (
         <CsInputSheet
           match={inputMatch}
-          meId={currentUserId}
           busy={busy}
           error={inputError}
           onClose={() => {
@@ -215,20 +219,16 @@ function Connector({ lowerCount }: { lowerCount: number }) {
 function MatchCard({
   match,
   gold,
-  currentUserId,
-  seedSet,
   demo,
   onInput,
 }: {
-  match: MahjongCsMatch;
+  match: PubCsMatch;
   gold: boolean;
-  currentUserId?: string;
-  seedSet: Set<string>;
   demo: boolean;
   onInput: () => void;
 }) {
   const done = match.status === "completed";
-  const iAmIn = !!currentUserId && match.players.some((p) => p.lineUserId === currentUserId);
+  const iAmIn = match.players.some((p) => p.isMe);
   return (
     <div
       className="rounded-xl bg-white border border-gray-100 shadow-sm p-2"
@@ -245,12 +245,12 @@ function MatchCard({
       <div className="flex flex-col gap-1">
         {[...match.players]
           .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-          .map((p) => (
+          .map((p, i) => (
             <BracketSlot
-              key={p.lineUserId}
+              key={i}
               p={p}
-              me={p.lineUserId === currentUserId}
-              seed={seedSet.has(p.lineUserId)}
+              me={p.isMe}
+              seed={p.seed}
               advanced={done && p.rank === 1}
               pending={!done}
             />
@@ -276,7 +276,7 @@ function BracketSlot({
   advanced,
   pending,
 }: {
-  p: MahjongCsMatchPlayer;
+  p: PubCsPlayer;
   me: boolean;
   seed: boolean;
   advanced: boolean;
@@ -321,21 +321,19 @@ function BracketSlot({
  */
 function CsInputSheet({
   match,
-  meId,
   busy,
   error,
   onClose,
   onReport,
 }: {
-  match: MahjongCsMatch;
-  meId?: string;
+  match: PubCsMatch;
   busy: boolean;
   error: string | null;
   onClose: () => void;
   onReport: (body: { points?: number; rank?: number; auto?: boolean }) => void;
 }) {
   const n = match.players.length;
-  const iAmIn = !!meId && match.players.some((p) => p.lineUserId === meId);
+  const iAmIn = match.players.some((p) => p.isMe);
   const [points, setPoints] = useState("");
   const [rank, setRank] = useState<number | null>(null);
   const pointsNum = Number(points);
@@ -404,8 +402,8 @@ function CsInputSheet({
         <>
           <p className="text-[11px] text-[#231714]/50 mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
           <div className="flex flex-col gap-1.5 mb-4">
-            {match.players.map((p) => (
-              <div key={p.lineUserId} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
+            {match.players.map((p, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
                 <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
                 <span className="text-[13px] font-bold text-[#1c1f21]">{p.displayName}</span>
               </div>
