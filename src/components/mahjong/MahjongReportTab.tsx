@@ -3,142 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { PublicMahjongTable, MahjongDaySwap, MahjongRotMember } from "@/types";
 import { isDevLoginEnabled } from "@/lib/env";
-import { ACCENT, formatJpDate, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
+import { ACCENT, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/LineContact";
 
 /* ───────── 申告タブ ───────── */
 
-export function ReportTab({ tables, onChanged }: { tables: PublicMahjongTable[]; onChanged: () => void }) {
-  // DEV-ONLY（develop 専用 / main へ入れない）: デモは抜け番の当日進行ビュー。本番は従来の自己申告。
-  if (isDevLoginEnabled()) return <DemoRotationView onChanged={onChanged} />;
-  return <ProductionReportTab tables={tables} onChanged={onChanged} />;
-}
-
-function ProductionReportTab({
-  tables,
-  onChanged,
-}: {
-  tables: PublicMahjongTable[];
-  onChanged: () => void;
-}) {
-  const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
-  // 表示中の半荘（round）。null なら「現在打っている半荘」を自動選択。
-  const [viewRound, setViewRound] = useState<number | null>(null);
-
-  if (tables.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
-        まだ卓が組まれていません。<br />
-        卓が組まれるとここで申告できます。
-      </div>
-    );
-  }
-
-  const sorted = tables
-    .slice()
-    .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || (a.round ?? 0) - (b.round ?? 0));
-
-  // 当日は固定卓（卓移動なし）。表示は直近開催日の“現在の半荘”1つだけ
-  // （過去日・過去半荘は出さない＝戦歴側で確認）。半荘数の上限は設けない。
-  const currentDate = sorted[0]?.eventDate;
-  const dayTables = sorted
-    .filter((t) => t.eventDate === currentDate)
-    .sort((a, b) => (a.round ?? 1) - (b.round ?? 1));
-
-  // 現在の半荘: 未完了の最小round（＝いま打っている半荘）。無ければ最後の半荘。
-  const maxRound = dayTables[dayTables.length - 1]?.round ?? 1;
-  const defaultRound = dayTables.find((t) => t.status !== "completed")?.round ?? maxRound;
-  const round = Math.min(viewRound ?? defaultRound, maxRound);
-  const shown = dayTables.find((t) => (t.round ?? 1) === round) ?? dayTables[dayTables.length - 1];
-
-  if (!shown) {
-    return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
-        まだ卓が組まれていません。
-      </div>
-    );
-  }
-
-  const me = shown.members.find((m) => m.isCurrentUser);
-  const reportedCount = shown.members.filter((m) => m.points !== null).length;
-  const shownRound = shown.round ?? 1;
-  const isCompleted = shown.status === "completed";
-  const needReport = !!me && me.points === null && !isCompleted;
-  const reported = !!me && me.points !== null && !isCompleted; // 申告済み・未確定（本番の待ち）
-  const nextTable = dayTables.find((t) => (t.round ?? 1) === shownRound + 1);
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* 当日の卓（現在の半荘・1つだけ） */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-extrabold text-[#231714]">{formatJpDate(shown.eventDate)}</span>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>
-            第{shownRound}半荘
-          </span>
-          <span className="flex-1" />
-          <span className="text-[11px] font-bold" style={{ color: reportedCount === 4 ? "#6f9023" : "#97999d" }}>
-            {reportedCount}/4人 申告
-          </span>
-        </div>
-
-        <TableBoard table={shown} />
-
-        {needReport ? (
-          <button
-            onClick={() => setReportTable(shown)}
-            className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
-            style={{ background: ACCENT }}
-          >
-            <CheckIcon size={17} />スコアを申告する
-          </button>
-        ) : isCompleted ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold" style={{ background: "#eef4dd", color: "#6f9023" }}>
-              <CheckIcon color="#6f9023" size={16} />第{shownRound}半荘 確定済み
-            </div>
-            {nextTable ? (
-              // 全員の申告で確定 → 次の半荘を申告する
-              <button
-                onClick={() => {
-                  setViewRound(shownRound + 1);
-                  setReportTable(nextTable);
-                }}
-                className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
-                style={{ background: ACCENT }}
-              >
-                <CheckIcon size={17} />第{shownRound + 1}半荘を申告する
-              </button>
-            ) : (
-              <div className="text-center text-[11px] text-[#97999d] py-1">次の半荘は運営が準備します</div>
-            )}
-          </div>
-        ) : reported ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-extrabold" style={{ background: "#eef4dd", color: "#6f9023" }}>
-              <CheckIcon color="#6f9023" size={16} />申告済み — 全員の申告で確定します
-            </div>
-            <button onClick={() => setReportTable(shown)} className="w-full py-2 rounded-xl text-[12px] font-bold text-[#231714]/60 bg-gray-100">
-              申告をやり直す
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      {reportTable && (
-        <ReportModal
-          table={reportTable}
-          onClose={() => setReportTable(null)}
-          onDone={() => {
-            setViewRound(reportTable.round ?? 1);
-            setReportTable(null);
-            onChanged();
-          }}
-        />
-      )}
-    </div>
-  );
+export function ReportTab({ onChanged }: { tables?: PublicMahjongTable[]; onChanged: () => void }) {
+  // 当日進行（自動卓組み・抜け番）。本番=自己申告、デモ=ダミー自動補完。UIは共通。
+  return <RotationView onChanged={onChanged} />;
 }
 
 function ReportModal({
@@ -149,7 +22,7 @@ function ReportModal({
 }: {
   table: PublicMahjongTable;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (data?: { swap?: MahjongDaySwap | null }) => void;
   /** 差し替え送信（デモ抜け番は自分の順位を当日進行APIへ渡す）。指定時は既定の申告APIを使わない。 */
   onSubmit?: (points: number, rank: number) => Promise<void>;
 }) {
@@ -184,7 +57,7 @@ function ReportModal({
       });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "申告に失敗しました");
-      else onDone();
+      else onDone(data);
     } catch {
       setError("申告に失敗しました");
     } finally {
@@ -281,7 +154,8 @@ interface DayResp {
   tables: PublicMahjongTable[];
 }
 
-function DemoRotationView({ onChanged }: { onChanged: () => void }) {
+function RotationView({ onChanged }: { onChanged: () => void }) {
+  const demo = isDevLoginEnabled();
   const eventDate = todayJst();
   const [day, setDay] = useState<DayResp | null>(null);
   const [loading, setLoading] = useState(true);
@@ -367,15 +241,19 @@ function DemoRotationView({ onChanged }: { onChanged: () => void }) {
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
           <div className="text-[13px] font-extrabold text-[#231714]">今回は待機（抜け番）です</div>
-          <div className="text-[11px] text-[#231714]/50 mt-1 mb-3">この半荘を進めると、次の卓で交代・INします</div>
-          <button
-            onClick={() => advance()}
-            disabled={busy}
-            className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white disabled:opacity-50"
-            style={{ background: ACCENT }}
-          >
-            {busy ? "進行中..." : "この半荘を進める（デモ）"}
-          </button>
+          <div className="text-[11px] text-[#231714]/50 mt-1 mb-3">
+            {demo ? "この半荘を進めると、次の卓で交代・INします" : "対戦中の卓が終わると、次の半荘で交代・INします"}
+          </div>
+          {demo && (
+            <button
+              onClick={() => advance()}
+              disabled={busy}
+              className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white disabled:opacity-50"
+              style={{ background: ACCENT }}
+            >
+              {busy ? "進行中..." : "この半荘を進める（デモ）"}
+            </button>
+          )}
         </div>
       )}
 
@@ -399,9 +277,21 @@ function DemoRotationView({ onChanged }: { onChanged: () => void }) {
         )}
       </div>
 
-      {reportTable && (
-        <ReportModal table={reportTable} onClose={() => setReportTable(null)} onDone={() => {}} onSubmit={(_p, r) => advance(r)} />
-      )}
+      {reportTable &&
+        (demo ? (
+          <ReportModal table={reportTable} onClose={() => setReportTable(null)} onDone={() => {}} onSubmit={(_p, r) => advance(r)} />
+        ) : (
+          <ReportModal
+            table={reportTable}
+            onClose={() => setReportTable(null)}
+            onDone={(data) => {
+              setReportTable(null);
+              if (data?.swap) setSwap(data.swap);
+              load();
+              onChanged();
+            }}
+          />
+        ))}
       {swap && <SwapSheet swap={swap} onClose={() => setSwap(null)} />}
     </div>
   );

@@ -3,22 +3,22 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
 import { getActiveSeason, toPublicMahjongTable } from "@/lib/mahjong";
+import { startDay } from "@/lib/mahjongDay";
 import { advanceDemoDay } from "@/dev-only/mahjongDemo";
 import type { MahjongDayState, MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 /**
- * DEV-ONLY（develop 専用 / main へ入れない）
- * 当日の抜け番進行（デモ検証専用・非本番）。
- *  GET  ?eventDate=YYYY-MM-DD … 現ラウンドの卓＋待機キュー＋直近の交代結果
- *  PATCH { eventDate, myRank? } … 現ラウンドを確定→抜け番で次半荘を自動生成
+ * 当日の抜け番進行。
+ *  GET  ?eventDate= … 現ラウンドの卓＋待機キュー＋直近の交代結果（開催日は自動で卓組み）
+ *  PATCH { eventDate, myRank? } … DEV-ONLY: デモの半荘進行（ダミー補完→次卓生成）
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const jstToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 
 export async function GET(req: NextRequest) {
-  if (isProduction()) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const userId = await requireGameUser(req);
   if (!userId) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
   const season = await getActiveSeason();
   if (!season) return NextResponse.json({ round: 1, waiting: [], lastSwap: null, tables: [] });
 
+  // 開催日を迎えていれば自動で卓組み（参加者4名以上・冪等。管理者操作不要）。
+  if (eventDate <= jstToday()) {
+    await startDay(season.seasonId, eventDate).catch(() => {});
+  }
+
   const db = getDb();
   const daySnap = await db.collection("mahjongDayState").doc(`${season.seasonId}_${eventDate}`).get();
   const day = daySnap.exists ? (daySnap.data() as MahjongDayState) : null;
@@ -36,8 +41,8 @@ export async function GET(req: NextRequest) {
 
   const snap = await db.collection("mahjongTables").where("seasonId", "==", season.seasonId).get();
   const tables = snap.docs
-    .map((d) => ({ ...(d.data() as MahjongTable & { demoDummy?: boolean }), tableId: d.id }))
-    .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round && t.demoDummy)
+    .map((d) => ({ ...(d.data() as MahjongTable), tableId: d.id }))
+    .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
     .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""))
     .map((t) => toPublicMahjongTable(t, userId));
 

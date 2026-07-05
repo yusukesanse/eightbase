@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { validateTableReports } from "@/lib/mahjong";
+import { advanceDayIfRoundComplete } from "@/lib/mahjongDay";
 import type { MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -85,17 +86,31 @@ export async function POST(
         updatedAt: nowIso,
       });
 
-      return { status: 200 as const, validation, tableStatus: status };
+      return {
+        status: 200 as const,
+        validation,
+        tableStatus: status,
+        completed: status === "completed",
+        seasonId: table.seasonId,
+        eventDate: table.eventDate,
+      };
     });
 
     if (result.status !== 200) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
+    // 卓が確定したら、現ラウンドの全卓が揃ったか判定し、揃っていれば抜け番で次半荘を自動生成。
+    let swap = null;
+    if (result.completed) {
+      swap = await advanceDayIfRoundComplete(result.seasonId, result.eventDate);
+    }
+
     return NextResponse.json({
       success: true,
       tableStatus: result.tableStatus,
       validation: result.validation,
+      swap,
     });
   } catch (error) {
     console.error("[mahjong/tables/:id/report] POST error:", error);
