@@ -1,12 +1,21 @@
 "use client";
 
-import { useState, useRef } from "react";
-import type { PublicMahjongTable } from "@/types";
-import { ACCENT, formatJpDate, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
+import { useState, useRef, useEffect, useCallback } from "react";
+import type { PublicMahjongTable, MahjongDaySwap, MahjongRotMember } from "@/types";
+import { isDevLoginEnabled } from "@/lib/env";
+import { ACCENT, formatJpDate, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
+import { BottomSheet } from "@/components/ui/Sheet";
+import { Avatar } from "@/components/ui/LineContact";
 
 /* ───────── 申告タブ ───────── */
 
-export function ReportTab({
+export function ReportTab({ tables, onChanged }: { tables: PublicMahjongTable[]; onChanged: () => void }) {
+  // DEV-ONLY（develop 専用 / main へ入れない）: デモは抜け番の当日進行ビュー。本番は従来の自己申告。
+  if (isDevLoginEnabled()) return <DemoRotationView onChanged={onChanged} />;
+  return <ProductionReportTab tables={tables} onChanged={onChanged} />;
+}
+
+function ProductionReportTab({
   tables,
   onChanged,
 }: {
@@ -136,10 +145,13 @@ function ReportModal({
   table,
   onClose,
   onDone,
+  onSubmit,
 }: {
   table: PublicMahjongTable;
   onClose: () => void;
   onDone: () => void;
+  /** 差し替え送信（デモ抜け番は自分の順位を当日進行APIへ渡す）。指定時は既定の申告APIを使わない。 */
+  onSubmit?: (points: number, rank: number) => Promise<void>;
 }) {
   const [points, setPoints] = useState("");
   const [rank, setRank] = useState<number | null>(null);
@@ -160,6 +172,10 @@ function ReportModal({
     }
     setBusy(true);
     try {
+      if (onSubmit) {
+        await onSubmit(p, rank); // 差し替え（デモ抜け番）。閉じるは呼び出し側。
+        return;
+      }
       const res = await fetch(`/api/mahjong/tables/${table.tableId}/report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -250,5 +266,179 @@ function ReportModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ───────── デモ: 抜け番の当日進行ビュー（dev-only） ───────── */
+
+interface DayMember extends MahjongRotMember {
+  isMe?: boolean;
+}
+interface DayResp {
+  round: number;
+  waiting: DayMember[];
+  lastSwap: MahjongDaySwap | null;
+  tables: PublicMahjongTable[];
+}
+
+function DemoRotationView({ onChanged }: { onChanged: () => void }) {
+  const eventDate = todayJst();
+  const [day, setDay] = useState<DayResp | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
+  const [swap, setSwap] = useState<MahjongDaySwap | null>(null);
+
+  const load = useCallback(() => {
+    return fetch(`/api/mahjong/day?eventDate=${eventDate}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setDay(d))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [eventDate]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const advance = useCallback(
+    async (myRank?: number) => {
+      setBusy(true);
+      try {
+        const res = await fetch("/api/mahjong/day", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ eventDate, myRank }),
+        });
+        const data = await res.json().catch(() => ({}));
+        setReportTable(null);
+        if (data?.swap) setSwap(data.swap);
+        await load();
+        onChanged();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [eventDate, load, onChanged]
+  );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!day || day.tables.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+        まだ卓が組まれていません。
+      </div>
+    );
+  }
+
+  const myTable = day.tables.find((t) => t.members.some((m) => m.isCurrentUser)) ?? null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
+        <div>
+          <div className="text-[12px] font-extrabold text-[#40434a]">第{day.round}半荘・抜け番あり</div>
+          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">半荘ごとに自動で卓を組み直します</div>
+        </div>
+        <span className="text-[12px] font-black" style={{ color: myTable ? ACCENT : "#c0563c" }}>{myTable ? "対戦中" : "待機中"}</span>
+      </div>
+
+      {myTable ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-extrabold text-[#231714]">{myTable.tableLabel}卓</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>第{day.round}半荘</span>
+          </div>
+          <TableBoard table={myTable} />
+          <button
+            onClick={() => setReportTable(myTable)}
+            className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
+            style={{ background: ACCENT }}
+          >
+            <CheckIcon size={17} />スコアを申告する
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <div className="text-[13px] font-extrabold text-[#231714]">今回は待機（抜け番）です</div>
+          <div className="text-[11px] text-[#231714]/50 mt-1 mb-3">この半荘を進めると、次の卓で交代・INします</div>
+          <button
+            onClick={() => advance()}
+            disabled={busy}
+            className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white disabled:opacity-50"
+            style={{ background: ACCENT }}
+          >
+            {busy ? "進行中..." : "この半荘を進める（デモ）"}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5">
+        <div className="text-[11px] font-extrabold text-[#97999d] mb-2">待機順（先頭が次にIN）</div>
+        {day.waiting.length === 0 ? (
+          <div className="text-[11px] text-[#231714]/40">待機者はいません</div>
+        ) : (
+          <ol className="flex flex-col gap-1.5">
+            {day.waiting.map((w, i) => (
+              <li key={w.lineUserId} className="flex items-center gap-2 text-[12.5px]">
+                <span className="w-5 text-[#97999d] font-bold tabular-nums">{i + 1}</span>
+                <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
+                <span className="font-bold text-[#1c1f21]">
+                  {w.displayName}
+                  {w.isMe && <span className="ml-1 text-[10px] text-[#5f7a80]">（あなた）</span>}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      {reportTable && (
+        <ReportModal table={reportTable} onClose={() => setReportTable(null)} onDone={() => {}} onSubmit={(_p, r) => advance(r)} />
+      )}
+      {swap && <SwapSheet swap={swap} onClose={() => setSwap(null)} />}
+    </div>
+  );
+}
+
+/** 「次の卓はこちらです」: 交代OUT/IN・縮退理由を表示。 */
+function SwapSheet({ swap, onClose }: { swap: MahjongDaySwap; onClose: () => void }) {
+  const Col = ({ label, color, people }: { label: string; color: string; people: MahjongRotMember[] }) => (
+    <div>
+      <div className="text-[11px] font-extrabold mb-1.5" style={{ color }}>{label}</div>
+      {people.length === 0 ? (
+        <div className="text-[11px] text-[#231714]/40">なし</div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {people.map((p) => (
+            <div key={p.lineUserId} className="flex items-center gap-1.5">
+              <Avatar src={p.pictureUrl} name={p.displayName} size={22} />
+              <span className="text-[12px] font-bold text-[#1c1f21] truncate">{p.displayName}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <BottomSheet open title="次の卓はこちらです" onClose={onClose}>
+      <p className="text-[12px] text-[#231714]/60 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。</p>
+      {swap.reason && (
+        <div className="mb-3 rounded-xl bg-[#fdf4e3] px-3 py-2 text-[12px] font-bold text-[#b48f13]">{swap.reason}</div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <Col label="退席（OUT）" color="#c0563c" people={swap.out} />
+        <Col label="新加入（IN）" color="#6f9023" people={swap.in} />
+      </div>
+      <button onClick={onClose} className="mt-5 w-full py-3 rounded-2xl text-sm font-extrabold text-white" style={{ background: ACCENT }}>
+        次の卓へ
+      </button>
+    </BottomSheet>
   );
 }

@@ -207,6 +207,34 @@ export interface MahjongLeagueAssignment {
   tableCount: number;
 }
 
+// ─── 麻雀リーグ 当日状態（抜け番・待機キュー） ───────────────────────────────
+
+export interface MahjongRotMember {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+}
+
+/** 直近の交代結果（「次の卓はこちらです」モーダル表示に使う）。 */
+export interface MahjongDaySwap {
+  round: number; // 確定した半荘（この結果で次半荘を生成）
+  out: MahjongRotMember[];
+  in: MahjongRotMember[];
+  shrunk: boolean;
+  reason?: string | null;
+}
+
+/** 開催日ごとの進行状態。待機キュー(FIFO)と現ラウンドを保持し、自動生成の冪等性を担保。 */
+export interface MahjongDayState {
+  seasonId: string;
+  eventDate: string;
+  round: number; // 現在募集中の半荘
+  waiting: MahjongRotMember[]; // 待機キュー（先頭が次にIN）
+  tableLabels: string[];
+  lastSwap?: MahjongDaySwap | null;
+  updatedAt: string;
+}
+
 // ─── 麻雀チャンピオンシップ（CS / トーナメント） ───────────────────────────────
 
 export type MahjongCsRoundType = "prelim" | "semi" | "final";

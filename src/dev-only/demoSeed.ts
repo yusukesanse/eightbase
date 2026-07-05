@@ -42,6 +42,7 @@ const DUMMIES: P[] = [
   { lineUserId: "demo-dummy-08", displayName: "中村 剛" },
   { lineUserId: "demo-dummy-09", displayName: "小林 花" },
   { lineUserId: "demo-dummy-10", displayName: "加藤 匠" },
+  { lineUserId: "demo-dummy-11", displayName: "松本 蓮" },
 ];
 
 const POINTS = [40000, 30000, 20000, 10000];
@@ -126,29 +127,40 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     tableCount++;
   }
 
-  // 3) 当日の卓（未申告 reporting）＝申告タブ確認用。demoユーザーを含める（自分の卓として表示）。
-  const liveGroup: P[] = [SELF, DUMMIES[0], DUMMIES[1], DUMMIES[2]];
-  await db.collection("mahjongTables").doc(`demo-tbl-${seasonId}-live`).set({
+  // 3) 当日の卓（抜け番デモ）: 2卓(8名)＋待機4名＝12名。round1・reporting。
+  //    demoユーザーは A卓。dayState に待機キュー(FIFO)・現ラウンドを保存し、半荘確定ごとに
+  //    src/lib/mahjongRotation で次卓を自動生成する（/api/mahjong/day）。
+  const dayA: P[] = [SELF, DUMMIES[0], DUMMIES[1], DUMMIES[2]];
+  const dayB: P[] = [DUMMIES[3], DUMMIES[4], DUMMIES[5], DUMMIES[6]];
+  const dayWaiting: P[] = [DUMMIES[7], DUMMIES[8], DUMMIES[9], DUMMIES[10]];
+  const reportingMembers = (g: P[]) =>
+    g.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "", points: null, rank: null, reportedAt: null }));
+  for (const [label, group] of [["A", dayA], ["B", dayB]] as const) {
+    await db.collection("mahjongTables").doc(`demo-tbl-${seasonId}-${today}-r1-${label}`).set({
+      seasonId,
+      eventDate: today,
+      createdBy: "system",
+      memberIds: group.map((p) => p.lineUserId),
+      members: reportingMembers(group),
+      status: "reporting",
+      round: 1,
+      tableLabel: label,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      ...DUMMY_FLAG,
+    });
+    tableCount++;
+  }
+  await db.collection("mahjongDayState").doc(`${seasonId}_${today}`).set({
     seasonId,
     eventDate: today,
-    createdBy: "system",
-    memberIds: liveGroup.map((p) => p.lineUserId),
-    members: liveGroup.map((p) => ({
-      lineUserId: p.lineUserId,
-      displayName: p.displayName,
-      pictureUrl: "",
-      points: null,
-      rank: null,
-      reportedAt: null,
-    })),
-    status: "reporting",
     round: 1,
-    tableLabel: "A",
-    createdAt: nowIso,
+    waiting: dayWaiting.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "" })),
+    tableLabels: ["A", "B"],
+    lastSwap: null,
     updatedAt: nowIso,
     ...DUMMY_FLAG,
   });
-  tableCount++;
 
   // 4) 当日の参加表明（支払い済み）＝人数確保。ゲスト/スタッフでログインして参加・支払いを試せるよう
   //    7名だけ入れ、残り1枠（先着8名）を空ける。
@@ -212,7 +224,7 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
  */
 export async function clearDemoParticipants(): Promise<Record<string, number>> {
   const db = getDb();
-  const collections = ["mahjongEntries", "mahjongTables", "mahjongSchedule", "mahjongCsEvents"];
+  const collections = ["mahjongEntries", "mahjongTables", "mahjongSchedule", "mahjongCsEvents", "mahjongDayState"];
   const result: Record<string, number> = {};
 
   for (const col of collections) {

@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { validateTableReports } from "@/lib/mahjong";
-import { isProduction } from "@/lib/env";
-// DEV-ONLY（develop 専用 / main へ入れない）: デモ卓の自動補完＋次半荘生成。
-import { isDemoTable, buildDemoTableCompletion } from "@/dev-only/mahjongDemo";
 import type { MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -72,19 +69,6 @@ export async function POST(
       }
 
       const nowIso = new Date().toISOString();
-
-      // DEV-ONLY（develop 専用 / main へ入れない）: デモ卓のみ、demoユーザー1人の申告で
-      // 他ダミーを補完して半荘成立→次半荘を自動生成。本番・通常卓には一切適用しない。
-      if (!isProduction() && isDemoTable(table as { demoDummy?: boolean })) {
-        const { filled, nextTable } = buildDemoTableCompletion(table, userId, rank);
-        tx.update(ref, { members: filled, status: "completed", updatedAt: nowIso });
-        if (nextTable) tx.set(db.collection("mahjongTables").doc(nextTable.id), nextTable.data);
-        return {
-          status: 200 as const,
-          validation: { ok: true, allReported: true, total: 100000 },
-          tableStatus: "completed" as const,
-        };
-      }
 
       const members = table.members.map((m) =>
         m.lineUserId === userId
