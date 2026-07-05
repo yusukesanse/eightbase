@@ -70,6 +70,32 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+    // キャンセル依頼中は支払い不可（返金錯綜・二重order防止）。
+    if (entry.paymentStatus === "cancelRequested") {
+      return NextResponse.json(
+        { error: "CANCEL_REQUESTED", message: "キャンセル依頼中のためお支払いできません。" },
+        { status: 409 }
+      );
+    }
+    // 参加後に休催化された場合は支払い不可。
+    const closed = await db.collection("mahjongClosedDates").doc(eventDate).get();
+    if (closed.exists) {
+      return NextResponse.json(
+        { error: "CLOSED_DATE", message: "この開催日は休催になりました。" },
+        { status: 409 }
+      );
+    }
+    // 二重リンク発行防止: 未失効の pending があれば新規リンクを発行しない。
+    if (
+      entry.paymentStatus === "pending" &&
+      entry.pendingExpiresAt &&
+      new Date(entry.pendingExpiresAt) > new Date()
+    ) {
+      return NextResponse.json(
+        { error: "PENDING_EXISTS", message: "お支払いリンクを発行済みです。少し時間をおいて再度お試しください。" },
+        { status: 409 }
+      );
+    }
 
     // 参加確定後はいつでも支払い可。支払い期限＝開催当日ゲーム開始時刻（Asia/Tokyo 基準）。
     // - 過去日: 不可（PAST_EVENT）

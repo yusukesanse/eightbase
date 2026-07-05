@@ -48,8 +48,12 @@ export async function POST(
       );
     }
 
+    const tableId = (await params).tableId;
+    if (!/^[A-Za-z0-9_-]+$/.test(tableId)) {
+      return NextResponse.json({ error: "不正な卓IDです" }, { status: 400 });
+    }
     const db = getDb();
-    const ref = db.collection("mahjongTables").doc((await params).tableId);
+    const ref = db.collection("mahjongTables").doc(tableId);
 
     // トランザクションで同時申告の競合を防ぐ
     const result = await db.runTransaction(async (tx) => {

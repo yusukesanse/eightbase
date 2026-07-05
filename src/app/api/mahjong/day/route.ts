@@ -46,10 +46,13 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""))
     .map((t) => toPublicMahjongTable(t, userId));
 
+  // 公開整形: 内部 lineUserId は返さない（tables は toPublicMahjongTable で秘匿済み）。
+  const pub = (p: { displayName: string; pictureUrl?: string }) => ({ displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" });
+  const sw = day?.lastSwap;
   return NextResponse.json({
     round,
-    waiting: (day?.waiting ?? []).map((w) => ({ ...w, isMe: w.lineUserId === userId })),
-    lastSwap: day?.lastSwap ?? null,
+    waiting: (day?.waiting ?? []).map((w) => ({ ...pub(w), isMe: w.lineUserId === userId })),
+    lastSwap: sw ? { round: sw.round, out: sw.out.map(pub), in: sw.in.map(pub), shrunk: sw.shrunk, reason: sw.reason ?? null } : null,
     tables,
   });
 }

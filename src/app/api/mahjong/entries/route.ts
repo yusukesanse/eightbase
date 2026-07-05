@@ -69,14 +69,14 @@ export async function GET(req: NextRequest) {
 
     const myEntry = rawEntries.find((e) => e.lineUserId === userId);
 
-    // 一覧は他人の決済照合情報（注文ID・仮押さえ失効時刻）を伏せ、status（仮予約/確定）を付ける。
-    const entries = rawEntries.map((e) => {
-      const rest = { ...e };
-      delete rest.paymentTransactionId;
-      delete rest.pendingExpiresAt;
-      rest.status = rest.status ?? (rest.paymentStatus === "paid" ? "paid" : "reserved");
-      return rest;
-    });
+    // 一覧は公開DTOのみ（内部lineUserId/entryId・決済照合情報は返さない）。
+    // 他人へは表示名・アイコン・仮予約/確定だけ。自分の決済状態は下の me で返す。
+    const entries = rawEntries.map((e) => ({
+      displayName: e.displayName,
+      pictureUrl: e.pictureUrl ?? "",
+      status: e.status ?? (e.paymentStatus === "paid" ? "paid" : "reserved"),
+      isMe: e.lineUserId === userId,
+    }));
 
     return NextResponse.json({
       entries,

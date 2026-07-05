@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
     const userId = auth.lineUserId;
 
     const { rid } = (await req.json().catch(() => ({}))) as { rid?: string };
-    if (!rid || typeof rid !== "string") {
-      return NextResponse.json({ error: "rid がありません" }, { status: 400 });
+    if (!rid || typeof rid !== "string" || !/^[A-Za-z0-9_-]+$/.test(rid)) {
+      return NextResponse.json({ error: "rid が不正です" }, { status: 400 });
     }
 
     const db = getDb();

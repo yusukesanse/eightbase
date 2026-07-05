@@ -46,8 +46,8 @@ export function JoinTab({
   const [cancelDate, setCancelDate] = useState<string | null>(null);
   // カレンダーで選択中の開催日（土曜）
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  // 選択日の参加者一覧（仮予約/確定を区別して表示）
-  const [dateEntries, setDateEntries] = useState<{ lineUserId: string; displayName: string; status?: string }[]>([]);
+  // 選択日の参加者一覧（仮予約/確定を区別して表示・内部IDは持たない）
+  const [dateEntries, setDateEntries] = useState<{ displayName: string; status?: string }[]>([]);
   const today = todayJst();
 
   useEffect(() => {
@@ -264,10 +264,10 @@ export function JoinTab({
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
           <div className="text-[11px] font-extrabold text-[#97999d] mb-2">この日の参加者（{dateEntries.length}名）</div>
           <div className="flex flex-col gap-1.5">
-            {dateEntries.map((e) => {
+            {dateEntries.map((e, i) => {
               const conf = e.status === "paid";
               return (
-                <div key={e.lineUserId} className="flex items-center gap-2">
+                <div key={i} className="flex items-center gap-2">
                   <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{e.displayName}</span>
                   <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>
                     {conf ? "確定" : "仮予約"}

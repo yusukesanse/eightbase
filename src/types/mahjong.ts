@@ -102,6 +102,7 @@ export interface MahjongEntry {
   paymentTransactionId?: string; // Square orderId（決済照合用・本人以外へは非公開）
   paymentAmount?: number;        // 決済額（円）＝ MAHJONG_ENTRY_FEE
   paidAt?: string;               // 決済確定時刻 ISO8601
+  cancelRequestedAt?: string;    // キャンセル依頼時刻 ISO8601（監査用）
   pendingExpiresAt?: string;     // 決済リンクのTTL失効 ISO8601
 }
 

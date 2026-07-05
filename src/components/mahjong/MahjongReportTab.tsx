@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { PublicMahjongTable, MahjongDaySwap, MahjongRotMember } from "@/types";
+import type { PublicMahjongTable, MahjongDaySwap } from "@/types";
 import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { ACCENT, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
@@ -145,7 +145,10 @@ function ReportModal({
 
 /* ───────── デモ: 抜け番の当日進行ビュー（dev-only） ───────── */
 
-interface DayMember extends MahjongRotMember {
+/** 公開整形済み（内部lineUserIdは持たない）。 */
+interface DayMember {
+  displayName: string;
+  pictureUrl?: string;
   isMe?: boolean;
 }
 interface DayResp {
@@ -267,7 +270,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         ) : (
           <ol className="flex flex-col gap-1.5">
             {day.waiting.map((w, i) => (
-              <li key={w.lineUserId} className="flex items-center gap-2 text-[12.5px]">
+              <li key={i} className="flex items-center gap-2 text-[12.5px]">
                 <span className="w-5 text-[#97999d] font-bold tabular-nums">{i + 1}</span>
                 <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
                 <span className="font-bold text-[#1c1f21]">
@@ -302,15 +305,15 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
 
 /** 「次の卓はこちらです」: 交代OUT/IN・縮退理由を表示。 */
 function SwapSheet({ swap, onClose }: { swap: MahjongDaySwap; onClose: () => void }) {
-  const Col = ({ label, color, people }: { label: string; color: string; people: MahjongRotMember[] }) => (
+  const Col = ({ label, color, people }: { label: string; color: string; people: { displayName: string; pictureUrl?: string }[] }) => (
     <div>
       <div className="text-[11px] font-extrabold mb-1.5" style={{ color }}>{label}</div>
       {people.length === 0 ? (
         <div className="text-[11px] text-[#231714]/40">なし</div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {people.map((p) => (
-            <div key={p.lineUserId} className="flex items-center gap-1.5">
+          {people.map((p, i) => (
+            <div key={i} className="flex items-center gap-1.5">
               <Avatar src={p.pictureUrl} name={p.displayName} size={22} />
               <span className="text-[12px] font-bold text-[#1c1f21] truncate">{p.displayName}</span>
             </div>
