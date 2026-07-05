@@ -18,8 +18,6 @@ export default function SeasonMatchingPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leagueDates, setLeagueDates] = useState<MahjongScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [lastSpectators, setLastSpectators] = useState<{ displayName: string }[] | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -87,30 +85,6 @@ export default function SeasonMatchingPage() {
       credentials: "same-origin",
     });
     fetchData();
-  }
-
-  async function generateNextRound() {
-    setGenerating(true);
-    setLastSpectators(null);
-    try {
-      const res = await fetch(`/api/admin/mahjong/rounds`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ eventDate }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error ?? "卓組みに失敗しました");
-      } else {
-        setLastSpectators(data.spectators ?? []);
-        fetchData();
-      }
-    } catch {
-      alert("卓組みに失敗しました");
-    } finally {
-      setGenerating(false);
-    }
   }
 
   // ラウンドごとにグループ化
@@ -218,28 +192,16 @@ export default function SeasonMatchingPage() {
             )}
           </section>
 
-          {/* 卓組み生成 */}
+          {/* 卓組み（自動生成の確認・手動生成は廃止） */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-[#231714]">ラウンド別 卓組み</h2>
-              <button
-                onClick={generateNextRound}
-                disabled={generating || entries.length < 4}
-                className="px-4 py-2 text-xs font-bold text-[#231714] bg-[#B0E401] rounded-lg hover:opacity-90 disabled:opacity-40"
-              >
-                {generating ? "生成中..." : "次のラウンドを生成"}
-              </button>
+              <h2 className="text-sm font-bold text-[#231714]">ラウンド別 卓組み（自動）</h2>
+              <span className="text-xs text-[#231714]/40">半荘確定ごとにシステムが自動生成</span>
             </div>
-
-            {lastSpectators && lastSpectators.length > 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3 text-xs text-orange-700">
-                このラウンドの見学者: {lastSpectators.map((s) => s.displayName).join("、")}
-              </div>
-            )}
 
             {rounds.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/40">
-                まだ卓が組まれていません。参加者を4人以上にして「次のラウンドを生成」を押してください
+                まだ卓は組まれていません。開催日に参加者が集まると自動で卓が組まれます（進行は「麻雀 → 当日進行（抜け番）」で確認）
               </div>
             ) : (
               <div className="space-y-5">
