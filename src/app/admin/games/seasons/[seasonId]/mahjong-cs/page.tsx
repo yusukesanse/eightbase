@@ -56,6 +56,21 @@ export default function SeasonMahjongCsPage() {
     }
   }
 
+  async function resetBracket() {
+    if (!selected) return;
+    if (!confirm("進行をリセットします（試合結果・優勝者を破棄し、確定日に予選から再生成）。よろしいですか？")) return;
+    const res = await fetch(`/api/admin/mahjong/cs/${selected.csEventId}/fix`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ action: "resetBracket" }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "リセットに失敗しました");
+    } else fetchEvents();
+  }
+
   async function deleteEvent() {
     if (!selected || !confirm("このCSを削除しますか？")) return;
     const res = await fetch(`/api/admin/mahjong/cs/${selected.csEventId}`, {
@@ -151,6 +166,14 @@ export default function SeasonMahjongCsPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              {selected.rounds.length > 0 && (
+                <button
+                  onClick={resetBracket}
+                  className="px-3 py-2 text-xs font-medium text-[#a1502c] border border-[#f0c9b0] rounded-lg hover:bg-[#fff4ec]"
+                >
+                  進行をリセット
+                </button>
+              )}
               <button
                 onClick={deleteEvent}
                 className="px-3 py-2 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50"
@@ -233,14 +256,12 @@ export default function SeasonMahjongCsPage() {
                             >
                               {m.status === "completed" ? "確定" : "結果待ち"}
                             </span>
-                            {m.status !== "completed" && (
-                              <button
-                                onClick={() => setEditMatch(m)}
-                                className="px-2 py-1 text-xs font-medium text-[#231714]/60 border border-[#231714]/10 rounded-lg hover:bg-gray-50"
-                              >
-                                結果入力
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setEditMatch(m)}
+                              className="px-2 py-1 text-xs font-medium text-[#231714]/60 border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                            >
+                              {m.status === "completed" ? "修正" : "結果入力"}
+                            </button>
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -297,10 +318,11 @@ function MatchResultModal({
     match.players.map((p) => ({
       lineUserId: p.lineUserId,
       displayName: p.displayName,
-      points: "",
-      rank: "",
+      points: p.points != null ? String(p.points) : "",
+      rank: p.rank != null ? String(p.rank) : "",
     }))
   );
+  const wasCompleted = match.status === "completed";
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -319,11 +341,12 @@ function MatchResultModal({
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/mahjong/cs/${csEventId}/match`, {
-        method: "PATCH",
+      const res = await fetch(`/api/admin/mahjong/cs/${csEventId}/fix`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
+          action: "editMatch",
           matchId: match.matchId,
           results: rows.map((r) => ({
             lineUserId: r.lineUserId,
@@ -345,10 +368,17 @@ function MatchResultModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-bold text-[#231714] mb-1">{match.label} の結果入力</h3>
-        <p className="text-xs text-[#231714]/50 mb-4">
+        <h3 className="text-base font-bold text-[#231714] mb-1">
+          {match.label} の{wasCompleted ? "結果修正" : "結果入力"}
+        </h3>
+        <p className="text-xs text-[#231714]/50 mb-2">
           {is4 ? "合計100,000点・" : ""}順位は1〜{match.players.length}を1人ずつ
         </p>
+        {wasCompleted && (
+          <div className="rounded-lg bg-[#fff4ec] border border-[#f0c9b0] px-3 py-2 text-xs font-bold text-[#a1502c] mb-3">
+            ⚠️ 確定済みの試合を修正すると、この試合に依存する<b>以降のラウンドは破棄</b>され組み直しになります。
+          </div>
+        )}
         <div className="space-y-3">
           {rows.map((r, i) => (
             <div key={r.lineUserId} className="flex items-center gap-2">

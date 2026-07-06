@@ -68,6 +68,18 @@ export default function SeasonMahjongPage() {
   // 当日進行（抜け番）などを追従（15秒ポーリング＋復帰時）。ポーリングはサイレント更新。
   useAutoRefresh(() => fetchAll(true), 15000);
 
+  async function resetDay(eventDate: string) {
+    if (!confirm(`${eventDate} の当日進行（卓・待機・交代）をリセットします。\n開催日に支払い済み参加者から自動で組み直されます。よろしいですか？`)) return;
+    const res = await fetch(`/api/admin/mahjong/day-states?seasonId=${seasonId}&eventDate=${eventDate}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "リセットに失敗しました");
+    } else fetchAll();
+  }
+
   async function confirmLeague() {
     if (
       !confirm(
@@ -287,9 +299,17 @@ export default function SeasonMahjongPage() {
               <div key={d.eventDate} className="bg-white rounded-xl border border-[#231714]/10 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-bold text-[#231714]">{d.eventDate}</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#A5C1C8]/20 text-[#231714]">
-                    第{d.round}半荘・{(d.tableLabels ?? []).length}卓
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#A5C1C8]/20 text-[#231714]">
+                      第{d.round}半荘・{(d.tableLabels ?? []).length}卓
+                    </span>
+                    <button
+                      onClick={() => resetDay(d.eventDate)}
+                      className="text-[11px] font-medium text-[#a1502c] border border-[#f0c9b0] rounded-lg px-2 py-1 hover:bg-[#fff4ec]"
+                    >
+                      進行をリセット
+                    </button>
+                  </div>
                 </div>
 
                 <div className="text-[11px] font-bold text-[#231714]/50 mb-1">待機順（先頭が次にIN）</div>

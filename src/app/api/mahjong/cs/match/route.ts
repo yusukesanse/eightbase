@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
-import { generateNextRoundCsTop1, isRoundComplete } from "@/lib/mahjongCs";
-import { MAHJONG_TABLE_TOTAL, type MahjongCsEvent, type MahjongCsMatchPlayer } from "@/types";
+import { generateNextRoundCsTop1, isRoundComplete, validateCsMatch } from "@/lib/mahjongCs";
+import { MAHJONG_TABLE_TOTAL, type MahjongCsEvent } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,35 +27,6 @@ const STD: Record<number, number[]> = {
   4: [40000, 30000, 20000, 10000],
 };
 const std = (n: number, rank: number) => (STD[n] ?? STD[4])[rank - 1] ?? 0;
-
-/** CS1試合の申告バリデーション（順位重複なし・整数・4人卓は合計100,000・点数と順位の整合）。 */
-function validateMatch(players: MahjongCsMatchPlayer[]): { ok: boolean; error?: string } {
-  const n = players.length;
-  if (players.some((p) => p.points === null || p.rank === null)) {
-    return { ok: false, error: "未入力があります" };
-  }
-  if (players.some((p) => !Number.isInteger(p.points as number))) {
-    return { ok: false, error: "点数は整数で入力してください" };
-  }
-  const ranks = players.map((p) => p.rank as number).sort((a, b) => a - b);
-  if (ranks.join(",") !== Array.from({ length: n }, (_, i) => i + 1).join(",")) {
-    return { ok: false, error: "順位は1〜Nを1人ずつ入力してください" };
-  }
-  if (n === 4) {
-    const total = players.reduce((s, p) => s + (p.points as number), 0);
-    if (total !== MAHJONG_TABLE_TOTAL) {
-      return { ok: false, error: `4人卓の合計は${MAHJONG_TABLE_TOTAL.toLocaleString()}点にしてください（現在 ${total.toLocaleString()}）` };
-    }
-  }
-  for (const a of players) {
-    for (const b of players) {
-      if ((a.points as number) > (b.points as number) && (a.rank as number) > (b.rank as number)) {
-        return { ok: false, error: "点数と順位が一致していません" };
-      }
-    }
-  }
-  return { ok: true };
-}
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -157,7 +128,7 @@ export async function PATCH(req: NextRequest) {
 
       // 完了判定: 全員申告済み＆整合なら確定。未入力なら待機、合計不一致は保存して再入力を促す。
       const allReported = match.players.every((p) => p.points !== null && p.rank !== null);
-      const v = allReported ? validateMatch(match.players) : { ok: false, error: undefined as string | undefined };
+      const v = allReported ? validateCsMatch(match.players) : { ok: false, error: undefined as string | undefined };
       match.status = v.ok ? "completed" : "reporting";
 
       let championId = event.championId;

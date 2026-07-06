@@ -12,8 +12,11 @@ export type AuditEventType =
   | "schedule.closed" // 休催化（管理者）
   | "schedule.reopened" // 休催解除（管理者）
   | "cs.generated" // CS予選の自動生成（確定日到来・システム）
+  | "cs.matchEdited" // CS試合結果の管理者修正
+  | "cs.reset" // CSブラケットの管理者リセット
   | "table.completed" // 卓の集計確定（利用者申告が揃った）
-  | "day.advanced"; // 抜け番で次半荘へ進行（システム）
+  | "day.advanced" // 抜け番で次半荘へ進行（システム）
+  | "day.reset"; // 当日進行の管理者リセット
 
 export interface AuditLogInput {
   eventType: AuditEventType;

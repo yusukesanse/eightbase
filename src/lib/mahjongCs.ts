@@ -9,12 +9,38 @@
  * 参戦人数は可変。人数に応じて卓数を調整し、管理者が必要なら手で直せる前提。
  */
 
-import type {
-  MahjongCsEntrant,
-  MahjongCsMatch,
-  MahjongCsMatchPlayer,
-  MahjongCsRound,
+import {
+  MAHJONG_TABLE_TOTAL,
+  type MahjongCsEntrant,
+  type MahjongCsMatch,
+  type MahjongCsMatchPlayer,
+  type MahjongCsRound,
 } from "@/types";
+
+/** CS1試合の申告バリデーション（順位重複なし・整数・4人卓は合計100,000・点数と順位の整合）。 */
+export function validateCsMatch(players: MahjongCsMatchPlayer[]): { ok: boolean; error?: string } {
+  const n = players.length;
+  if (players.some((p) => p.points === null || p.rank === null)) return { ok: false, error: "未入力があります" };
+  if (players.some((p) => !Number.isInteger(p.points as number))) return { ok: false, error: "点数は整数で入力してください" };
+  const ranks = players.map((p) => p.rank as number).sort((a, b) => a - b);
+  if (ranks.join(",") !== Array.from({ length: n }, (_, i) => i + 1).join(",")) {
+    return { ok: false, error: "順位は1〜Nを1人ずつ入力してください" };
+  }
+  if (n === 4) {
+    const total = players.reduce((s, p) => s + (p.points as number), 0);
+    if (total !== MAHJONG_TABLE_TOTAL) {
+      return { ok: false, error: `4人卓の合計は${MAHJONG_TABLE_TOTAL.toLocaleString()}点にしてください（現在 ${total.toLocaleString()}）` };
+    }
+  }
+  for (const a of players) {
+    for (const b of players) {
+      if ((a.points as number) > (b.points as number) && (a.rank as number) > (b.rank as number)) {
+        return { ok: false, error: "点数と順位が一致していません" };
+      }
+    }
+  }
+  return { ok: true };
+}
 
 const PRELIM_LABELS = "ABCDEFGH".split("");
 

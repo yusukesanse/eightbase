@@ -19,8 +19,12 @@ const LABEL: Record<string, { text: string; color: string }> = {
   "refund.rejected": { text: "却下", color: "#5f6266" },
   "schedule.closed": { text: "休催化", color: "#c0563c" },
   "schedule.reopened": { text: "休催解除", color: "#1172a5" },
+  "cs.generated": { text: "CS自動生成", color: "#1172a5" },
+  "cs.matchEdited": { text: "CS結果修正", color: "#a1502c" },
+  "cs.reset": { text: "CSリセット", color: "#c0563c" },
   "table.completed": { text: "卓確定", color: "#40434a" },
   "day.advanced": { text: "進行(抜け番)", color: "#1172a5" },
+  "day.reset": { text: "当日リセット", color: "#c0563c" },
 };
 
 const fmt = (iso: string) => {
