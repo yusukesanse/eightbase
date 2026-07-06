@@ -5,6 +5,16 @@ export function todayJst(): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 }
 
+/** 直近の土曜（今日が土曜なら今日）を YYYY-MM-DD で返す。麻雀の開催日は土曜のみ。 */
+export function upcomingSaturdayJst(): string {
+  const base = new Date(`${todayJst()}T00:00:00Z`).getTime();
+  for (let i = 0; i < 7; i++) {
+    const dt = new Date(base + i * 86400000);
+    if (dt.getUTCDay() === 6) return dt.toISOString().slice(0, 10);
+  }
+  return todayJst();
+}
+
 /** "HH:MM" を 0時からの分に変換。 */
 export function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number);

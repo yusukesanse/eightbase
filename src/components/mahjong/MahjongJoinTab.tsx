@@ -129,9 +129,10 @@ export function JoinTab({
   const enteredArr = Array.from(enteredDates);
   const isSat = (dateStr: string) => new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
   const selectable = (dateStr: string) => {
+    // 参加済みの日は曜日・過去に関わらず常に選べる（詳細確認・取消のため）。
+    if (enteredDates.has(dateStr)) return true;
     if (!isSat(dateStr) || dateStr < today) return false;
     if (closedDates.has(dateStr)) return false; // 休催日は選べない
-    if (enteredDates.has(dateStr)) return true;
     const ym = dateStr.slice(0, 7);
     return !enteredArr.some((e) => e.slice(0, 7) === ym); // 同月に他の参加があれば不可
   };
@@ -242,24 +243,16 @@ export function JoinTab({
                   {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
                 </div>
               ) : needsPay ? (
-                // 仮予約（未決済）: 支払い＋（7日前まで）解除
+                // 仮予約（未決済）: 支払い＋いつでも解除可（返金なし）。別日を選び直せる。
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
                     {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
                   </button>
-                  {canCancelMahjong(selectedDate) ? (
-                    <button onClick={() => toggle(selectedDate, true)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
-                  ) : (
-                    <span className="text-[10px] text-[#97999d]">解除期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
-                  )}
+                  <button onClick={() => toggle(selectedDate, true)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">キャンセルして別日を選ぶ</button>
                 </div>
               ) : entered ? (
-                // 支払い不要（staff等）＝参加確定。解除のみ（7日前まで）
-                canCancelMahjong(selectedDate) ? (
-                  <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
-                ) : (
-                  <span className="shrink-0 text-[10px] text-[#97999d]">解除期限切れ</span>
-                )
+                // 支払い不要（staff等）＝参加確定。いつでも解除可。
+                <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
               ) : (
                 <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
                   {busy === selectedDate ? "..." : "参加する"}

@@ -5,6 +5,7 @@ import type { PublicMahjongTable, MahjongDaySwap } from "@/types";
 import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { ACCENT, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
+import { upcomingSaturdayJst } from "@/lib/date";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/LineContact";
 
@@ -160,7 +161,8 @@ interface DayResp {
 
 function RotationView({ onChanged }: { onChanged: () => void }) {
   const demo = isDevLoginEnabled();
-  const eventDate = todayJst();
+  // デモは開催日（直近の土曜）を対象にする＝シードの当日卓と一致。本番は当日(=開催日)。
+  const eventDate = demo ? upcomingSaturdayJst() : todayJst();
   const [day, setDay] = useState<DayResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -192,8 +194,9 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         });
         const data = await res.json().catch(() => ({}));
         setReportTable(null);
-        if (data?.swap) setSwap(data.swap);
+        // 先に卓を最新化してから「次の卓」モーダルを出す（新A/B卓を正しく表示）。
         await load();
+        if (data?.swap) setSwap(data.swap);
         onChanged();
       } finally {
         setBusy(false);
@@ -292,46 +295,56 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
             onClose={() => setReportTable(null)}
             onDone={(data) => {
               setReportTable(null);
-              if (data?.swap) setSwap(data.swap);
-              load();
+              // 先に卓を最新化してから「次の卓」モーダルを出す。
+              load().then(() => {
+                if (data?.swap) setSwap(data.swap);
+              });
               onChanged();
             }}
           />
         ))}
-      {swap && <SwapSheet swap={swap} onClose={() => setSwap(null)} />}
+      {swap && <SwapSheet swap={swap} tables={day.tables} onClose={() => setSwap(null)} />}
     </div>
   );
 }
 
-/** 「次の卓はこちらです」: 交代OUT/IN・縮退理由を表示。 */
-function SwapSheet({ swap, onClose }: { swap: MahjongDaySwap; onClose: () => void }) {
-  const Col = ({ label, color, people }: { label: string; color: string; people: { displayName: string; pictureUrl?: string }[] }) => (
-    <div>
-      <div className="text-[11px] font-extrabold mb-1.5" style={{ color }}>{label}</div>
-      {people.length === 0 ? (
-        <div className="text-[11px] text-[#231714]/40">なし</div>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          {people.map((p, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <Avatar src={p.pictureUrl} name={p.displayName} size={22} />
-              <span className="text-[12px] font-bold text-[#1c1f21] truncate">{p.displayName}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+/** 「次の卓はこちらです」: 次半荘のA卓/B卓と各卓のメンバー（あなた・新加入INを強調）を表示。 */
+function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: PublicMahjongTable[]; onClose: () => void }) {
+  const inNames = new Set(swap.in.map((p) => p.displayName));
   return (
     <BottomSheet open title="次の卓はこちらです" onClose={onClose} dismissible={false} closeButton={false}>
-      <p className="text-[12px] text-[#231714]/60 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。</p>
+      <p className="text-[12px] text-[#231714]/60 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
       {swap.reason && (
         <div className="mb-3 rounded-xl bg-[#fdf4e3] px-3 py-2 text-[12px] font-bold text-[#b48f13]">{swap.reason}</div>
       )}
-      <div className="grid grid-cols-2 gap-3">
-        <Col label="退席（OUT）" color="#c0563c" people={swap.out} />
-        <Col label="新加入（IN）" color="#6f9023" people={swap.in} />
+      <div className="flex flex-col gap-2.5">
+        {tables.map((t) => (
+          <div key={t.tableId} className="rounded-xl border border-gray-100 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[13px] font-extrabold text-[#231714]">{t.tableLabel}卓</span>
+              <span className="text-[10px] text-[#97999d]">{t.members.length}名</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {t.members.map((m, i) => {
+                const isNew = inNames.has(m.displayName);
+                return (
+                  <div key={i} className="flex items-center gap-1.5 min-w-0">
+                    <Avatar src={m.pictureUrl} name={m.displayName} size={22} />
+                    <span className={`text-[12px] font-bold truncate ${m.isCurrentUser ? "text-[#2f7d57]" : "text-[#1c1f21]"}`}>{m.displayName}</span>
+                    {m.isCurrentUser && <span className="shrink-0 text-[9px] font-black text-[#2f7d57]">あなた</span>}
+                    {isNew && !m.isCurrentUser && <span className="shrink-0 text-[9px] font-black px-1 rounded" style={{ color: "#6f9023", background: "#eef4dd" }}>IN</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
+      {swap.out.length > 0 && (
+        <div className="mt-3 text-[11px] text-[#c0563c]">
+          <span className="font-extrabold">退席（抜け番）:</span> {swap.out.map((p) => p.displayName).join("、")}
+        </div>
+      )}
       <button onClick={onClose} className="mt-5 w-full py-3 rounded-2xl text-sm font-extrabold text-white" style={{ background: ACCENT }}>
         次の卓へ
       </button>

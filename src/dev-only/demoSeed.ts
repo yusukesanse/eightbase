@@ -16,6 +16,7 @@
 import { getDb } from "@/lib/firebaseAdmin";
 import { tierForRank } from "@/lib/mahjong";
 import { generatePrelimRound } from "@/lib/mahjongCs";
+import { upcomingSaturdayJst } from "@/lib/date";
 import { MAHJONG_ENTRY_FEE, MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongCsEntrant, type MahjongTableMember } from "@/types";
 
 const DUMMY_FLAG = { demoDummy: true } as const;
@@ -48,10 +49,6 @@ const DUMMIES: P[] = [
 const POINTS = [40000, 30000, 20000, 10000];
 
 /** JST の YYYY-MM-DD に整形。 */
-function jstDate(ms: number): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date(ms));
-}
-
 function completedMembers(group: P[], reportedAt: string): MahjongTableMember[] {
   return group.map((p, i) => ({
     lineUserId: p.lineUserId,
@@ -72,9 +69,12 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
-  const today = jstDate(nowMs);
-  const pastDate = jstDate(nowMs - 7 * 86400000);
-  const futureDate = jstDate(nowMs + 30 * 86400000);
+  // 開催日は土曜のみ。デモも「直近の土曜」を開催日として全データを土曜に揃える
+  //（利用者アプリの参加カレンダー＝土曜のみ・月1回と整合させ、非土曜の不正データを作らない）。
+  const today = upcomingSaturdayJst();
+  const satMs = new Date(`${today}T00:00:00Z`).getTime();
+  const pastDate = new Date(satMs - 14 * 86400000).toISOString().slice(0, 10);
+  const futureDate = new Date(satMs + 28 * 86400000).toISOString().slice(0, 10);
 
   // 0) 対象シーズンをアクティブ化（利用者アプリの参加/申告/支払いがこのシーズンを向くように）。
   //    他の麻雀シーズンは非アクティブ化する（active は1つ）。
