@@ -156,6 +156,8 @@ export interface Season {
   csConfig: Record<ScoreboardGameId, { topN: number }>;
   /** 麻雀の順位方式（未設定は "average"）。合計点/アベレージを運用で切替可能にするための設定。 */
   rankingMetric?: MahjongRankingMetric;
+  /** 麻雀の開催開始時刻（HH:mm・JST）。参加費支払いの当日締切に使う。未設定は締切なし。 */
+  mahjongStartTime?: string;
   createdAt: string;
   updatedAt: string;
 }

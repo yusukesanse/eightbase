@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Season, ScoreboardGameId } from "@/types";
 import DatePicker from "@/components/ui/DatePicker";
+import TimePicker from "@/components/ui/TimePicker";
 
 /* ───────── 定数 ───────── */
 
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
   startDate: "",
   endDate: "",
   rankingMetric: "average" as "average" | "total",
+  mahjongStartTime: "", // 開催開始時刻（支払い締切）。空=締切なし
 };
 
 /* ───────── メインコンポーネント ───────── */
@@ -76,6 +78,7 @@ export default function SeasonsPage() {
       startDate: s.startDate,
       endDate: s.endDate,
       rankingMetric: s.rankingMetric === "total" ? "total" : "average",
+      mahjongStartTime: s.mahjongStartTime ?? "",
     });
     setModalOpen(true);
   }
@@ -91,6 +94,7 @@ export default function SeasonsPage() {
         startDate: form.startDate,
         endDate: form.endDate,
         rankingMetric: form.rankingMetric,
+        mahjongStartTime: form.mahjongStartTime,
       };
 
       const url = editing
@@ -363,6 +367,34 @@ export default function SeasonsPage() {
                   </select>
                   <p className="text-xs text-gray-400 mt-1">
                     順位の決定に使う指標。同点時は連対率→試合数→名前順。既定はアベレージ。
+                  </p>
+                </div>
+              )}
+
+              {/* 麻雀: 開催開始時刻（参加費支払いの当日締切） */}
+              {form.gameCategory === "mahjong" && (
+                <div>
+                  <label className={labelClass}>開催開始時刻（麻雀）</label>
+                  <div className="flex items-center gap-2">
+                    <div className="w-40">
+                      <TimePicker
+                        value={form.mahjongStartTime}
+                        onChange={(v) => setForm({ ...form, mahjongStartTime: v })}
+                        placeholder="開始時刻を選択"
+                      />
+                    </div>
+                    {form.mahjongStartTime && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, mahjongStartTime: "" })}
+                        className="text-xs text-gray-400 underline"
+                      >
+                        クリア
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    毎週土曜の開催開始時刻。参加費の支払いは開催当日この時刻までが締切。未設定なら締切なし。
                   </p>
                 </div>
               )}

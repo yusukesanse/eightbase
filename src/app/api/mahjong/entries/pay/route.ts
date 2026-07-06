@@ -8,7 +8,7 @@ import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
-import { MAHJONG_ENTRY_FEE, type MahjongEntry, type MahjongScheduleEntry } from "@/types";
+import { MAHJONG_ENTRY_FEE, type MahjongEntry } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -109,15 +109,10 @@ export async function POST(req: NextRequest) {
       );
     }
     if (eventDate === today) {
-      const schedSnap = await db
-        .collection("mahjongSchedule")
-        .where("seasonId", "==", season.seasonId)
-        .get();
-      const sched = schedSnap.docs
-        .map((d) => d.data() as MahjongScheduleEntry)
-        .find((s) => s.date === eventDate);
-      if (sched?.startTime) {
-        const deadline = new Date(`${eventDate}T${sched.startTime}:00+09:00`);
+      // 支払い締切＝開催当日の「シーズン共通の開始時刻」（Season.mahjongStartTime・未設定は締切なし）。
+      const startTime = season.mahjongStartTime;
+      if (startTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) {
+        const deadline = new Date(`${eventDate}T${startTime}:00+09:00`);
         if (new Date() >= deadline) {
           return NextResponse.json(
             { error: "CLOSED", message: "受付を終了しました（開始時刻を過ぎています）。" },
