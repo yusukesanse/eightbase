@@ -8,13 +8,13 @@ import { MAHJONG_TABLE_TOTAL, type MahjongCsEvent, type MahjongCsMatchPlayer } f
 export const dynamic = "force-dynamic";
 
 /**
- * DEV-ONLY（develop 専用 / main へ入れない）
- * PATCH /api/mahjong/cs/match  （デモ検証専用・非本番＋demoDummyイベントのみ）
+ * PATCH /api/mahjong/cs/match  — CS結果の自己申告（本番・デモ共通）
  *
  * リーグ申告と同じ「自己申告」方式: 各ユーザーは自分の点数＋順位だけを送る
- *（他人の結果は操作不可）。同卓の全員が揃うと確定→1着のみ次ラウンドへ進出。
- * デモではダミー同卓者を自動補完して即成立させる。自分が居ない卓（全ダミー）は
- * `auto` で自動確定できる（デモ進行用）。
+ *（他人の結果は操作不可）。同卓の全員が揃い整合すれば確定→1着のみ次ラウンドへ進出。
+ * - 本番/実イベント: 各自が自分の結果のみ入力。全員揃うまで status=reporting。
+ * - デモ（非本番＋demoDummy）: 同卓ダミーを自動補完して即成立。全ダミー卓は auto で自動確定。
+ * 並行申告の取りこぼしを防ぐため transaction 内で更新する。
  *
  * body: { csEventId, matchId, points?, rank?, auto? }
  */
@@ -59,9 +59,6 @@ function validateMatch(players: MahjongCsMatchPlayer[]): { ok: boolean; error?: 
 
 export async function PATCH(req: NextRequest) {
   try {
-    if (isProduction()) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
     const userId = await requireGameUser(req);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -70,118 +67,137 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json().catch(() => null);
     const csEventId: unknown = body?.csEventId;
     const matchId: unknown = body?.matchId;
-    if (typeof csEventId !== "string" || typeof matchId !== "string") {
-      return NextResponse.json({ error: "csEventId と matchId は必須です" }, { status: 400 });
+    // csEventId は doc パス。厳格に検証（インジェクション対策）。
+    if (typeof csEventId !== "string" || !/^[A-Za-z0-9_-]+$/.test(csEventId)) {
+      return NextResponse.json({ error: "csEventId が不正です" }, { status: 400 });
     }
+    if (typeof matchId !== "string" || !matchId) {
+      return NextResponse.json({ error: "matchId は必須です" }, { status: 400 });
+    }
+    const auto = body?.auto === true;
 
     const db = getDb();
     const ref = db.collection("mahjongCsEvents").doc(csEventId);
-    const doc = await ref.get();
-    if (!doc.exists) {
-      return NextResponse.json({ error: "CSが見つかりません" }, { status: 404 });
-    }
-    const event = doc.data() as MahjongCsEvent & { demoDummy?: boolean };
-    if (!event.demoDummy) {
-      return NextResponse.json({ error: "この操作はデモCSでのみ利用できます" }, { status: 403 });
-    }
+    const now = new Date().toISOString();
 
-    const rounds = event.rounds ?? [];
-    let roundIdx = -1;
-    let matchIdx = -1;
-    for (let i = 0; i < rounds.length; i++) {
-      const mi = rounds[i].matches.findIndex((m) => m.matchId === matchId);
-      if (mi >= 0) {
-        roundIdx = i;
-        matchIdx = mi;
-        break;
-      }
-    }
-    if (roundIdx < 0) {
-      return NextResponse.json({ error: "対象の試合が見つかりません" }, { status: 404 });
-    }
-    const round = rounds[roundIdx];
-    const match = round.matches[matchIdx];
-    if (match.status === "completed") {
-      return NextResponse.json({ error: "この試合は確定済みです" }, { status: 400 });
-    }
+    const result = await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません" };
+      const event = doc.data() as MahjongCsEvent & { demoDummy?: boolean };
+      const isDemo = !!event.demoDummy && !isProduction();
 
-    const n = match.players.length;
-    const iAmIn = match.players.some((p) => p.lineUserId === userId);
+      const rounds = event.rounds ?? [];
+      let roundIdx = -1;
+      let matchIdx = -1;
+      for (let i = 0; i < rounds.length; i++) {
+        const mi = rounds[i].matches.findIndex((m) => m.matchId === matchId);
+        if (mi >= 0) {
+          roundIdx = i;
+          matchIdx = mi;
+          break;
+        }
+      }
+      if (roundIdx < 0) return { status: 404 as const, error: "対象の試合が見つかりません" };
+      const round = rounds[roundIdx];
+      const match = round.matches[matchIdx];
+      if (match.status === "completed") return { status: 400 as const, error: "この試合は確定済みです" };
 
-    if (body?.auto === true) {
-      // デモ: 自分が居ない卓（全ダミー）を自動確定（並び順に順位、標準点）。
-      match.players = match.players.map((p, i) => ({ ...p, rank: i + 1, points: std(n, i + 1) }));
-    } else {
-      // 自己申告: 自分の点数＋順位のみ。自分が同卓であること必須（他人の操作を防ぐ）。
-      if (!iAmIn) {
-        return NextResponse.json({ error: "自分が参加していない卓は申告できません" }, { status: 403 });
-      }
-      const points = Number(body?.points);
-      const rank = Number(body?.rank);
-      if (!Number.isInteger(points) || points % 100 !== 0) {
-        return NextResponse.json({ error: "点数は100点単位の整数で入力してください" }, { status: 400 });
-      }
-      if (!Array.from({ length: n }, (_, i) => i + 1).includes(rank)) {
-        return NextResponse.json({ error: "順位が不正です" }, { status: 400 });
-      }
+      const n = match.players.length;
+      const iAmIn = match.players.some((p) => p.lineUserId === userId);
 
-      // デモ補完: 同卓のダミーへ残り順位を割り当て、4人卓は合計が100,000になるよう点数を按分。
-      const otherRanks = Array.from({ length: n }, (_, i) => i + 1).filter((r) => r !== rank);
-      const otherIds = match.players.filter((p) => p.lineUserId !== userId).map((p) => p.lineUserId);
-      const rankOf = new Map<string, number>([[userId, rank]]);
-      const pointsOf = new Map<string, number>([[userId, points]]);
-      otherIds.forEach((id, i) => rankOf.set(id, otherRanks[i]));
-      if (n === 4) {
-        const baseSum = otherRanks.reduce((s, r) => s + std(4, r), 0);
-        const need = MAHJONG_TABLE_TOTAL - points;
-        const factor = baseSum > 0 ? need / baseSum : 0;
-        let acc = 0;
-        otherIds.forEach((id, i) => {
-          const r = rankOf.get(id)!;
-          const pts = i < otherIds.length - 1 ? Math.round((std(4, r) * factor) / 100) * 100 : need - acc;
-          acc += i < otherIds.length - 1 ? pts : 0;
-          pointsOf.set(id, pts);
-        });
+      if (auto) {
+        // DEV-ONLY: デモの全ダミー卓を自動確定（並び順に順位・標準点）。
+        if (!isDemo) return { status: 403 as const, error: "この操作はデモCSでのみ利用できます" };
+        match.players = match.players.map((p, i) => ({ ...p, rank: i + 1, points: std(n, i + 1) }));
       } else {
-        otherIds.forEach((id) => pointsOf.set(id, std(n, rankOf.get(id)!)));
+        // 自己申告: 自分の点数＋順位のみ。同卓者であること必須（他人の結果は操作不可）。
+        if (!iAmIn) return { status: 403 as const, error: "自分が参加していない卓は申告できません" };
+        const points = Number(body?.points);
+        const rank = Number(body?.rank);
+        if (!Number.isInteger(points) || points % 100 !== 0 || points < -200000 || points > 200000) {
+          return { status: 400 as const, error: "点数は100点単位の整数で入力してください" };
+        }
+        if (!Array.from({ length: n }, (_, i) => i + 1).includes(rank)) {
+          return { status: 400 as const, error: "順位が不正です" };
+        }
+
+        if (isDemo) {
+          // デモ補完: 同卓ダミーへ残り順位を割り当て、4人卓は合計100,000へ按分（即成立用）。
+          const otherRanks = Array.from({ length: n }, (_, i) => i + 1).filter((r) => r !== rank);
+          const otherIds = match.players.filter((p) => p.lineUserId !== userId).map((p) => p.lineUserId);
+          const rankOf = new Map<string, number>([[userId, rank]]);
+          const pointsOf = new Map<string, number>([[userId, points]]);
+          otherIds.forEach((id, i) => rankOf.set(id, otherRanks[i]));
+          if (n === 4) {
+            const baseSum = otherRanks.reduce((s, r) => s + std(4, r), 0);
+            const need = MAHJONG_TABLE_TOTAL - points;
+            const factor = baseSum > 0 ? need / baseSum : 0;
+            let acc = 0;
+            otherIds.forEach((id, i) => {
+              const r = rankOf.get(id)!;
+              const pts = i < otherIds.length - 1 ? Math.round((std(4, r) * factor) / 100) * 100 : need - acc;
+              acc += i < otherIds.length - 1 ? pts : 0;
+              pointsOf.set(id, pts);
+            });
+          } else {
+            otherIds.forEach((id) => pointsOf.set(id, std(n, rankOf.get(id)!)));
+          }
+          match.players = match.players.map((p) => ({
+            ...p,
+            rank: rankOf.get(p.lineUserId) ?? p.rank,
+            points: pointsOf.get(p.lineUserId) ?? p.points,
+          }));
+        } else {
+          // 本番/実イベント: 自分の結果だけ反映（確定前なら再申告可）。
+          match.players = match.players.map((p) =>
+            p.lineUserId === userId ? { ...p, points, rank } : p
+          );
+        }
       }
-      match.players = match.players.map((p) => ({
-        ...p,
-        rank: rankOf.get(p.lineUserId) ?? p.rank,
-        points: pointsOf.get(p.lineUserId) ?? p.points,
-      }));
 
-      const v = validateMatch(match.players);
-      if (!v.ok) {
-        return NextResponse.json({ error: v.error }, { status: 400 });
+      // 完了判定: 全員申告済み＆整合なら確定。未入力なら待機、合計不一致は保存して再入力を促す。
+      const allReported = match.players.every((p) => p.points !== null && p.rank !== null);
+      const v = allReported ? validateMatch(match.players) : { ok: false, error: undefined as string | undefined };
+      match.status = v.ok ? "completed" : "reporting";
+
+      let championId = event.championId;
+      let status = event.status;
+      if (v.ok && isRoundComplete(round) && roundIdx === rounds.length - 1) {
+        if (round.type === "final") {
+          const winner = round.matches.flatMap((m) => m.players).find((p) => p.rank === 1);
+          championId = winner?.lineUserId;
+          status = "finished";
+        } else {
+          const seeds = event.entrants.filter((e) => e.seed);
+          const next = generateNextRoundCsTop1(round, seeds);
+          if (next) rounds.push(next);
+        }
       }
-    }
 
-    match.status = "completed";
-
-    // 確定→1着のみ進出。ラウンド全試合が揃えば次ラウンド自動生成、決勝で優勝確定。
-    let championId = event.championId;
-    let status = event.status;
-    if (isRoundComplete(round) && roundIdx === rounds.length - 1) {
-      if (round.type === "final") {
-        const winner = round.matches.flatMap((m) => m.players).find((p) => p.rank === 1);
-        championId = winner?.lineUserId;
-        status = "finished";
-      } else {
-        const seeds = event.entrants.filter((e) => e.seed);
-        const next = generateNextRoundCsTop1(round, seeds);
-        if (next) rounds.push(next);
-      }
-    }
-
-    await ref.update({
-      rounds,
-      status,
-      championId: championId ?? null,
-      updatedAt: new Date().toISOString(),
+      tx.update(ref, { rounds, status, championId: championId ?? null, updatedAt: now });
+      return {
+        status: 200 as const,
+        completed: v.ok,
+        waiting: !allReported,
+        mismatch: allReported && !v.ok,
+        error: allReported && !v.ok ? v.error : undefined,
+        eventStatus: status,
+        championId: championId ?? null,
+      };
     });
 
-    return NextResponse.json({ success: true, status, championId: championId ?? null });
+    if (result.status !== 200) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+    return NextResponse.json({
+      success: true,
+      completed: result.completed,
+      waiting: result.waiting,
+      mismatch: result.mismatch,
+      error: result.error,
+      status: result.eventStatus,
+      championId: result.championId,
+    });
   } catch (error) {
     console.error("[mahjong/cs/match] PATCH error:", error);
     return NextResponse.json({ error: "結果の反映に失敗しました" }, { status: 500 });

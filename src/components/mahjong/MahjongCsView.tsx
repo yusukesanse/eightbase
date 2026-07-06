@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { isDevLoginEnabled } from "@/lib/env";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 /** 公開DTO（サーバーで lineUserId を除去し isMe/seed を付与）。 */
 interface PubCsPlayer { displayName: string; pictureUrl?: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }
@@ -53,6 +54,8 @@ export function MahjongCsView() {
   useEffect(() => {
     load();
   }, [load]);
+  // 他の参加者の申告・ラウンド進行を追従（load は loading を上げないのでちらつかない）
+  useAutoRefresh(load, 15000);
 
   // DEV-ONLY（develop 専用 / main へ入れない）: デモCSのみ結果入力UIを出す。本番は false。
   const demo = isDevLoginEnabled() && !!event?.demoDummy;
@@ -71,6 +74,12 @@ export function MahjongCsView() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setInputError(data?.error ?? "反映に失敗しました");
+          return;
+        }
+        // 全員入力済みだが合計が合わない（未確定）→ 再入力を促す。
+        if (data.mismatch) {
+          setInputError(data.error ?? "同卓の合計点が合っていません。各自の点数を見直してください。");
+          await load();
           return;
         }
         setInputMatch(null);
@@ -256,13 +265,18 @@ function MatchCard({
             />
           ))}
       </div>
-      {demo && !done && (
+      {/* 自分の卓は本番でも申告可。デモは他卓を自動で進められる。 */}
+      {!done && (iAmIn || demo) && (
         <button
           onClick={onInput}
           className="mt-1.5 w-full py-1.5 rounded-lg text-[11px] font-extrabold text-white active:scale-[0.98] transition-transform"
           style={{ background: iAmIn ? "#2f7d57" : "#8a9298" }}
         >
-          {iAmIn ? "結果を申告" : "この卓を進める（デモ）"}
+          {iAmIn
+            ? match.players.find((p) => p.isMe)?.points != null
+              ? "申告を修正"
+              : "結果を申告"
+            : "この卓を進める（デモ）"}
         </button>
       )}
     </div>
