@@ -17,6 +17,7 @@ export default function MonthCalendar({
   isSelectable,
   marked,
   accent = "#2f7d57",
+  size = "sm",
 }: {
   value: string | null;
   onSelect: (dateStr: string) => void;
@@ -24,7 +25,10 @@ export default function MonthCalendar({
   /** 印を付ける日（参加中など） */
   marked?: (dateStr: string) => boolean;
   accent?: string;
+  /** sm=コンパクト（既定）/ lg=大きめ（管理カレンダー用） */
+  size?: "sm" | "lg";
 }) {
+  const lg = size === "lg";
   const today = dayjs().format("YYYY-MM-DD");
   const [month, setMonth] = useState(() => (value ? dayjs(value) : dayjs()).startOf("month"));
   const atCurrentMonth = month.isSame(dayjs().startOf("month"), "month");
@@ -81,18 +85,19 @@ export default function MonthCalendar({
               disabled={!selectable}
               onClick={() => onSelect(dateStr)}
               className={clsx(
-                "relative flex flex-col items-center py-1.5 rounded-xl transition-all",
+                "relative flex flex-col items-center rounded-xl transition-all",
+                lg ? "py-4" : "py-1.5",
                 !selectable && "opacity-20",
                 selected && "text-white",
                 !selected && selectable && "hover:bg-gray-50 active:scale-95"
               )}
               style={selected ? { background: accent } : undefined}
             >
-              <span className={clsx("text-[13px] font-medium", selected ? "text-white" : isToday ? "font-bold" : "text-[#231714]")} style={!selected && isToday ? { color: accent } : undefined}>
+              <span className={clsx(lg ? "text-[16px]" : "text-[13px]", "font-medium", selected ? "text-white" : isToday ? "font-bold" : "text-[#231714]")} style={!selected && isToday ? { color: accent } : undefined}>
                 {d.date()}
               </span>
               {marked?.(dateStr) && (
-                <span className="w-1 h-1 rounded-full mt-0.5" style={{ background: selected ? "#fff" : accent }} />
+                <span className={clsx("rounded-full", lg ? "w-1.5 h-1.5 mt-1" : "w-1 h-1 mt-0.5")} style={{ background: selected ? "#fff" : accent }} />
               )}
             </button>
           );
