@@ -7,7 +7,7 @@ import MonthCalendar from "@/components/ui/MonthCalendar";
  * 麻雀 開催日（休催日設定）。毎週土曜が既定の開催日。
  * 休みにする土曜をクリックで「休催」にトグルする（利用者カレンダーで選択不可になる）。
  */
-export default function MahjongScheduleAdminPage() {
+export default function MahjongScheduleCalendar() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);

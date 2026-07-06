@@ -28,8 +28,9 @@ export default function SeasonDetailLayout({
     { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
     { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
     { href: `/admin/games/seasons/${seasonId}/mahjong`, label: "ランキング" },
-    { href: `/admin/games/seasons/${seasonId}/matching`, label: "卓組み" },
     { href: `/admin/games/seasons/${seasonId}/mahjong-cs`, label: "CS" },
+    { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+    { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
   ];
 
   const isActive = (tab: (typeof TABS)[number]) =>

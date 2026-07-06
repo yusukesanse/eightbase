@@ -27,7 +27,7 @@ const fmt = (iso: string | null) => {
   return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-export default function MahjongRefundsAdminPage() {
+export default function MahjongRefundsPanel() {
   const [items, setItems] = useState<RefundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingOnly, setPendingOnly] = useState(true);

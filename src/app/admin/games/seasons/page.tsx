@@ -169,24 +169,7 @@ export default function SeasonsPage() {
           <p className="text-sm text-[#231714]/40 mt-1">ランキング集計期間の作成・管理</p>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="/admin/games/mahjong-schedule"
-            className="px-4 py-2 border border-[#231714]/15 text-[#231714] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            麻雀 休催日設定
-          </a>
-          <a
-            href="/admin/games/mahjong-refunds"
-            className="px-4 py-2 border border-[#231714]/15 text-[#231714] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            麻雀 返金対応
-          </a>
-          <a
-            href="/admin/games/mahjong-audit"
-            className="px-4 py-2 border border-[#231714]/15 text-[#231714] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            麻雀 監査ログ
-          </a>
+          {/* 休催日/返金/監査 は各シーズン詳細のタブへ移動 */}
           <button
             onClick={openCreate}
             className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors"

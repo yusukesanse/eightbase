@@ -32,7 +32,7 @@ const fmt = (iso: string) => {
 const targetText = (t?: AuditLog["target"]) =>
   [t?.date && `日:${t.date}`, t?.entryId && `entry:${t.entryId}`, t?.tableId && `卓:${t.tableId}`].filter(Boolean).join(" / ") || "-";
 
-export default function MahjongAuditAdminPage() {
+export default function MahjongAuditPanel() {
   const [items, setItems] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
