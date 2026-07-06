@@ -561,8 +561,7 @@ function RankFormModal({
   const gameCategory = game.category as ScoreboardGameId;
   const [saving, setSaving] = useState(false);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const det = (existingScore?.details ?? {}) as Record<string, any>;
+  const det = (existingScore?.details ?? {}) as Record<string, unknown>;
   const [rank, setRank] = useState<number>((det.rank as number) ?? 1);
 
   // ポイント自動計算: 1位 = 参加人数pt, 最下位 = 1pt
