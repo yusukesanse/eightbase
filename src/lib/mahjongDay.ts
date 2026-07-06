@@ -5,6 +5,7 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { computeNextRound, type RankedTable, type RotPlayer } from "@/lib/mahjongRotation";
+import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongDayState, MahjongDaySwap, MahjongEntry, MahjongTable, MahjongTableMember } from "@/types";
 
 const LABELS = "ABCDEFGH".split("");
@@ -74,7 +75,7 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
   const db = getDb();
   const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
 
-  return db.runTransaction(async (tx) => {
+  const swap = await db.runTransaction(async (tx) => {
     const daySnap = await tx.get(dayRef);
     if (!daySnap.exists) return null;
     const day = daySnap.data() as MahjongDayState & { demoDummy?: boolean };
@@ -107,4 +108,15 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
     tx.set(dayRef, { seasonId, eventDate, round: nextRound, waiting: result.waiting.map(minRot), tableLabels: result.tables.map((t) => t.label), lastSwap: swap, updatedAt: now, ...tag });
     return swap;
   });
+
+  // 監査はコミット後に記録（transaction 再試行での重複を避ける）。
+  if (swap) {
+    await writeAuditLog({
+      eventType: "day.advanced",
+      actor: "system",
+      target: { date: eventDate },
+      meta: { round: swap.round, nextRound: swap.round + 1, out: swap.out.length, in: swap.in.length, shrunk: swap.shrunk, reason: swap.reason },
+    });
+  }
+  return swap;
 }

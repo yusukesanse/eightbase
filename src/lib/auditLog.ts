@@ -1,0 +1,41 @@
+/**
+ * 麻雀運用の監査ログを mahjongAuditLogs に一元記録する。
+ * 状態変更API（返金/キャンセル/休催化/進行確定）は必ずここへ書き込む。
+ * 監査は本処理を止めない（書き込み失敗はログのみ）。
+ */
+import { getDb } from "@/lib/firebaseAdmin";
+
+export type AuditEventType =
+  | "payment.cancelRequested" // 支払い済みのキャンセル依頼（利用者）
+  | "refund.refunded" // 返金処理（管理者）
+  | "refund.rejected" // キャンセル却下（管理者）
+  | "schedule.closed" // 休催化（管理者）
+  | "schedule.reopened" // 休催解除（管理者）
+  | "day.advanced"; // 抜け番で次半荘へ進行（システム）
+
+export interface AuditLogInput {
+  eventType: AuditEventType;
+  actor: string; // 実行者: 管理者メール / 利用者 lineUserId / "system"
+  target: { date?: string; entryId?: string; tableId?: string };
+  beforeStatus?: string | null;
+  afterStatus?: string | null;
+  meta?: Record<string, unknown>;
+}
+
+export async function writeAuditLog(input: AuditLogInput): Promise<void> {
+  try {
+    await getDb()
+      .collection("mahjongAuditLogs")
+      .add({
+        eventType: input.eventType,
+        actor: input.actor,
+        target: input.target ?? {},
+        beforeStatus: input.beforeStatus ?? null,
+        afterStatus: input.afterStatus ?? null,
+        meta: input.meta ?? {},
+        createdAt: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error("[auditLog] write failed:", input.eventType, e);
+  }
+}

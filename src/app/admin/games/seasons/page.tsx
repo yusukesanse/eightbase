@@ -175,6 +175,12 @@ export default function SeasonsPage() {
           >
             麻雀 休催日設定
           </a>
+          <a
+            href="/admin/games/mahjong-refunds"
+            className="px-4 py-2 border border-[#231714]/15 text-[#231714] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            麻雀 返金対応
+          </a>
           <button
             onClick={openCreate}
             className="px-4 py-2 bg-[#231714] text-white text-sm font-medium rounded-lg hover:bg-[#231714]/80 transition-colors"

@@ -4,6 +4,8 @@ import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { notifyAdmin } from "@/lib/adminNotify";
 import { canCancelMahjong, MAHJONG_CANCEL_POLICY } from "@/lib/date";
+import { canTransition, deriveStatus } from "@/lib/mahjongEntryStatus";
+import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongEntry } from "@/types";
 import dayjs from "dayjs";
 
@@ -65,12 +67,28 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+    // 状態機械で遷移を厳格化（paid → cancelRequested のみ許可）。
+    const from = deriveStatus(entry);
+    if (!canTransition(from, "cancelRequested")) {
+      return NextResponse.json(
+        { error: "INVALID_TRANSITION", message: "現在の状態ではキャンセルできません。" },
+        { status: 409 }
+      );
+    }
 
     const nowIso = dayjs().toISOString();
     await entryRef.set(
       { status: "cancelRequested", paymentStatus: "cancelRequested", cancelRequestedAt: nowIso, updatedAt: nowIso },
       { merge: true }
     );
+
+    await writeAuditLog({
+      eventType: "payment.cancelRequested",
+      actor: userId,
+      target: { entryId, date: eventDate },
+      beforeStatus: from,
+      afterStatus: "cancelRequested",
+    });
 
     await notifyAdmin(
       "mahjong_refund",

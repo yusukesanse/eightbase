@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await checkAdminAuth(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const date: unknown = body?.date;
   if (typeof date !== "string" || !DATE_RE.test(date) || !isSaturday(date)) {
@@ -33,13 +35,16 @@ export async function POST(req: NextRequest) {
   // 既存参加者を返金対応の判断材料として返す（休催後は startDay で卓を組まない）。
   const entries = (await db.collection("mahjongEntries").where("eventDate", "==", date).get()).docs.map((d) => d.data());
   const paid = entries.filter((e) => e.paymentStatus === "paid" || e.status === "paid").length;
+  await writeAuditLog({ eventType: "schedule.closed", actor: admin, target: { date }, meta: { affected: entries.length, paid } });
   return NextResponse.json({ success: true, affected: { total: entries.length, paid } });
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await checkAdminAuth(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const date = req.nextUrl.searchParams.get("date");
   if (!date || !DATE_RE.test(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
   await getDb().collection("mahjongClosedDates").doc(date).delete();
+  await writeAuditLog({ eventType: "schedule.reopened", actor: admin, target: { date } });
   return NextResponse.json({ success: true });
 }

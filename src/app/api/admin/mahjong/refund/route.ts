@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { canTransition, deriveStatus, type MahjongEntryStatus } from "@/lib/mahjongEntryStatus";
+import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,14 @@ export async function POST(req: NextRequest) {
   // 却下は参加継続（決済有効）へ戻す。返金は決済状態を維持して監査に残す。
   if (to === "cancelRejected") update.paymentStatus = "paid";
   await ref.set(update, { merge: true });
+
+  await writeAuditLog({
+    eventType: action === "refund" ? "refund.refunded" : "refund.rejected",
+    actor: admin,
+    target: { entryId },
+    beforeStatus: from,
+    afterStatus: to,
+  });
 
   return NextResponse.json({ success: true, status: to });
 }
