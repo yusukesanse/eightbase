@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { isProduction } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 /**
- * 麻雀リーグの動作確認用ツール（管理者専用・テスト用途）
+ * 麻雀リーグの動作確認用ツール（管理者専用・検証用途）
  *
  * POST body:
  *  - { action: "seedUsers", count?: number }
@@ -16,11 +17,15 @@ export const dynamic = "force-dynamic";
  *      （entries / tables / leagueAssignments / csEvents）と
  *      ダミーユーザーを削除。schedule と season 本体は残す。
  *
- * 本番に存在するが admin 認証必須。検証後に削除して構わない。
+ * ガード: 本番では常に 404（ダミー投入を本番へ入れない）。加えて admin 認証必須。
  */
 const TEST_PREFIX = "testmj_";
 
 export async function POST(req: NextRequest) {
+  // DEV-ONLY: 本番では機能自体を隠す（ダミーデータ投入を本番で不可に）。
+  if (isProduction()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
