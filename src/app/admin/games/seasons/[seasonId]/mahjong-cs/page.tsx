@@ -56,17 +56,6 @@ export default function SeasonMahjongCsPage() {
     }
   }
 
-  async function generate() {
-    if (!selected) return;
-    const res = await fetch(`/api/admin/mahjong/cs/${selected.csEventId}/generate`, {
-      method: "POST",
-      credentials: "same-origin",
-    });
-    const data = await res.json();
-    if (!res.ok) alert(data.error ?? "生成に失敗しました");
-    else fetchEvents();
-  }
-
   async function deleteEvent() {
     if (!selected || !confirm("このCSを削除しますか？")) return;
     const res = await fetch(`/api/admin/mahjong/cs/${selected.csEventId}`, {
@@ -98,12 +87,6 @@ export default function SeasonMahjongCsPage() {
     );
   }
 
-  const lastRound = selected?.rounds[selected.rounds.length - 1];
-  const canGenerate =
-    selected &&
-    selected.status !== "finished" &&
-    (!lastRound || lastRound.matches.every((m) => m.status === "completed")) &&
-    !(lastRound?.type === "final");
   const seedCount = selected?.entrants.filter((e) => e.seed).length ?? 0;
 
   return (
@@ -112,7 +95,8 @@ export default function SeasonMahjongCsPage() {
       <section className="bg-white rounded-xl border border-[#231714]/10 p-4">
         <h2 className="text-sm font-bold text-[#231714] mb-3">チャンピオンシップを作成</h2>
         <p className="text-xs text-[#231714]/50 mb-3">
-          CSは誰でも参加可。最新の確定リーグ編成にいる全員を参戦候補として取り込みます（M1はシード権で有利になるだけ）。
+          CSは誰でも参加可（資格制限なし）。最新の確定リーグ編成にいる全員を参戦者として取り込みます。
+          <b>開催日を指定して作成すると、その確定日になった時点でリーグ順位シード（M1）付きの予選が自動生成されます。</b>
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -163,18 +147,10 @@ export default function SeasonMahjongCsPage() {
               <h2 className="text-base font-bold text-[#231714]">{selected.name}</h2>
               <p className="text-xs text-[#231714]/50 mt-0.5">
                 {selected.eventDate}・参戦{selected.entrants.length}名（シードM1 {seedCount}名）・
-                {selected.status === "setup" ? "設定中" : selected.status === "running" ? "進行中" : "終了"}
+                {selected.status === "setup" ? "確定日待ち（当日に自動生成）" : selected.status === "running" ? "進行中" : "終了"}
               </p>
             </div>
             <div className="flex gap-2">
-              {canGenerate && (
-                <button
-                  onClick={generate}
-                  className="px-4 py-2 text-xs font-bold text-[#231714] bg-[#B0E401] rounded-lg hover:opacity-90"
-                >
-                  {selected.rounds.length === 0 ? "予選を生成" : "次のラウンドを生成"}
-                </button>
-              )}
               <button
                 onClick={deleteEvent}
                 className="px-3 py-2 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50"

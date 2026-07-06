@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getSessionUserId } from "@/lib/session";
 import { getActiveSeason } from "@/lib/mahjong";
+import { ensureCsStarted } from "@/lib/mahjongCsServer";
 import type { MahjongCsEvent } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +62,8 @@ export async function GET(req: NextRequest) {
       .map((d) => ({ ...(d.data() as MahjongCsEvent & { demoDummy?: boolean }), csEventId: d.id }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-    const raw = events[0] ?? null;
+    // 確定日が来た CS は予選を自動生成（遅延起動）してから公開整形
+    const raw = events[0] ? await ensureCsStarted(events[0]) : null;
     return NextResponse.json({
       event: raw ? toPublicCs(raw, userId) : null,
       entered: raw ? raw.entrants.some((e) => e.lineUserId === userId) : false,

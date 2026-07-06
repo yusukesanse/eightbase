@@ -190,6 +190,49 @@ export function generateNextRoundCsTop1(
   return null;
 }
 
+/**
+ * 初期ラウンドを組む（自動生成の起点）。
+ * - 2名未満: null（生成不可）
+ * - 4名以下: 一発決勝
+ * - 5名以上: 予選（M2/M3をくじ引きで4人卓・1着通過。M1はシードで準決から）
+ *   非シードが居ない（全員シード）場合は全員で予選相当を組む。
+ */
+export function buildInitialCsRounds(
+  entrants: MahjongCsEntrant[],
+  rng: () => number = Math.random
+): MahjongCsRound[] | null {
+  if (entrants.length < 2) return null;
+  if (entrants.length <= 4) return [generateSingleFinal(entrants)];
+  const prelim = generatePrelimRound(entrants, rng);
+  if (prelim) return [prelim];
+  // 全員シード（非シード0人）: シード無視で全員を4人卓に分割し予選扱い
+  const tables = chunkTables(shuffle(entrants, rng), 4);
+  const matches: MahjongCsMatch[] = tables.map((tbl, i) => ({
+    matchId: newMatchId(),
+    label: `予選${PRELIM_LABELS[i] ?? i + 1}`,
+    players: tbl.map(toMatchPlayer),
+    status: "reporting",
+  }));
+  return [{ type: "prelim", label: "予選", advanceCount: 1, matches }];
+}
+
+/**
+ * 管理者が確定した開催日になったら初期ラウンドを自動生成する。
+ * status=setup かつ rounds空 かつ eventDate<=today のときだけ生成し running へ。
+ * それ以外は null（変更なし）。純関数（today は呼び出し側が JST で渡す）。
+ */
+export function startCsIfDue(
+  event: { status: string; eventDate: string; rounds: MahjongCsRound[]; entrants: MahjongCsEntrant[] },
+  today: string,
+  rng: () => number = Math.random
+): { rounds: MahjongCsRound[]; status: "running" } | null {
+  if (event.status !== "setup" || event.rounds.length > 0) return null;
+  if (event.eventDate > today) return null; // まだ確定日前
+  const rounds = buildInitialCsRounds(event.entrants, rng);
+  if (!rounds) return null;
+  return { rounds, status: "running" };
+}
+
 /** 全エントリーが4人以下なら予選・準決なしで一発決勝にする */
 export function generateSingleFinal(
   entrants: MahjongCsEntrant[]

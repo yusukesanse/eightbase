@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { ensureCsStarted } from "@/lib/mahjongCsServer";
 import type {
   MahjongCsEntrant,
   MahjongCsEvent,
@@ -31,7 +32,9 @@ export async function GET(req: NextRequest) {
     const events = snap.docs
       .map((d) => ({ ...(d.data() as MahjongCsEvent), csEventId: d.id }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return NextResponse.json({ events, seasonId });
+    // 確定日が来た CS は予選を自動生成（遅延起動）
+    const started = await Promise.all(events.map((e) => ensureCsStarted(e)));
+    return NextResponse.json({ events: started, seasonId });
   } catch (error) {
     console.error("[admin/mahjong/cs] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });

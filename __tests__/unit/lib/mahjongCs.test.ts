@@ -9,6 +9,8 @@ import {
   collectAdvancers,
   advancersOf,
   chunkTables,
+  buildInitialCsRounds,
+  startCsIfDue,
 } from "@/lib/mahjongCs";
 import type { MahjongCsEntrant, MahjongCsMatch, MahjongLeagueTier } from "@/types";
 
@@ -32,6 +34,45 @@ function completeMatch(match: MahjongCsMatch): MahjongCsMatch {
 
 // 固定rng（決定的）
 const seqRng = () => 0.5;
+
+describe("mahjongCs — 自動生成(buildInitialCsRounds / startCsIfDue)", () => {
+  const many = (n: number, seeds = 0): MahjongCsEntrant[] => [
+    ...Array.from({ length: seeds }, (_, i) => entrant(`s${i}`, i + 1, "M1", true)),
+    ...Array.from({ length: n - seeds }, (_, i) => entrant(`p${i}`, i + 1, "M3", false)),
+  ];
+
+  test("2名未満は生成不可(null)", () => {
+    expect(buildInitialCsRounds(many(1), seqRng)).toBeNull();
+  });
+  test("4名以下は一発決勝", () => {
+    const r = buildInitialCsRounds(many(4), seqRng)!;
+    expect(r).toHaveLength(1);
+    expect(r[0].type).toBe("final");
+  });
+  test("5名以上は予選（非シードを4人卓）", () => {
+    const r = buildInitialCsRounds(many(8, 2), seqRng)!; // 非シード6
+    expect(r[0].type).toBe("prelim");
+  });
+  test("全員シードで5名以上でも予選相当を組む", () => {
+    const allSeed = Array.from({ length: 8 }, (_, i) => entrant(`m1_${i}`, i + 1, "M1", true));
+    const r = buildInitialCsRounds(allSeed, seqRng)!;
+    expect(r[0].type).toBe("prelim");
+    expect(r[0].matches.length).toBeGreaterThan(0);
+  });
+
+  const base = { status: "setup", entrants: many(8, 2), rounds: [] as never[] };
+  test("確定日が来たら running へ生成（当日=境界）", () => {
+    const res = startCsIfDue({ ...base, eventDate: "2026-07-11" }, "2026-07-11", seqRng);
+    expect(res?.status).toBe("running");
+    expect(res!.rounds.length).toBeGreaterThan(0);
+  });
+  test("確定日前は生成しない(null)", () => {
+    expect(startCsIfDue({ ...base, eventDate: "2026-07-18" }, "2026-07-11", seqRng)).toBeNull();
+  });
+  test("既に生成済み/開始済みは再生成しない(null)", () => {
+    expect(startCsIfDue({ ...base, status: "running", eventDate: "2026-07-11" }, "2026-07-11", seqRng)).toBeNull();
+  });
+});
 
 describe("mahjongCs — chunkTables", () => {
   test("8人は4人×2卓", () => {
