@@ -93,31 +93,26 @@ export async function PATCH(req: NextRequest) {
         }
 
         if (isDemo) {
-          // デモ補完: 同卓ダミーへ残り順位を割り当て、4人卓は合計100,000へ按分（即成立用）。
+          // デモ補完: 申告した順位・点数に「整合する」点数を全員へ割り当てる。
+          // 順位は降順（上位ほど高得点）、4人卓は合計100,000。自分の点数は申告値のまま。
           const otherRanks = Array.from({ length: n }, (_, i) => i + 1).filter((r) => r !== rank);
           const otherIds = match.players.filter((p) => p.lineUserId !== userId).map((p) => p.lineUserId);
-          const rankOf = new Map<string, number>([[userId, rank]]);
-          const pointsOf = new Map<string, number>([[userId, points]]);
-          otherIds.forEach((id, i) => rankOf.set(id, otherRanks[i]));
+          const pts: Record<number, number> = { [rank]: points };
           if (n === 4) {
-            const baseSum = otherRanks.reduce((s, r) => s + std(4, r), 0);
-            const need = MAHJONG_TABLE_TOTAL - points;
-            const factor = baseSum > 0 ? need / baseSum : 0;
-            let acc = 0;
-            otherIds.forEach((id, i) => {
-              const r = rankOf.get(id)!;
-              const pts = i < otherIds.length - 1 ? Math.round((std(4, r) * factor) / 100) * 100 : need - acc;
-              acc += i < otherIds.length - 1 ? pts : 0;
-              pointsOf.set(id, pts);
-            });
+            // 順位差1あたりの点差 d。d>0 なら降順で整合（1着は25,000超で成立）。
+            const d = (50000 - 2 * points) / (2 * rank - 5);
+            for (const r of otherRanks) pts[r] = Math.round((points + (rank - r) * d) / 100) * 100;
+            const diff = [1, 2, 3, 4].reduce((s, r) => s + pts[r], 0) - MAHJONG_TABLE_TOTAL;
+            pts[otherRanks[otherRanks.length - 1]] -= diff; // 最下位の他者で合計を吸収
           } else {
-            otherIds.forEach((id) => pointsOf.set(id, std(n, rankOf.get(id)!)));
+            for (const r of otherRanks) pts[r] = points + (rank - r) * 10000;
           }
-          match.players = match.players.map((p) => ({
-            ...p,
-            rank: rankOf.get(p.lineUserId) ?? p.rank,
-            points: pointsOf.get(p.lineUserId) ?? p.points,
-          }));
+          const rankOf = new Map<string, number>([[userId, rank]]);
+          otherIds.forEach((id, i) => rankOf.set(id, otherRanks[i]));
+          match.players = match.players.map((p) => {
+            const r = rankOf.get(p.lineUserId) ?? p.rank ?? 1;
+            return { ...p, rank: r, points: p.lineUserId === userId ? points : pts[r] };
+          });
         } else {
           // 本番/実イベント: 自分の結果だけ反映（確定前なら再申告可）。
           match.players = match.players.map((p) =>
