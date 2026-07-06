@@ -11,6 +11,7 @@ export type AuditEventType =
   | "refund.rejected" // キャンセル却下（管理者）
   | "schedule.closed" // 休催化（管理者）
   | "schedule.reopened" // 休催解除（管理者）
+  | "table.completed" // 卓の集計確定（利用者申告が揃った）
   | "day.advanced"; // 抜け番で次半荘へ進行（システム）
 
 export interface AuditLogInput {

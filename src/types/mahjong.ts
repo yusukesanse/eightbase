@@ -41,6 +41,9 @@ export interface MahjongTable {
   round?: number;
   /** 卓ラベル（A / B）。卓組み生成時に付与 */
   tableLabel?: string;
+  /** 自己申告の異常検知フラグ（集計汚染疑い＝管理者レビュー対象）。申告自体は受理する。 */
+  needsReview?: boolean;
+  reviewReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }

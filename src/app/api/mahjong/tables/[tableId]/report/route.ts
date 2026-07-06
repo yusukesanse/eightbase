@@ -3,6 +3,8 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { validateTableReports } from "@/lib/mahjong";
 import { advanceDayIfRoundComplete } from "@/lib/mahjongDay";
+import { isAnomalousScores } from "@/lib/mahjongScoreAudit";
+import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -84,9 +86,17 @@ export async function POST(
       const validation = validateTableReports(members);
       const status = validation.ok ? "completed" : "reporting";
 
+      // 確定時のみ異常検知（申告は受理しつつ、疑わしい卓を管理者レビュー対象にする）。
+      const anomaly =
+        status === "completed"
+          ? isAnomalousScores(members.map((m) => m.points ?? 0))
+          : { flagged: false, reason: null };
+
       tx.update(ref, {
         members,
         status,
+        needsReview: anomaly.flagged,
+        reviewReason: anomaly.reason,
         updatedAt: nowIso,
       });
 
@@ -97,6 +107,8 @@ export async function POST(
         completed: status === "completed",
         seasonId: table.seasonId,
         eventDate: table.eventDate,
+        round: table.round ?? 1,
+        anomaly,
       };
     });
 
@@ -104,9 +116,15 @@ export async function POST(
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    // 卓が確定したら、現ラウンドの全卓が揃ったか判定し、揃っていれば抜け番で次半荘を自動生成。
+    // 卓が確定したら監査ログを記録し、現ラウンドの全卓が揃えば抜け番で次半荘を自動生成。
     let swap = null;
     if (result.completed) {
+      await writeAuditLog({
+        eventType: "table.completed",
+        actor: userId,
+        target: { tableId, date: result.eventDate },
+        meta: { round: result.round, flagged: result.anomaly.flagged, reason: result.anomaly.reason },
+      });
       swap = await advanceDayIfRoundComplete(result.seasonId, result.eventDate);
     }
 
