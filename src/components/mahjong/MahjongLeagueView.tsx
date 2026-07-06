@@ -65,8 +65,9 @@ export function MahjongLeagueView() {
       });
   }, []);
 
-  const loadCore = useCallback(async () => {
-    setLoading(true);
+  // silent=true はバックグラウンド更新（ポーリング/操作後）。loading を触らず全画面スピナーを出さない。
+  const loadCore = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const standingsUrl = selectedSeasonId
         ? `/api/mahjong/standings?seasonId=${encodeURIComponent(selectedSeasonId)}`
@@ -98,15 +99,15 @@ export function MahjongLeagueView() {
     } catch {
       /* noop */
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [selectedSeasonId]);
 
   useEffect(() => {
     loadCore();
   }, [loadCore]);
-  // 参加状況・卓/順位を追従（15秒ポーリング＋復帰時）
-  useAutoRefresh(loadCore, 15000);
+  // 参加状況・卓/順位を追従（15秒ポーリング＋復帰時）。ポーリングはサイレント更新。
+  useAutoRefresh(() => loadCore(true), 15000);
 
   // Square 参加費決済の戻り: ?mjpay=<エントリーID> を確定処理する（決済導線はこのビューに集約）
   useEffect(() => {
@@ -120,7 +121,7 @@ export function MahjongLeagueView() {
         ok: r.ok,
         text: r.ok ? "参加費のお支払いが完了しました。" : r.message || "決済の確認に失敗しました",
       });
-      if (r.ok) loadCore();
+      if (r.ok) loadCore(true);
       url.searchParams.delete("mjpay");
       window.history.replaceState({}, "", url.pathname + url.search);
     });
@@ -198,12 +199,12 @@ export function MahjongLeagueView() {
           tables={tables}
           paymentRequired={paymentRequired}
           paymentStatusByDate={paymentStatusByDate}
-          onChanged={loadCore}
+          onChanged={() => loadCore(true)}
         />
       ) : subTab === "report" ? (
         <ReportTab
           tables={tables}
-          onChanged={loadCore}
+          onChanged={() => loadCore(true)}
         />
       ) : (
         <MahjongCsView />

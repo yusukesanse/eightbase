@@ -33,9 +33,10 @@ export default function SeasonMahjongPage() {
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
   const [tab, setTab] = useState<"standings" | "tables" | "rotation" | "history">("standings");
 
-  const fetchAll = useCallback(async () => {
+  // silent=true はバックグラウンド更新（ポーリング）。loading を触らず全画面スピナーを出さない。
+  const fetchAll = useCallback(async (silent = false) => {
     if (!seasonId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [sRes, tRes, lRes, dRes] = await Promise.all([
         fetch(`/api/admin/mahjong/standings?seasonId=${seasonId}`, { credentials: "same-origin" }),
@@ -57,15 +58,15 @@ export default function SeasonMahjongPage() {
       setAssignments([]);
       setDayStates([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [seasonId]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
-  // 当日進行（抜け番）などを追従（15秒ポーリング＋復帰時）
-  useAutoRefresh(fetchAll, 15000);
+  // 当日進行（抜け番）などを追従（15秒ポーリング＋復帰時）。ポーリングはサイレント更新。
+  useAutoRefresh(() => fetchAll(true), 15000);
 
   async function confirmLeague() {
     if (

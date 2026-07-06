@@ -160,17 +160,30 @@ export function JoinTab({
       {/* あなたの参加状況（カレンダー下） */}
       {enteredArr.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">あなたの参加状況</div>
-          <div className="flex flex-col gap-1.5">
+          <div className="text-[11px] font-extrabold text-[#97999d] mb-1">あなたの参加状況</div>
+          {/* 参加予定日ごとに1行（日付＝左 / 状態＝右）。タップで下の詳細に切替。 */}
+          <div className="flex flex-col divide-y divide-gray-100">
             {[...enteredArr].sort().map((d) => {
               const st = paymentStatusByDate[d] ?? null;
               const conf = !paymentRequired || st === "paid";
               const label = conf ? "参加確定" : st === "cancelRequested" ? "返金対応中" : "仮予約（未決済）";
               const { md, wd } = dateParts(d);
+              const active = selectedDate === d;
               return (
-                <button key={d} onClick={() => setSelectedDate(d)} className="flex items-center gap-2 text-left active:opacity-70">
-                  <span className="text-[13px] font-bold text-[#231714]">{md}（{wd}）</span>
-                  <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full" style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>{label}</span>
+                <button
+                  key={d}
+                  onClick={() => setSelectedDate(d)}
+                  className={`flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70 ${active ? "" : ""}`}
+                >
+                  <span className="text-[13px] font-bold text-[#231714]">
+                    {md}（{wd}）{active && <span className="ml-1 text-[10px] text-[#A5C1C8]">▼</span>}
+                  </span>
+                  <span
+                    className="shrink-0 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full"
+                    style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}
+                  >
+                    {label}
+                  </span>
                 </button>
               );
             })}
