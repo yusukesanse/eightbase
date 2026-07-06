@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { validateCsMatch, isRoundComplete, generateNextRoundCsTop1 } from "@/lib/mahjongCs";
+import { validateCsMatch, isRoundComplete, advanceCsRound } from "@/lib/mahjongCs";
 import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongCsEvent } from "@/types";
 
@@ -91,8 +91,7 @@ export async function POST(
             championId = winner?.lineUserId ?? null;
             status = "finished";
           } else {
-            const seeds = event.entrants.filter((e) => e.seed);
-            const next = generateNextRoundCsTop1(round, seeds);
+            const next = advanceCsRound(round);
             if (next) trimmed.push(next);
             status = "running";
           }

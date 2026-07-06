@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
-import { generateNextRoundCsTop1, isRoundComplete, validateCsMatch } from "@/lib/mahjongCs";
+import { advanceCsRound, isRoundComplete, validateCsMatch } from "@/lib/mahjongCs";
 import { MAHJONG_TABLE_TOTAL, type MahjongCsEvent } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -139,8 +139,7 @@ export async function PATCH(req: NextRequest) {
           championId = winner?.lineUserId;
           status = "finished";
         } else {
-          const seeds = event.entrants.filter((e) => e.seed);
-          const next = generateNextRoundCsTop1(round, seeds);
+          const next = advanceCsRound(round);
           if (next) rounds.push(next);
         }
       }

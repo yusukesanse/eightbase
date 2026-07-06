@@ -282,9 +282,11 @@ export interface MahjongCsMatch {
 export interface MahjongCsRound {
   type: MahjongCsRoundType;
   label: string;            // 例: 予選, 準決勝, 決勝
-  /** 各試合から勝ち上がる人数（予選=1, 準決=2, 決勝=1） */
+  /** 各試合から勝ち上がる人数（現行は常に1着通過） */
   advanceCount: number;
   matches: MahjongCsMatch[];
+  /** このラウンドで不戦勝（bye）＝端数調整で次ラウンドへ自動進出する人。卓は必ず4名にするため。 */
+  byes?: MahjongCsMatchPlayer[];
 }
 
 /** CSイベント（年1回のチャンピオンシップ） */

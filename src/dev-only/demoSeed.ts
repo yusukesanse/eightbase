@@ -15,7 +15,7 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { tierForRank } from "@/lib/mahjong";
-import { generatePrelimRound } from "@/lib/mahjongCs";
+import { buildInitialCsRounds } from "@/lib/mahjongCs";
 import { upcomingSaturdayJst } from "@/lib/date";
 import { MAHJONG_ENTRY_FEE, MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongCsEntrant, type MahjongTableMember } from "@/types";
 
@@ -44,6 +44,12 @@ const DUMMIES: P[] = [
   { lineUserId: "demo-dummy-09", displayName: "小林 花" },
   { lineUserId: "demo-dummy-10", displayName: "加藤 匠" },
   { lineUserId: "demo-dummy-11", displayName: "松本 蓮" },
+  { lineUserId: "demo-dummy-12", displayName: "井上 結衣" },
+  { lineUserId: "demo-dummy-13", displayName: "木村 拓也" },
+  { lineUserId: "demo-dummy-14", displayName: "林 美咲" },
+  { lineUserId: "demo-dummy-15", displayName: "清水 陽介" },
+  { lineUserId: "demo-dummy-16", displayName: "山口 楓" },
+  { lineUserId: "demo-dummy-17", displayName: "森田 隼人" },
 ];
 
 const POINTS = [40000, 30000, 20000, 10000];
@@ -183,26 +189,26 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
   const slots = Math.min(7, MAHJONG_MAX_ENTRIES_PER_DATE - 1);
   for (const p of DUMMIES.slice(0, slots)) await paidEntry(today, p);
 
-  // 5) CS（参戦者＝上位8名）。予選ラウンドを生成して「展開(running)」状態で投入し、
-  //    利用者アプリからdemoユーザーが勝敗入力→準決→決勝→優勝/敗北UIまで確認できるようにする。
-  //    demoユーザー(rank1)は M1シード（seed=true）＝予選免除・準決から登場。
-  const csTop = standingPlayers.slice(0, 8);
-  const entrants: MahjongCsEntrant[] = csTop.map((p, i) => ({
+  // 5) CS（参戦者＝16名）。卓は必ず4名: 16→準決4卓→決勝1卓(4名)のクリーンなブラケット。
+  //    「展開(running)」で投入し、demoユーザーが勝敗入力→次ラウンド→優勝/敗北UIまで確認できる。
+  //    順位上位は M1=シード（S バッジ）。demoユーザー(rank1)を含む。
+  const csPlayers: P[] = [SELF, GUEST, STAFF, ...DUMMIES.slice(0, 13)]; // 16名
+  const entrants: MahjongCsEntrant[] = csPlayers.map((p, i) => ({
     lineUserId: p.lineUserId,
     displayName: p.displayName,
     pictureUrl: "",
     tier: tierForRank(i + 1),
     rank: i + 1,
-    seed: i === 0,
+    seed: tierForRank(i + 1) === "M1",
   }));
-  const prelim = generatePrelimRound(entrants);
+  const csRounds = buildInitialCsRounds(entrants);
   await db.collection("mahjongCsEvents").doc(`demo-cs-${seasonId}`).set({
     seasonId,
     name: "検証CS",
     eventDate: futureDate,
-    status: prelim ? "running" : "setup",
+    status: csRounds ? "running" : "setup",
     entrants,
-    rounds: prelim ? [prelim] : [],
+    rounds: csRounds ?? [],
     createdAt: nowIso,
     updatedAt: nowIso,
     ...DUMMY_FLAG,
