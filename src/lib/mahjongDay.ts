@@ -15,6 +15,47 @@ const minRot = (p: RotPlayer) => ({ lineUserId: p.lineUserId, displayName: p.dis
 const reportingMembers = (members: RotPlayer[]) =>
   members.map((m) => ({ lineUserId: m.lineUserId, displayName: m.displayName, pictureUrl: m.pictureUrl ?? "", points: null, rank: null, reportedAt: null }));
 
+function buildSystemTableDoc(
+  seasonId: string,
+  eventDate: string,
+  round: number,
+  tableLabel: string,
+  members: RotPlayer[],
+  nowIso: string,
+  tag: Record<string, unknown>
+) {
+  return {
+    seasonId,
+    eventDate,
+    createdBy: "system",
+    memberIds: members.map((m) => m.lineUserId),
+    members: reportingMembers(members),
+    status: "reporting",
+    round,
+    tableLabel,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    ...tag,
+  };
+}
+
+async function fetchPaidParticipants(
+  seasonId: string,
+  eventDate: string
+): Promise<RotPlayer[]> {
+  const db = getDb();
+  const snap = await db.collection("mahjongEntries").where("seasonId", "==", seasonId).get();
+  return snap.docs
+    .map((d) => d.data() as MahjongEntry)
+    .filter((e) => e.eventDate === eventDate && e.paymentStatus === "paid")
+    .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
+    .map((e) => ({
+      lineUserId: e.lineUserId,
+      displayName: e.displayName,
+      pictureUrl: e.pictureUrl,
+    }));
+}
+
 /**
  * 参加者から初期卓＋待機を作る。卓は常に最大2卓（A/B・同時最大8名）。
  * 先頭8名をA/B卓に割当、9名以上は待機キュー（FIFO）。座席・待機は participants の順。
@@ -42,12 +83,7 @@ export async function startDay(seasonId: string, eventDate: string, demo = false
   const tblSnap = await db.collection("mahjongTables").where("seasonId", "==", seasonId).get();
   if (tblSnap.docs.some((d) => (d.data() as MahjongTable).eventDate === eventDate)) return false;
 
-  const snap = await db.collection("mahjongEntries").where("seasonId", "==", seasonId).get();
-  const participants: RotPlayer[] = snap.docs
-    .map((d) => d.data() as MahjongEntry)
-    .filter((e) => e.eventDate === eventDate && e.paymentStatus === "paid")
-    .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
-    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+  const participants = await fetchPaidParticipants(seasonId, eventDate);
 
   const { tables, waiting } = buildInitialDay(participants);
   if (tables.length === 0) return false;
@@ -56,13 +92,29 @@ export async function startDay(seasonId: string, eventDate: string, demo = false
   const tag = demo ? { demoDummy: true } : {};
   const batch = db.batch();
   for (const t of tables) {
-    batch.set(db.collection("mahjongTables").doc(`tbl-${seasonId}-${eventDate}-r1-${t.label}`), {
-      seasonId, eventDate, createdBy: "system", memberIds: t.members.map((m) => m.lineUserId),
-      members: reportingMembers(t.members), status: "reporting", round: 1, tableLabel: t.label,
-      createdAt: now, updatedAt: now, ...tag,
-    });
+    batch.set(
+      db.collection("mahjongTables").doc(`tbl-${seasonId}-${eventDate}-r1-${t.label}`),
+      buildSystemTableDoc(
+        seasonId,
+        eventDate,
+        1,
+        t.label,
+        t.members,
+        now,
+        tag
+      )
+    );
   }
-  batch.set(dayRef, { seasonId, eventDate, round: 1, waiting: waiting.map(minRot), tableLabels: tables.map((t) => t.label), lastSwap: null, updatedAt: now, ...tag });
+  batch.set(dayRef, {
+    seasonId,
+    eventDate,
+    round: 1,
+    waiting: waiting.map(minRot),
+    tableLabels: tables.map((t) => t.label),
+    lastSwap: null,
+    updatedAt: now,
+    ...tag,
+  });
   await batch.commit();
   return true;
 }
@@ -81,7 +133,9 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
     const day = daySnap.data() as MahjongDayState & { demoDummy?: boolean };
     const round = day.round;
 
-    const qSnap = await tx.get(db.collection("mahjongTables").where("seasonId", "==", seasonId));
+    const qSnap = await tx.get(
+      db.collection("mahjongTables").where("seasonId", "==", seasonId)
+    );
     const roundTables = qSnap.docs
       .map((d) => d.data() as MahjongTable)
       .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
@@ -98,14 +152,36 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
     const tag = day.demoDummy ? { demoDummy: true } : {};
 
     for (const t of result.tables) {
-      tx.set(db.collection("mahjongTables").doc(`tbl-${seasonId}-${eventDate}-r${nextRound}-${t.label}`), {
-        seasonId, eventDate, createdBy: "system", memberIds: t.members.map((m) => m.lineUserId),
-        members: reportingMembers(t.members), status: "reporting", round: nextRound, tableLabel: t.label,
-        createdAt: now, updatedAt: now, ...tag,
-      });
+      tx.set(
+        db.collection("mahjongTables").doc(`tbl-${seasonId}-${eventDate}-r${nextRound}-${t.label}`),
+        buildSystemTableDoc(
+          seasonId,
+          eventDate,
+          nextRound,
+          t.label,
+          t.members,
+          now,
+          tag
+        )
+      );
     }
-    const swap: MahjongDaySwap = { round, out: result.out.map(minRot), in: result.in.map(minRot), shrunk: result.shrunk, reason: result.reason ?? null };
-    tx.set(dayRef, { seasonId, eventDate, round: nextRound, waiting: result.waiting.map(minRot), tableLabels: result.tables.map((t) => t.label), lastSwap: swap, updatedAt: now, ...tag });
+    const swap: MahjongDaySwap = {
+      round,
+      out: result.out.map(minRot),
+      in: result.in.map(minRot),
+      shrunk: result.shrunk,
+      reason: result.reason ?? null,
+    };
+    tx.set(dayRef, {
+      seasonId,
+      eventDate,
+      round: nextRound,
+      waiting: result.waiting.map(minRot),
+      tableLabels: result.tables.map((t) => t.label),
+      lastSwap: swap,
+      updatedAt: now,
+      ...tag,
+    });
     return swap;
   });
 
@@ -115,7 +191,14 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
       eventType: "day.advanced",
       actor: "system",
       target: { date: eventDate },
-      meta: { round: swap.round, nextRound: swap.round + 1, out: swap.out.length, in: swap.in.length, shrunk: swap.shrunk, reason: swap.reason },
+      meta: {
+        round: swap.round,
+        nextRound: swap.round + 1,
+        out: swap.out.length,
+        in: swap.in.length,
+        shrunk: swap.shrunk,
+        reason: swap.reason,
+      },
     });
   }
   return swap;

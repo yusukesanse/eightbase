@@ -3,6 +3,9 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { verifySquareOrderPayment } from "@/lib/square";
 import { notifyAdmin } from "@/lib/adminNotify";
+import {
+  isValidDocId,
+} from "@/lib/mahjongEntryValidation";
 import { MAHJONG_ENTRY_FEE, type MahjongEntry } from "@/types";
 import dayjs from "dayjs";
 
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
     const userId = auth.lineUserId;
 
     const { rid } = (await req.json().catch(() => ({}))) as { rid?: string };
-    if (!rid || typeof rid !== "string" || !/^[A-Za-z0-9_-]+$/.test(rid)) {
+    if (!isValidDocId(rid)) {
       return NextResponse.json({ error: "rid が不正です" }, { status: 400 });
     }
 

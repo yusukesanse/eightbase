@@ -9,6 +9,14 @@ export type MahjongEntryStatus =
   | "refunded"
   | "cancelRejected";
 
+const ENTRY_STATUSES: MahjongEntryStatus[] = [
+  "reserved",
+  "paid",
+  "cancelRequested",
+  "refunded",
+  "cancelRejected",
+];
+
 const TRANSITIONS: Record<MahjongEntryStatus, MahjongEntryStatus[]> = {
   reserved: ["paid"], // 決済で確定（未決済の取消はレコード削除＝状態遷移外）
   paid: ["cancelRequested"], // 支払い済みのキャンセル依頼
@@ -21,9 +29,13 @@ export function canTransition(from: MahjongEntryStatus, to: MahjongEntryStatus):
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+function isMahjongEntryStatus(value: unknown): value is MahjongEntryStatus {
+  return typeof value === "string" && ENTRY_STATUSES.includes(value as MahjongEntryStatus);
+}
+
 /** paymentStatus/status 未設定の旧データから現在状態を導出（後方互換）。 */
 export function deriveStatus(e: { status?: string; paymentStatus?: string }): MahjongEntryStatus {
-  if (e.status) return e.status as MahjongEntryStatus;
+  if (isMahjongEntryStatus(e.status)) return e.status;
   if (e.paymentStatus === "paid") return "paid";
   if (e.paymentStatus === "cancelRequested") return "cancelRequested";
   return "reserved";

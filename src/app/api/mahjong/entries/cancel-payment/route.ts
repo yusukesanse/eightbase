@@ -6,12 +6,11 @@ import { notifyAdmin } from "@/lib/adminNotify";
 import { canCancelMahjong, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import { canTransition, deriveStatus } from "@/lib/mahjongEntryStatus";
 import { writeAuditLog } from "@/lib/auditLog";
+import { isValidMahjongDate, buildMahjongEntryId } from "@/lib/mahjongEntryValidation";
 import type { MahjongEntry } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * POST /api/mahjong/entries/cancel-payment  Body: { eventDate }
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null);
     const eventDate: unknown = body?.eventDate;
-    if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
+    if (!isValidMahjongDate(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
 
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
-    const entryId = `${season.seasonId}_${eventDate}_${userId}`;
+    const entryId = buildMahjongEntryId(season.seasonId, eventDate, userId);
     const entryRef = db.collection("mahjongEntries").doc(entryId);
     const snap = await entryRef.get();
     if (!snap.exists) {
