@@ -8,6 +8,7 @@ import { verifySquareOrderPayment } from "@/lib/square";
 import { generatePasscode, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
 import { reservationEpochMs, buildReservationSlotKey } from "@/lib/reservations";
 import { notifyAdmin } from "@/lib/adminNotify";
+import { writeReservationAudit } from "@/lib/reservationAudit";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         reservation,
         passcode: reservation.switchBotPasscode ?? null,
-        passcodePending: reservation.switchBotStatus === "failed",
+        passcodePending: reservation.switchBotStatus === "failed" || reservation.switchBotStatus === "manual",
         alreadyDone: true,
       });
     }
@@ -216,16 +217,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           reservation: r,
           passcode: r.switchBotPasscode ?? null,
-          passcodePending: r.switchBotStatus === "failed",
+          passcodePending: r.switchBotStatus === "failed" || r.switchBotStatus === "manual",
           alreadyDone: true,
         });
       }
       throw e;
     }
 
-    // ── SwitchBot 時限パスコード発行 ──
+    // ── SwitchBot 時限パスコード発行（暫定運用対応）──
+    // 要解錠施設（決済施設＝トレーラー）は、SwitchBot未連携/発行失敗でも予約は確定し、
+    // 「手動解錠対応」を管理者へ通知＋利用者に連絡待ち表示＋監査ログに記録する。
     let passcode: string | null = null;
     let passcodePending = false;
+    const needsUnlock = (facility.paymentAmount ?? 0) > 0;
     if (facility.switchBotDeviceId) {
       const code = generatePasscode();
       const startMs = reservationEpochMs(reservation.date, reservation.startTime);
@@ -245,16 +249,44 @@ export async function POST(req: NextRequest) {
           switchBotPasscodeExpiresAt: new Date(endMs).toISOString(),
           switchBotStatus: "issued",
         });
+        await writeReservationAudit({
+          eventType: "unlock.issued",
+          reservationId: reservation.reservationId,
+          facilityId: facility.id,
+        });
       } catch (e) {
+        // 発行失敗：手動再発行が必要。
         passcodePending = true;
         await reservationRef.update({ switchBotStatus: "failed" });
         await notifyAdmin(
           "switchbot_failed",
-          `解錠コードの発行に失敗しました（予約 ${reservation.reservationId} / ${facility.name}）。手動で再発行してください。`,
+          `解錠コードの発行に失敗しました（予約 ${reservation.reservationId} / ${facility.name}）。手動で解錠対応/再発行してください。`,
           { reservationId: reservation.reservationId, facilityId: facility.id }
         );
-        console.error("[reservations/complete] switchbot failed:", e);
+        await writeReservationAudit({
+          eventType: "unlock.failed",
+          reservationId: reservation.reservationId,
+          facilityId: facility.id,
+          reason: e instanceof Error ? e.message : "SwitchBot発行失敗",
+        });
+        // 機密（token/secret/署名）は出さない。要約のみ。
+        console.error("[reservations/complete] switchbot issue failed:", e instanceof Error ? e.message : "error");
       }
+    } else if (needsUnlock) {
+      // SwitchBot未連携（deviceId未設定）：手動解錠運用。予約は確定のまま。
+      passcodePending = true;
+      await reservationRef.update({ switchBotStatus: "manual" });
+      await notifyAdmin(
+        "switchbot_manual",
+        `SwitchBot未連携のため解錠コードを自動発行できません。手動解錠対応が必要です（予約 ${reservation.reservationId} / ${facility.name}）。`,
+        { reservationId: reservation.reservationId, facilityId: facility.id }
+      );
+      await writeReservationAudit({
+        eventType: "unlock.manual",
+        reservationId: reservation.reservationId,
+        facilityId: facility.id,
+        reason: "switchBotDeviceId 未設定（SwitchBot未連携）",
+      });
     }
 
     // ── LINE 通知（失敗しても確定は維持） ──

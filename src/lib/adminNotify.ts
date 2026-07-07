@@ -10,7 +10,8 @@ import { getDb } from "@/lib/firebaseAdmin";
 import dayjs from "dayjs";
 
 export type AdminNotificationType =
-  | "switchbot_failed" // 解錠コード発行失敗
+  | "switchbot_failed" // 解錠コード発行失敗（要手動再発行）
+  | "switchbot_manual" // SwitchBot未連携のため手動解錠対応が必要
   | "trailer_cancel" // トレーラー予約の取消（手動返金対応依頼）
   | "mahjong_refund"; // 麻雀参加費の返金対応依頼（キャンセル/期限切れ後決済）
 

@@ -126,8 +126,8 @@ function CompleteInner() {
             ) : passcodePending ? (
               <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-center">
                 <p className="text-xs text-amber-700">
-                  解錠コードを発行中です。少し時間をおいて「マイ予約」をご確認ください。<br />
-                  表示されない場合は管理者にお問い合わせください。
+                  解錠コードは準備が整い次第、<b>管理者からご連絡</b>します。<br />
+                  お急ぎの場合は管理者へお問い合わせください。
                 </p>
               </div>
             ) : null}

@@ -60,7 +60,7 @@ export interface Reservation {
   switchBotPasscode?: string;          // 発行した時限パスワード（6桁・本人にのみ表示）
   switchBotKeyId?: number;             // SwitchBotが返すキーID（deleteKey用）
   switchBotPasscodeExpiresAt?: string; // パスコード失効（=予約終了）ISO8601
-  switchBotStatus?: "issued" | "pending" | "failed"; // 発行状態（failed=要手動再発行）
+  switchBotStatus?: "issued" | "pending" | "failed" | "manual"; // 発行状態（failed=要手動再発行 / manual=SwitchBot未連携で手動解錠対応）
   createdAt: string;
 }
 

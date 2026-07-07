@@ -173,7 +173,11 @@ function ReservationCard({
   // トレーラー等（決済済み）: 解錠コードと取消ラベルを出し分け
   const isTrailer = !!(r.switchBotPasscode || r.paymentTransactionId);
   const showPasscode = !isPast && !!r.switchBotPasscode;
-  const passcodeFailed = !isPast && r.switchBotStatus === "failed" && !r.switchBotPasscode;
+  // 発行失敗(failed)／SwitchBot未連携(manual) は「管理者連絡待ち」を表示。
+  const passcodePending =
+    !isPast &&
+    !r.switchBotPasscode &&
+    (r.switchBotStatus === "failed" || r.switchBotStatus === "manual");
 
   return (
     <div
@@ -217,10 +221,10 @@ function ReservationCard({
           </div>
         </div>
       )}
-      {passcodeFailed && (
+      {passcodePending && (
         <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-center">
           <p className="text-[11px] text-amber-700">
-            解錠コードを発行中です。表示されない場合は管理者へお問い合わせください。
+            解錠コードは準備が整い次第、管理者からご連絡します。お急ぎの場合は管理者へお問い合わせください。
           </p>
         </div>
       )}
