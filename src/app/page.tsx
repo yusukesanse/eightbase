@@ -7,6 +7,7 @@ import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { isDevLoginEnabled } from "@/lib/env";
 import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { getStoredDevIdentity, setStoredDevIdentity } from "@/lib/devLogin";
 
 const LOGGED_OUT_FLAG = "eb_logged_out";
 
@@ -74,6 +75,16 @@ export default function HomePage() {
     // DEV-ONLY（develop 専用 / main へ入れない）: 非本番のみ URLごと固定ロールで自動ログイン。
     // 本番は isDevLoginEnabled()===false で下の通常フロー（LIFF）に進む。
     if (isDevLoginEnabled()) {
+      // DEV検証専用: ?apply=1 で「未登録の擬似LINEユーザー」として利用申請フォームを表示する。
+      // 本番は isDevLoginEnabled()===false なので発動しない（自動ログインもしない）。
+      if (new URLSearchParams(window.location.search).get("apply") === "1") {
+        const stored = getStoredDevIdentity();
+        if (!stored || !stored.userId.startsWith("applicant-")) {
+          setStoredDevIdentity({ userId: `applicant-${Date.now()}`, displayName: "申請テスト" });
+        }
+        setPhase("no-account");
+        return;
+      }
       const role = devFixedRole();
       const loginAs = () => {
         clearAuthCache();
