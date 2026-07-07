@@ -13,6 +13,7 @@ export default function AccessRequestForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
+  const [userType, setUserType] = useState<"member" | "guest">("member");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -39,6 +40,7 @@ export default function AccessRequestForm() {
           displayName: name.trim(),
           email: email.trim(),
           companyName: company.trim(),
+          requestedRole: userType,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -108,11 +110,32 @@ export default function AccessRequestForm() {
               className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
             />
           </Field>
+          <Field label="ご利用形態">
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: "member", label: "オフィス契約者" },
+                { key: "guest", label: "ゲスト" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setUserType(opt.key)}
+                  className={`rounded-xl border px-3 py-3 text-sm font-bold transition-colors ${
+                    userType === opt.key
+                      ? "border-[#231714] bg-[#231714] text-white"
+                      : "border-gray-200 bg-white text-[#231714]/70"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </Field>
           <Field label="会社名">
             <input
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              placeholder="株式会社エイトデザイン"
+              placeholder="エイトデザイン株式会社"
               className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
             />
           </Field>

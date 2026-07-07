@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
     const displayName = typeof body?.displayName === "string" ? body.displayName.trim() : "";
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const companyName = typeof body?.companyName === "string" ? body.companyName.trim() : "";
+    // 自己申告できるのは member / guest のみ（staffはURL招待の別導線。self-elevation防止）
+    const requestedRole: "member" | "guest" = body?.requestedRole === "guest" ? "guest" : "member";
 
     if (!accessToken || typeof accessToken !== "string") {
       return NextResponse.json({ error: "LINEアクセストークンが必要です" }, { status: 400 });
@@ -94,6 +96,7 @@ export async function POST(req: NextRequest) {
       displayName,
       email,
       companyName,
+      requestedRole,
       status: "pending" as const,
       createdAt: nowStr,
     };
@@ -101,16 +104,17 @@ export async function POST(req: NextRequest) {
     let requestId: string;
     if (!existingPending.empty) {
       const ref = existingPending.docs[0].ref;
-      await ref.update({ displayName, email, companyName, createdAt: nowStr });
+      await ref.update({ displayName, email, companyName, requestedRole, createdAt: nowStr });
       requestId = ref.id;
     } else {
       const ref = await db.collection("accessRequests").add(payload);
       requestId = ref.id;
     }
 
+    const roleLabel = requestedRole === "guest" ? "ゲスト" : "オフィス契約者";
     await notifyAdmin(
       "access_request",
-      `利用申請が届きました：${displayName}（${companyName} / ${email}）`,
+      `利用申請が届きました：${displayName}（${roleLabel} / ${companyName} / ${email}）`,
       { requestId, lineUserId }
     );
 

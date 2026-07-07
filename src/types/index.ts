@@ -12,6 +12,7 @@ export interface AccessRequest {
   displayName: string;  // 申請者が入力した氏名
   email: string;        // 正規化済み
   companyName: string;  // 会社名（承認時に本登録プロフィールへ引き継ぐ）
+  requestedRole: "member" | "guest"; // 申請者が自己申告した種別（承認時のrole初期値）。staffはURL招待の別導線
   status: AccessRequestStatus;
   createdAt: string;
   reviewedAt?: string;

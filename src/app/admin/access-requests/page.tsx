@@ -9,14 +9,20 @@ interface AccessRequestItem {
   displayName: string;
   email: string;
   companyName: string;
+  requestedRole: "member" | "guest";
   status: "pending" | "approved" | "rejected";
   createdAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
 }
 
-type RoleOption = "member" | "guest" | "staff";
-const ROLE_LABEL: Record<RoleOption, string> = { member: "会員", guest: "ゲスト", staff: "エイト社員" };
+// 自己申告できるのは member / guest のみ（staffはURL招待の別導線）。
+type RoleOption = "member" | "guest";
+const ROLE_LABEL: Record<string, { label: string; color: string }> = {
+  member: { label: "オフィス契約者", color: "#1172a5" },
+  guest: { label: "ゲスト", color: "#b48f13" },
+  staff: { label: "エイトデザイン社員", color: "#a2125a" },
+};
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   pending: { label: "承認待ち", color: "#b48f13" },
   approved: { label: "承認済み", color: "#2f7d57" },
@@ -34,19 +40,18 @@ function fmt(iso?: string): string {
 export default function AdminAccessRequestsPage() {
   const [items, setItems] = useState<AccessRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roleById, setRoleById] = useState<Record<string, RoleOption>>({});
   const [note, setNote] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/admin/access-requests?status=${filter}`, { credentials: "same-origin" })
+    fetch(`/api/admin/access-requests`, { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => setItems(d.requests ?? []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -55,7 +60,7 @@ export default function AdminAccessRequestsPage() {
   const approve = async (id: string) => {
     setBusyId(id);
     try {
-      const role = roleById[id] ?? "member";
+      const role = roleById[id] ?? items.find((i) => i.id === id)?.requestedRole ?? "member";
       const res = await fetch(`/api/admin/access-requests/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -102,44 +107,36 @@ export default function AdminAccessRequestsPage() {
 
   return (
     <div className="p-5 md:p-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-lg font-bold text-[#1c1f21]">利用申請</h1>
-          <p className="text-xs text-[#8a8f94] mt-0.5">
-            利用者からの申請を承認するとOTPメールが届き、本登録に進めます。
-          </p>
-        </div>
-        <div className="flex rounded-lg bg-[#EEF0F2] p-0.5 text-xs">
-          {(["pending", "all"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-md font-bold ${filter === f ? "bg-white text-[#1c1f21] shadow-sm" : "text-[#8a8f94]"}`}
-            >
-              {f === "pending" ? "承認待ち" : "すべて"}
-            </button>
-          ))}
-        </div>
+      <div className="mb-5">
+        <h1 className="text-lg font-bold text-[#1c1f21]">利用申請</h1>
+        <p className="text-xs text-[#8a8f94] mt-0.5">
+          利用者からの申請を承認するとOTPメールが届き、本登録に進めます。
+        </p>
       </div>
 
       {loading ? (
         <p className="text-sm text-[#8a8f94]">読み込み中...</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-[#8a8f94]">
-          {filter === "pending" ? "承認待ちの申請はありません。" : "申請はありません。"}
-        </p>
+        <p className="text-sm text-[#8a8f94]">申請はありません。</p>
       ) : (
         <div className="space-y-3">
           {items.map((it) => {
             const st = STATUS_LABEL[it.status] ?? STATUS_LABEL.pending;
+            const typ = ROLE_LABEL[it.requestedRole] ?? ROLE_LABEL.member;
             const isPending = it.status === "pending";
-            const role = roleById[it.id] ?? "member";
+            const role = roleById[it.id] ?? it.requestedRole;
             return (
               <div key={it.id} className="rounded-2xl border border-gray-100 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-[#1c1f21]">{it.displayName}</span>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{ color: typ.color, background: `${typ.color}18` }}
+                      >
+                        {typ.label}
+                      </span>
                       <span
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded"
                         style={{ color: st.color, background: `${st.color}18` }}
@@ -162,8 +159,8 @@ export default function AdminAccessRequestsPage() {
                       onChange={(e) => setRoleById((p) => ({ ...p, [it.id]: e.target.value as RoleOption }))}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-2"
                     >
-                      {(Object.keys(ROLE_LABEL) as RoleOption[]).map((r) => (
-                        <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                      {(["member", "guest"] as RoleOption[]).map((r) => (
+                        <option key={r} value={r}>{ROLE_LABEL[r].label}</option>
                       ))}
                     </select>
                     <button
