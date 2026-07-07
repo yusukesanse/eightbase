@@ -73,7 +73,16 @@ export default function AccessRequestForm() {
         <p className="text-xs text-[#231714]/60 mt-2 leading-relaxed">
           管理者が承認すると、ご入力のメールアドレスに<br />
           ワンタイムパスワードが届きます。<br />
-          届いたら「ログイン」からコードを入力してください。
+          届いたら下の「ログイン」からコードを入力してください。
+        </p>
+        <a
+          href="/login"
+          className="mt-6 flex items-center justify-center w-full max-w-xs py-3.5 rounded-2xl text-sm font-bold bg-[#231714] text-white active:scale-[0.99] transition-transform"
+        >
+          ログイン
+        </a>
+        <p className="text-[11px] text-[#231714]/40 mt-2">
+          ワンタイムパスワードが届いてから入力してください
         </p>
       </div>
     );
