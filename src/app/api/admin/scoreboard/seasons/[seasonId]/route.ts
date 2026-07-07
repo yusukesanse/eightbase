@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { clearActiveSeasonCache } from "@/lib/mahjong";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -136,6 +137,7 @@ export async function PUT(
 
     updates.updatedAt = new Date().toISOString();
     await docRef.update(updates);
+    clearActiveSeasonCache();
 
     const updated = await docRef.get();
     return NextResponse.json({

@@ -13,23 +13,26 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await requireGameUser(req);
+    const querySeasonId = req.nextUrl.searchParams.get("seasonId");
+    // 認証とアクティブシーズン取得は独立＝並列化（往復を重ねない）。
+    const [userId, activeSeason] = await Promise.all([
+      requireGameUser(req),
+      querySeasonId ? Promise.resolve(null) : getActiveSeason(),
+    ]);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
-    let seasonId = req.nextUrl.searchParams.get("seasonId");
+    const seasonId = querySeasonId ?? activeSeason?.seasonId ?? null;
     if (!seasonId) {
-      const season = await getActiveSeason();
-      if (!season) {
-        return NextResponse.json({ standings: [], seasonId: null, currentUserId: userId });
-      }
-      seasonId = season.seasonId;
+      return NextResponse.json({ standings: [], seasonId: null, currentUserId: userId });
     }
 
-    const standings = await computeStandings(seasonId);
-    // 現在の順位方式（UIのラベル用）
-    const seasonDoc = await getDb().collection("seasons").doc(seasonId).get();
+    // 順位集計と順位方式(seasonDoc)の取得も独立＝並列化。
+    const [standings, seasonDoc] = await Promise.all([
+      computeStandings(seasonId),
+      getDb().collection("seasons").doc(seasonId).get(),
+    ]);
     const rankingMetric = normalizeRankingMetric(seasonDoc.data()?.rankingMetric);
     return NextResponse.json({ standings, seasonId, currentUserId: userId, rankingMetric });
   } catch (error) {

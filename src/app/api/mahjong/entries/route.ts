@@ -4,16 +4,14 @@ import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
+import {
+  buildMahjongEntryId,
+  isSaturdayMahjongDate,
+  isValidMahjongDate,
+} from "@/lib/mahjongEntryValidation";
 import type { MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** 開催日は土曜のみ。"YYYY-MM-DD" は UTC 正午基準で曜日判定（TZずれ回避）。 */
-function isSaturday(dateStr: string): boolean {
-  return new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
-}
 
 /** 月ロックを解放（そのロックが当該開催日を指しているときのみ）。参加取消で枠を戻す。 */
 async function releaseMonthlyLock(
@@ -33,7 +31,11 @@ async function releaseMonthlyLock(
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireGameUserWithRole(req);
+    // 認証とアクティブシーズン取得は独立＝並列化。
+    const [auth, season] = await Promise.all([
+      requireGameUserWithRole(req),
+      getActiveSeason(),
+    ]);
     if (!auth) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -42,7 +44,6 @@ export async function GET(req: NextRequest) {
 
     // mine=1: 自分の参加一覧（開催日＋支払い状態）。カレンダー参加UI・月1回制御に使う。
     if (req.nextUrl.searchParams.get("mine") === "1") {
-      const season = await getActiveSeason();
       if (!season) return NextResponse.json({ entries: [], paymentRequired });
       const snap = await getDb()
         .collection("mahjongEntries")
@@ -56,10 +57,9 @@ export async function GET(req: NextRequest) {
     }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
-    if (!eventDate || !DATE_RE.test(eventDate)) {
+    if (!isValidMahjongDate(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
-    const season = await getActiveSeason();
     if (!season) {
       return NextResponse.json({
         entries: [],
@@ -121,10 +121,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null);
     const eventDate: unknown = body?.eventDate;
-    if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
+    if (!isValidMahjongDate(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
-    if (!isSaturday(eventDate)) {
+    if (!isSaturdayMahjongDate(eventDate)) {
       return NextResponse.json({ error: "開催日は土曜日のみです" }, { status: 400 });
     }
     // 休催日（管理者が非活性化した土曜）は参加不可
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
 
     const db = getDb();
     // 決定的な ID で重複表明を防ぐ
-    const entryId = `${season.seasonId}_${eventDate}_${userId}`;
+    const entryId = buildMahjongEntryId(season.seasonId, eventDate, userId);
     const ref = db.collection("mahjongEntries").doc(entryId);
 
     const userDoc = await db.collection("users").doc(userId).get();
@@ -172,7 +172,9 @@ export async function POST(req: NextRequest) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             // 別日ロックだが、その予約が実在するときだけ拒否（無ければstale＝上書き許可）。
-            const otherRef = db.collection("mahjongEntries").doc(`${season.seasonId}_${lockedDate}_${userId}`);
+            const otherRef = db
+              .collection("mahjongEntries")
+              .doc(buildMahjongEntryId(season.seasonId, lockedDate, userId));
             const otherSnap = await tx.get(otherRef);
             if (otherSnap.exists) throw new Error("MONTHLY_LIMIT");
           }
@@ -208,7 +210,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
-    if (!eventDate || !DATE_RE.test(eventDate)) {
+    if (!isValidMahjongDate(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
 
@@ -216,7 +218,7 @@ export async function DELETE(req: NextRequest) {
     if (!season) return NextResponse.json({ success: true });
 
     const db = getDb();
-    const entryId = `${season.seasonId}_${eventDate}_${userId}`;
+    const entryId = buildMahjongEntryId(season.seasonId, eventDate, userId);
     const ref = db.collection("mahjongEntries").doc(entryId);
     const snap = await ref.get();
     // DEV-ONLY（develop 専用 / main へ入れない）: 非本番は支払い状態に関わらず取消可。

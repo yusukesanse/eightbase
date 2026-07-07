@@ -16,12 +16,11 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await requireGameUser(req);
+    // 認証とアクティブシーズン取得は独立＝並列化。
+    const [userId, season] = await Promise.all([requireGameUser(req), getActiveSeason()]);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
-
-    const season = await getActiveSeason();
     if (!season) {
       return NextResponse.json({ tables: [], seasonId: null });
     }

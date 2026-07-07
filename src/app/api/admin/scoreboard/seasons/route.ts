@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { clearActiveSeasonCache } from "@/lib/mahjong";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
     };
 
     const docRef = await db.collection("seasons").add(data);
+    clearActiveSeasonCache();
 
     return NextResponse.json({
       success: true,

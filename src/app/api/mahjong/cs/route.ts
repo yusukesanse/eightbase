@@ -45,12 +45,11 @@ function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, userId: str
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getSessionUserId(req);
+    // 認証とアクティブシーズン取得は独立＝並列化。
+    const [userId, season] = await Promise.all([getSessionUserId(req), getActiveSeason()]);
     if (!userId) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
-
-    const season = await getActiveSeason();
     if (!season) return NextResponse.json({ event: null, entered: false });
 
     const snap = await getDb()

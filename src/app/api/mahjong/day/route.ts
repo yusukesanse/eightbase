@@ -19,14 +19,14 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const jstToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
 
 export async function GET(req: NextRequest) {
-  const userId = await requireGameUser(req);
+  // 認証とアクティブシーズン取得は独立＝並列化。
+  const [userId, season] = await Promise.all([requireGameUser(req), getActiveSeason()]);
   if (!userId) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   const eventDate = req.nextUrl.searchParams.get("eventDate");
   if (!eventDate || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
   }
-  const season = await getActiveSeason();
   if (!season) return NextResponse.json({ round: 1, waiting: [], lastSwap: null, tables: [] });
 
   // 開催日を迎えていれば自動で卓組み（参加者4名以上・冪等。管理者操作不要）。
@@ -35,11 +35,14 @@ export async function GET(req: NextRequest) {
   }
 
   const db = getDb();
-  const daySnap = await db.collection("mahjongDayState").doc(`${season.seasonId}_${eventDate}`).get();
+  // dayState と 卓一覧は独立＝並列取得（startDay 後）。
+  const [daySnap, snap] = await Promise.all([
+    db.collection("mahjongDayState").doc(`${season.seasonId}_${eventDate}`).get(),
+    db.collection("mahjongTables").where("seasonId", "==", season.seasonId).get(),
+  ]);
   const day = daySnap.exists ? (daySnap.data() as MahjongDayState) : null;
   const round = day?.round ?? 1;
 
-  const snap = await db.collection("mahjongTables").where("seasonId", "==", season.seasonId).get();
   const tables = snap.docs
     .map((d) => ({ ...(d.data() as MahjongTable), tableId: d.id }))
     .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)

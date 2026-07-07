@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   MAHJONG_ENTRY_FEE,
   type PublicMahjongTable,
@@ -50,6 +50,33 @@ export function JoinTab({
   const [dateEntries, setDateEntries] = useState<{ displayName: string; status?: string }[]>([]);
   const today = todayJst();
 
+  // 楽観的UI: 参加/キャンセルを即時反映（サーバー確定を待たず表示）。失敗時はロールバック。
+  const [optimistic, setOptimistic] = useState<Record<string, "joined" | "left">>({});
+  // サーバーの enteredDates に楽観差分を重ねた「実効の参加日集合」。
+  const effectiveEntered = useMemo(() => {
+    const s = new Set(enteredDates);
+    for (const [d, act] of Object.entries(optimistic)) {
+      if (act === "joined") s.add(d);
+      else s.delete(d);
+    }
+    return s;
+  }, [enteredDates, optimistic]);
+  // サーバー値が楽観差分に追いついたら、その差分を破棄（サーバーを正とする）。
+  useEffect(() => {
+    setOptimistic((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [d, act] of Object.entries(prev)) {
+        const has = enteredDates.has(d);
+        if ((act === "joined" && has) || (act === "left" && !has)) {
+          delete next[d];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [enteredDates]);
+
   useEffect(() => {
     if (!selectedDate) {
       setDateEntries([]);
@@ -72,6 +99,8 @@ export function JoinTab({
   async function toggle(date: string, entered: boolean) {
     setBusy(date);
     setPayMsg(null);
+    // 楽観更新: 参加=joined / 取消=left を即時反映。
+    setOptimistic((p) => ({ ...p, [date]: entered ? "left" : "joined" }));
     try {
       const res = await fetch(`/api/mahjong/entries${entered ? `?eventDate=${date}` : ""}`, {
         method: entered ? "DELETE" : "POST",
@@ -80,6 +109,12 @@ export function JoinTab({
         body: entered ? undefined : JSON.stringify({ eventDate: date }),
       });
       if (!res.ok) {
+        // 失敗したら楽観差分をロールバック。
+        setOptimistic((p) => {
+          const n = { ...p };
+          delete n[date];
+          return n;
+        });
         const d = await res.json().catch(() => ({}));
         setPayMsg(d.message ?? d.error ?? "処理に失敗しました");
       }
@@ -125,12 +160,12 @@ export function JoinTab({
     ? tables.filter((t) => t.eventDate === viewDate)
     : [];
 
-  // 月1回制御＋土曜のみ。自分の参加日(enteredDates)から選択可否を決める。
-  const enteredArr = Array.from(enteredDates);
+  // 月1回制御＋土曜のみ。実効の参加日集合（楽観差分込み）から選択可否を決める。
+  const enteredArr = Array.from(effectiveEntered);
   const isSat = (dateStr: string) => new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
   const selectable = (dateStr: string) => {
     // 参加済みの日は曜日・過去に関わらず常に選べる（詳細確認・取消のため）。
-    if (enteredDates.has(dateStr)) return true;
+    if (effectiveEntered.has(dateStr)) return true;
     if (!isSat(dateStr) || dateStr < today) return false;
     if (closedDates.has(dateStr)) return false; // 休催日は選べない
     const ym = dateStr.slice(0, 7);
@@ -153,7 +188,7 @@ export function JoinTab({
           value={selectedDate}
           onSelect={setSelectedDate}
           isSelectable={(d) => selectable(d)}
-          marked={(d) => enteredDates.has(d)}
+          marked={(d) => effectiveEntered.has(d)}
           accent={ACCENT}
         />
       </div>
@@ -194,7 +229,7 @@ export function JoinTab({
 
       {selectedDate ? (
         (() => {
-          const entered = enteredDates.has(selectedDate);
+          const entered = effectiveEntered.has(selectedDate);
           const confirmed = tables.some((t) => t.eventDate === selectedDate);
           const payStatus = paymentStatusByDate[selectedDate] ?? null;
           const needsPay = entered && paymentRequired;

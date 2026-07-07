@@ -385,14 +385,19 @@ export async function computePlayerHistory(
   };
 }
 
-/**
- * 指定種目のアクティブなシーズンを1件取得（なければ null）。
- * シーズンは種目別（gameCategory）。既定は麻雀。
- * gameCategory 未設定の旧シーズンは、麻雀指定時のフォールバックとして採用する。
- */
-export async function getActiveSeason(
-  category: ScoreboardGameId = "mahjong"
-): Promise<({ seasonId: string } & FirebaseFirestore.DocumentData) | null> {
+// アクティブシーズンの短命キャッシュ（インスタンス内・種目別）。
+// ほぼ全麻雀APIが毎リクエストで引くため、Firestore往復を削減する。
+// シーズン変更は稀。切替時は clearActiveSeasonCache() で即時無効化できる。
+type ActiveSeason = ({ seasonId: string } & FirebaseFirestore.DocumentData) | null;
+const ACTIVE_SEASON_TTL_MS = 60_000;
+const _activeSeasonCache = new Map<string, { value: ActiveSeason; expiresAt: number }>();
+
+/** アクティブシーズンのキャッシュを破棄（シーズン作成/有効切替の管理APIから呼ぶ）。 */
+export function clearActiveSeasonCache(): void {
+  _activeSeasonCache.clear();
+}
+
+async function fetchActiveSeason(category: ScoreboardGameId): Promise<ActiveSeason> {
   const db = getDb();
   const snap = await db.collection("seasons").where("active", "==", true).get();
   if (snap.empty) return null;
@@ -409,4 +414,20 @@ export async function getActiveSeason(
     if (legacy) return legacy;
   }
   return null;
+}
+
+/**
+ * 指定種目のアクティブなシーズンを1件取得（なければ null）。60秒キャッシュ。
+ * シーズンは種目別（gameCategory）。既定は麻雀。
+ * gameCategory 未設定の旧シーズンは、麻雀指定時のフォールバックとして採用する。
+ */
+export async function getActiveSeason(
+  category: ScoreboardGameId = "mahjong"
+): Promise<ActiveSeason> {
+  const now = Date.now();
+  const cached = _activeSeasonCache.get(category);
+  if (cached && cached.expiresAt > now) return cached.value;
+  const value = await fetchActiveSeason(category);
+  _activeSeasonCache.set(category, { value, expiresAt: now + ACTIVE_SEASON_TTL_MS });
+  return value;
 }

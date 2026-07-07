@@ -7,13 +7,15 @@ import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
+import {
+  buildMahjongEntryId,
+  isValidMahjongDate,
+} from "@/lib/mahjongEntryValidation";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import { MAHJONG_ENTRY_FEE, type MahjongEntry } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * POST /api/mahjong/entries/pay  Body: { eventDate }
@@ -25,7 +27,12 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireGameUserWithRole(req);
+    // 認証・アクティブシーズン取得・body 解析は独立＝並列化。
+    const [auth, season, body] = await Promise.all([
+      requireGameUserWithRole(req),
+      getActiveSeason(),
+      req.json().catch(() => null),
+    ]);
     if (!auth) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
@@ -39,13 +46,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => null);
     const eventDate: unknown = body?.eventDate;
-    if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
+    if (!isValidMahjongDate(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
 
-    const season = await getActiveSeason();
     if (!season) {
       return NextResponse.json(
         { error: "アクティブなシーズンがありません" },
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
-    const entryId = `${season.seasonId}_${eventDate}_${userId}`;
+    const entryId = buildMahjongEntryId(season.seasonId, eventDate, userId);
     const entryRef = db.collection("mahjongEntries").doc(entryId);
     const entrySnap = await entryRef.get();
     if (!entrySnap.exists) {
