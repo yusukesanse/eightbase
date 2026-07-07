@@ -2,35 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
-import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
+import { normalizeRole } from "@/lib/roles";
 import { sendPasscodeEmail, sendGuestInviteEmail } from "@/lib/email";
-import { liffUrl } from "@/lib/liffUrl";
+import {
+  createInvitation,
+  buildGuestInviteUrl,
+  usesUrlInvite,
+  expiryDaysForRole,
+  MAX_PASSCODE_ATTEMPTS,
+} from "@/lib/invitations";
 
 export const dynamic = "force-dynamic";
-
-/** ゲスト招待URL（LIFF URL）。踏むと LINEミニアプリの /guest が開き、その場でゲスト登録される。 */
-function buildGuestInviteUrl(passcode: string): string {
-  return liffUrl(`/guest?code=${encodeURIComponent(passcode)}`);
-}
-
-// 会員招待の有効期限（メール入力式のワンタイムパスワード）
-const INVITATION_EXPIRY_DAYS = 7;
-// ゲスト招待の有効期限。ゲストURLは "最初に開いた1名" が登録できる first-clicker 方式で
-// 流出時のリスクが高いため、会員より短くする（別定数）。
-const GUEST_INVITATION_EXPIRY_DAYS = 2;
-const MAX_PASSCODE_ATTEMPTS = 5;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** 身分ごとの有効期限日数を返す。 */
-function expiryDaysForRole(role: "member" | "guest" | "staff"): number {
-  // ゲスト/エイト社員はURL方式（first-clicker）で流出リスクがあるため短め。
-  return role === "member" ? INVITATION_EXPIRY_DAYS : GUEST_INVITATION_EXPIRY_DAYS;
-}
-
-/** URL(first-clicker)方式で招待する身分か（＝ゲスト/エイト社員）。会員はOTP方式。 */
-function usesUrlInvite(role: "member" | "guest" | "staff"): boolean {
-  return isGamesOnlyRole(role);
-}
 
 /**
  * GET /api/admin/invitations
@@ -101,122 +83,18 @@ export async function POST(req: NextRequest) {
   try {
     const { displayName, email, role: rawRole } = await req.json();
     const role = normalizeRole(rawRole);
-    if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
-      return NextResponse.json({ error: "名前を入力してください" }, { status: 400 });
+    const result = await createInvitation({ displayName, email, role });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status ?? 400 });
     }
-    if (!email || typeof email !== "string" || !email.trim()) {
-      return NextResponse.json({ error: "メールアドレスを入力してください" }, { status: 400 });
-    }
-
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!EMAIL_REGEX.test(trimmedEmail)) {
-      return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 });
-    }
-
-    const db = getDb();
-
-    // 同一メールアドレスの重複チェック（authorizedUsers）
-    const existingUser = await db
-      .collection("authorizedUsers")
-      .where("email", "==", trimmedEmail)
-      .limit(1)
-      .get();
-    if (!existingUser.empty) {
-      return NextResponse.json({ error: "このメールアドレスは既に登録されています" }, { status: 409 });
-    }
-
-    // 重複チェック付きパスコード生成（最大5回）
-    let passcode = "";
-    let pHash = "";
-    for (let i = 0; i < MAX_PASSCODE_ATTEMPTS; i++) {
-      passcode = generatePasscode();
-      pHash = hashPasscode(passcode);
-      const dup = await db
-        .collection("invitations")
-        .where("passcodeHash", "==", pHash)
-        .where("usedAt", "==", null)
-        .limit(1)
-        .get();
-      if (dup.empty) break;
-      if (i === MAX_PASSCODE_ATTEMPTS - 1) {
-        return NextResponse.json({ error: "パスコード生成に失敗しました。再試行してください" }, { status: 500 });
-      }
-    }
-
-    const now = new Date();
-    const expiryDays = expiryDaysForRole(role);
-    const expiresAt = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);
-    const nowStr = now.toISOString();
-    const trimmedName = displayName.trim();
-
-    // invitations + authorizedUsers をアトミックに作成
-    const batch = db.batch();
-    const inviteRef = db.collection("invitations").doc();
-    batch.set(inviteRef, {
-      displayName: trimmedName,
-      email: trimmedEmail,
-      passcodeHash: pHash,
-      role, // 身分（member|guest）
-      emailDeliveryStatus: "pending",
-      emailSentAt: null,
-      emailError: null,
-      createdAt: nowStr,
-      expiresAt: expiresAt.toISOString(),
-      usedAt: null,
-      lineUserId: null,
-      revokedAt: null,
-    });
-
-    const authRef = db.collection("authorizedUsers").doc();
-    batch.set(authRef, {
-      displayName: trimmedName,
-      email: trimmedEmail,
-      passwordHash: "",
-      salt: "",
-      lineUserId: null,
-      active: true,
-      role, // 身分（member|guest）。guest はゲーム機能のみ。
-      profileComplete: false,
-      createdAt: nowStr,
-      lastLoginAt: null,
-      invitationId: inviteRef.id,
-      inviteStatus: "pending",
-    });
-
-    await batch.commit();
-
-    // メール送信（DB作成後に実行、結果をinvitationに反映）
-    // member: ワンタイムパスコード（ログイン画面で入力）/ guest: ワンタイムURL（踏むと登録）
-    let emailSent = false;
-    try {
-      if (usesUrlInvite(role)) {
-        await sendGuestInviteEmail(trimmedEmail, trimmedName, buildGuestInviteUrl(passcode), expiryDays);
-      } else {
-        await sendPasscodeEmail(trimmedEmail, trimmedName, passcode);
-      }
-      emailSent = true;
-      await inviteRef.update({
-        emailDeliveryStatus: "sent",
-        emailSentAt: new Date().toISOString(),
-      });
-    } catch (emailError) {
-      const errMsg = emailError instanceof Error ? emailError.message : "Unknown error";
-      console.error("[admin/invitations] Email send error:", errMsg);
-      await inviteRef.update({
-        emailDeliveryStatus: "failed",
-        emailError: errMsg,
-      });
-    }
-
-    // メール送信成功時は平文パスコード/URLを返さない（失敗時のみ手動共有用に返す）
     return NextResponse.json({
       success: true,
-      id: inviteRef.id,
+      id: result.invitationId,
       role,
-      passcode: emailSent || usesUrlInvite(role) ? undefined : passcode,
-      guestUrl: emailSent || !usesUrlInvite(role) ? undefined : buildGuestInviteUrl(passcode),
-      emailSent,
-      expiresAt: expiresAt.toISOString(),
+      passcode: result.passcode,
+      guestUrl: result.guestUrl,
+      emailSent: result.emailSent,
+      expiresAt: result.expiresAt,
     });
   } catch (error) {
     console.error("[admin/invitations] POST error:", error);

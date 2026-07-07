@@ -13,7 +13,10 @@ interface AdminNotification {
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
   switchbot_failed: { label: "解錠コード発行失敗", color: "#d8533a" },
+  switchbot_manual: { label: "手動解錠対応", color: "#d8533a" },
   trailer_cancel: { label: "取消・返金対応", color: "#b48f13" },
+  mahjong_refund: { label: "返金対応", color: "#b48f13" },
+  access_request: { label: "利用申請", color: "#2f7d57" },
 };
 
 function fmt(iso?: string): string {

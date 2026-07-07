@@ -13,7 +13,8 @@ export type AdminNotificationType =
   | "switchbot_failed" // 解錠コード発行失敗（要手動再発行）
   | "switchbot_manual" // SwitchBot未連携のため手動解錠対応が必要
   | "trailer_cancel" // トレーラー予約の取消（手動返金対応依頼）
-  | "mahjong_refund"; // 麻雀参加費の返金対応依頼（キャンセル/期限切れ後決済）
+  | "mahjong_refund" // 麻雀参加費の返金対応依頼（キャンセル/期限切れ後決済）
+  | "access_request"; // 利用者からの利用申請（承認待ち）
 
 export async function notifyAdmin(
   type: AdminNotificationType,

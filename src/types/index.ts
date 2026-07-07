@@ -1,6 +1,24 @@
 // ─── ユーザー ───────────────────────────────────────────────────────────────
 export type UserRole = "tenant" | "coworking" | "admin";
 
+// ─── 利用申請（セルフ登録）────────────────────────────────────────────────────
+// 利用者がLIFFログイン後、未登録なら氏名/メール/会社名を申請 → 管理者が承認でOTP発行。
+export type AccessRequestStatus = "pending" | "approved" | "rejected";
+
+export interface AccessRequest {
+  id: string;
+  lineUserId: string;   // 申請者のLINE ID（LIFFログイン済み）
+  lineDisplayName?: string; // LINEプロフィール名（参考表示用）
+  displayName: string;  // 申請者が入力した氏名
+  email: string;        // 正規化済み
+  companyName: string;  // 会社名（承認時に本登録プロフィールへ引き継ぐ）
+  status: AccessRequestStatus;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;  // 承認/却下した管理者
+  invitationId?: string; // 承認時に発行した招待ID
+}
+
 // ─── 施設 ────────────────────────────────────────────────────────────────────
 export type FacilityType = "meeting_room" | "booth" | "activity";
 

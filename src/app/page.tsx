@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import ShibaGame from "@/components/ShibaGame";
+import AccessRequestForm from "@/components/AccessRequestForm";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { isDevLoginEnabled } from "@/lib/env";
 import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
@@ -138,9 +138,9 @@ export default function HomePage() {
     );
   }
 
-  // ── アカウントなし画面（柴犬インタラクティブゲーム） ──
+  // ── アカウントなし画面（未登録＝利用申請フォーム） ──
   if (phase === "no-account") {
-    return <ShibaGame />;
+    return <AccessRequestForm />;
   }
 
   // ── エラー画面 ──
