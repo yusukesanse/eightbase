@@ -10,6 +10,8 @@ const TIER_STYLES: Record<MahjongLeagueTier, string> = {
   M2: "bg-sky-100 text-sky-700",
   M3: "bg-orange-50 text-orange-600",
 };
+// リーグ未参加の自己エントリー者（tier 未設定）用の表示。
+const NON_LEAGUE_TIER_STYLE = "bg-gray-100 text-gray-600";
 
 export default function SeasonMahjongCsPage() {
   const [events, setEvents] = useState<MahjongCsEvent[]>([]);
@@ -200,7 +202,7 @@ export default function SeasonMahjongCsPage() {
               <h3 className="text-sm font-bold text-[#231714] mb-2">参戦者</h3>
               {selected.entrants.length === 0 ? (
                 <p className="text-xs text-[#231714]/40">
-                  確定リーグ編成がない、または資格者がいません。先に「麻雀リーグ」タブでリーグを確定してください。
+                  参戦者がまだいません。利用者はポータル側から自己エントリーできます。
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -212,8 +214,8 @@ export default function SeasonMahjongCsPage() {
                         key={e.lineUserId}
                         className="inline-flex items-center gap-2 bg-white border border-[#231714]/10 rounded-full pl-2 pr-2 py-1.5 text-sm text-[#231714]"
                       >
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${TIER_STYLES[e.tier]}`}>
-                          {e.tier}
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${e.tier ? TIER_STYLES[e.tier] : NON_LEAGUE_TIER_STYLE}`}>
+                          {e.tier ?? "一般"}
                         </span>
                         {e.displayName}
                         <button

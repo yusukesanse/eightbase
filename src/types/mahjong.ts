@@ -249,13 +249,14 @@ export type MahjongCsRoundType = "prelim" | "semi" | "final";
 export type MahjongCsStatus = "setup" | "running" | "finished";
 export type MahjongCsMatchStatus = "reporting" | "completed";
 
-/** CS参戦者（出場資格者でエントリーした人） */
+/** CS参戦者（自己エントリー済みの参加者） */
 export interface MahjongCsEntrant {
   lineUserId: string;
   displayName: string;
   pictureUrl?: string;
-  tier: MahjongLeagueTier;
-  /** リーグ確定時の順位（シード判定・並びに使用） */
+  /** リーグ確定編成での所属。CSは誰でも参加可のため、リーグ未参加の自己エントリーでは未設定。 */
+  tier?: MahjongLeagueTier;
+  /** リーグ確定時の順位（シード判定・並びに使用）。リーグ未参加者は末尾送りの番兵値。 */
   rank: number;
   /** M1のシード権（予選免除→準決から） */
   seed: boolean;
@@ -296,7 +297,7 @@ export interface MahjongCsEvent {
   name: string;
   eventDate: string;        // YYYY-MM-DD
   status: MahjongCsStatus;
-  /** 参戦者（資格者でエントリー済み） */
+  /** 参戦者（自己エントリー済み） */
   entrants: MahjongCsEntrant[];
   rounds: MahjongCsRound[];
   championId?: string;

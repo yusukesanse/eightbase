@@ -91,6 +91,30 @@ export function MahjongCsView() {
     [load]
   );
 
+  // WP6: CS 自己エントリー（受付は status="setup" の間のみ）。
+  const [entryError, setEntryError] = useState<string | null>(null);
+  const toggleEntry = useCallback(
+    async (join: boolean) => {
+      setBusy(true);
+      setEntryError(null);
+      try {
+        const res = await fetch("/api/mahjong/cs/entry", {
+          method: join ? "POST" : "DELETE",
+          credentials: "include",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setEntryError(data?.error ?? (join ? "エントリーに失敗しました" : "取消に失敗しました"));
+          return;
+        }
+        await load();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load]
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -121,6 +145,17 @@ export function MahjongCsView() {
       <p className="text-[11px] text-[#231714]/50 leading-relaxed px-0.5">
         M1リーグ所属者は<b style={{ color: M1 }}>準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
       </p>
+
+      {/* WP6: 受付中（トーナメント未生成）は誰でも自己エントリー可 */}
+      {event.status === "setup" && (
+        <CsEntryPanel
+          entered={event.entrants.some((e) => e.isMe)}
+          count={event.entrants.length}
+          busy={busy}
+          error={entryError}
+          onToggle={toggleEntry}
+        />
+      )}
 
       {event.rounds.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
@@ -175,6 +210,62 @@ export function MahjongCsView() {
           }}
           onReport={(body) => reportMatch(event.csEventId, inputMatch.matchId, body)}
         />
+      )}
+    </div>
+  );
+}
+
+/** CS 自己エントリーパネル（受付中のみ表示）。参加/取消と現在の参加者数。 */
+function CsEntryPanel({
+  entered,
+  count,
+  busy,
+  error,
+  onToggle,
+}: {
+  entered: boolean;
+  count: number;
+  busy: boolean;
+  error: string | null;
+  onToggle: (join: boolean) => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[13px] font-black text-[#231714]">チャンピオンシップに参加</div>
+          <div className="text-[11px] text-[#231714]/50 mt-0.5">
+            どなたでも参加できます（現在 {count} 名エントリー中）
+          </div>
+        </div>
+        {entered && (
+          <span
+            className="text-[10px] font-black px-2 py-1 rounded-full"
+            style={{ color: SUCCESS_INK, background: `color-mix(in srgb, ${SUCCESS} 14%, #fff)` }}
+          >
+            参加中
+          </span>
+        )}
+      </div>
+      {error && <div className="text-[11px] font-bold text-[#c0563c]">{error}</div>}
+      {entered ? (
+        <button
+          onClick={() => onToggle(false)}
+          disabled={busy}
+          className="w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl disabled:opacity-50"
+          style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
+        >
+          エントリーを取り消す
+        </button>
+      ) : (
+        <button
+          onClick={() => onToggle(true)}
+          disabled={busy}
+          className="w-full py-3 text-sm font-black text-white rounded-2xl disabled:opacity-50"
+          style={{ background: M1 }}
+        >
+          CSに参加する
+        </button>
       )}
     </div>
   );
