@@ -97,7 +97,7 @@ const Chip = memo(function Chip({
 
 /* ───────── 置き場（未配置 / A卓 / B卓 / 待機） ───────── */
 const DropZone = memo(function DropZone({
-  zone, label, cap, members, lit, over, emptyText, litText, armed, onZoneClick, renderChip,
+  zone, label, cap, members, lit, over, emptyText, litText, armed, onZoneClick, renderChip, onSendAllToWaiting,
 }: {
   zone: Zone;
   label: string;
@@ -110,6 +110,8 @@ const DropZone = memo(function DropZone({
   armed: boolean;
   onZoneClick: (zone: Zone) => void;
   renderChip: (m: PoolMember) => React.ReactNode;
+  /** 卓が1〜3名のときだけ渡す。押すとその卓の全員を待機へ送り、卓を使わない編成にする。 */
+  onSendAllToWaiting?: (zone: Zone) => void;
 }) {
   const isPool = zone === "pool";
   return (
@@ -126,7 +128,18 @@ const DropZone = memo(function DropZone({
         <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : isPool ? "#97999d" : "#5f7a80" }}>
           {label}{cap != null ? `（${members.length}/${cap}）` : `（${members.length}）`}
         </span>
-        {lit && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>}
+        {lit ? (
+          <span className="text-[10px] font-bold" style={{ color: ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>
+        ) : onSendAllToWaiting ? (
+          // 4名に満たない卓は成立しない。全員を待機へ送れば「この卓は使わない」編成として確定できる。
+          <button
+            onClick={(e) => { e.stopPropagation(); onSendAllToWaiting(zone); }}
+            className="text-[10px] font-bold underline underline-offset-2"
+            style={{ color: "#d8533a" }}
+          >
+            この卓を使わない（{members.length}名を待機へ）
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {members.length === 0 ? (
@@ -154,6 +167,9 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   // 開催日の中止（流会）。返金を伴うので確認を挟む。
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // 卓の取り消し（3名で始めてしまった等のやり直し）。確認する卓ラベル。
+  const [confirmTable, setConfirmTable] = useState<string | null>(null);
+  const [droppingTable, setDroppingTable] = useState(false);
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [place, setPlace] = useState<Record<string, Zone>>({});
   const [loading, setLoading] = useState(true);
@@ -210,6 +226,21 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     setDone(false);
     setSelectedId(null);
     setPlace((p) => ({ ...p, [id]: zone }));
+  }, [locked]);
+
+  /**
+   * 卓の全員を待機（抜け番）へ送る＝その卓を使わない。
+   * 8名いても1名が抜けたら「A卓の4名だけ打ち、残りは抜け番」にできる。1人ずつ動かさずに済む。
+   */
+  const sendAllToWaiting = useCallback((zone: Zone) => {
+    if (locked) return;
+    setDone(false);
+    setSelectedId(null);
+    setPlace((p) => {
+      const next = { ...p };
+      for (const [id, z] of Object.entries(p)) if (z === zone) next[id] = "waiting";
+      return next;
+    });
   }, [locked]);
 
   /* ───────── つまんで運ぶ（Pointer Events。タッチ/マウス共通） ───────── */
@@ -362,6 +393,27 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     }
   };
 
+  /** この半荘の指定卓を取り消す。メンバーは待機へ戻り、全卓消えたら振り分けからやり直せる。 */
+  const dropTable = async (label: string) => {
+    setDroppingTable(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mahjong/day/table", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ eventDate, label }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "卓の取り消しに失敗しました"); return; }
+      setConfirmTable(null);
+      await load();
+      onChanged();
+    } finally {
+      setDroppingTable(false);
+    }
+  };
+
   const onZoneClick = useCallback((zone: Zone) => {
     if (locked || !selectedId) return;
     if ((place[selectedId] ?? "pool") === zone) return;
@@ -482,28 +534,71 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
           <div className="flex flex-col gap-2">
             {(progress?.tables ?? []).map((t) => (
               <div key={t.label} className="rounded-2xl border p-2.5" style={{ borderColor: "#e4e7e9", background: "#fff" }}>
-                <div className="text-[11px] font-extrabold text-[#5f7a80] mb-1.5">{t.label}卓</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {t.members.map((m, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 rounded-2xl px-3 min-h-[34px] text-[12.5px] font-bold border"
-                      style={{
-                        borderColor: m.reported ? ACCENT : "#e4e7e9",
-                        color: m.reported ? ACCENT : "#231714",
-                        background: m.reported ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#fff",
-                      }}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-extrabold text-[#5f7a80]">
+                    {t.label}卓（{t.members.length}名）
+                  </span>
+                  {confirmTable !== t.label && (
+                    <button
+                      onClick={() => setConfirmTable(t.label)}
+                      className="text-[10px] font-bold underline underline-offset-2"
+                      style={{ color: "#c0563c" }}
                     >
-                      {m.reported && <CheckMark />}
-                      {m.displayName}
-                    </span>
-                  ))}
+                      この卓の半荘を取り消す
+                    </button>
+                  )}
                 </div>
+
+                {confirmTable === t.label ? (
+                  <div className="rounded-xl border p-2.5 flex flex-col gap-2" style={{ borderColor: "#e9b7ab", background: "#fdece8" }}>
+                    <p className="text-[11px] font-bold text-[#c0563c] leading-relaxed">
+                      {t.label}卓のこの半荘を取り消します。{t.members.length}名は待機（抜け番）へ戻り、
+                      申告済みのスコアは破棄されます。
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setConfirmTable(null)}
+                        disabled={droppingTable}
+                        className="flex-1 py-2 rounded-lg text-[12.5px] font-bold bg-white disabled:opacity-40"
+                        style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}
+                      >
+                        やめる
+                      </button>
+                      <button
+                        onClick={() => dropTable(t.label)}
+                        disabled={droppingTable}
+                        className="flex-1 py-2 rounded-lg text-[12.5px] font-black text-white disabled:opacity-40"
+                        style={{ background: "#c0563c" }}
+                      >
+                        {droppingTable ? "取り消し中…" : "取り消す"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {t.members.map((m, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 rounded-2xl px-3 min-h-[34px] text-[12.5px] font-bold border"
+                        style={{
+                          borderColor: m.reported ? ACCENT : "#e4e7e9",
+                          color: m.reported ? ACCENT : "#231714",
+                          background: m.reported ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#fff",
+                        }}
+                      >
+                        {m.reported && <CheckMark />}
+                        {m.displayName}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <p className="text-[10.5px] text-[#231714]/50 text-center">
             全員のスコア申告が終わると、次の半荘の振り分けができます。
+            <br />
+            人数を間違えて始めた卓は「この卓の半荘を取り消す」でやり直せます。
           </p>
         </>
       ) : (
@@ -550,6 +645,12 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
                   litText="ここで指を離す"
                   onZoneClick={onZoneClick}
                   renderChip={renderChip}
+                  // 1〜3名の卓は成立しない。まとめて待機へ送って「この卓は使わない」editにできる。
+                  onSendAllToWaiting={
+                    z.cap != null && members.length > 0 && members.length < SEATS_PER_TABLE
+                      ? sendAllToWaiting
+                      : undefined
+                  }
                 />
               );
             })}
@@ -570,7 +671,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
               {unplaced > 0
                 ? "全員をA卓/B卓/待機に配置すると確定できます。"
                 : !seatsOk(aCount) || !seatsOk(bCount)
-                  ? `卓は${SEATS_PER_TABLE}名ちょうどにしてください（余った人は待機へ）。`
+                  ? `卓は${SEATS_PER_TABLE}名ちょうど。人数が足りない卓は「この卓を使わない」で全員を待機へ送れます。`
                   : `少なくとも1卓（${SEATS_PER_TABLE}名）が必要です。`}
             </p>
           )}

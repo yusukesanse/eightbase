@@ -104,3 +104,21 @@ describe("卓はちょうど4名（半荘は4人打ち）", () => {
     expect(bad.ok).toBe(false); // 3名ずつ2卓は不可
   });
 });
+
+describe("B卓を使わない編成（1卓＋抜け番）", () => {
+  // 8名集まっても1名が会議等で抜けるなら、A卓の4名だけ打ち、残りは抜け番にできる。
+  test("8名: A卓4名 + 待機4名（B卓なし）は通る", () => {
+    expect(validateGmAssignment(pool(8), [A(["u1", "u2", "u3", "u4"])], ["u5", "u6", "u7", "u8"])).toEqual({ ok: true });
+  });
+
+  test("12名: A卓4名 + 待機8名（B卓なし）も通る", () => {
+    const rest = pool(12).slice(4);
+    expect(validateGmAssignment(pool(12), [A(["u1", "u2", "u3", "u4"])], rest)).toEqual({ ok: true });
+  });
+
+  test("B卓に1〜3名が残っていると通らない（待機へ送る必要がある）", () => {
+    const r = validateGmAssignment(pool(8), [A(["u1", "u2", "u3", "u4"]), B(["u5", "u6", "u7"])], ["u8"]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("4名ちょうど");
+  });
+});
