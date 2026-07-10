@@ -12,7 +12,7 @@
  */
 
 import type { Facility } from "@/types";
-import { timeToMin, todayJst } from "./date";
+import { dayOfWeek, timeToMin, todayJst } from "./date";
 export { timeToMin }; // 後方互換: 一部APIが @/lib/reservations から import している
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -201,8 +201,7 @@ export function validateReservationSlot(
   }
 
   // 利用可能曜日チェック
-  const dayOfWeek = new Date(date + "T00:00:00+09:00").getDay();
-  if (!availableDays.includes(dayOfWeek)) {
+  if (!availableDays.includes(dayOfWeek(date))) {
     return { ok: false, reason: "OUT_OF_HOURS", message: "この曜日は利用できません。" };
   }
 

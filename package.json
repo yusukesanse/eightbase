@@ -9,9 +9,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest --forceExit",
-    "test:verbose": "jest --verbose --forceExit",
-    "test:coverage": "jest --coverage --forceExit"
+    "test": "TZ=UTC jest --forceExit",
+    "test:verbose": "TZ=UTC jest --verbose --forceExit",
+    "test:coverage": "TZ=UTC jest --coverage --forceExit"
   },
   "dependencies": {
     "@line/liff": "^2.23.0",

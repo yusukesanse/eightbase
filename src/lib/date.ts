@@ -15,6 +15,15 @@ export function upcomingSaturdayJst(): string {
   return todayJst();
 }
 
+/**
+ * YYYY-MM-DD の曜日（0=日 … 6=土）。
+ * `getDay()` はサーバーのローカルTZに依存し、Vercel(UTC)では前日の曜日になるため使わない。
+ * UTC正午基準で解釈して getUTCDay() で読む（isSaturdayMahjongDate と同じ方式）。
+ */
+export function dayOfWeek(dateStr: string): number {
+  return new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+}
+
 /** "HH:MM" を 0時からの分に変換。 */
 export function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number);
