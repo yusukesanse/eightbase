@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { getDayState, isEntryClosed } from "@/lib/mahjongDay";
 import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
@@ -138,6 +139,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "アクティブなシーズンがありません" },
         { status: 400 }
+      );
+    }
+
+    // GM が「ゲーム開始」を押した開催日は受付終了（参加表明も締切）。
+    if (isEntryClosed(await getDayState(season.seasonId, eventDate))) {
+      return NextResponse.json(
+        { error: "CLOSED", message: "受付を終了しました（ゲームが開始されています）。" },
+        { status: 409 }
       );
     }
 

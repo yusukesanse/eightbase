@@ -56,6 +56,55 @@ async function fetchPaidParticipants(
     }));
 }
 
+/** 開催成立に必要な最少人数（支払い済み）。 */
+export const MAHJONG_MIN_PARTICIPANTS = 4;
+
+/** 当日の状態を取得（未開始なら null）。 */
+export async function getDayState(seasonId: string, eventDate: string): Promise<MahjongDayState | null> {
+  const snap = await getDb().collection("mahjongDayState").doc(dayId(seasonId, eventDate)).get();
+  return snap.exists ? (snap.data() as MahjongDayState) : null;
+}
+
+/**
+ * この開催日の受付（参加表明・参加費の支払い）が締め切られているか。
+ * 締切は **GM が「ゲーム開始」を押した時刻**（dayState.entryClosedAt）。時刻設定による締切は廃止した。
+ */
+export function isEntryClosed(day: MahjongDayState | null): boolean {
+  return !!day?.entryClosedAt;
+}
+
+/**
+ * GM の「ゲーム開始」。この開催日の受付を締め切る。
+ * - 支払い済みが MAHJONG_MIN_PARTICIPANTS 未満なら開始しない（人数不足）。
+ * - 冪等: すでに開始済みなら {ok:true, already:true}。
+ * - dayState が無ければ呼び出し側で startDay() を先に済ませておくこと。
+ */
+export async function startGameDay(
+  seasonId: string,
+  eventDate: string,
+  gmUserId: string
+): Promise<{ ok: true; already: boolean; paidCount: number } | { ok: false; error: string; paidCount: number }> {
+  const db = getDb();
+  const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
+  const paid = await fetchPaidParticipants(seasonId, eventDate);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(dayRef);
+    if (!snap.exists) return { ok: false as const, error: "当日はまだ開始できません", paidCount: paid.length };
+    const day = snap.data() as MahjongDayState;
+    if (day.entryClosedAt) return { ok: true as const, already: true, paidCount: paid.length };
+    if (paid.length < MAHJONG_MIN_PARTICIPANTS) {
+      return { ok: false as const, error: `支払い済みが${MAHJONG_MIN_PARTICIPANTS}名以上必要です`, paidCount: paid.length };
+    }
+    tx.update(dayRef, {
+      entryClosedAt: new Date().toISOString(),
+      startedBy: gmUserId,
+      updatedAt: new Date().toISOString(),
+    });
+    return { ok: true as const, already: false, paidCount: paid.length };
+  });
+}
+
 /**
  * 参加者から初期卓＋待機を作る。卓は常に最大2卓（A/B・同時最大8名）。
  * 先頭8名をA/B卓に割当、9名以上は待機キュー（FIFO）。座席・待機は participants の順。

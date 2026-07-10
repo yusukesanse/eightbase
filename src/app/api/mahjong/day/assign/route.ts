@@ -78,6 +78,10 @@ export async function POST(req: NextRequest) {
     const daySnap = await tx.get(dayRef);
     if (!daySnap.exists) return { status: 400 as const, error: "当日はまだ開始していません" };
     const day = daySnap.data() as MahjongDayState & { awaitingAssignment?: boolean };
+    // 受付が締まる前に卓を組むと、あとから支払った人が入れない。開始（＝締切）が先。
+    if (!day.entryClosedAt) {
+      return { status: 400 as const, error: "先に「ゲーム開始」を押して受付を締め切ってください" };
+    }
     // 対象の半荘はサーバーの dayState.round が唯一の真実。クライアントが送ってくる round は使わない。
     // 画面を開いたまま半荘が進むと round がずれ、GM が「現在は第N半荘の振り分け対象です」で
     // 弾かれて何も振り分けられなくなっていた。GM はいつでも「いまの半荘」を自由に組める。

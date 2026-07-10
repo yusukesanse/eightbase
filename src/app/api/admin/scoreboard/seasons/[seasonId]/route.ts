@@ -125,18 +125,6 @@ export async function PUT(
       updates.gameMasterIds = sanitizeGameMasterIds(body.gameMasterIds);
     }
 
-    // mahjongStartTime（開催開始時刻・支払い締切）。"" は未設定へ。HH:mm を検証。
-    if (body.mahjongStartTime !== undefined) {
-      const v = body.mahjongStartTime;
-      if (v === "" || v === null) {
-        updates.mahjongStartTime = "";
-      } else if (typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) {
-        updates.mahjongStartTime = v;
-      } else {
-        return NextResponse.json({ error: "開始時刻は HH:mm 形式で指定してください" }, { status: 400 });
-      }
-    }
-
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "更新するフィールドがありません" }, { status: 400 });
     }

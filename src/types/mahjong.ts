@@ -255,6 +255,16 @@ export interface MahjongDayState {
   waiting: MahjongRotMember[]; // 待機キュー（先頭が次にIN）
   tableLabels: string[];
   lastSwap?: MahjongDaySwap | null;
+  /** GM シーズンで、この半荘をまだ GM が振り分けていない。 */
+  awaitingAssignment?: boolean;
+  /**
+   * GM が「ゲーム開始」を押した時刻（ISO）。これがこの開催日の**受付締切**。
+   * 以降は参加表明も参加費の支払いもできず、その時点の支払い済みメンバーで卓を組む。
+   * 未設定 = まだ開始していない（受付中）。
+   */
+  entryClosedAt?: string | null;
+  /** 「ゲーム開始」を押した GM の lineUserId。 */
+  startedBy?: string | null;
   updatedAt: string;
 }
 

@@ -1,5 +1,7 @@
 {
-  "regions": ["hnd1"],
+  "regions": [
+    "hnd1"
+  ],
   "crons": [
     {
       "path": "/api/cron/publish",
@@ -11,10 +13,6 @@
     },
     {
       "path": "/api/cron/cleanup-pending",
-      "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/cron/mahjong-forfeit",
       "schedule": "*/10 * * * *"
     }
   ]

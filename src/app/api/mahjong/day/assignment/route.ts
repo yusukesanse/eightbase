@@ -81,6 +81,8 @@ export async function GET(req: NextRequest) {
     round,
     awaitingAssignment,
     locked,
+    // GM が「ゲーム開始」を押したか（＝受付締切済み）。未開始なら卓は組めない。
+    started: !!day?.entryClosedAt,
     pool,
     draft: { tables: draftTables, waiting: draftWaiting },
   });

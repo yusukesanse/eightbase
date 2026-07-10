@@ -117,9 +117,15 @@ const DropZone = memo(function DropZone({
   );
 });
 
+/** 開催成立に必要な最少人数（サーバー MAHJONG_MIN_PARTICIPANTS と一致させる）。 */
+const MIN_PARTICIPANTS = 4;
+
 export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: string; onChanged: () => void }) {
   const [round, setRound] = useState(1);
   const [locked, setLocked] = useState(false);
+  // GM が「ゲーム開始」を押したか（＝受付締切済み）。押すまで卓は組めない。
+  const [started, setStarted] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [place, setPlace] = useState<Record<string, Zone>>({});
   const [loading, setLoading] = useState(true);
@@ -145,6 +151,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
         if (d.error) { setError(d.error); return; }
         setRound(d.round ?? 1);
         setLocked(!!d.locked);
+        setStarted(!!d.started);
         setPool(d.pool ?? []);
         const p: Record<string, Zone> = {};
         for (const m of d.pool ?? []) p[m.lineUserId] = "pool";
@@ -273,6 +280,26 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     }
   };
 
+  /** 受付を締め切ってゲームを開始する。押した瞬間が締切。 */
+  const startGame = async () => {
+    setStarting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mahjong/day/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ eventDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "ゲーム開始に失敗しました"); return; }
+      await load();
+      onChanged();
+    } finally {
+      setStarting(false);
+    }
+  };
+
   const onZoneClick = useCallback((zone: Zone) => {
     if (locked || !selectedId) return;
     if ((place[selectedId] ?? "pool") === zone) return;
@@ -302,12 +329,50 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   return (
     <div className="rounded-2xl border-2 p-4 flex flex-col gap-3" style={{ borderColor: ACCENT, background: "color-mix(in srgb, " + ACCENT + " 5%, #fff)" }}>
       <div className="flex items-center justify-between">
-        <div className="text-[13px] font-black" style={{ color: ACCENT }}>卓振り分け（GM）・第{round}半荘</div>
+        <div className="text-[13px] font-black" style={{ color: ACCENT }}>
+          {started ? `卓振り分け（GM）・第${round}半荘` : "ゲーム開始（GM）"}
+        </div>
         {locked && <span className="text-[10px] font-bold text-[#c0563c]">申告開始済み・変更不可</span>}
       </div>
 
       {loading ? (
         <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>
+      ) : !started ? (
+        /* ── 開始前: 受付中。押した瞬間が締切になる ── */
+        <>
+          {error && <div className="text-[11px] font-bold text-[#d8533a] bg-[#fdece8] rounded-lg px-3 py-2">{error}</div>}
+          <p className="text-[11px] text-[#231714]/60 leading-relaxed">
+            「ゲーム開始」を押すと<b>受付を締め切ります</b>。以降は参加表明も参加費の支払いもできません。
+            そのときの支払い済みメンバーで卓を組みます。
+          </p>
+          <div className="rounded-2xl border border-dashed p-2.5" style={{ borderColor: "#e4e7e9", background: "#fff" }}>
+            <div className="text-[11px] font-extrabold text-[#97999d] mb-1.5">支払い済み（{pool.length}名）</div>
+            <div className="flex flex-wrap gap-1.5">
+              {pool.length === 0 ? (
+                <span className="text-[11px] text-[#231714]/30">まだいません</span>
+              ) : (
+                pool.map((m) => (
+                  <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border" style={{ borderColor: "#e4e7e9", color: "#231714" }}>
+                    {m.displayName}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          <button
+            onClick={startGame}
+            disabled={starting || pool.length < MIN_PARTICIPANTS}
+            className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40"
+            style={{ background: ACCENT }}
+          >
+            {starting ? "開始中…" : "ゲーム開始（受付を締め切る）"}
+          </button>
+          {pool.length < MIN_PARTICIPANTS && (
+            <p className="text-[10.5px] text-[#231714]/50 text-center">
+              支払い済みが{MIN_PARTICIPANTS}名以上になると開始できます。
+            </p>
+          )}
+        </>
       ) : (
         <>
           {error && <div className="text-[11px] font-bold text-[#d8533a] bg-[#fdece8] rounded-lg px-3 py-2">{error}</div>}
