@@ -6,8 +6,12 @@ import { ACCENT } from "@/components/mahjong/leagueShared";
 
 /**
  * ゲームマスター（GM）専用の手動卓振り分けパネル。
- * ネイティブ HTML5 Drag & Drop で 未配置/A卓/B卓/待機 に参加者を配置し、
- * 「この半荘の卓を確定」で /api/mahjong/day/assign に送る。自己申告 UI とは別セクション。
+ * 未配置/A卓/B卓/待機 に参加者を配置し、「この半荘の卓を確定」で
+ * /api/mahjong/day/assign に送る。自己申告 UI とは別セクション。
+ *
+ * 操作は2通り。**タップで選択→置きたい枠をタップ** が主で、マウス環境では
+ * ドラッグ&ドロップも使える。HTML5 の drag イベントはタッチ操作では発火せず、
+ * LINEミニアプリ（スマホの WebView）では D&D が一切動かないため、タップ方式が必須。
  */
 
 interface PoolMember { lineUserId: string; displayName: string; pictureUrl?: string }
@@ -29,6 +33,8 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  // タップ操作: 選択中の参加者。枠をタップするとそこへ移動する。
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -56,6 +62,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   const move = (id: string, zone: Zone) => {
     if (locked) return;
     setDone(false);
+    setSelectedId(null);
     setPlace((p) => ({ ...p, [id]: zone }));
   };
 
@@ -90,37 +97,56 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     }
   };
 
-  const Chip = ({ m }: { m: PoolMember }) => (
-    <div
-      draggable={!locked}
-      onDragStart={(e) => { e.dataTransfer.setData("text/plain", m.lineUserId); setDragId(m.lineUserId); }}
-      onDragEnd={() => setDragId(null)}
-      className={`inline-flex items-center gap-1.5 rounded-full pl-1 pr-2.5 py-1 text-[12px] font-bold bg-white border ${dragId === m.lineUserId ? "opacity-40" : ""} ${locked ? "cursor-default" : "cursor-grab active:cursor-grabbing"}`}
-      style={{ borderColor: "#e4e7e9", color: "#231714" }}
-    >
-      <Avatar src={m.pictureUrl} name={m.displayName} size={20} />
-      {m.displayName}
-    </div>
-  );
+  const Chip = ({ m }: { m: PoolMember }) => {
+    const selected = selectedId === m.lineUserId;
+    return (
+      <button
+        type="button"
+        disabled={locked}
+        aria-pressed={selected}
+        // 枠の onClick へ伝播すると、その枠へ即移動してしまうため止める。
+        onClick={(e) => { e.stopPropagation(); setSelectedId(selected ? null : m.lineUserId); }}
+        draggable={!locked}
+        onDragStart={(e) => { e.dataTransfer.setData("text/plain", m.lineUserId); setDragId(m.lineUserId); }}
+        onDragEnd={() => setDragId(null)}
+        className={`inline-flex items-center gap-1.5 rounded-full pl-1 pr-2.5 py-1 text-[12px] font-bold bg-white border ${dragId === m.lineUserId ? "opacity-40" : ""} ${locked ? "cursor-default" : "cursor-pointer active:scale-[0.97]"}`}
+        style={{
+          borderColor: selected ? ACCENT : "#e4e7e9",
+          color: "#231714",
+          boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined,
+        }}
+      >
+        <Avatar src={m.pictureUrl} name={m.displayName} size={20} />
+        {m.displayName}
+      </button>
+    );
+  };
 
   const DropZone = ({ zone, label, cap }: { zone: Zone; label: string; cap?: number }) => {
     const members = inZone(zone);
     const over = cap != null && members.length > cap;
+    // 選択中の参加者が「この枠以外」に居るときだけ、置き先として光らせる。
+    const armed = !locked && selectedId != null && (place[selectedId] ?? "pool") !== zone;
     return (
       <div
+        onClick={() => { if (armed && selectedId) move(selectedId, zone); }}
         onDragOver={(e) => { if (!locked) e.preventDefault(); }}
         onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (id) move(id, zone); }}
-        className="rounded-2xl border border-dashed p-2.5 min-h-[64px]"
-        style={{ borderColor: over ? "#d8533a" : "#c9d6cf", background: "#f7faf8" }}
+        className={`rounded-2xl border border-dashed p-2.5 min-h-[64px] ${armed ? "cursor-pointer" : ""}`}
+        style={{
+          borderColor: over ? "#d8533a" : armed ? ACCENT : "#c9d6cf",
+          background: armed ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#f7faf8",
+        }}
       >
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : "#5f7a80" }}>
             {label}{cap != null ? `（${members.length}/${cap}）` : `（${members.length}）`}
           </span>
+          {armed && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>ここに置く</span>}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {members.length === 0 ? (
-            <span className="text-[11px] text-[#231714]/30">ここにドラッグ</span>
+            <span className="text-[11px] text-[#231714]/30">{armed ? "タップして置く" : "空き"}</span>
           ) : (
             members.map((m) => <Chip key={m.lineUserId} m={m} />)
           )}
@@ -143,22 +169,42 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
           {error && <div className="text-[11px] font-bold text-[#d8533a] bg-[#fdece8] rounded-lg px-3 py-2">{error}</div>}
           {done && !error && <div className="text-[11px] font-bold text-[#2f7d57] bg-[#eef6f0] rounded-lg px-3 py-2">卓を確定しました。</div>}
 
+          {!locked && (
+            <p className="text-[10.5px] text-[#231714]/50">
+              {selectedId
+                ? "置きたい枠をタップしてください。"
+                : "参加者をタップして選び、置きたい枠をタップします（マウスならドラッグも可）。"}
+            </p>
+          )}
+
           {/* 未配置プール */}
-          <div
-            onDragOver={(e) => { if (!locked) e.preventDefault(); }}
-            onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (id) move(id, "pool"); }}
-            className="rounded-2xl border border-dashed p-2.5 min-h-[48px]"
-            style={{ borderColor: unplaced > 0 ? "#b48f13" : "#e4e7e9", background: "#fff" }}
-          >
-            <div className="text-[11px] font-extrabold text-[#97999d] mb-1.5">未配置（{unplaced}）</div>
-            <div className="flex flex-wrap gap-1.5">
-              {inZone("pool").length === 0 ? (
-                <span className="text-[11px] text-[#231714]/30">全員配置済み</span>
-              ) : (
-                inZone("pool").map((m) => <Chip key={m.lineUserId} m={m} />)
-              )}
-            </div>
-          </div>
+          {(() => {
+            const armed = !locked && selectedId != null && (place[selectedId] ?? "pool") !== "pool";
+            return (
+              <div
+                onClick={() => { if (armed && selectedId) move(selectedId, "pool"); }}
+                onDragOver={(e) => { if (!locked) e.preventDefault(); }}
+                onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (id) move(id, "pool"); }}
+                className={`rounded-2xl border border-dashed p-2.5 min-h-[48px] ${armed ? "cursor-pointer" : ""}`}
+                style={{
+                  borderColor: armed ? ACCENT : unplaced > 0 ? "#b48f13" : "#e4e7e9",
+                  background: armed ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#fff",
+                }}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-extrabold text-[#97999d]">未配置（{unplaced}）</span>
+                  {armed && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>ここに戻す</span>}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {inZone("pool").length === 0 ? (
+                    <span className="text-[11px] text-[#231714]/30">{armed ? "タップして戻す" : "全員配置済み"}</span>
+                  ) : (
+                    inZone("pool").map((m) => <Chip key={m.lineUserId} m={m} />)
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 gap-2.5">
             {ZONE_META.map((z) => (
