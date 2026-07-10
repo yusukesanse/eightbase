@@ -151,6 +151,9 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   // この半荘の卓を確定済みか（true の間は組み直せない＝振り分け UI を畳む）。
   const [assigned, setAssigned] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
+  // 開催日の中止（流会）。返金を伴うので確認を挟む。
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [place, setPlace] = useState<Record<string, Zone>>({});
   const [loading, setLoading] = useState(true);
@@ -338,6 +341,27 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     }
   };
 
+  /** この開催日を中止（流会）にする。支払い済みは返金対象になる。 */
+  const cancelDay = async () => {
+    setCancelling(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mahjong/day/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ eventDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "中止に失敗しました"); return; }
+      setConfirmCancel(false);
+      await load();
+      onChanged();
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const onZoneClick = useCallback((zone: Zone) => {
     if (locked || !selectedId) return;
     if ((place[selectedId] ?? "pool") === zone) return;
@@ -413,6 +437,41 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             <p className="text-[10.5px] text-[#231714]/50 text-center">
               支払い済みが{MIN_PARTICIPANTS}名以上になると開始できます。
             </p>
+          )}
+
+          {/* 中止（流会）。人数不足が主用途だが、雨天・設備トラブル等でも押せる。 */}
+          {!confirmCancel ? (
+            <button
+              onClick={() => setConfirmCancel(true)}
+              className="text-[10.5px] font-bold text-[#c0563c] underline underline-offset-2 self-center"
+            >
+              この開催日を中止（流会）にする
+            </button>
+          ) : (
+            <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#e9b7ab", background: "#fdece8" }}>
+              <p className="text-[11px] font-bold text-[#c0563c] leading-relaxed">
+                この開催日を中止します。支払い済みの{pool.length}名は<b>返金対象</b>になり、管理者に返金依頼が飛びます。
+                未決済の参加表明は取り消され、今月の参加枠は戻ります。取り消せません。
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfirmCancel(false)}
+                  disabled={cancelling}
+                  className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40"
+                  style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}
+                >
+                  やめる
+                </button>
+                <button
+                  onClick={cancelDay}
+                  disabled={cancelling}
+                  className="flex-1 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40"
+                  style={{ background: "#c0563c" }}
+                >
+                  {cancelling ? "中止中…" : "中止する"}
+                </button>
+              </div>
+            </div>
           )}
         </>
       ) : assigned ? (
