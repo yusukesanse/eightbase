@@ -14,6 +14,7 @@ export type AdminNotificationType =
   | "switchbot_manual" // SwitchBot未連携のため手動解錠対応が必要
   | "trailer_cancel" // トレーラー予約の取消（手動返金対応依頼）
   | "mahjong_refund" // 麻雀参加費の返金対応依頼（キャンセル/期限切れ後決済）
+  | "mahjong_event_forfeit" // 麻雀リーグ 人数不足による自動中止（流会）＝支払い済み分の一括返金依頼
   | "access_request"; // 利用者からの利用申請（承認待ち）
 
 export async function notifyAdmin(

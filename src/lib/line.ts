@@ -250,6 +250,61 @@ export async function sendReservationReminder(
   ]);
 }
 
+// ─── 麻雀リーグ 人数不足による中止（流会）通知 ──────────────────────────────
+export async function sendMahjongForfeitNotice(
+  lineUserId: string,
+  { eventDate }: { eventDate: string }
+) {
+  const dateLabel = formatDate(eventDate);
+  await pushMessage(lineUserId, [
+    {
+      type: "flex",
+      altText: `【麻雀リーグ 中止】${dateLabel} は人数不足のため中止です`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box",
+          layout: "vertical",
+          backgroundColor: "#d8a526",
+          paddingAll: "14px",
+          contents: [
+            { type: "text", text: "本日のリーグ戦は中止です", color: "#231714", weight: "bold", size: "md" },
+          ],
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            labelValue("開催日", dateLabel),
+            { type: "separator", margin: "md" },
+            {
+              type: "text",
+              text: "参加者が規定人数（4名）に満たなかったため、リーグ戦は中止となりました。お支払いいただいた参加費は返金対応いたします（担当より順次ご連絡します）。",
+              color: "#888888",
+              size: "xs",
+              margin: "md",
+              wrap: true,
+            },
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "button",
+              action: { type: "uri", label: "アプリを開く", uri: liffUrl("/info") },
+              style: "primary",
+              color: "#d8a526",
+            },
+          ],
+        },
+      },
+    },
+  ]);
+}
+
 // ─── コンテンツ公開通知（イベント・ゲーム・ニュース）─────────────────────────
 type ContentType = "event" | "game" | "news";
 

@@ -8,6 +8,8 @@ interface RefundItem {
   displayName: string;
   amount: number;
   state: "pending" | "refunded" | "rejected";
+  forfeit: boolean;          // 流会（人数不足の自動中止）由来か
+  orderId: string | null;    // Square 注文ID（手動返金で使う）
   cancelRequestedAt: string | null;
   refundProcessedAt: string | null;
   refundProcessedBy: string | null;
@@ -31,6 +33,7 @@ export default function MahjongRefundsPanel() {
   const [items, setItems] = useState<RefundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingOnly, setPendingOnly] = useState(true);
+  const [forfeitOnly, setForfeitOnly] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(
@@ -59,21 +62,30 @@ export default function MahjongRefundsPanel() {
     setBusy(null);
   }
 
-  const rows = pendingOnly ? items.filter((i) => i.state === "pending") : items;
+  const rows = items
+    .filter((i) => (pendingOnly ? i.state === "pending" : true))
+    .filter((i) => (forfeitOnly ? i.forfeit : true));
   const pendingCount = items.filter((i) => i.state === "pending").length;
+  const forfeitPendingCount = items.filter((i) => i.forfeit && i.state === "pending").length;
 
   return (
     <div className="p-5 max-w-3xl">
       <h1 className="text-lg font-bold text-[#231714] mb-1">麻雀 返金対応</h1>
       <p className="text-sm text-[#231714]/60 mb-4">
-        キャンセル依頼（未対応）を Square で手動返金したら「返金済」に、応じない場合は「却下」にします。
-        操作は監査ログに記録されます。未対応 <b>{pendingCount}</b> 件。
+        キャンセル依頼（未対応）を Square で <b>1件ずつ手動返金</b>したら「返金済」に、応じない場合は「却下」にします。
+        操作は監査ログに記録されます。未対応 <b>{pendingCount}</b> 件（うち流会 <b>{forfeitPendingCount}</b> 件）。
       </p>
 
-      <label className="inline-flex items-center gap-2 mb-3 text-sm text-[#231714]/70">
-        <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} />
-        未対応のみ表示
-      </label>
+      <div className="flex flex-wrap items-center gap-4 mb-3">
+        <label className="inline-flex items-center gap-2 text-sm text-[#231714]/70">
+          <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} />
+          未対応のみ表示
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm text-[#231714]/70">
+          <input type="checkbox" checked={forfeitOnly} onChange={(e) => setForfeitOnly(e.target.checked)} />
+          流会（人数不足）のみ表示
+        </label>
+      </div>
 
       {loading ? (
         <div className="py-10 text-center text-sm text-[#231714]/40">読み込み中…</div>
@@ -89,6 +101,7 @@ export default function MahjongRefundsPanel() {
                 <th className="px-3 py-2">対象日</th>
                 <th className="px-3 py-2">ユーザー</th>
                 <th className="px-3 py-2 text-right">金額</th>
+                <th className="px-3 py-2">注文ID(Square)</th>
                 <th className="px-3 py-2">状態</th>
                 <th className="px-3 py-2">依頼</th>
                 <th className="px-3 py-2">処理</th>
@@ -101,8 +114,18 @@ export default function MahjongRefundsPanel() {
                 return (
                   <tr key={it.entryId} className="border-b border-[#231714]/5 last:border-0">
                     <td className="px-3 py-2 tabular-nums">{it.eventDate}</td>
-                    <td className="px-3 py-2 font-bold text-[#1c1f21]">{it.displayName}</td>
+                    <td className="px-3 py-2 font-bold text-[#1c1f21]">
+                      {it.displayName}
+                      {it.forfeit && (
+                        <span className="ml-1.5 align-middle text-[10px] font-black px-1.5 py-0.5 rounded" style={{ color: "#a1502c", background: "#fdeede" }}>
+                          流会
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">¥{it.amount.toLocaleString()}</td>
+                    <td className="px-3 py-2 font-mono text-[11px] text-[#231714]/70 break-all max-w-[180px]">
+                      {it.orderId ?? "-"}
+                    </td>
                     <td className="px-3 py-2">
                       <span className="text-[11px] font-black px-1.5 py-0.5 rounded" style={{ color: s.color, background: s.bg }}>
                         {s.text}

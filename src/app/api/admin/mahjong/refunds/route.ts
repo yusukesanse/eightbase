@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
         displayName: e.displayName,
         amount: e.paymentAmount ?? MAHJONG_ENTRY_FEE,
         state,
+        // 流会（人数不足の自動中止）由来かどうか＝返金管理UIの絞り込み/ラベル用。
+        forfeit: e.cancelReason === "forfeit",
+        // Square 手動返金のための注文ID（1件ずつ Square で開いて返金）。
+        orderId: e.paymentTransactionId ?? null,
         cancelRequestedAt: e.cancelRequestedAt ?? null,
         refundProcessedAt: e.refundProcessedAt ?? null,
         refundProcessedBy: e.refundProcessedBy ?? null,
