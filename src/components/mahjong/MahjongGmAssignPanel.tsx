@@ -255,11 +255,13 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
         { label: "B", memberIds: inZone("B").map((m) => m.lineUserId) },
       ].filter((t) => t.memberIds.length > 0);
       const waiting = inZone("waiting").map((m) => m.lineUserId);
+      // 対象の半荘はサーバーが dayState.round から決める（round は送らない）。
+      // 画面を開いたまま半荘が進んでいても、GM はそのまま「いまの半荘」を確定できる。
       const res = await fetch("/api/mahjong/day/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ eventDate, round, tables, waiting }),
+        body: JSON.stringify({ eventDate, tables, waiting }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "確定に失敗しました"); return; }

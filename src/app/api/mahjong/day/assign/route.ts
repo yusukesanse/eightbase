@@ -13,12 +13,14 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * POST /api/mahjong/day/assign
- * GM 専用: 当該 round の卓（A/B）と待機を手動確定する。
- * body: { eventDate, round, tables: [{ label, memberIds }], waiting: [lineUserId] }
+ * GM 専用: 「いまの半荘」の卓（A/B）と待機を手動確定する。
+ * body: { eventDate, tables: [{ label, memberIds }], waiting: [lineUserId] }
  *
+ * - 対象の半荘は**サーバーの dayState.round**（クライアントは指定できない）。
+ *   GM は順位や前半荘の結果に関係なく、いつでも現半荘を自由に組める。
  * - 認可: requireGameUser ＋ アクティブシーズンの gameMasterIds に含まれること。
  * - 検証: paid のみ・重複なし・卓 ≤4名・全 paid を過不足なく配置（8名=待機0 を含む）。
- * - ロック: 当該 round で申告が1件でも入っていたら 409。
+ * - ロック: 確定済みの半荘で申告が1件でも入っていたら 409（isAssignmentLocked）。
  * - 確定: mahjongTables を upsert（reporting）、dayState.waiting 更新・awaitingAssignment=false。
  */
 export async function POST(req: NextRequest) {
@@ -33,15 +35,11 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
-  const round: unknown = body?.round;
   const tablesIn: unknown = body?.tables;
   const waitingIn: unknown = body?.waiting;
 
   if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
-  }
-  if (!Number.isInteger(round) || (round as number) < 1) {
-    return NextResponse.json({ error: "round が不正です" }, { status: 400 });
   }
   if (!Array.isArray(tablesIn) || !Array.isArray(waitingIn)) {
     return NextResponse.json({ error: "tables / waiting は配列で指定してください" }, { status: 400 });
@@ -80,9 +78,10 @@ export async function POST(req: NextRequest) {
     const daySnap = await tx.get(dayRef);
     if (!daySnap.exists) return { status: 400 as const, error: "当日はまだ開始していません" };
     const day = daySnap.data() as MahjongDayState & { awaitingAssignment?: boolean };
-    if (day.round !== round) {
-      return { status: 409 as const, error: `現在は第${day.round}半荘の振り分け対象です` };
-    }
+    // 対象の半荘はサーバーの dayState.round が唯一の真実。クライアントが送ってくる round は使わない。
+    // 画面を開いたまま半荘が進むと round がずれ、GM が「現在は第N半荘の振り分け対象です」で
+    // 弾かれて何も振り分けられなくなっていた。GM はいつでも「いまの半荘」を自由に組める。
+    const round = day.round;
 
     // 現 round の既存卓（ロック判定＋不要ラベルの削除に使う）
     const tblSnap = await tx.get(db.collection("mahjongTables").where("seasonId", "==", season.seasonId));
@@ -134,12 +133,15 @@ export async function POST(req: NextRequest) {
       updatedAt: nowIso,
     });
 
-    return { status: 200 as const };
+    return { status: 200 as const, round };
   });
 
   if (result.status !== 200) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
+
+  // 確定した半荘は dayState 由来（トランザクションが返した値）。
+  const round = result.round;
 
   await writeAuditLog({
     eventType: "day.manual_assigned",
