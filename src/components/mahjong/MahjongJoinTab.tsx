@@ -10,6 +10,7 @@ import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
 import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import MonthCalendar from "@/components/ui/MonthCalendar";
+import { Avatar } from "@/components/ui/LineContact";
 import {
   ACCENT,
   CONFIRM,
@@ -156,11 +157,6 @@ export function JoinTab({
       setBusy(null);
     }
   }
-
-  // 表示中の日の卓（自分の卓のみ ?mine=1 で取得済み）
-  const viewTables = viewDate
-    ? tables.filter((t) => t.eventDate === viewDate)
-    : [];
 
   // 月1回制御＋土曜のみ。実効の参加日集合（楽観差分込み）から選択可否を決める。
   const enteredArr = Array.from(effectiveEntered);
@@ -354,10 +350,9 @@ export function JoinTab({
         </div>
       )}
 
-      {viewDate && viewTables.length > 0 && (
+      {viewDate && (
         <TableMembersModal
           date={viewDate}
-          tables={viewTables}
           onClose={() => setViewDate(null)}
         />
       )}
@@ -420,19 +415,31 @@ function CancelPayModal({
   );
 }
 
-/* 卓確定の同卓メンバー表示（参加タブから開くボトムシート） */
-function TableMembersModal({
-  date,
-  tables,
-  onClose,
-}: {
-  date: string;
-  tables: PublicMahjongTable[];
-  onClose: () => void;
-}) {
-  const sorted = tables
-    .slice()
-    .sort((a, b) => (a.round ?? 0) - (b.round ?? 0));
+/* 卓確定の卓組み表示（参加タブから開くボトムシート）。
+   初回の卓組み（round1）のスナップショット＝A/B両卓＋抜け番（待機）を表示する。
+   ?mine=1 の tables は自分の卓・全ラウンドのため使わず、専用APIから取得する。 */
+interface SnapshotWaiter { displayName: string; pictureUrl?: string; isMe: boolean }
+function TableMembersModal({ date, onClose }: { date: string; onClose: () => void }) {
+  const [tables, setTables] = useState<PublicMahjongTable[]>([]);
+  const [waiting, setWaiting] = useState<SnapshotWaiter[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/mahjong/day/snapshot?eventDate=${date}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        setTables(d.tables ?? []);
+        setWaiting(d.waiting ?? []);
+      })
+      .catch(() => {})
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [date]);
+
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div
@@ -443,22 +450,40 @@ function TableMembersModal({
           <span className="inline-flex items-center gap-1 text-[12px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: "#f6efd8", color: CONFIRM }}>
             <CheckIcon color={CONFIRM} size={13} />卓確定
           </span>
-          <h3 className="text-base font-bold text-[#1c1f21]">{formatJpDate(date)} の卓</h3>
+          <h3 className="text-base font-bold text-[#1c1f21]">{formatJpDate(date)} の卓組み</h3>
         </div>
-        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">同卓メンバー</p>
+        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">初回の卓組み（A卓・B卓）と抜け番</p>
 
-        <div className="flex flex-col gap-4">
-          {sorted.map((t) => (
-            <div key={t.tableId} className="flex flex-col gap-2">
-              {t.round ? (
-                <div className="text-[11px] font-bold px-2 py-0.5 rounded-full self-start" style={{ background: "#eef4f5", color: "#5f7a80" }}>
-                  第{t.round}回戦
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : tables.length === 0 ? (
+          <div className="py-8 text-center text-sm text-[#231714]/40">卓はまだ組まれていません。</div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {tables.map((t) => (
+              <TableBoard key={t.tableId} table={t} />
+            ))}
+
+            {waiting.length > 0 && (
+              <div className="rounded-2xl border border-gray-100 bg-[#fafafa] p-3.5">
+                <div className="text-[11px] font-extrabold text-[#97999d] mb-2">抜け番（待機）</div>
+                <div className="flex flex-col gap-1.5">
+                  {waiting.map((w, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[12.5px]">
+                      <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
+                      <span className="font-bold text-[#1c1f21]">
+                        {w.displayName}
+                        {w.isMe && <span className="ml-1 text-[10px] text-[#5f7a80]">（あなた）</span>}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ) : null}
-              <TableBoard table={t} />
-            </div>
-          ))}
-        </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           onClick={onClose}
