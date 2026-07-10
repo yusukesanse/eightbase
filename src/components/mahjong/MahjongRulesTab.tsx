@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ACCENT } from "@/components/mahjong/leagueShared";
 
 /**
@@ -80,6 +81,7 @@ export function MahjongRulesTab() {
         </div>
       )}
 
+      {/* 表はスマホ幅で溢れるので、本文ではなく表だけを横スクロールさせる。 */}
       <article
         className="bg-white rounded-2xl p-5 prose prose-sm max-w-none text-[#231714]/80
           prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
@@ -87,10 +89,22 @@ export function MahjongRulesTab() {
           prose-p:my-1.5 prose-p:leading-relaxed prose-p:text-[13.5px]
           prose-li:my-1 prose-li:text-[13.5px]
           prose-strong:text-[#231714]
-          prose-a:text-[#1172a5]"
+          prose-a:text-[#1172a5]
+          prose-table:text-[12.5px] prose-th:px-2 prose-td:px-2"
         style={{ boxShadow: "0 1px 2px rgba(35,23,20,.06)" }}
       >
-        <ReactMarkdown>{body}</ReactMarkdown>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            table: ({ children }) => (
+              <div className="overflow-x-auto">
+                <table>{children}</table>
+              </div>
+            ),
+          }}
+        >
+          {body}
+        </ReactMarkdown>
       </article>
     </div>
   );

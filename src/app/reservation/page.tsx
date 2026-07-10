@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Facility } from "@/types";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import clsx from "clsx";
 import { timeToMin, generateSlots } from "./slots";
 import { FacilityPill } from "./FacilityPill";
@@ -757,7 +758,7 @@ export default function ReservationPage() {
                 prose-p:my-1.5 prose-p:leading-relaxed
                 prose-li:my-0.5
                 prose-strong:text-[#231714]">
-                <ReactMarkdown>{selectedFacility.termsContent}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedFacility.termsContent}</ReactMarkdown>
               </div>
 
               {/* 規約末尾の同意ボタン（スクロール完了で表示） */}
