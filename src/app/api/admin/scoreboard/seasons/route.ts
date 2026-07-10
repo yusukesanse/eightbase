@@ -12,6 +12,16 @@ const DEFAULT_TOP_N = 3;
 /** 全4種目 */
 const GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
 
+/** gameMasterIds を配列（非空文字の一意）に正規化。不正値は空配列。 */
+export function sanitizeGameMasterIds(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  for (const v of input) {
+    if (typeof v === "string" && v.trim()) seen.add(v.trim());
+  }
+  return Array.from(seen);
+}
+
 /**
  * GET /api/admin/scoreboard/seasons
  * シーズン一覧（新しい順）
@@ -96,6 +106,8 @@ export async function POST(req: NextRequest) {
       csConfig: finalCsConfig,
       // 麻雀の順位方式（アベレージ / 合計点。未指定はアベレージ）
       rankingMetric: body.rankingMetric === "total" ? "total" : "average",
+      // ゲームマスター（手動卓振り分け）。空=自動進行シーズン。
+      gameMasterIds: sanitizeGameMasterIds(body.gameMasterIds),
       createdAt: now,
       updatedAt: now,
     };

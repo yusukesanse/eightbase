@@ -24,7 +24,14 @@ const EMPTY_FORM = {
   endDate: "",
   rankingMetric: "average" as "average" | "total",
   mahjongStartTime: "", // 開催開始時刻（支払い締切）。空=締切なし
+  gameMasterIds: [] as string[], // ゲームマスター（手動卓振り分け）。空=自動進行
 };
+
+/** GM 選択用のメンバー（lineUserId を持つ利用者のみ） */
+interface GmCandidate {
+  lineUserId: string;
+  displayName: string;
+}
 
 /* ───────── メインコンポーネント ───────── */
 
@@ -43,7 +50,27 @@ export default function SeasonsPage() {
   // 削除確認
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+  // GM 選択候補（lineUserId を持つ利用者）
+  const [gmCandidates, setGmCandidates] = useState<GmCandidate[]>([]);
+  const [gmSearch, setGmSearch] = useState("");
+
   /* ───────── データ取得 ───────── */
+
+  async function fetchGmCandidates() {
+    try {
+      const res = await fetch("/api/admin/users", { credentials: "same-origin" });
+      const data = await res.json();
+      const list: GmCandidate[] = (data.users ?? [])
+        .filter((u: { lineUserId?: string | null }) => !!u.lineUserId)
+        .map((u: { lineUserId: string; displayName?: string }) => ({
+          lineUserId: u.lineUserId,
+          displayName: u.displayName || "（名称未設定）",
+        }));
+      setGmCandidates(list);
+    } catch {
+      /* noop（GM選択は任意機能のため失敗しても致命的でない） */
+    }
+  }
 
   async function fetchSeasons() {
     setLoading(true);
@@ -60,13 +87,15 @@ export default function SeasonsPage() {
 
   useEffect(() => {
     fetchSeasons();
+    fetchGmCandidates();
   }, []);
 
   /* ───────── モーダル操作 ───────── */
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...EMPTY_FORM });
+    setForm({ ...EMPTY_FORM, gameMasterIds: [] });
+    setGmSearch("");
     setModalOpen(true);
   }
 
@@ -79,8 +108,19 @@ export default function SeasonsPage() {
       endDate: s.endDate,
       rankingMetric: s.rankingMetric === "total" ? "total" : "average",
       mahjongStartTime: s.mahjongStartTime ?? "",
+      gameMasterIds: s.gameMasterIds ?? [],
     });
+    setGmSearch("");
     setModalOpen(true);
+  }
+
+  function toggleGm(lineUserId: string) {
+    setForm((f) => ({
+      ...f,
+      gameMasterIds: f.gameMasterIds.includes(lineUserId)
+        ? f.gameMasterIds.filter((id) => id !== lineUserId)
+        : [...f.gameMasterIds, lineUserId],
+    }));
   }
 
   /* ───────── 保存 ───────── */
@@ -95,6 +135,7 @@ export default function SeasonsPage() {
         endDate: form.endDate,
         rankingMetric: form.rankingMetric,
         mahjongStartTime: form.mahjongStartTime,
+        gameMasterIds: form.gameMasterIds,
       };
 
       const url = editing
@@ -396,6 +437,54 @@ export default function SeasonsPage() {
                   <p className="text-xs text-gray-400 mt-1">
                     毎週土曜の開催開始時刻。参加費の支払いは開催当日この時刻までが締切。未設定なら締切なし。
                   </p>
+                </div>
+              )}
+
+              {/* 麻雀: ゲームマスター（手動卓振り分け） */}
+              {form.gameCategory === "mahjong" && (
+                <div>
+                  <label className={labelClass}>ゲームマスター（手動卓振り分け）</label>
+                  <p className="text-xs text-gray-400 mb-2">
+                    指定すると、そのシーズンは<b>GMが利用者アプリで手動で卓を組む</b>方式になります（自動の抜け番・交代はオフ）。
+                    未指定なら現行どおり自動進行。複数選択可。
+                  </p>
+                  {form.gameMasterIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {form.gameMasterIds.map((id) => {
+                        const c = gmCandidates.find((x) => x.lineUserId === id);
+                        return (
+                          <span key={id} className="inline-flex items-center gap-1 bg-[#231714]/5 rounded-full pl-2.5 pr-1.5 py-1 text-xs text-[#231714]">
+                            {c?.displayName ?? id}
+                            <button type="button" onClick={() => toggleGm(id)} className="text-[#231714]/40 hover:text-red-500 leading-none">×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <input
+                    value={gmSearch}
+                    onChange={(e) => setGmSearch(e.target.value)}
+                    placeholder="氏名で検索"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg mb-1 focus:outline-none focus:border-[#231714]"
+                  />
+                  <div className="max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                    {gmCandidates
+                      .filter((c) => !gmSearch.trim() || c.displayName.includes(gmSearch.trim()))
+                      .slice(0, 50)
+                      .map((c) => (
+                        <label key={c.lineUserId} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            checked={form.gameMasterIds.includes(c.lineUserId)}
+                            onChange={() => toggleGm(c.lineUserId)}
+                          />
+                          <span className="text-[#231714]">{c.displayName}</span>
+                        </label>
+                      ))}
+                    {gmCandidates.length === 0 && (
+                      <div className="px-3 py-3 text-xs text-gray-400">LINE連携済みの利用者がいません。</div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -16,6 +16,7 @@ export type AuditEventType =
   | "cs.reset" // CSブラケットの管理者リセット
   | "table.completed" // 卓の集計確定（利用者申告が揃った）
   | "day.advanced" // 抜け番で次半荘へ進行（システム）
+  | "day.manual_assigned" // GM による手動卓振り分けの確定
   | "day.reset"; // 当日進行の管理者リセット
 
 export interface AuditLogInput {

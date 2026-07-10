@@ -67,9 +67,17 @@ export function buildInitialDay(participants: RotPlayer[]): { tables: { label: s
   return { tables, waiting: participants.slice(nTables * 4) };
 }
 
+/** 手動卓振り分け（GM）シーズンかどうかを seasonId から判定する。 */
+export async function isManualSeason(seasonId: string): Promise<boolean> {
+  const doc = await getDb().collection("seasons").doc(seasonId).get();
+  const gm = (doc.data()?.gameMasterIds ?? []) as unknown;
+  return Array.isArray(gm) && gm.length > 0;
+}
+
 /**
  * 開催日を開始（round1の卓＋dayStateを自動生成）。冪等：dayStateがあれば何もしない。
  * 参加者は支払い済みエントリー（enteredAt昇順＝FIFO）。4人未満は開始しない。
+ * GM（手動）シーズンでは卓を作らず、dayState を「round1 の振り分け待ち」で初期化する。
  */
 export async function startDay(seasonId: string, eventDate: string, demo = false): Promise<boolean> {
   const db = getDb();
@@ -87,12 +95,30 @@ export async function startDay(seasonId: string, eventDate: string, demo = false
   if (tblSnap.docs.some((d) => (d.data() as MahjongTable).eventDate === eventDate)) return false;
 
   const participants = await fetchPaidParticipants(seasonId, eventDate);
+  const now = new Date().toISOString();
+  const tag = demo ? { demoDummy: true } : {};
+
+  // GM（手動）シーズン: 卓は作らず dayState のみ生成。round1 は GM が振り分けて確定する。
+  // 成立最低人数は自動と同じ4名（4名未満は流会ロジックに委ねる）。
+  if (await isManualSeason(seasonId)) {
+    if (participants.length < 4) return false;
+    await dayRef.set({
+      seasonId,
+      eventDate,
+      round: 1,
+      waiting: [],
+      tableLabels: [],
+      lastSwap: null,
+      awaitingAssignment: true,
+      updatedAt: now,
+      ...tag,
+    });
+    return true;
+  }
 
   const { tables, waiting } = buildInitialDay(participants);
   if (tables.length === 0) return false;
 
-  const now = new Date().toISOString();
-  const tag = demo ? { demoDummy: true } : {};
   const batch = db.batch();
   for (const t of tables) {
     batch.set(
@@ -130,6 +156,9 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
   const db = getDb();
   const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
 
+  // GM（手動）シーズンは自動の次卓生成を行わない。read はトランザクション外で先に判定。
+  const manual = await isManualSeason(seasonId);
+
   const swap = await db.runTransaction(async (tx) => {
     const daySnap = await tx.get(dayRef);
     if (!daySnap.exists) return null;
@@ -144,6 +173,24 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
       .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
       .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""));
     if (roundTables.length === 0 || !roundTables.every((t) => t.status === "completed")) return null;
+
+    // GM（手動）: 自動で次卓を作らず、次 round を「GM 振り分け待ち」にするだけ。
+    if (manual) {
+      const now = new Date().toISOString();
+      const tag = day.demoDummy ? { demoDummy: true } : {};
+      tx.set(dayRef, {
+        seasonId,
+        eventDate,
+        round: round + 1,
+        waiting: [],
+        tableLabels: [],
+        lastSwap: null,
+        awaitingAssignment: true,
+        updatedAt: now,
+        ...tag,
+      });
+      return null; // 自動交代なし（swap は生成しない）
+    }
 
     const ranked: RankedTable[] = roundTables.map((t) => ({
       label: t.tableLabel ?? "?",

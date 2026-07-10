@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
+import { sanitizeGameMasterIds } from "@/app/api/admin/scoreboard/seasons/route";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -117,6 +118,11 @@ export async function PUT(
     // rankingMetric（麻雀の順位方式）
     if (body.rankingMetric !== undefined) {
       updates.rankingMetric = body.rankingMetric === "total" ? "total" : "average";
+    }
+
+    // gameMasterIds（手動卓振り分けの GM）。配列を正規化して保存（空配列=自動進行に戻す）。
+    if (body.gameMasterIds !== undefined) {
+      updates.gameMasterIds = sanitizeGameMasterIds(body.gameMasterIds);
     }
 
     // mahjongStartTime（開催開始時刻・支払い締切）。"" は未設定へ。HH:mm を検証。

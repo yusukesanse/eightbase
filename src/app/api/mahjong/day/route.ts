@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
-import { getActiveSeason, toPublicMahjongTable } from "@/lib/mahjong";
+import { getActiveSeason, toPublicMahjongTable, isManualAssignmentSeason, isGameMaster } from "@/lib/mahjong";
 import { startDay } from "@/lib/mahjongDay";
 import { advanceDemoDay } from "@/dev-only/mahjongDemo";
 import type { MahjongDayState, MahjongTable } from "@/types";
@@ -40,23 +40,33 @@ export async function GET(req: NextRequest) {
     db.collection("mahjongDayState").doc(`${season.seasonId}_${eventDate}`).get(),
     db.collection("mahjongTables").where("seasonId", "==", season.seasonId).get(),
   ]);
-  const day = daySnap.exists ? (daySnap.data() as MahjongDayState) : null;
+  const day = daySnap.exists ? (daySnap.data() as MahjongDayState & { awaitingAssignment?: boolean }) : null;
   const round = day?.round ?? 1;
 
-  const tables = snap.docs
-    .map((d) => ({ ...(d.data() as MahjongTable), tableId: d.id }))
-    .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
-    .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""))
-    .map((t) => toPublicMahjongTable(t, userId));
+  // 手動（GM）シーズン: 未確定 round は一般参加者に卓を見せない（GM の振り分け待ち）。
+  const manualSeason = isManualAssignmentSeason(season);
+  const gm = isGameMaster(season, userId);
+  const awaitingAssignment = manualSeason ? (day?.awaitingAssignment ?? true) : false;
+
+  const tables = manualSeason && awaitingAssignment
+    ? []
+    : snap.docs
+        .map((d) => ({ ...(d.data() as MahjongTable), tableId: d.id }))
+        .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
+        .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""))
+        .map((t) => toPublicMahjongTable(t, userId));
 
   // 公開整形: 内部 lineUserId は返さない（tables は toPublicMahjongTable で秘匿済み）。
   const pub = (p: { displayName: string; pictureUrl?: string }) => ({ displayName: p.displayName, pictureUrl: p.pictureUrl ?? "" });
   const sw = day?.lastSwap;
   return NextResponse.json({
     round,
-    waiting: (day?.waiting ?? []).map((w) => ({ ...pub(w), isMe: w.lineUserId === userId })),
+    waiting: manualSeason && awaitingAssignment ? [] : (day?.waiting ?? []).map((w) => ({ ...pub(w), isMe: w.lineUserId === userId })),
     lastSwap: sw ? { round: sw.round, out: sw.out.map(pub), in: sw.in.map(pub), shrunk: sw.shrunk, reason: sw.reason ?? null } : null,
     tables,
+    manualSeason,
+    isGameMaster: gm,
+    awaitingAssignment,
   });
 }
 

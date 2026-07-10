@@ -431,3 +431,18 @@ export async function getActiveSeason(
   _activeSeasonCache.set(category, { value, expiresAt: now + ACTIVE_SEASON_TTL_MS });
   return value;
 }
+
+/**
+ * ゲームマスター（手動卓振り分け）シーズンか。gameMasterIds が1件以上なら true。
+ * true のシーズンでは自動の抜け番・3位/4位交代（computeNextRound）を使わない。
+ */
+export function isManualAssignmentSeason(season: unknown): boolean {
+  const gm = (season as { gameMasterIds?: unknown } | null)?.gameMasterIds;
+  return Array.isArray(gm) && gm.length > 0;
+}
+
+/** 指定ユーザーが当該シーズンの GM か。 */
+export function isGameMaster(season: unknown, userId: string): boolean {
+  const gm = (season as { gameMasterIds?: unknown } | null)?.gameMasterIds;
+  return Array.isArray(gm) && gm.includes(userId);
+}
