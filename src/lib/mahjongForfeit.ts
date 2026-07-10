@@ -21,6 +21,7 @@ export const MAHJONG_MIN_PARTICIPANTS = 4;
 
 export type ForfeitResult =
   | { status: "already" } // 既に中止確定済み
+  | { status: "closed" } // 休催日（管理者が事前に閉じた日）＝流会対象外
   | { status: "started" } // 卓が立っている（開催済み）
   | { status: "ok"; paidCount: number } // 成立（中止しない）
   | { status: "no-participants" } // 支払い済み参加者ゼロ（返金不要・記録しない）
@@ -38,6 +39,11 @@ export async function forfeitDayIfInsufficient(
 
   // 早期return（無駄な処理を避ける）
   if ((await cancelRef.get()).exists) return { status: "already" };
+
+  // 休催日（管理者が事前に閉じた土曜）は流会の対象外（要件§3）。startDay も休催日は卓を組まない。
+  if ((await db.collection("mahjongClosedDates").doc(eventDate).get()).exists) {
+    return { status: "closed" };
+  }
 
   // 既に卓が立っている（4名以上で開催済み）＝対象外
   const tblSnap = await db.collection("mahjongTables").where("seasonId", "==", seasonId).get();
@@ -99,9 +105,18 @@ export async function forfeitDayIfInsufficient(
   for (const e of [...seated, ...reserved]) {
     batch.delete(db.collection("mahjongMonthlyLocks").doc(`${seasonId}_${e.lineUserId}_${month}`));
   }
-  await batch.commit();
 
-  // 通知（コミット後・失敗しても中止確定は巻き戻さない）
+  // create(中止確定) と batch(エントリー更新) は原子的でない。batch が失敗したら中止確定を
+  // 巻き戻す（cancelledDates を削除）ことで、次回 cron 実行で再試行できるようにする
+  // （部分適用＝「中止確定済みだがエントリー未更新」の宙ぶらりんを残さない）。
+  try {
+    await batch.commit();
+  } catch (e) {
+    await cancelRef.delete().catch(() => {});
+    throw e;
+  }
+
+  // 通知（コミット成功後のみ。失敗時は上で throw 済みで到達しない）
   await notifyAdmin(
     "mahjong_event_forfeit",
     `${eventDate} は人数不足で中止。返金対象 ${refundable.length}名（Squareで手動返金）。`,
