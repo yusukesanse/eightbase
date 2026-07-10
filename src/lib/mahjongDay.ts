@@ -178,6 +178,12 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
     if (manual) {
       const now = new Date().toISOString();
       const tag = day.demoDummy ? { demoDummy: true } : {};
+      // 次 round に卓が残っていたら消す。自動進行シーズンから GM シーズンへ切り替えた場合、
+      // computeNextRound が先に組んだ卓が残っており、これがあると GM が振り分けられない。
+      for (const d of qSnap.docs) {
+        const t = d.data() as MahjongTable;
+        if (t.eventDate === eventDate && (t.round ?? 1) === round + 1) tx.delete(d.ref);
+      }
       tx.set(dayRef, {
         seasonId,
         eventDate,

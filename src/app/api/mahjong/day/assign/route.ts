@@ -3,7 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
-import { validateGmAssignment, ASSIGN_VALID_LABELS, ASSIGN_MAX_SEATS, type AssignTable } from "@/lib/mahjongAssign";
+import { validateGmAssignment, isAssignmentLocked, ASSIGN_VALID_LABELS, ASSIGN_MAX_SEATS, type AssignTable } from "@/lib/mahjongAssign";
 import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongDayState, MahjongEntry, MahjongTable } from "@/types";
 
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   const result = await db.runTransaction(async (tx) => {
     const daySnap = await tx.get(dayRef);
     if (!daySnap.exists) return { status: 400 as const, error: "当日はまだ開始していません" };
-    const day = daySnap.data() as MahjongDayState;
+    const day = daySnap.data() as MahjongDayState & { awaitingAssignment?: boolean };
     if (day.round !== round) {
       return { status: 409 as const, error: `現在は第${day.round}半荘の振り分け対象です` };
     }
@@ -89,7 +89,9 @@ export async function POST(req: NextRequest) {
     const existing = tblSnap.docs
       .map((d) => ({ id: d.id, ...(d.data() as MahjongTable) }))
       .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round);
-    if (existing.some((t) => t.members.some((m) => m.rank != null || m.reportedAt))) {
+    // GET /assignment と同じ判定を使う（ずれると画面は編集可なのに保存で 409 になる）。
+    // 残骸の卓は下の upsert/delete で必ず上書きされる。
+    if (isAssignmentLocked(day.awaitingAssignment === true, existing)) {
       return { status: 409 as const, error: "この半荘は申告が始まっているため変更できません" };
     }
 

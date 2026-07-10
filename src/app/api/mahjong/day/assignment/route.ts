@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { startDay, buildInitialDay } from "@/lib/mahjongDay";
+import { isAssignmentLocked } from "@/lib/mahjongAssign";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
 import type { MahjongDayState, MahjongEntry, MahjongTable } from "@/types";
 
@@ -54,17 +55,20 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => (a.enteredAt ?? "").localeCompare(b.enteredAt ?? ""))
     .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl ?? "" }));
 
-  // 現 round の卓（あれば下書き＝それ、なければ FIFO プレビュー）
   const roundTables = tblSnap.docs
     .map((d) => d.data() as MahjongTable)
     .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
     .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""));
-  // ロック: 現 round のいずれかの卓で申告が始まっていたら変更不可。
-  const locked = roundTables.some((t) => t.members.some((m) => m.rank != null || m.reportedAt));
 
+  // 未確定（awaitingAssignment=true）の round に残る卓は自動進行時代の残骸。
+  // ロックにも下書きにも使わない（isAssignmentLocked の説明を参照）。
+  const staleTables = awaitingAssignment;
+  const locked = isAssignmentLocked(awaitingAssignment, roundTables);
+
+  // 下書き: 確定済み round は既存卓（申告前なら編集可）、未確定 round は FIFO プレビュー。
   let draftTables: { label: string; memberIds: string[] }[];
   let draftWaiting: string[];
-  if (roundTables.length > 0) {
+  if (!staleTables && roundTables.length > 0) {
     draftTables = roundTables.map((t) => ({ label: t.tableLabel ?? "?", memberIds: t.memberIds ?? t.members.map((m) => m.lineUserId) }));
     draftWaiting = (day?.waiting ?? []).map((w) => w.lineUserId);
   } else {

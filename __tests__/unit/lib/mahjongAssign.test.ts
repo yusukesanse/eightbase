@@ -1,7 +1,7 @@
 /**
- * 単体テスト: GM 手動卓振り分けの検証（src/lib/mahjongAssign.ts validateGmAssignment）。
+ * 単体テスト: GM 手動卓振り分けの検証（src/lib/mahjongAssign.ts）。
  */
-import { validateGmAssignment } from "@/lib/mahjongAssign";
+import { validateGmAssignment, isAssignmentLocked } from "@/lib/mahjongAssign";
 
 const pool = (n: number) => Array.from({ length: n }, (_, i) => `u${i + 1}`);
 const A = (ids: string[]) => ({ label: "A", memberIds: ids });
@@ -55,5 +55,29 @@ describe("validateGmAssignment", () => {
     const p = pool(8);
     const r = validateGmAssignment(p, [A(p.slice(0, 4)), A(p.slice(4, 8))], []);
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("isAssignmentLocked（GET /assignment と POST /assign が共有）", () => {
+  const reported = [{ members: [{ rank: 1, reportedAt: "2026-07-11T10:00:00Z" }] }];
+  const fresh = [{ members: [{ rank: null, reportedAt: null }] }];
+
+  test("確定済み(awaiting=false)で申告が入っていたらロック", () => {
+    expect(isAssignmentLocked(false, reported)).toBe(true);
+  });
+
+  test("確定済みでも申告前ならロックしない（申告前は編集できる）", () => {
+    expect(isAssignmentLocked(false, fresh)).toBe(false);
+  });
+
+  test("振り分け待ち(awaiting=true)なら、残骸の卓に申告があってもロックしない", () => {
+    // 自動進行シーズンから GM シーズンへ切り替えた際、先の round の卓が残っていても
+    // GM が振り分けられなくならないこと（実障害の再発防止）。
+    expect(isAssignmentLocked(true, reported)).toBe(false);
+  });
+
+  test("卓が無ければロックしない", () => {
+    expect(isAssignmentLocked(false, [])).toBe(false);
+    expect(isAssignmentLocked(true, [])).toBe(false);
   });
 });

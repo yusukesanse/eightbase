@@ -5,6 +5,25 @@
 
 export interface AssignTable { label: string; memberIds: string[] }
 
+/**
+ * この半荘の振り分けが変更不可か。
+ *
+ * `awaitingAssignment=true` は「GM がまだ振り分けていない」の意。この間に残っている卓は
+ * 自動進行シーズン時代の残骸（GM 化前に computeNextRound が先の round まで組んだ等）なので、
+ * 申告が入っていてもロック理由にしない。これを見てしまうと GM が永久に振り分けられない。
+ * 確定済み（awaitingAssignment=false）の半荘で申告が1件でも入ったら変更不可。
+ *
+ * GET /assignment と POST /assign の**両方**がこれを使う。判定がずれると
+ * 「画面は編集できるのに保存すると 409」になる。
+ */
+export function isAssignmentLocked(
+  awaitingAssignment: boolean,
+  roundTables: { members: { rank?: number | null; reportedAt?: string | null }[] }[]
+): boolean {
+  if (awaitingAssignment) return false;
+  return roundTables.some((t) => t.members.some((m) => m.rank != null || m.reportedAt));
+}
+
 export const ASSIGN_VALID_LABELS = ["A", "B"];
 export const ASSIGN_MAX_SEATS = 4;
 
