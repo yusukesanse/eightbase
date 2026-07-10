@@ -3,20 +3,22 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 
-/** 利用規約エディタ（編集/Markdownプレビュー切替）。 */
+/** Markdown エディタ（編集/プレビュー切替）。利用規約・シーズンのルール/約款で共用。 */
 export function TermsEditor({
   value,
   onChange,
+  label = "利用規約の内容",
 }: {
   value: string;
   onChange: (v: string) => void;
+  label?: string;
 }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-xs font-medium text-gray-600">利用規約の内容</label>
+        <label className="text-xs font-medium text-gray-600">{label}</label>
         <div className="flex border border-[#231714]/15 rounded-md overflow-hidden">
           <button
             type="button"

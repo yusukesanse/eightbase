@@ -180,6 +180,12 @@ export interface Season {
    * 1名以上設定されると「手動卓振り分けシーズン」になり、自動の抜け番・3位/4位交代はオフ。
    */
   gameMasterIds?: string[];
+  /**
+   * ルール・約款（Markdown）。シーズンは種目別なので、これで「種目ごと × シーズンごと」を満たす。
+   * 利用者アプリの「ルール/約款」タブに表示する（閲覧のみ。同意フローは持たない）。
+   */
+  rulesMarkdown?: string;
+  termsMarkdown?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Season, ScoreboardGameId } from "@/types";
 import DatePicker from "@/components/ui/DatePicker";
+import { TermsEditor } from "@/app/admin/calendars/TermsEditor";
 
 /* ───────── 定数 ───────── */
 
@@ -23,6 +24,8 @@ const EMPTY_FORM = {
   endDate: "",
   rankingMetric: "average" as "average" | "total",
   gameMasterIds: [] as string[], // ゲームマスター（手動卓振り分け）。空=自動進行
+  rulesMarkdown: "", // ルール（Markdown）。利用者アプリの「ルール/約款」タブに表示
+  termsMarkdown: "", // 約款（Markdown）
 };
 
 /** GM 選択用のメンバー（lineUserId を持つ利用者のみ） */
@@ -106,6 +109,8 @@ export default function SeasonsPage() {
       endDate: s.endDate,
       rankingMetric: s.rankingMetric === "total" ? "total" : "average",
       gameMasterIds: s.gameMasterIds ?? [],
+      rulesMarkdown: s.rulesMarkdown ?? "",
+      termsMarkdown: s.termsMarkdown ?? "",
     });
     setGmSearch("");
     setModalOpen(true);
@@ -132,6 +137,8 @@ export default function SeasonsPage() {
         endDate: form.endDate,
         rankingMetric: form.rankingMetric,
         gameMasterIds: form.gameMasterIds,
+        rulesMarkdown: form.rulesMarkdown,
+        termsMarkdown: form.termsMarkdown,
       };
 
       const url = editing
@@ -455,6 +462,26 @@ export default function SeasonsPage() {
                   </div>
                 </div>
               )}
+
+              {/* ルール・約款（Markdown）。利用者アプリの「ルール/約款」タブに出る。
+                  シーズンは種目別なので、種目ごと × シーズンごとの内容になる。 */}
+              <div className="pt-2 border-t border-gray-100">
+                <TermsEditor
+                  label={`ルール（${GAME_LABELS[form.gameCategory]}・利用者に表示）`}
+                  value={form.rulesMarkdown}
+                  onChange={(v) => setForm({ ...form, rulesMarkdown: v })}
+                />
+              </div>
+              <div>
+                <TermsEditor
+                  label="約款（利用者に表示）"
+                  value={form.termsMarkdown}
+                  onChange={(v) => setForm({ ...form, termsMarkdown: v })}
+                />
+                <p className="text-[10px] text-[#231714]/40 mt-1">
+                  未入力なら、利用者アプリの「ルール/約款」タブにその項目は表示されません。
+                </p>
+              </div>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">

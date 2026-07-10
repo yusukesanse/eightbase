@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
-import { sanitizeGameMasterIds } from "@/lib/scoreboardSeason";
+import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +85,16 @@ export async function POST(req: NextRequest) {
       finalCsConfig[gid] = { topN: (typeof n === "number" && n >= 1) ? n : DEFAULT_TOP_N };
     }
 
+    // ルール・約款（Markdown）
+    const rules = sanitizeSeasonMarkdown(body.rulesMarkdown);
+    const terms = sanitizeSeasonMarkdown(body.termsMarkdown);
+    if (rules === null || terms === null) {
+      return NextResponse.json(
+        { error: `ルール・約款は${SEASON_MARKDOWN_MAX}文字以内のテキストで入力してください` },
+        { status: 400 }
+      );
+    }
+
     const db = getDb();
     const now = new Date().toISOString();
 
@@ -99,6 +109,9 @@ export async function POST(req: NextRequest) {
       rankingMetric: body.rankingMetric === "total" ? "total" : "average",
       // ゲームマスター（手動卓振り分け）。空=自動進行シーズン。
       gameMasterIds: sanitizeGameMasterIds(body.gameMasterIds),
+      // ルール・約款（Markdown）。未指定は空。
+      rulesMarkdown: rules,
+      termsMarkdown: terms,
       createdAt: now,
       updatedAt: now,
     };
