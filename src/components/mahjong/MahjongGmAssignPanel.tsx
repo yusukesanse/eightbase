@@ -97,7 +97,7 @@ const Chip = memo(function Chip({
 
 /* ───────── 置き場（未配置 / A卓 / B卓 / 待機） ───────── */
 const DropZone = memo(function DropZone({
-  zone, label, cap, members, lit, over, emptyText, litText, armed, onZoneClick, renderChip,
+  zone, label, cap, members, lit, over, emptyText, litText, armed, onZoneClick, renderChip, onSendAllToWaiting,
 }: {
   zone: Zone;
   label: string;
@@ -110,6 +110,8 @@ const DropZone = memo(function DropZone({
   armed: boolean;
   onZoneClick: (zone: Zone) => void;
   renderChip: (m: PoolMember) => React.ReactNode;
+  /** 卓が1〜3名のときだけ渡す。押すとその卓の全員を待機へ送り、卓を使わない編成にする。 */
+  onSendAllToWaiting?: (zone: Zone) => void;
 }) {
   const isPool = zone === "pool";
   return (
@@ -126,7 +128,18 @@ const DropZone = memo(function DropZone({
         <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : isPool ? "#97999d" : "#5f7a80" }}>
           {label}{cap != null ? `（${members.length}/${cap}）` : `（${members.length}）`}
         </span>
-        {lit && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>}
+        {lit ? (
+          <span className="text-[10px] font-bold" style={{ color: ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>
+        ) : onSendAllToWaiting ? (
+          // 4名に満たない卓は成立しない。全員を待機へ送れば「この卓は使わない」編成として確定できる。
+          <button
+            onClick={(e) => { e.stopPropagation(); onSendAllToWaiting(zone); }}
+            className="text-[10px] font-bold underline underline-offset-2"
+            style={{ color: "#d8533a" }}
+          >
+            この卓を使わない（{members.length}名を待機へ）
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {members.length === 0 ? (
@@ -210,6 +223,21 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     setDone(false);
     setSelectedId(null);
     setPlace((p) => ({ ...p, [id]: zone }));
+  }, [locked]);
+
+  /**
+   * 卓の全員を待機（抜け番）へ送る＝その卓を使わない。
+   * 8名いても1名が抜けたら「A卓の4名だけ打ち、残りは抜け番」にできる。1人ずつ動かさずに済む。
+   */
+  const sendAllToWaiting = useCallback((zone: Zone) => {
+    if (locked) return;
+    setDone(false);
+    setSelectedId(null);
+    setPlace((p) => {
+      const next = { ...p };
+      for (const [id, z] of Object.entries(p)) if (z === zone) next[id] = "waiting";
+      return next;
+    });
   }, [locked]);
 
   /* ───────── つまんで運ぶ（Pointer Events。タッチ/マウス共通） ───────── */
@@ -550,6 +578,12 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
                   litText="ここで指を離す"
                   onZoneClick={onZoneClick}
                   renderChip={renderChip}
+                  // 1〜3名の卓は成立しない。まとめて待機へ送って「この卓は使わない」editにできる。
+                  onSendAllToWaiting={
+                    z.cap != null && members.length > 0 && members.length < SEATS_PER_TABLE
+                      ? sendAllToWaiting
+                      : undefined
+                  }
                 />
               );
             })}
@@ -570,7 +604,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
               {unplaced > 0
                 ? "全員をA卓/B卓/待機に配置すると確定できます。"
                 : !seatsOk(aCount) || !seatsOk(bCount)
-                  ? `卓は${SEATS_PER_TABLE}名ちょうどにしてください（余った人は待機へ）。`
+                  ? `卓は${SEATS_PER_TABLE}名ちょうど。人数が足りない卓は「この卓を使わない」で全員を待機へ送れます。`
                   : `少なくとも1卓（${SEATS_PER_TABLE}名）が必要です。`}
             </p>
           )}
