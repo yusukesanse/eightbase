@@ -10,7 +10,6 @@ import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
 import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import MonthCalendar from "@/components/ui/MonthCalendar";
-import { Avatar } from "@/components/ui/LineContact";
 import {
   ACCENT,
   CONFIRM,
@@ -18,8 +17,6 @@ import {
   formatJpDate,
   todayJst,
   CheckIcon,
-  ChevronRight,
-  TableBoard,
 } from "@/components/mahjong/leagueShared";
 
 /* ───────── 参加タブ ───────── */
@@ -42,8 +39,6 @@ export function JoinTab({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  // 卓確定の同卓メンバーを表示する対象日
-  const [viewDate, setViewDate] = useState<string | null>(null);
   // 参加費のエラー表示／キャンセル確認対象日
   const [payMsg, setPayMsg] = useState<string | null>(null);
   const [cancelDate, setCancelDate] = useState<string | null>(null);
@@ -289,9 +284,11 @@ export function JoinTab({
                 </div>
               </div>
               {confirmed ? (
-                <button onClick={() => setViewDate(selectedDate)} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold pl-4 pr-3 py-2 active:scale-95 transition-transform" style={{ background: CONFIRM, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
-                  <CheckIcon />卓確定<ChevronRight size={13} />
-                </button>
+                // 卓の中身は「卓確認/申告」タブで見る（GM が半荘ごとに組むため、参加タブでの
+                // スナップショット表示は実態とずれる）。ここは確定した事実だけを示す。
+                <span className="shrink-0 inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: CONFIRM, color: "#fff" }}>
+                  <CheckIcon />卓確定
+                </span>
               ) : needsPay && payStatus === "paid" ? (
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
@@ -350,13 +347,6 @@ export function JoinTab({
         </div>
       )}
 
-      {viewDate && (
-        <TableMembersModal
-          date={viewDate}
-          onClose={() => setViewDate(null)}
-        />
-      )}
-
       {cancelDate && (
         <CancelPayModal
           date={cancelDate}
@@ -410,88 +400,6 @@ function CancelPayModal({
             {busy ? "送信中..." : "キャンセルを依頼"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* 卓確定の卓組み表示（参加タブから開くボトムシート）。
-   初回の卓組み（round1）のスナップショット＝A/B両卓＋抜け番（待機）を表示する。
-   ?mine=1 の tables は自分の卓・全ラウンドのため使わず、専用APIから取得する。 */
-interface SnapshotWaiter { displayName: string; pictureUrl?: string; isMe: boolean }
-function TableMembersModal({ date, onClose }: { date: string; onClose: () => void }) {
-  const [tables, setTables] = useState<PublicMahjongTable[]>([]);
-  const [waiting, setWaiting] = useState<SnapshotWaiter[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let alive = true;
-    fetch(`/api/mahjong/day/snapshot?eventDate=${date}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!alive) return;
-        setTables(d.tables ?? []);
-        setWaiting(d.waiting ?? []);
-      })
-      .catch(() => {})
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [date]);
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: "#f6efd8", color: CONFIRM }}>
-            <CheckIcon color={CONFIRM} size={13} />卓確定
-          </span>
-          <h3 className="text-base font-bold text-[#1c1f21]">{formatJpDate(date)} の卓組み</h3>
-        </div>
-        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">初回の卓組み（A卓・B卓）と抜け番</p>
-
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : tables.length === 0 ? (
-          <div className="py-8 text-center text-sm text-[#231714]/40">卓はまだ組まれていません。</div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {tables.map((t) => (
-              <TableBoard key={t.tableId} table={t} />
-            ))}
-
-            {waiting.length > 0 && (
-              <div className="rounded-2xl border border-gray-100 bg-[#fafafa] p-3.5">
-                <div className="text-[11px] font-extrabold text-[#97999d] mb-2">抜け番（待機）</div>
-                <div className="flex flex-col gap-1.5">
-                  {waiting.map((w, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[12.5px]">
-                      <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
-                      <span className="font-bold text-[#1c1f21]">
-                        {w.displayName}
-                        {w.isMe && <span className="ml-1 text-[10px] text-[#5f7a80]">（あなた）</span>}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="mt-5 w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
-          style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-        >
-          閉じる
-        </button>
       </div>
     </div>
   );
