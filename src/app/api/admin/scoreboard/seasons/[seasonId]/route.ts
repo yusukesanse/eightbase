@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
-import { sanitizeGameMasterIds } from "@/app/api/admin/scoreboard/seasons/route";
+import { sanitizeGameMasterIds } from "@/lib/scoreboardSeason";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";

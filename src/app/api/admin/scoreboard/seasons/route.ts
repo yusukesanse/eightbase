@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
+import { sanitizeGameMasterIds } from "@/lib/scoreboardSeason";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -11,16 +12,6 @@ const DEFAULT_TOP_N = 3;
 
 /** 全4種目 */
 const GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
-
-/** gameMasterIds を配列（非空文字の一意）に正規化。不正値は空配列。 */
-export function sanitizeGameMasterIds(input: unknown): string[] {
-  if (!Array.isArray(input)) return [];
-  const seen = new Set<string>();
-  for (const v of input) {
-    if (typeof v === "string" && v.trim()) seen.add(v.trim());
-  }
-  return Array.from(seen);
-}
 
 /**
  * GET /api/admin/scoreboard/seasons
