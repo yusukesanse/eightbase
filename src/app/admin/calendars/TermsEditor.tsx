@@ -2,21 +2,24 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-/** 利用規約エディタ（編集/Markdownプレビュー切替）。 */
+/** Markdown エディタ（編集/プレビュー切替）。利用規約・シーズンのルール/約款で共用。 */
 export function TermsEditor({
   value,
   onChange,
+  label = "利用規約の内容",
 }: {
   value: string;
   onChange: (v: string) => void;
+  label?: string;
 }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-xs font-medium text-gray-600">利用規約の内容</label>
+        <label className="text-xs font-medium text-gray-600">{label}</label>
         <div className="flex border border-[#231714]/15 rounded-md overflow-hidden">
           <button
             type="button"
@@ -53,7 +56,9 @@ export function TermsEditor({
             className="w-full px-3 py-2 border border-[#231714]/20 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent resize-y"
           />
           <p className="text-[10px] text-[#231714]/40 mt-1">
-            Markdown記法が使えます: <code className="bg-gray-100 px-1 rounded">**太字**</code> <code className="bg-gray-100 px-1 rounded">## 見出し</code> <code className="bg-gray-100 px-1 rounded">1. 番号リスト</code>
+            Markdown記法が使えます: <code className="bg-gray-100 px-1 rounded">**太字**</code> <code className="bg-gray-100 px-1 rounded">## 見出し</code> <code className="bg-gray-100 px-1 rounded">1. 番号リスト</code> <code className="bg-gray-100 px-1 rounded">| 表 |</code>
+            <br />
+            太字が効かないときは前後に半角スペースを入れてください（<code className="bg-gray-100 px-1 rounded">は**待機（抜け番）**と</code> のように全角記号に挟まれると強調になりません）。
           </p>
         </>
       ) : (
@@ -65,7 +70,7 @@ export function TermsEditor({
               prose-p:my-1 prose-p:leading-relaxed prose-p:text-sm
               prose-li:my-0.5 prose-li:text-sm
               prose-strong:text-[#231714]">
-              <ReactMarkdown>{value}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-sm text-[#231714]/30 text-center py-8">

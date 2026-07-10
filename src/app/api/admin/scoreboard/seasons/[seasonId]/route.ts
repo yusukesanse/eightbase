@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
+import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -119,16 +120,22 @@ export async function PUT(
       updates.rankingMetric = body.rankingMetric === "total" ? "total" : "average";
     }
 
-    // mahjongStartTime（開催開始時刻・支払い締切）。"" は未設定へ。HH:mm を検証。
-    if (body.mahjongStartTime !== undefined) {
-      const v = body.mahjongStartTime;
-      if (v === "" || v === null) {
-        updates.mahjongStartTime = "";
-      } else if (typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)) {
-        updates.mahjongStartTime = v;
-      } else {
-        return NextResponse.json({ error: "開始時刻は HH:mm 形式で指定してください" }, { status: 400 });
+    // gameMasterIds（手動卓振り分けの GM）。配列を正規化して保存（空配列=自動進行に戻す）。
+    if (body.gameMasterIds !== undefined) {
+      updates.gameMasterIds = sanitizeGameMasterIds(body.gameMasterIds);
+    }
+
+    // ルール・約款（Markdown）。"" で消せる。
+    for (const key of ["rulesMarkdown", "termsMarkdown"] as const) {
+      if (body[key] === undefined) continue;
+      const v = sanitizeSeasonMarkdown(body[key]);
+      if (v === null) {
+        return NextResponse.json(
+          { error: `ルール・約款は${SEASON_MARKDOWN_MAX}文字以内のテキストで入力してください` },
+          { status: 400 }
+        );
       }
+      updates[key] = v;
     }
 
     if (Object.keys(updates).length === 0) {

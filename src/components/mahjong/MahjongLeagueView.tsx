@@ -14,6 +14,7 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { JoinTab } from "@/components/mahjong/MahjongJoinTab";
 import { ReportTab } from "@/components/mahjong/MahjongReportTab";
 import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
+import { MahjongRulesTab } from "@/components/mahjong/MahjongRulesTab";
 
 /**
  * ランキング > 麻雀 のビュー
@@ -21,7 +22,7 @@ import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
  * ※ 参加/申告タブの本体・共有プリミティブは MahjongJoinTab / MahjongReportTab / leagueShared に分離。
  */
 
-type SubTab = "league" | "join" | "report" | "cs";
+type SubTab = "league" | "join" | "report" | "cs" | "rules";
 
 export function MahjongLeagueView() {
   const [subTab, setSubTab] = useState<SubTab>("league");
@@ -161,6 +162,7 @@ export function MahjongLeagueView() {
             { id: "join", label: "参加", enabled: true },
             { id: "report", label: "卓確認/申告", enabled: isParticipating },
             { id: "cs", label: "CS", enabled: true },
+            { id: "rules", label: "ルール/約款", enabled: true },
           ] as { id: SubTab; label: string; enabled: boolean }[]
         ).map((t) => (
           <button
@@ -215,8 +217,10 @@ export function MahjongLeagueView() {
           tables={tables}
           onChanged={() => loadCore(true)}
         />
-      ) : (
+      ) : subTab === "cs" ? (
         <MahjongCsView />
+      ) : (
+        <MahjongRulesTab />
       )}
 
       {historyPlayer && (

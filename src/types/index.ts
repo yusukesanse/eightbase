@@ -175,8 +175,17 @@ export interface Season {
   csConfig: Record<ScoreboardGameId, { topN: number }>;
   /** 麻雀の順位方式（未設定は "average"）。合計点/アベレージを運用で切替可能にするための設定。 */
   rankingMetric?: MahjongRankingMetric;
-  /** 麻雀の開催開始時刻（HH:mm・JST）。参加費支払いの当日締切に使う。未設定は締切なし。 */
-  mahjongStartTime?: string;
+  /**
+   * ゲームマスター（GM）の lineUserId 配列。空 or 未設定 = 自動進行シーズン（現行どおり）。
+   * 1名以上設定されると「手動卓振り分けシーズン」になり、自動の抜け番・3位/4位交代はオフ。
+   */
+  gameMasterIds?: string[];
+  /**
+   * ルール・約款（Markdown）。シーズンは種目別なので、これで「種目ごと × シーズンごと」を満たす。
+   * 利用者アプリの「ルール/約款」タブに表示する（閲覧のみ。同意フローは持たない）。
+   */
+  rulesMarkdown?: string;
+  termsMarkdown?: string;
   createdAt: string;
   updatedAt: string;
 }

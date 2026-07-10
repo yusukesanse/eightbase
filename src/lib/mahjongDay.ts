@@ -56,6 +56,55 @@ async function fetchPaidParticipants(
     }));
 }
 
+/** 開催成立に必要な最少人数（支払い済み）。 */
+export const MAHJONG_MIN_PARTICIPANTS = 4;
+
+/** 当日の状態を取得（未開始なら null）。 */
+export async function getDayState(seasonId: string, eventDate: string): Promise<MahjongDayState | null> {
+  const snap = await getDb().collection("mahjongDayState").doc(dayId(seasonId, eventDate)).get();
+  return snap.exists ? (snap.data() as MahjongDayState) : null;
+}
+
+/**
+ * この開催日の受付（参加表明・参加費の支払い）が締め切られているか。
+ * 締切は **GM が「ゲーム開始」を押した時刻**（dayState.entryClosedAt）。時刻設定による締切は廃止した。
+ */
+export function isEntryClosed(day: MahjongDayState | null): boolean {
+  return !!day?.entryClosedAt;
+}
+
+/**
+ * GM の「ゲーム開始」。この開催日の受付を締め切る。
+ * - 支払い済みが MAHJONG_MIN_PARTICIPANTS 未満なら開始しない（人数不足）。
+ * - 冪等: すでに開始済みなら {ok:true, already:true}。
+ * - dayState が無ければ呼び出し側で startDay() を先に済ませておくこと。
+ */
+export async function startGameDay(
+  seasonId: string,
+  eventDate: string,
+  gmUserId: string
+): Promise<{ ok: true; already: boolean; paidCount: number } | { ok: false; error: string; paidCount: number }> {
+  const db = getDb();
+  const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
+  const paid = await fetchPaidParticipants(seasonId, eventDate);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(dayRef);
+    if (!snap.exists) return { ok: false as const, error: "当日はまだ開始できません", paidCount: paid.length };
+    const day = snap.data() as MahjongDayState;
+    if (day.entryClosedAt) return { ok: true as const, already: true, paidCount: paid.length };
+    if (paid.length < MAHJONG_MIN_PARTICIPANTS) {
+      return { ok: false as const, error: `支払い済みが${MAHJONG_MIN_PARTICIPANTS}名以上必要です`, paidCount: paid.length };
+    }
+    tx.update(dayRef, {
+      entryClosedAt: new Date().toISOString(),
+      startedBy: gmUserId,
+      updatedAt: new Date().toISOString(),
+    });
+    return { ok: true as const, already: false, paidCount: paid.length };
+  });
+}
+
 /**
  * 参加者から初期卓＋待機を作る。卓は常に最大2卓（A/B・同時最大8名）。
  * 先頭8名をA/B卓に割当、9名以上は待機キュー（FIFO）。座席・待機は participants の順。
@@ -67,9 +116,17 @@ export function buildInitialDay(participants: RotPlayer[]): { tables: { label: s
   return { tables, waiting: participants.slice(nTables * 4) };
 }
 
+/** 手動卓振り分け（GM）シーズンかどうかを seasonId から判定する。 */
+export async function isManualSeason(seasonId: string): Promise<boolean> {
+  const doc = await getDb().collection("seasons").doc(seasonId).get();
+  const gm = (doc.data()?.gameMasterIds ?? []) as unknown;
+  return Array.isArray(gm) && gm.length > 0;
+}
+
 /**
  * 開催日を開始（round1の卓＋dayStateを自動生成）。冪等：dayStateがあれば何もしない。
  * 参加者は支払い済みエントリー（enteredAt昇順＝FIFO）。4人未満は開始しない。
+ * GM（手動）シーズンでは卓を作らず、dayState を「round1 の振り分け待ち」で初期化する。
  */
 export async function startDay(seasonId: string, eventDate: string, demo = false): Promise<boolean> {
   const db = getDb();
@@ -87,12 +144,30 @@ export async function startDay(seasonId: string, eventDate: string, demo = false
   if (tblSnap.docs.some((d) => (d.data() as MahjongTable).eventDate === eventDate)) return false;
 
   const participants = await fetchPaidParticipants(seasonId, eventDate);
+  const now = new Date().toISOString();
+  const tag = demo ? { demoDummy: true } : {};
+
+  // GM（手動）シーズン: 卓は作らず dayState のみ生成。round1 は GM が振り分けて確定する。
+  // 成立最低人数は自動と同じ4名（4名未満は流会ロジックに委ねる）。
+  if (await isManualSeason(seasonId)) {
+    if (participants.length < 4) return false;
+    await dayRef.set({
+      seasonId,
+      eventDate,
+      round: 1,
+      waiting: [],
+      tableLabels: [],
+      lastSwap: null,
+      awaitingAssignment: true,
+      updatedAt: now,
+      ...tag,
+    });
+    return true;
+  }
 
   const { tables, waiting } = buildInitialDay(participants);
   if (tables.length === 0) return false;
 
-  const now = new Date().toISOString();
-  const tag = demo ? { demoDummy: true } : {};
   const batch = db.batch();
   for (const t of tables) {
     batch.set(
@@ -130,6 +205,9 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
   const db = getDb();
   const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
 
+  // GM（手動）シーズンは自動の次卓生成を行わない。read はトランザクション外で先に判定。
+  const manual = await isManualSeason(seasonId);
+
   const swap = await db.runTransaction(async (tx) => {
     const daySnap = await tx.get(dayRef);
     if (!daySnap.exists) return null;
@@ -144,6 +222,33 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
       .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
       .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""));
     if (roundTables.length === 0 || !roundTables.every((t) => t.status === "completed")) return null;
+
+    // GM（手動）: 自動で次卓を作らず、次 round を「GM 振り分け待ち」にするだけ。
+    if (manual) {
+      const now = new Date().toISOString();
+      const tag = day.demoDummy ? { demoDummy: true } : {};
+      // 次 round に卓が残っていたら消す。自動進行シーズンから GM シーズンへ切り替えた場合、
+      // computeNextRound が先に組んだ卓が残っており、これがあると GM が振り分けられない。
+      for (const d of qSnap.docs) {
+        const t = d.data() as MahjongTable;
+        if (t.eventDate === eventDate && (t.round ?? 1) === round + 1) tx.delete(d.ref);
+      }
+      // ⚠️ set で丸ごと置き換えると entryClosedAt / startedBy（＝GM が開始済みという事実）が消え、
+      // 半荘が終わるたびに「ゲーム開始」からやり直しになる。既存フィールドを必ず引き継ぐこと。
+      tx.set(dayRef, {
+        ...day,
+        seasonId,
+        eventDate,
+        round: round + 1,
+        waiting: [],
+        tableLabels: [],
+        lastSwap: null,
+        awaitingAssignment: true,
+        updatedAt: now,
+        ...tag,
+      });
+      return null; // 自動交代なし（swap は生成しない）
+    }
 
     const ranked: RankedTable[] = roundTables.map((t) => ({
       label: t.tableLabel ?? "?",
@@ -175,7 +280,9 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
       shrunk: result.shrunk,
       reason: result.reason ?? null,
     };
+    // GM 分岐と同じ理由で既存フィールドを引き継ぐ（entryClosedAt 等を落とさない）。
     tx.set(dayRef, {
+      ...day,
       seasonId,
       eventDate,
       round: nextRound,

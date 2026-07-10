@@ -7,6 +7,7 @@ import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
+import { getDayState, isEntryClosed } from "@/lib/mahjongDay";
 import {
   buildMahjongEntryId,
   isValidMahjongDate,
@@ -102,10 +103,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 参加確定後はいつでも支払い可。支払い期限＝開催当日ゲーム開始時刻（Asia/Tokyo 基準）。
+    // 参加確定後はいつでも支払い可。締切は **GM が「ゲーム開始」を押した瞬間**。
     // - 過去日: 不可（PAST_EVENT）
-    // - 当日: 開始時刻を過ぎたら締切（CLOSED）
-    // - 未来日: 可
+    // - GM が開始済み: 締切（CLOSED）
+    // - それ以外: 可
     const today = todayJst();
     if (eventDate < today) {
       return NextResponse.json(
@@ -113,18 +114,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (eventDate === today) {
-      // 支払い締切＝開催当日の「シーズン共通の開始時刻」（Season.mahjongStartTime・未設定は締切なし）。
-      const startTime = season.mahjongStartTime;
-      if (startTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) {
-        const deadline = new Date(`${eventDate}T${startTime}:00+09:00`);
-        if (new Date() >= deadline) {
-          return NextResponse.json(
-            { error: "CLOSED", message: "受付を終了しました（開始時刻を過ぎています）。" },
-            { status: 400 }
-          );
-        }
-      }
+    if (isEntryClosed(await getDayState(season.seasonId, eventDate))) {
+      return NextResponse.json(
+        { error: "CLOSED", message: "受付を終了しました（ゲームが開始されています）。" },
+        { status: 400 }
+      );
     }
 
     // 参加費専用の Square 決済リンクを生成（戻り先にエントリーIDを埋め込む）。

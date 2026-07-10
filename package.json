@@ -28,6 +28,7 @@
     "react-dom": "^18",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
+    "remark-gfm": "^4.0.1",
     "resend": "^6.14.0",
     "square": "^44.1.0",
     "three": "^0.160.1",

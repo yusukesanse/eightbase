@@ -17,8 +17,6 @@ import {
   formatJpDate,
   todayJst,
   CheckIcon,
-  ChevronRight,
-  TableBoard,
 } from "@/components/mahjong/leagueShared";
 
 /* ───────── 参加タブ ───────── */
@@ -41,8 +39,6 @@ export function JoinTab({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  // 卓確定の同卓メンバーを表示する対象日
-  const [viewDate, setViewDate] = useState<string | null>(null);
   // 参加費のエラー表示／キャンセル確認対象日
   const [payMsg, setPayMsg] = useState<string | null>(null);
   const [cancelDate, setCancelDate] = useState<string | null>(null);
@@ -156,11 +152,6 @@ export function JoinTab({
       setBusy(null);
     }
   }
-
-  // 表示中の日の卓（自分の卓のみ ?mine=1 で取得済み）
-  const viewTables = viewDate
-    ? tables.filter((t) => t.eventDate === viewDate)
-    : [];
 
   // 月1回制御＋土曜のみ。実効の参加日集合（楽観差分込み）から選択可否を決める。
   const enteredArr = Array.from(effectiveEntered);
@@ -293,9 +284,11 @@ export function JoinTab({
                 </div>
               </div>
               {confirmed ? (
-                <button onClick={() => setViewDate(selectedDate)} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold pl-4 pr-3 py-2 active:scale-95 transition-transform" style={{ background: CONFIRM, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
-                  <CheckIcon />卓確定<ChevronRight size={13} />
-                </button>
+                // 卓の中身は「卓確認/申告」タブで見る（GM が半荘ごとに組むため、参加タブでの
+                // スナップショット表示は実態とずれる）。ここは確定した事実だけを示す。
+                <span className="shrink-0 inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: CONFIRM, color: "#fff" }}>
+                  <CheckIcon />卓確定
+                </span>
               ) : needsPay && payStatus === "paid" ? (
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
@@ -354,14 +347,6 @@ export function JoinTab({
         </div>
       )}
 
-      {viewDate && viewTables.length > 0 && (
-        <TableMembersModal
-          date={viewDate}
-          tables={viewTables}
-          onClose={() => setViewDate(null)}
-        />
-      )}
-
       {cancelDate && (
         <CancelPayModal
           date={cancelDate}
@@ -415,58 +400,6 @@ function CancelPayModal({
             {busy ? "送信中..." : "キャンセルを依頼"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* 卓確定の同卓メンバー表示（参加タブから開くボトムシート） */
-function TableMembersModal({
-  date,
-  tables,
-  onClose,
-}: {
-  date: string;
-  tables: PublicMahjongTable[];
-  onClose: () => void;
-}) {
-  const sorted = tables
-    .slice()
-    .sort((a, b) => (a.round ?? 0) - (b.round ?? 0));
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[12px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: "#f6efd8", color: CONFIRM }}>
-            <CheckIcon color={CONFIRM} size={13} />卓確定
-          </span>
-          <h3 className="text-base font-bold text-[#1c1f21]">{formatJpDate(date)} の卓</h3>
-        </div>
-        <p className="text-[11px] text-[#231714]/50 mt-1 mb-4">同卓メンバー</p>
-
-        <div className="flex flex-col gap-4">
-          {sorted.map((t) => (
-            <div key={t.tableId} className="flex flex-col gap-2">
-              {t.round ? (
-                <div className="text-[11px] font-bold px-2 py-0.5 rounded-full self-start" style={{ background: "#eef4f5", color: "#5f7a80" }}>
-                  第{t.round}回戦
-                </div>
-              ) : null}
-              <TableBoard table={t} />
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={onClose}
-          className="mt-5 w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
-          style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-        >
-          閉じる
-        </button>
       </div>
     </div>
   );
