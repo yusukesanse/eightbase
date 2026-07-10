@@ -1,6 +1,7 @@
 /**
  * GM 手動卓振り分けの検証（純関数・サーバーで再検証）。
- * 要件 §3: paid のみ・重複なし・卓 ≤4名・支払い済み全員を過不足なく配置（8名=待機0 を含む）。
+ * 要件 §3: paid のみ・重複なし・**卓はちょうど4名**・支払い済み全員を過不足なく配置（8名=待機0 を含む）。
+ * 半荘は4人打ちなので、3名や5名の卓は成立しない。余った人は待機（抜け番）へ。
  */
 
 export interface AssignTable { label: string; memberIds: string[] }
@@ -25,6 +26,7 @@ export function isAssignmentLocked(
 }
 
 export const ASSIGN_VALID_LABELS = ["A", "B"];
+/** 1卓の定員。半荘は4人打ちなので、卓に座るなら**ちょうど**この人数。 */
 export const ASSIGN_MAX_SEATS = 4;
 
 export function validateGmAssignment(
@@ -37,7 +39,10 @@ export function validateGmAssignment(
     if (!ASSIGN_VALID_LABELS.includes(t.label)) return { ok: false, error: "卓ラベルが不正です" };
     if (seenLabels.has(t.label)) return { ok: false, error: "卓ラベルが重複しています" };
     seenLabels.add(t.label);
-    if (t.memberIds.length > ASSIGN_MAX_SEATS) return { ok: false, error: `1卓は最大${ASSIGN_MAX_SEATS}名です` };
+    // 空卓は呼び出し側で除外済み。座るならちょうど4名（3名/5名の卓は成立しない）。
+    if (t.memberIds.length !== ASSIGN_MAX_SEATS) {
+      return { ok: false, error: `1卓は${ASSIGN_MAX_SEATS}名ちょうどにしてください` };
+    }
   }
   const placed = [...tables.flatMap((t) => t.memberIds), ...waiting];
   if (new Set(placed).size !== placed.length) {

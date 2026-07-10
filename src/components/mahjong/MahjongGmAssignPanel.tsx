@@ -32,6 +32,9 @@ const ZONE_META: { zone: Zone; label: string; cap?: number }[] = [
 /** この距離(px)を超えて指が動いたら「タップ」ではなく「ドラッグ」と判定する。 */
 const DRAG_THRESHOLD = 6;
 
+/** 1卓の定員。半荘は4人打ちなので、卓に座るならちょうどこの人数（サーバー ASSIGN_MAX_SEATS と一致）。 */
+const SEATS_PER_TABLE = 4;
+
 /** 座標直下の枠を返す（ゴーストは pointer-events:none なので拾わない）。 */
 function zoneAtPoint(x: number, y: number): Zone | null {
   const el = document.elementFromPoint(x, y);
@@ -251,7 +254,10 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   const aCount = inZone("A").length;
   const bCount = inZone("B").length;
   const unplaced = inZone("pool").length;
-  const valid = !locked && unplaced === 0 && aCount <= 4 && bCount <= 4 && aCount + bCount >= 1;
+  // 卓に座るならちょうど4名（0名＝その卓を使わない）。半端な卓は確定させない。
+  const seatsOk = (n: number) => n === 0 || n === SEATS_PER_TABLE;
+  const valid =
+    !locked && unplaced === 0 && seatsOk(aCount) && seatsOk(bCount) && aCount + bCount >= SEATS_PER_TABLE;
 
   const confirm = async () => {
     setBusy(true);
@@ -410,7 +416,8 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
                   cap={z.cap}
                   members={members}
                   lit={isLit(z.zone)}
-                  over={z.cap != null && members.length > z.cap}
+                  // 卓は 0名（使わない）か 4名ちょうど。1〜3名や5名以上は成立しないので赤くする。
+                  over={z.cap != null && !seatsOk(members.length)}
                   armed={isArmed(z.zone)}
                   emptyText="空き"
                   litText="ここで指を離す"
@@ -431,8 +438,14 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
               {busy ? "確定中…" : "この半荘の卓を確定"}
             </button>
           )}
-          {!valid && !locked && unplaced > 0 && (
-            <p className="text-[10.5px] text-[#231714]/50 text-center">全員をA卓/B卓/待機に配置すると確定できます。</p>
+          {!valid && !locked && (
+            <p className="text-[10.5px] text-[#231714]/50 text-center">
+              {unplaced > 0
+                ? "全員をA卓/B卓/待機に配置すると確定できます。"
+                : !seatsOk(aCount) || !seatsOk(bCount)
+                  ? `卓は${SEATS_PER_TABLE}名ちょうどにしてください（余った人は待機へ）。`
+                  : `少なくとも1卓（${SEATS_PER_TABLE}名）が必要です。`}
+            </p>
           )}
 
           {/* 指に追従するゴースト。位置は rAF で transform を直接書く（React を経由しない）。 */}

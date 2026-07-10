@@ -233,7 +233,10 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
         const t = d.data() as MahjongTable;
         if (t.eventDate === eventDate && (t.round ?? 1) === round + 1) tx.delete(d.ref);
       }
+      // ⚠️ set で丸ごと置き換えると entryClosedAt / startedBy（＝GM が開始済みという事実）が消え、
+      // 半荘が終わるたびに「ゲーム開始」からやり直しになる。既存フィールドを必ず引き継ぐこと。
       tx.set(dayRef, {
+        ...day,
         seasonId,
         eventDate,
         round: round + 1,
@@ -277,7 +280,9 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
       shrunk: result.shrunk,
       reason: result.reason ?? null,
     };
+    // GM 分岐と同じ理由で既存フィールドを引き継ぐ（entryClosedAt 等を落とさない）。
     tx.set(dayRef, {
+      ...day,
       seasonId,
       eventDate,
       round: nextRound,

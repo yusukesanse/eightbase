@@ -81,3 +81,26 @@ describe("isAssignmentLocked（GET /assignment と POST /assign が共有）", (
     expect(isAssignmentLocked(true, [])).toBe(false);
   });
 });
+
+describe("卓はちょうど4名（半荘は4人打ち）", () => {
+  test("4名の卓は通る", () => {
+    expect(validateGmAssignment(pool(4), [A(["u1", "u2", "u3", "u4"])], [])).toEqual({ ok: true });
+  });
+
+  test("3名の卓は弾く（余りは待機へ回すべき）", () => {
+    const r = validateGmAssignment(pool(3), [A(["u1", "u2", "u3"])], []);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("4名ちょうど");
+  });
+
+  test("5名の卓は弾く", () => {
+    const r = validateGmAssignment(pool(5), [A(["u1", "u2", "u3", "u4", "u5"])], []);
+    expect(r.ok).toBe(false);
+  });
+
+  test("6名なら 4名の卓 + 待機2名", () => {
+    expect(validateGmAssignment(pool(6), [A(["u1", "u2", "u3", "u4"])], ["u5", "u6"])).toEqual({ ok: true });
+    const bad = validateGmAssignment(pool(6), [A(["u1", "u2", "u3"]), B(["u4", "u5", "u6"])], []);
+    expect(bad.ok).toBe(false); // 3名ずつ2卓は不可
+  });
+});
