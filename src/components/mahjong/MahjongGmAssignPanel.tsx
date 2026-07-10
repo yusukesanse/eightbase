@@ -23,6 +23,16 @@ import { ACCENT } from "@/components/mahjong/leagueShared";
 interface PoolMember { lineUserId: string; displayName: string; pictureUrl?: string }
 type Zone = "pool" | "A" | "B" | "waiting";
 
+/** 確定済みの半荘の進行状況（申告待ちの表示に使う）。 */
+interface Progress {
+  tables: { label: string; members: { displayName: string; reported: boolean }[] }[];
+  reported: number;
+  total: number;
+}
+
+/** 進行中の半荘を見張る間隔。全員の申告が済むと次の半荘へ進み、振り分け UI に戻る。 */
+const PROGRESS_POLL_MS = 20000;
+
 const ZONE_META: { zone: Zone; label: string; cap?: number }[] = [
   { zone: "A", label: "A卓", cap: 4 },
   { zone: "B", label: "B卓", cap: 4 },
@@ -41,6 +51,15 @@ function zoneAtPoint(x: number, y: number): Zone | null {
   const holder = el?.closest("[data-zone]");
   const z = holder?.getAttribute("data-zone");
   return z === "pool" || z === "A" || z === "B" || z === "waiting" ? z : null;
+}
+
+/** 申告済みを示す小さなチェック。 */
+function CheckMark() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M20 6L9 17l-5-5" stroke={ACCENT} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 /* ───────── 参加者カード ─────────
@@ -129,6 +148,9 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   // GM が「ゲーム開始」を押したか（＝受付締切済み）。押すまで卓は組めない。
   const [started, setStarted] = useState(false);
   const [starting, setStarting] = useState(false);
+  // この半荘の卓を確定済みか（true の間は組み直せない＝振り分け UI を畳む）。
+  const [assigned, setAssigned] = useState(false);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [place, setPlace] = useState<Record<string, Zone>>({});
   const [loading, setLoading] = useState(true);
@@ -155,6 +177,8 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
         setRound(d.round ?? 1);
         setLocked(!!d.locked);
         setStarted(!!d.started);
+        setAssigned(d.awaitingAssignment === false);
+        setProgress(d.progress ?? null);
         setPool(d.pool ?? []);
         const p: Record<string, Zone> = {};
         for (const m of d.pool ?? []) p[m.lineUserId] = "pool";
@@ -169,6 +193,14 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
       .finally(() => setLoading(false));
   }, [eventDate]);
   useEffect(() => { load(); }, [load]);
+
+  // 確定済み（＝申告待ち）の間だけポーリングする。全員の申告が済むとサーバーが次 round へ
+  // 進めて awaitingAssignment=true に戻すので、自動的に振り分け UI が返ってくる。
+  useEffect(() => {
+    if (!assigned) return;
+    const id = setInterval(() => { load(); }, PROGRESS_POLL_MS);
+    return () => clearInterval(id);
+  }, [assigned, load]);
 
   const move = useCallback((id: string, zone: Zone) => {
     if (locked) return;
@@ -336,9 +368,13 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     <div className="rounded-2xl border-2 p-4 flex flex-col gap-3" style={{ borderColor: ACCENT, background: "color-mix(in srgb, " + ACCENT + " 5%, #fff)" }}>
       <div className="flex items-center justify-between">
         <div className="text-[13px] font-black" style={{ color: ACCENT }}>
-          {started ? `卓振り分け（GM）・第${round}半荘` : "ゲーム開始（GM）"}
+          {!started ? "ゲーム開始（GM）" : assigned ? `第${round}半荘 進行中` : `卓振り分け（GM）・第${round}半荘`}
         </div>
-        {locked && <span className="text-[10px] font-bold text-[#c0563c]">申告開始済み・変更不可</span>}
+        {assigned && progress && (
+          <span className="text-[10px] font-bold text-[#5f7a80] tabular-nums">
+            申告 {progress.reported}/{progress.total}
+          </span>
+        )}
       </div>
 
       {loading ? (
@@ -378,6 +414,38 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
               支払い済みが{MIN_PARTICIPANTS}名以上になると開始できます。
             </p>
           )}
+        </>
+      ) : assigned ? (
+        /* ── 確定済み: 申告待ち。組み直せないので畳んでおく。
+              両卓の申告が揃うとサーバーが次半荘へ進め、振り分け UI が戻る ── */
+        <>
+          {error && <div className="text-[11px] font-bold text-[#d8533a] bg-[#fdece8] rounded-lg px-3 py-2">{error}</div>}
+          <div className="flex flex-col gap-2">
+            {(progress?.tables ?? []).map((t) => (
+              <div key={t.label} className="rounded-2xl border p-2.5" style={{ borderColor: "#e4e7e9", background: "#fff" }}>
+                <div className="text-[11px] font-extrabold text-[#5f7a80] mb-1.5">{t.label}卓</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {t.members.map((m, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 rounded-2xl px-3 min-h-[34px] text-[12.5px] font-bold border"
+                      style={{
+                        borderColor: m.reported ? ACCENT : "#e4e7e9",
+                        color: m.reported ? ACCENT : "#231714",
+                        background: m.reported ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#fff",
+                      }}
+                    >
+                      {m.reported && <CheckMark />}
+                      {m.displayName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10.5px] text-[#231714]/50 text-center">
+            全員のスコア申告が終わると、次の半荘の振り分けができます。
+          </p>
         </>
       ) : (
         <>

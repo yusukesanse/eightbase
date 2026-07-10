@@ -38,10 +38,12 @@ export async function GET(req: NextRequest) {
   }
 
   const db = getDb();
+  // eventDate で絞る（等値2条件なので複合インデックス不要）。シーズン全件を読むと
+  // 開催を重ねるほど読み取りが増える。
   const [daySnap, entrySnap, tblSnap] = await Promise.all([
     db.collection("mahjongDayState").doc(`${season.seasonId}_${eventDate}`).get(),
-    db.collection("mahjongEntries").where("seasonId", "==", season.seasonId).get(),
-    db.collection("mahjongTables").where("seasonId", "==", season.seasonId).get(),
+    db.collection("mahjongEntries").where("seasonId", "==", season.seasonId).where("eventDate", "==", eventDate).get(),
+    db.collection("mahjongTables").where("seasonId", "==", season.seasonId).where("eventDate", "==", eventDate).get(),
   ]);
 
   const day = daySnap.exists ? (daySnap.data() as MahjongDayState & { awaitingAssignment?: boolean }) : null;
@@ -77,6 +79,25 @@ export async function GET(req: NextRequest) {
     draftWaiting = preview.waiting.map((m) => m.lineUserId);
   }
 
+  // 確定済み round の進行状況（GM 画面は確定後これだけを畳んで表示し、
+  // 全員の申告が済んで次 round へ進むと再び振り分け UI に戻る）。
+  const progress = staleTables
+    ? null
+    : {
+        tables: roundTables.map((t) => ({
+          label: t.tableLabel ?? "?",
+          members: t.members.map((m) => ({
+            displayName: m.displayName,
+            reported: m.rank != null || !!m.reportedAt,
+          })),
+        })),
+        reported: roundTables.reduce(
+          (n, t) => n + t.members.filter((m) => m.rank != null || m.reportedAt).length,
+          0
+        ),
+        total: roundTables.reduce((n, t) => n + t.members.length, 0),
+      };
+
   return NextResponse.json({
     round,
     awaitingAssignment,
@@ -85,5 +106,6 @@ export async function GET(req: NextRequest) {
     started: !!day?.entryClosedAt,
     pool,
     draft: { tables: draftTables, waiting: draftWaiting },
+    progress,
   });
 }

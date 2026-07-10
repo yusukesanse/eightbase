@@ -3,7 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
-import { validateGmAssignment, isAssignmentLocked, ASSIGN_VALID_LABELS, ASSIGN_MAX_SEATS, type AssignTable } from "@/lib/mahjongAssign";
+import { validateGmAssignment, ASSIGN_VALID_LABELS, ASSIGN_MAX_SEATS, type AssignTable } from "@/lib/mahjongAssign";
 import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongDayState, MahjongEntry, MahjongTable } from "@/types";
 
@@ -19,8 +19,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * - 対象の半荘は**サーバーの dayState.round**（クライアントは指定できない）。
  *   GM は順位や前半荘の結果に関係なく、いつでも現半荘を自由に組める。
  * - 認可: requireGameUser ＋ アクティブシーズンの gameMasterIds に含まれること。
- * - 検証: paid のみ・重複なし・卓 ≤4名・全 paid を過不足なく配置（8名=待機0 を含む）。
- * - ロック: 確定済みの半荘で申告が1件でも入っていたら 409（isAssignmentLocked）。
+ * - 検証: paid のみ・重複なし・卓は4名ちょうど・全 paid を過不足なく配置（8名=待機0 を含む）。
+ * - 二重確定不可: awaitingAssignment=true の間だけ確定できる（確定済みは 409）。
+ *   全員の申告が済んで次 round に進むと再び true に戻る。
  * - 確定: mahjongTables を upsert（reporting）、dayState.waiting 更新・awaitingAssignment=false。
  */
 export async function POST(req: NextRequest) {
@@ -61,13 +62,15 @@ export async function POST(req: NextRequest) {
   const db = getDb();
 
   // 支払い済みプール（当日）
-  const entrySnap = await db.collection("mahjongEntries").where("seasonId", "==", season.seasonId).get();
-  const paid = entrySnap.docs
-    .map((d) => d.data() as MahjongEntry)
-    .filter((e) => e.eventDate === eventDate && deriveStatus(e) === "paid");
+  const entrySnap = await db
+    .collection("mahjongEntries")
+    .where("seasonId", "==", season.seasonId)
+    .where("eventDate", "==", eventDate)
+    .get();
+  const paid = entrySnap.docs.map((d) => d.data() as MahjongEntry).filter((e) => deriveStatus(e) === "paid");
   const poolMap = new Map(paid.map((e) => [e.lineUserId, { displayName: e.displayName, pictureUrl: e.pictureUrl ?? "" }]));
 
-  // 検証（paid のみ・重複なし・卓≤4名・全 paid を過不足なく配置＝8名待機0 を含む）
+  // 検証（paid のみ・重複なし・卓は4名ちょうど・全 paid を過不足なく配置＝8名待機0 を含む）
   const v = validateGmAssignment(Array.from(poolMap.keys()), tables, waiting);
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
 
@@ -92,10 +95,11 @@ export async function POST(req: NextRequest) {
     const existing = tblSnap.docs
       .map((d) => ({ id: d.id, ...(d.data() as MahjongTable) }))
       .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round);
-    // GET /assignment と同じ判定を使う（ずれると画面は編集可なのに保存で 409 になる）。
-    // 残骸の卓は下の upsert/delete で必ず上書きされる。
-    if (isAssignmentLocked(day.awaitingAssignment === true, existing)) {
-      return { status: 409 as const, error: "この半荘は申告が始まっているため変更できません" };
+    // 一度確定した半荘は組み直せない（申告の途中で卓が変わると成績が壊れる）。
+    // 全員の申告が済んで次 round に進むと awaitingAssignment=true に戻り、再び振り分けられる。
+    // ＝ awaitingAssignment=true の間だけ確定でき、その間の既存卓は残骸なので下で上書きする。
+    if (day.awaitingAssignment !== true) {
+      return { status: 409 as const, error: "この半荘の卓は確定済みです（全員の申告が終わると次の半荘を組めます）" };
     }
 
     const newLabels = new Set(tables.map((t) => t.label));
