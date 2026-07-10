@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Avatar } from "@/components/ui/LineContact";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ACCENT } from "@/components/mahjong/leagueShared";
 
 /**
@@ -9,9 +8,10 @@ import { ACCENT } from "@/components/mahjong/leagueShared";
  * 未配置/A卓/B卓/待機 に参加者を配置し、「この半荘の卓を確定」で
  * /api/mahjong/day/assign に送る。自己申告 UI とは別セクション。
  *
- * 操作は2通り。**タップで選択→置きたい枠をタップ** が主で、マウス環境では
- * ドラッグ&ドロップも使える。HTML5 の drag イベントはタッチ操作では発火せず、
- * LINEミニアプリ（スマホの WebView）では D&D が一切動かないため、タップ方式が必須。
+ * 操作は「指でつまんで枠へ運ぶ」。**Pointer Events** で実装しており、タッチでもマウスでも同じ経路。
+ * HTML5 の drag イベント（draggable/dragstart/drop）はタッチでは発火せず、LINEミニアプリ
+ * （スマホの WebView）では一切動かないため使っていない。
+ * ドラッグせずに離した場合は「タップで選択 → 置きたい枠をタップ」として扱う（片手操作の保険）。
  */
 
 interface PoolMember { lineUserId: string; displayName: string; pictureUrl?: string }
@@ -23,6 +23,17 @@ const ZONE_META: { zone: Zone; label: string; cap?: number }[] = [
   { zone: "waiting", label: "待機（抜け番）" },
 ];
 
+/** この距離(px)を超えて指が動いたら「タップ」ではなく「ドラッグ」と判定する。 */
+const DRAG_THRESHOLD = 6;
+
+/** 座標直下の枠を返す（指の位置で判定する。ゴーストは pointer-events:none なので拾わない）。 */
+function zoneAtPoint(x: number, y: number): Zone | null {
+  const el = document.elementFromPoint(x, y);
+  const holder = el?.closest("[data-zone]");
+  const z = holder?.getAttribute("data-zone");
+  return z === "pool" || z === "A" || z === "B" || z === "waiting" ? z : null;
+}
+
 export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: string; onChanged: () => void }) {
   const [round, setRound] = useState(1);
   const [locked, setLocked] = useState(false);
@@ -32,9 +43,12 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
+  // つまんで運んでいる最中の参加者と、指の位置・その真下の枠。
+  const [drag, setDrag] = useState<{ id: string; x: number; y: number; zone: Zone | null } | null>(null);
   // タップ操作: 選択中の参加者。枠をタップするとそこへ移動する。
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 押し始めの座標と、しきい値を超えたか（超えるまではタップ候補のまま）。
+  const press = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -65,6 +79,46 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     setSelectedId(null);
     setPlace((p) => ({ ...p, [id]: zone }));
   };
+
+  /* ───────── つまんで運ぶ（Pointer Events。タッチ/マウス共通） ───────── */
+
+  const onPointerDown = (e: React.PointerEvent, id: string) => {
+    if (locked) return;
+    // 以降の pointermove/up を、指が要素外へ出てもこの要素で受け続ける。
+    e.currentTarget.setPointerCapture(e.pointerId);
+    press.current = { id, x: e.clientX, y: e.clientY, moved: false };
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const p = press.current;
+    if (!p) return;
+    if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) return;
+    p.moved = true;
+    setSelectedId(null); // ドラッグに切り替わったらタップ選択は解除
+    setDrag({ id: p.id, x: e.clientX, y: e.clientY, zone: zoneAtPoint(e.clientX, e.clientY) });
+  };
+
+  const endPointer = (e: React.PointerEvent) => {
+    const p = press.current;
+    press.current = null;
+    if (!p) return;
+    if (p.moved) {
+      const zone = zoneAtPoint(e.clientX, e.clientY);
+      if (zone) move(p.id, zone); // 枠の外で離したら元の位置のまま（何もしない）
+      setDrag(null);
+    } else {
+      // 動かさずに離した＝タップ。選択のトグル。
+      setSelectedId((cur) => (cur === p.id ? null : p.id));
+    }
+  };
+
+  const cancelPointer = () => {
+    press.current = null;
+    setDrag(null);
+  };
+
+  const dragging = drag?.id ?? null;
+  const dragMember = dragging ? pool.find((m) => m.lineUserId === dragging) : undefined;
 
   const inZone = (z: Zone) => pool.filter((m) => (place[m.lineUserId] ?? "pool") === z);
   const aCount = inZone("A").length;
@@ -97,26 +151,32 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     }
   };
 
+  /**
+   * 参加者カード。指でつまむ対象なので、タッチ目標として十分な高さ（48px）を確保する。
+   * `touch-action: none` を付けないと、指を動かした瞬間にページのスクロールへ持っていかれる。
+   */
   const Chip = ({ m }: { m: PoolMember }) => {
     const selected = selectedId === m.lineUserId;
+    const isDragging = dragging === m.lineUserId;
     return (
       <button
         type="button"
         disabled={locked}
         aria-pressed={selected}
         // 枠の onClick へ伝播すると、その枠へ即移動してしまうため止める。
-        onClick={(e) => { e.stopPropagation(); setSelectedId(selected ? null : m.lineUserId); }}
-        draggable={!locked}
-        onDragStart={(e) => { e.dataTransfer.setData("text/plain", m.lineUserId); setDragId(m.lineUserId); }}
-        onDragEnd={() => setDragId(null)}
-        className={`inline-flex items-center gap-1.5 rounded-full pl-1 pr-2.5 py-1 text-[12px] font-bold bg-white border ${dragId === m.lineUserId ? "opacity-40" : ""} ${locked ? "cursor-default" : "cursor-pointer active:scale-[0.97]"}`}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, m.lineUserId); }}
+        onPointerMove={onPointerMove}
+        onPointerUp={(e) => { e.stopPropagation(); endPointer(e); }}
+        onPointerCancel={cancelPointer}
+        className={`inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white border select-none ${isDragging ? "opacity-30" : ""} ${locked ? "cursor-default" : "cursor-grab active:cursor-grabbing"}`}
         style={{
+          touchAction: "none",
           borderColor: selected ? ACCENT : "#e4e7e9",
           color: "#231714",
-          boxShadow: selected ? `0 0 0 2px ${ACCENT}` : undefined,
+          boxShadow: selected ? `0 0 0 2px ${ACCENT}` : "0 1px 2px rgba(35,23,20,.06)",
         }}
       >
-        <Avatar src={m.pictureUrl} name={m.displayName} size={20} />
         {m.displayName}
       </button>
     );
@@ -127,26 +187,28 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     const over = cap != null && members.length > cap;
     // 選択中の参加者が「この枠以外」に居るときだけ、置き先として光らせる。
     const armed = !locked && selectedId != null && (place[selectedId] ?? "pool") !== zone;
+    // 運んでいる指がこの枠の上にある（元いた枠は光らせない）。
+    const hovered = drag != null && drag.zone === zone && (place[drag.id] ?? "pool") !== zone;
+    const lit = armed || hovered;
     return (
       <div
+        data-zone={zone}
         onClick={() => { if (armed && selectedId) move(selectedId, zone); }}
-        onDragOver={(e) => { if (!locked) e.preventDefault(); }}
-        onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (id) move(id, zone); }}
-        className={`rounded-2xl border border-dashed p-2.5 min-h-[64px] ${armed ? "cursor-pointer" : ""}`}
+        className={`rounded-2xl border border-dashed p-2.5 min-h-[72px] transition-colors ${armed ? "cursor-pointer" : ""}`}
         style={{
-          borderColor: over ? "#d8533a" : armed ? ACCENT : "#c9d6cf",
-          background: armed ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#f7faf8",
+          borderColor: over ? "#d8533a" : lit ? ACCENT : "#c9d6cf",
+          background: lit ? `color-mix(in srgb, ${ACCENT} 10%, #fff)` : "#f7faf8",
         }}
       >
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : "#5f7a80" }}>
             {label}{cap != null ? `（${members.length}/${cap}）` : `（${members.length}）`}
           </span>
-          {armed && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>ここに置く</span>}
+          {lit && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>ここに置く</span>}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {members.length === 0 ? (
-            <span className="text-[11px] text-[#231714]/30">{armed ? "タップして置く" : "空き"}</span>
+            <span className="text-[11px] text-[#231714]/30">{lit ? "ここで指を離す" : "空き"}</span>
           ) : (
             members.map((m) => <Chip key={m.lineUserId} m={m} />)
           )}
@@ -173,31 +235,32 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             <p className="text-[10.5px] text-[#231714]/50">
               {selectedId
                 ? "置きたい枠をタップしてください。"
-                : "参加者をタップして選び、置きたい枠をタップします（マウスならドラッグも可）。"}
+                : "参加者を指でつまんで、A卓 / B卓 / 待機 へ運びます（タップで選んでから枠をタップしても移動できます）。"}
             </p>
           )}
 
           {/* 未配置プール */}
           {(() => {
             const armed = !locked && selectedId != null && (place[selectedId] ?? "pool") !== "pool";
+            const hovered = drag != null && drag.zone === "pool" && (place[drag.id] ?? "pool") !== "pool";
+            const lit = armed || hovered;
             return (
               <div
+                data-zone="pool"
                 onClick={() => { if (armed && selectedId) move(selectedId, "pool"); }}
-                onDragOver={(e) => { if (!locked) e.preventDefault(); }}
-                onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (id) move(id, "pool"); }}
-                className={`rounded-2xl border border-dashed p-2.5 min-h-[48px] ${armed ? "cursor-pointer" : ""}`}
+                className={`rounded-2xl border border-dashed p-2.5 min-h-[56px] transition-colors ${armed ? "cursor-pointer" : ""}`}
                 style={{
-                  borderColor: armed ? ACCENT : unplaced > 0 ? "#b48f13" : "#e4e7e9",
-                  background: armed ? `color-mix(in srgb, ${ACCENT} 8%, #fff)` : "#fff",
+                  borderColor: lit ? ACCENT : unplaced > 0 ? "#b48f13" : "#e4e7e9",
+                  background: lit ? `color-mix(in srgb, ${ACCENT} 10%, #fff)` : "#fff",
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] font-extrabold text-[#97999d]">未配置（{unplaced}）</span>
-                  {armed && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>ここに戻す</span>}
+                  {lit && <span className="text-[10px] font-bold" style={{ color: ACCENT }}>ここに戻す</span>}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {inZone("pool").length === 0 ? (
-                    <span className="text-[11px] text-[#231714]/30">{armed ? "タップして戻す" : "全員配置済み"}</span>
+                    <span className="text-[11px] text-[#231714]/30">{lit ? "ここで指を離す" : "全員配置済み"}</span>
                   ) : (
                     inZone("pool").map((m) => <Chip key={m.lineUserId} m={m} />)
                   )}
@@ -224,6 +287,23 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
           )}
           {!valid && !locked && unplaced > 0 && (
             <p className="text-[10.5px] text-[#231714]/50 text-center">全員をA卓/B卓/待機に配置すると確定できます。</p>
+          )}
+
+          {/* 指に追従するゴースト。pointer-events:none にしないと自分自身を拾って枠判定が壊れる。 */}
+          {drag && dragMember && (
+            <div
+              className="fixed z-50 pointer-events-none inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white"
+              style={{
+                left: drag.x,
+                top: drag.y,
+                transform: "translate(-50%, -50%) scale(1.06)",
+                border: `2px solid ${ACCENT}`,
+                color: "#231714",
+                boxShadow: "0 8px 20px rgba(35,23,20,.18)",
+              }}
+            >
+              {dragMember.displayName}
+            </div>
           )}
         </>
       )}
