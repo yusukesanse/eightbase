@@ -17,12 +17,23 @@ type BatchOp = { op: "set" | "delete"; coll: string; id: string; data?: Record<s
 
 const mockState: {
   cancelledExists: boolean;
+  closedExists: boolean;
   createThrows: boolean;
   tables: { eventDate: string }[];
   entries: Entry[];
   created: { id: string } | null;
   batchOps: BatchOp[];
-} = { cancelledExists: false, createThrows: false, tables: [], entries: [], created: null, batchOps: [] };
+  docDeletes: { coll: string; id: string }[];
+} = {
+  cancelledExists: false,
+  closedExists: false,
+  createThrows: false,
+  tables: [],
+  entries: [],
+  created: null,
+  batchOps: [],
+  docDeletes: [],
+};
 
 const mockCommit = jest.fn(async () => {});
 const mockNotify = jest.fn(async () => {});
@@ -33,11 +44,17 @@ const mockDb = {
     doc: (id: string) => ({
       id,
       __coll: name,
-      get: async () =>
-        name === "mahjongCancelledDates" ? { exists: mockState.cancelledExists } : { exists: false },
+      get: async () => {
+        if (name === "mahjongCancelledDates") return { exists: mockState.cancelledExists };
+        if (name === "mahjongClosedDates") return { exists: mockState.closedExists };
+        return { exists: false };
+      },
       create: async () => {
         if (mockState.createThrows) throw new Error("already-exists");
         mockState.created = { id };
+      },
+      delete: async () => {
+        mockState.docDeletes.push({ coll: name, id });
       },
     }),
     where: () => ({
@@ -83,11 +100,13 @@ const reservedEntry = (id: string): Entry => ({
 
 beforeEach(() => {
   mockState.cancelledExists = false;
+  mockState.closedExists = false;
   mockState.createThrows = false;
   mockState.tables = [];
   mockState.entries = [];
   mockState.created = null;
   mockState.batchOps = [];
+  mockState.docDeletes = [];
   mockCommit.mockClear();
   mockNotify.mockClear();
   mockSend.mockClear();
@@ -113,6 +132,26 @@ describe("forfeitDayIfInsufficient", () => {
     expect(r).toEqual({ status: "ok", paidCount: 4 });
     expect(mockState.created).toBeNull();
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  test("休催日 → closed（流会対象外）", async () => {
+    mockState.closedExists = true;
+    mockState.entries = [paidEntry("a"), paidEntry("b")]; // 2名（<4）でも休催なら中止しない
+    const r = await forfeitDayIfInsufficient("s1", DATE);
+    expect(r).toEqual({ status: "closed" });
+    expect(mockState.created).toBeNull();
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  test("batch失敗 → 中止確定(cancelledDates)を巻き戻して再スロー（再試行可能）", async () => {
+    mockState.entries = [paidEntry("a"), paidEntry("b"), paidEntry("c")];
+    mockCommit.mockRejectedValueOnce(new Error("boom"));
+    await expect(forfeitDayIfInsufficient("s1", DATE)).rejects.toThrow("boom");
+    // cancelledDates を削除してロールバック（次回cronで再試行可能に）
+    expect(mockState.docDeletes).toContainEqual({ coll: "mahjongCancelledDates", id: DATE });
+    // 通知は commit 失敗時に走らない
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   test("既に中止確定済み → already（冪等）", async () => {
