@@ -109,6 +109,21 @@ export interface MahjongEntry {
   refundProcessedAt?: string;    // 返金/却下の処理時刻 ISO8601（監査用）
   refundProcessedBy?: string;    // 処理した管理者（監査用）
   pendingExpiresAt?: string;     // 決済リンクのTTL失効 ISO8601
+  /** キャンセル/返金の理由。"forfeit"=人数不足による自動中止（流会）。返金管理UIの絞り込みに使う。 */
+  cancelReason?: "forfeit";
+}
+
+/**
+ * 人数不足による自動中止（流会）の記録。開催日ごと1件（docId=eventDate）。
+ * 管理者が事前に閉じる「休催（mahjongClosedDates）」とは別概念。
+ */
+export interface MahjongCancelledDate {
+  seasonId: string;
+  eventDate: string;   // YYYY-MM-DD（= docId）
+  reason: "insufficient";
+  paidCount: number;   // 判定時点の成立カウント（支払い済み＝staff含む）
+  decidedAt: string;   // ISO8601
+  decidedBy: "system";
 }
 
 /** CS（チャンピオンシップ）出場に必要なリーグ戦試合数 */

@@ -26,6 +26,7 @@ import {
 export function JoinTab({
   enteredDates,
   closedDates,
+  cancelledDates,
   tables,
   paymentRequired,
   paymentStatusByDate,
@@ -33,6 +34,7 @@ export function JoinTab({
 }: {
   enteredDates: Set<string>;
   closedDates: Set<string>;
+  cancelledDates: Set<string>;
   tables: PublicMahjongTable[];
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
@@ -168,6 +170,7 @@ export function JoinTab({
     if (effectiveEntered.has(dateStr)) return true;
     if (!isSat(dateStr) || dateStr < today) return false;
     if (closedDates.has(dateStr)) return false; // 休催日は選べない
+    if (cancelledDates.has(dateStr)) return false; // 人数不足で中止の日は選べない
     const ym = dateStr.slice(0, 7);
     return !enteredArr.some((e) => e.slice(0, 7) === ym); // 同月に他の参加があれば不可
   };
@@ -200,9 +203,16 @@ export function JoinTab({
           {/* 参加予定日ごとに1行（日付＝左 / 状態＝右）。タップで下の詳細に切替。 */}
           <div className="flex flex-col divide-y divide-gray-100">
             {[...enteredArr].sort().map((d) => {
+              const cancelled = cancelledDates.has(d);
               const st = paymentStatusByDate[d] ?? null;
               const conf = !paymentRequired || st === "paid";
-              const label = conf ? "参加確定" : st === "cancelRequested" ? "返金対応中" : "仮予約（未決済）";
+              const label = cancelled
+                ? "中止（人数不足）"
+                : conf
+                  ? "参加確定"
+                  : st === "cancelRequested"
+                    ? "返金対応中"
+                    : "仮予約（未決済）";
               const { md, wd } = dateParts(d);
               const active = selectedDate === d;
               return (
@@ -216,7 +226,13 @@ export function JoinTab({
                   </span>
                   <span
                     className="shrink-0 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full"
-                    style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}
+                    style={
+                      cancelled
+                        ? { background: "#fdeede", color: "#a1502c" }
+                        : conf
+                          ? { background: "#eef4dd", color: "#6f9023" }
+                          : { background: "#fdf4e3", color: "#b48f13" }
+                    }
                   >
                     {label}
                   </span>
@@ -235,6 +251,24 @@ export function JoinTab({
           const needsPay = entered && paymentRequired;
           const isConfirmed = entered && (!paymentRequired || payStatus === "paid");
           const { md, wd } = dateParts(selectedDate);
+          // 人数不足で自動中止（流会）になった日は、参加/決済導線を出さず中止の案内にする。
+          if (cancelledDates.has(selectedDate)) {
+            return (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3" style={{ boxShadow: "inset 0 0 0 1.5px #f0c9b0" }}>
+                <div className="w-[50px] text-center shrink-0">
+                  <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
+                  <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14.5px] font-extrabold text-[#a1502c]">中止（人数不足）</div>
+                  <div className="text-[12px] text-[#231714]/50 mt-0.5">
+                    参加者が規定人数に満たなかったため中止になりました。
+                    {entered && "お支払い済みの参加費は返金対応します（担当よりご連絡します）。"}
+                  </div>
+                </div>
+              </div>
+            );
+          }
           return (
             <div
               className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
