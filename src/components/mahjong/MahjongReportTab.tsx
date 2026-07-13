@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { PublicMahjongTable, MahjongDaySwap } from "@/types";
 import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { ACCENT, todayJst, CheckIcon, TableBoard } from "@/components/mahjong/leagueShared";
+import { ACCENT, todayJst, CheckIcon, TableBoard, PointsSignToggle } from "@/components/mahjong/leagueShared";
 import { upcomingSaturdayJst } from "@/lib/date";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/LineContact";
@@ -30,6 +30,8 @@ function ReportModal({
   onSubmit?: (points: number, rank: number) => Promise<void>;
 }) {
   const [points, setPoints] = useState("");
+  // 持ち点欄は絶対値だけを持ち、符号はトグルで持つ。既定は＋。0点は符号に関わらず0。
+  const [sign, setSign] = useState<1 | -1>(1);
   const [rank, setRank] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,8 +39,8 @@ function ReportModal({
 
   async function submit() {
     setError(null);
-    const p = Number(points);
-    if (points === "" || !Number.isInteger(p) || p % 100 !== 0) {
+    const abs = Number(points);
+    if (points === "" || !Number.isInteger(abs) || abs % 100 !== 0) {
       setError("点数は100点単位の整数で入力してください");
       return;
     }
@@ -46,6 +48,7 @@ function ReportModal({
       setError("順位を選択してください");
       return;
     }
+    const p = abs === 0 ? 0 : sign * abs;
     setBusy(true);
     try {
       if (onSubmit) {
@@ -80,28 +83,30 @@ function ReportModal({
         </p>
 
         <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mb-2">最終持ち点</label>
-        <div
-          className="flex items-baseline gap-2 pb-1.5"
-          style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}
-        >
-          <input
-            ref={pointsRef}
-            type="number"
-            inputMode="numeric"
-            step={100}
-            autoFocus
-            value={points}
-            onChange={(e) => setPoints(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") pointsRef.current?.blur();
-            }}
-            placeholder="25000"
-            className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-            style={{ fontSize: "30px" }}
-          />
-          <span className="text-[14px] font-bold text-[#97999d]">点</span>
+        <div className="flex items-center gap-2.5">
+          <PointsSignToggle sign={sign} onChange={setSign} accent={ACCENT} />
+          <div
+            className="flex flex-1 items-baseline gap-2 pb-1.5"
+            style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}
+          >
+            <input
+              ref={pointsRef}
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              value={points}
+              onChange={(e) => setPoints(e.target.value.replace(/[^\d]/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") pointsRef.current?.blur();
+              }}
+              placeholder="25000"
+              className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
+              style={{ fontSize: "30px" }}
+            />
+            <span className="text-[14px] font-bold text-[#97999d]">点</span>
+          </div>
         </div>
-        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。</div>
+        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
 
         <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
         <div className="flex gap-2">

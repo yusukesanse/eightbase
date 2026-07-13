@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/LineContact";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 
 /** 公開DTO（サーバーで lineUserId を除去し isMe/seed を付与）。 */
 interface PubCsPlayer { displayName: string; pictureUrl?: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }
@@ -440,9 +441,12 @@ function CsInputSheet({
   const n = match.players.length;
   const iAmIn = match.players.some((p) => p.isMe);
   const [points, setPoints] = useState("");
+  // 持ち点欄は絶対値だけを持ち、符号はトグルで持つ。既定は＋。0点は符号に関わらず0。
+  const [sign, setSign] = useState<1 | -1>(1);
   const [rank, setRank] = useState<number | null>(null);
-  const pointsNum = Number(points);
-  const pointsValid = points !== "" && Number.isInteger(pointsNum) && pointsNum % 100 === 0;
+  const absPoints = Number(points);
+  const pointsValid = points !== "" && Number.isInteger(absPoints) && absPoints % 100 === 0;
+  const signedPoints = absPoints === 0 ? 0 : sign * absPoints;
   const canSubmit = iAmIn && pointsValid && rank !== null && !busy;
 
   return (
@@ -452,21 +456,23 @@ function CsInputSheet({
           <p className="text-[11px] text-[#231714]/50 mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
 
           <label className="block text-[11px] font-extrabold text-[#97999d] mb-2">最終持ち点</label>
-          <div className="flex items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? "#2f7d57" : "#e4e7e9"}` }}>
-            <input
-              type="number"
-              inputMode="numeric"
-              step={100}
-              autoFocus
-              value={points}
-              onChange={(e) => setPoints(e.target.value)}
-              placeholder="25000"
-              className="flex-1 w-full border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-              style={{ fontSize: "28px" }}
-            />
-            <span className="text-[13px] font-bold text-[#97999d]">点</span>
+          <div className="flex items-center gap-2.5">
+            <PointsSignToggle sign={sign} onChange={setSign} accent="#2f7d57" />
+            <div className="flex flex-1 items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? "#2f7d57" : "#e4e7e9"}` }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                value={points}
+                onChange={(e) => setPoints(e.target.value.replace(/[^\d]/g, ""))}
+                placeholder="25000"
+                className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
+                style={{ fontSize: "28px" }}
+              />
+              <span className="text-[13px] font-bold text-[#97999d]">点</span>
+            </div>
           </div>
-          {n === 4 && <div className="text-[11px] text-[#97999d] mt-1.5">100点単位（同卓4人の合計が100,000点）。</div>}
+          {n === 4 && <div className="text-[11px] text-[#97999d] mt-1.5">100点単位（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>}
 
           <label className="block text-[11px] font-extrabold text-[#97999d] mt-5 mb-2">卓内順位</label>
           <div className="flex gap-2">
@@ -494,7 +500,7 @@ function CsInputSheet({
               キャンセル
             </button>
             <button
-              onClick={() => onReport({ points: pointsNum, rank: rank! })}
+              onClick={() => onReport({ points: signedPoints, rank: rank! })}
               disabled={!canSubmit}
               className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
               style={{ background: "#2f7d57" }}

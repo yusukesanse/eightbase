@@ -29,6 +29,41 @@ export function formatJpDate(d: string): string {
   return `${m}/${day}(${w})`;
 }
 
+/**
+ * 得点の符号トグル（＋/−）。持ち点欄は絶対値だけを受け、符号はここで持つ。
+ * 既定は＋（プラス）。箱下（トビ・沈みマイナス）のときだけ − に切り替える。
+ */
+export function PointsSignToggle({
+  sign,
+  onChange,
+  accent = ACCENT,
+}: {
+  sign: 1 | -1;
+  onChange: (s: 1 | -1) => void;
+  accent?: string;
+}) {
+  return (
+    <div className="inline-flex rounded-xl overflow-hidden shrink-0" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
+      {([1, -1] as const).map((s) => {
+        const active = sign === s;
+        return (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onChange(s)}
+            aria-pressed={active}
+            aria-label={s === 1 ? "プラス" : "マイナス"}
+            className="w-10 py-2.5 text-[20px] font-black leading-none transition-all"
+            style={active ? { background: accent, color: "#fff" } : { background: "#f6f8f9", color: "#97999d" }}
+          >
+            {s === 1 ? "＋" : "−"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CheckIcon({ color = "#fff", size = 15 }: { color?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
