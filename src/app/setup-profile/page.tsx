@@ -318,7 +318,7 @@ export default function SetupProfilePage() {
             <Card title="お仕事について" icon="briefcase" required>
               <Field label="会社名">
                 <div className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl bg-[#231714]/5 text-[#231714]/60">
-                  株式会社エイトデザイン
+                  エイトデザイン株式会社
                 </div>
                 <p className="text-[10px] text-[#231714]/30 mt-1">会社名は自動で設定されます</p>
               </Field>

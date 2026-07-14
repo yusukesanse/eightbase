@@ -6,7 +6,7 @@ import { normalizeRole } from "@/lib/roles";
 export const dynamic = "force-dynamic";
 
 /** エイト社員の会社名はサーバー側で固定（入力不要・同一社内で重複しても意味がないため）。 */
-const STAFF_COMPANY_NAME = "株式会社エイトデザイン";
+const STAFF_COMPANY_NAME = "エイトデザイン株式会社";
 
 /**
  * プロフィール情報の型定義
@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
 
     // プロフィールを保存（身分で保存内容を分岐）。
     // - 共通: 氏名・カナ・メール・電話・職種
-    // - staff: 会社名は自動固定（株式会社エイトデザイン）。住所・生年月日・性別・業種・利用目的・
+    // - staff: 会社名は自動固定（エイトデザイン株式会社）。住所・生年月日・性別・業種・利用目的・
     //          スキル・会社URL・SNS は登録させないので保存もしない。任意で自己紹介・LINE連絡先のみ。
     // - member: 従来どおり全項目（3 ステップ）。
     const cleanProfile: Record<string, unknown> = isStaff
