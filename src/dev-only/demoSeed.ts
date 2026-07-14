@@ -164,10 +164,16 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     waiting: dayWaiting.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "" })),
     tableLabels: ["A", "B"],
     lastSwap: null,
-    // GM（手動振り分け）シーズンでも矛盾しないよう明示する。未設定だと GET /assignment は
-    // `?? true`（振り分け待ち）と解釈するので、awaitingAssignment を必ず持たせて GET/POST を揃える。
-    // 非 GM（自動進行）シーズンでは GET /day が manualSeason=false 時に false 扱いするため無害。
-    awaitingAssignment: true,
+    // 「GM が受付を締めて round1 を確定済み（＝進行中）」の状態で投入する。
+    // GM シーズンでは GET /day が awaitingAssignment=true/未設定 の間、卓・待機を [] で返して
+    // 一般参加者に見せない。ここを false（確定済み）にしないと、事前生成した当日の卓
+    //（demoユーザーが着席）が丸ごと隠れて「参加者/卓が空」に見えてしまう。
+    // entryClosedAt / roundAssignedAt も揃え、GM パネルも「第1半荘 進行中」で整合させる。
+    awaitingAssignment: false,
+    entryClosedAt: nowIso,
+    startedBy: "system",
+    roundAssignedAt: nowIso,
+    roundAssignedBy: "system",
     updatedAt: nowIso,
     ...DUMMY_FLAG,
   });
