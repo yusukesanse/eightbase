@@ -141,3 +141,68 @@ export async function sendGuestInviteEmail(
     throw new Error(`Resend error: ${error.message}`);
   }
 }
+
+/**
+ * エイト社員（staff）向けの URL 招待メール。
+ * ゲスト用（麻雀リーグ参加）とは文言を分ける: 社員は会員同等の全機能が使え、登録後にプロフィール登録へ進む。
+ * URL first-clicker 方式・1回限りである点はゲストと同じ。
+ */
+export async function sendStaffInviteEmail(
+  to: string,
+  displayName: string,
+  url: string,
+  expiryDays = 2
+): Promise<void> {
+  const resend = getResend();
+
+  const safeName = escapeHtml(displayName);
+  const safeUrl = escapeHtml(url);
+  const safeExpiry = escapeHtml(String(expiryDays));
+
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: "【EIGHT BASE】ご利用のご案内（エイトデザイン社員）",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 16px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="font-size: 20px; color: #231714; margin: 0;">EIGHT BASE</h1>
+        </div>
+
+        <p style="font-size: 14px; color: #231714; line-height: 1.6;">
+          ${safeName} 様
+        </p>
+        <p style="font-size: 14px; color: #231714; line-height: 1.6;">
+          EIGHT BASE へご招待します。<br />
+          下のボタンを <strong>LINE アプリで</strong> 開くと登録が始まります。かんたんなプロフィールをご入力いただくと、施設予約・掲示板・メンバー一覧など全機能をご利用いただけます。
+        </p>
+
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${safeUrl}" style="display: inline-block; background: #231714; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 28px; border-radius: 12px;">
+            EIGHT BASE を始める
+          </a>
+        </div>
+
+        <p style="font-size: 12px; color: #231714; opacity: 0.6; line-height: 1.6; word-break: break-all;">
+          ボタンが開けない場合は、次のURLをLINEで開いてください：<br />
+          ${safeUrl}
+        </p>
+
+        <p style="font-size: 12px; color: #231714; opacity: 0.5; line-height: 1.6;">
+          ※ このリンクの有効期限は${safeExpiry}日間です。<br />
+          ※ <strong>最初に開いた1名のみ</strong>登録されます（1回限り）。<br />
+          ※ 心当たりがない場合は、このメールを無視してください。
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 32px 0 16px;" />
+        <p style="font-size: 11px; color: #231714; opacity: 0.3; text-align: center;">
+          EIGHT BASE — エイトデザイン株式会社
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
+}

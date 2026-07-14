@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
 import { lookupAddressByPostalCode } from "@/lib/address";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { normalizeRole, type UserRole } from "@/lib/roles";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -100,6 +101,7 @@ export default function SetupProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(1);
+  const [role, setRole] = useState<UserRole>("member");
   const [customSkill, setCustomSkill] = useState("");
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
@@ -110,6 +112,7 @@ export default function SetupProfilePage() {
         if (!res.ok) { router.replace("/login"); return; }
         const data = await res.json();
         if (data.profileComplete) { router.replace("/reservation"); return; }
+        setRole(normalizeRole(data.role));
         if (data.profile) {
           const p = data.profile;
           setForm({
@@ -197,6 +200,43 @@ export default function SetupProfilePage() {
     return null;
   }
 
+  // エイト社員（staff）簡素版の必須チェック（氏名・カナ・メール・電話・職種）。
+  function validateStaff(): string | null {
+    if (!form.lastName.trim() || !form.firstName.trim()) return "氏名を入力してください";
+    if (!form.lastNameKana.trim() || !form.firstNameKana.trim()) return "氏名（カナ）を入力してください";
+    const kanaRegex = /^[゠-ヿ　\s]+$/;
+    if (!kanaRegex.test(form.lastNameKana) || !kanaRegex.test(form.firstNameKana)) return "氏名（カナ）はカタカナで入力してください";
+    if (!form.email.trim()) return "メールアドレスを入力してください";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "メールアドレスの形式が正しくありません";
+    if (!form.phone.trim()) return "電話番号を入力してください";
+    if (!form.jobTitle.trim()) return "職種を入力してください";
+    return null;
+  }
+
+  // staff は簡素版フォーム（会社名はサーバー側で自動固定）。会員の 3 ステップとは別 submit。
+  async function handleStaffSubmit() {
+    const err = validateStaff();
+    if (err) { setError(err); return; }
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        clearAuthCache();
+        router.replace("/reservation");
+      } else {
+        setError(data.error || "保存に失敗しました");
+      }
+    } catch { setError("通信エラーが発生しました"); }
+    finally { setSubmitting(false); }
+  }
+
   async function handleSubmit() {
     const err = validateStep3();
     if (err) { setError(err); return; }
@@ -226,6 +266,87 @@ export default function SetupProfilePage() {
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══ エイト社員（staff）: 簡素版フォーム（1 ステップ・会社名は自動固定） ═══
+  if (role === "staff") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
+          <h1 className="text-xl font-bold tracking-wide text-[#231714]">プロフィール登録</h1>
+          <p className="text-sm text-[#231714]/60 mt-1">
+            ご利用にあたり、基本情報をご入力ください
+          </p>
+        </div>
+
+        <div className="flex-1 px-4 pt-5 pb-8">
+          {error && (
+            <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {/* 氏名 */}
+            <Card title="氏名" icon="person" required>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="姓"><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_CLASS} /></Field>
+                <Field label="名"><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_CLASS} /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Field label="セイ"><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_CLASS} /></Field>
+                <Field label="メイ"><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_CLASS} /></Field>
+              </div>
+            </Card>
+
+            {/* 連絡先 */}
+            <Card title="連絡先" icon="clipboard" required>
+              <Field label="メールアドレス">
+                <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@8-design.net" autoComplete="email" className={INPUT_CLASS} />
+              </Field>
+              <div className="mt-3">
+                <Field label="電話番号">
+                  <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={INPUT_CLASS} />
+                </Field>
+              </div>
+            </Card>
+
+            {/* 会社・職種 */}
+            <Card title="お仕事について" icon="briefcase" required>
+              <Field label="会社名">
+                <div className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl bg-[#231714]/5 text-[#231714]/60">
+                  株式会社エイトデザイン
+                </div>
+                <p className="text-[10px] text-[#231714]/30 mt-1">会社名は自動で設定されます</p>
+              </Field>
+              <div className="mt-3">
+                <Field label="職種">
+                  <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: デザイナー / ディレクター / 経理" className={INPUT_CLASS} />
+                </Field>
+              </div>
+            </Card>
+
+            {/* 自己紹介（任意） */}
+            <Card title="自己紹介（任意）" icon="edit">
+              <p className="text-[10px] text-[#231714]/40 mb-2">メンバーに一言。あとから変更もできます。</p>
+              <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="例: 〇〇を担当しています。お気軽にお声がけください。" rows={3} className={`${INPUT_CLASS} resize-y`} />
+            </Card>
+
+            {/* LINE連絡先（任意） */}
+            <Card title="LINE連絡先（任意）" icon="share">
+              <p className="text-[10px] text-[#231714]/40 mb-2 leading-relaxed">
+                登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーが直接連絡できます。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
+              </p>
+              <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={INPUT_CLASS} />
+            </Card>
+
+            <button type="button" onClick={handleStaffSubmit} disabled={submitting} className="w-full py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">
+              {submitting ? "登録中..." : "登録して利用開始"}
+            </button>
+          </div>
         </div>
       </div>
     );

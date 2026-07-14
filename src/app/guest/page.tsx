@@ -79,8 +79,14 @@ function GuestInner() {
         }
         clearAuthCache();
         if (data.alreadyRegistered) {
-          // 既存ユーザー: 会員は通常ホーム、ゲストはゲームへ
-          router.replace(data.role === "member" ? "/reservation" : GUEST_HOME);
+          // 既存ユーザー: ゲストはゲームへ、会員/エイト社員は通常ホーム
+          //（プロフィール未完了なら AuthGuard が /setup-profile へ誘導する）。
+          router.replace(data.role === "guest" ? GUEST_HOME : "/reservation");
+          return;
+        }
+        // 新規エイト社員: 会員同等の簡素版プロフィール登録へ（氏名確認だけでは終わらない）。
+        if (data.role === "staff") {
+          router.replace("/setup-profile");
           return;
         }
         // 新規ゲスト: 氏名確認へ

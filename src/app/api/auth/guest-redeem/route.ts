@@ -10,7 +10,7 @@ import {
   isBlockedByFailures,
 } from "@/lib/rateLimit";
 import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
-import { normalizeRole, isGamesOnlyRole } from "@/lib/roles";
+import { normalizeRole, usesUrlInvite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       const invite = inviteDoc.data()!;
 
       // URL招待（ゲスト / エイト社員）であること。会員招待(OTP)はこの経路では引き換えない。
-      if (!isGamesOnlyRole(invite.role)) return { error: INVALID_MSG, status: 400 };
+      if (!usesUrlInvite(invite.role)) return { error: INVALID_MSG, status: 400 };
       const inviteRole: "guest" | "staff" = invite.role === "staff" ? "staff" : "guest";
       // 使用済み / 無効化 / 期限切れ
       if (invite.usedAt || invite.lineUserId) return { error: INVALID_MSG, status: 400 };
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
       }
 
       tx.update(inviteDocRef, { usedAt: nowIso, lineUserId });
-      return { success: true, displayName };
+      return { success: true, displayName, role: inviteRole };
     });
 
     if ("error" in result) {
@@ -234,7 +234,13 @@ export async function POST(req: NextRequest) {
     );
 
     const sessionToken = await signSession(lineUserId);
-    const res = NextResponse.json({ success: true, guest: true, displayName: result.displayName });
+    // role を返し、クライアント(/guest)が staff→プロフィール登録 / guest→氏名確認 に分岐できるようにする。
+    const res = NextResponse.json({
+      success: true,
+      guest: true,
+      role: result.role,
+      displayName: result.displayName,
+    });
     setSessionCookie(res, sessionToken);
     return res;
   } catch (error) {

@@ -4,8 +4,8 @@
  */
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
-import { isGamesOnlyRole } from "@/lib/roles";
-import { sendPasscodeEmail, sendGuestInviteEmail } from "@/lib/email";
+import { usesUrlInvite } from "@/lib/roles";
+import { sendPasscodeEmail, sendGuestInviteEmail, sendStaffInviteEmail } from "@/lib/email";
 import { liffUrl } from "@/lib/liffUrl";
 
 export type InviteRole = "member" | "guest" | "staff";
@@ -24,10 +24,9 @@ export function expiryDaysForRole(role: InviteRole): number {
 export function buildGuestInviteUrl(passcode: string): string {
   return liffUrl(`/guest?code=${encodeURIComponent(passcode)}`);
 }
-/** URL(first-clicker)方式で招待する身分か（ゲスト/社員）。会員はOTP方式。 */
-export function usesUrlInvite(role: InviteRole): boolean {
-  return isGamesOnlyRole(role);
-}
+// URL(first-clicker)方式で招待する身分か（ゲスト/社員）は roles.ts に一元化。
+// 従来の `@/lib/invitations` からの import 経路を保つため再エクスポートする。
+export { usesUrlInvite };
 
 export interface CreateInvitationResult {
   ok: boolean;
@@ -127,11 +126,16 @@ export async function createInvitation(params: {
 
   await batch.commit();
 
-  // メール送信（member=OTP / guest・staff=URL）
+  // メール送信（member=OTP / guest・staff=URL・文言は身分別）
   let emailSent = false;
   try {
     if (usesUrlInvite(role)) {
-      await sendGuestInviteEmail(email, displayName, buildGuestInviteUrl(passcode), expiryDays);
+      const inviteUrl = buildGuestInviteUrl(passcode);
+      if (role === "staff") {
+        await sendStaffInviteEmail(email, displayName, inviteUrl, expiryDays);
+      } else {
+        await sendGuestInviteEmail(email, displayName, inviteUrl, expiryDays);
+      }
     } else {
       await sendPasscodeEmail(email, displayName, passcode);
     }

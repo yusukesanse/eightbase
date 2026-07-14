@@ -1,6 +1,7 @@
 /**
  * 単体テスト: src/lib/auth.ts の認可ヘルパー
- * requireGameUser（member/guest 可）/ requireMember（guest 除外）/
+ * requireGameUser（member/guest/staff 可）/ requireMember（guest 除外・staff 許可）/
+ * requireMemberWithRole（guest 除外・role 返却）/
  * requireMemberProfileComplete（guest 除外＋profileComplete）の role 判定を検証。
  */
 import type { NextRequest } from "next/server";
@@ -40,6 +41,7 @@ import {
   requireGameUser,
   requireMember,
   requireMemberProfileComplete,
+  requireMemberWithRole,
 } from "@/lib/auth";
 
 const req = { method: "GET" } as unknown as NextRequest;
@@ -77,9 +79,14 @@ describe("requireGameUser — member/guest どちらも許可", () => {
   });
 });
 
-describe("requireMember — guest を除外", () => {
+describe("requireMember — guest を除外（member/staff は許可）", () => {
   test("member を許可", async () => {
     mockUserDoc = { role: "member", active: true };
+    expect(await requireMember(req)).toBe("U_user");
+  });
+
+  test("staff を許可（会員同等に利用範囲を拡大）", async () => {
+    mockUserDoc = { role: "staff", active: true };
     expect(await requireMember(req)).toBe("U_user");
   });
 
@@ -99,6 +106,33 @@ describe("requireMember — guest を除外", () => {
   });
 });
 
+describe("requireMemberWithRole — guest除外・role を返す", () => {
+  test("member は role=member で許可", async () => {
+    mockUserDoc = { role: "member", active: true };
+    expect(await requireMemberWithRole(req)).toEqual({ lineUserId: "U_user", role: "member" });
+  });
+
+  test("staff は role=staff で許可", async () => {
+    mockUserDoc = { role: "staff", active: true };
+    expect(await requireMemberWithRole(req)).toEqual({ lineUserId: "U_user", role: "staff" });
+  });
+
+  test("role 未設定は member 扱い", async () => {
+    mockUserDoc = { active: true };
+    expect(await requireMemberWithRole(req)).toEqual({ lineUserId: "U_user", role: "member" });
+  });
+
+  test("guest は拒否", async () => {
+    mockUserDoc = { role: "guest", active: true };
+    expect(await requireMemberWithRole(req)).toBeNull();
+  });
+
+  test("未登録は拒否", async () => {
+    mockUserDoc = null;
+    expect(await requireMemberWithRole(req)).toBeNull();
+  });
+});
+
 describe("requireMemberProfileComplete — guest除外＋profileComplete", () => {
   test("member かつ profileComplete を許可", async () => {
     mockUserDoc = { role: "member", active: true, profileComplete: true };
@@ -107,6 +141,16 @@ describe("requireMemberProfileComplete — guest除外＋profileComplete", () =>
 
   test("member だが profileComplete=false は拒否", async () => {
     mockUserDoc = { role: "member", active: true, profileComplete: false };
+    expect(await requireMemberProfileComplete(req)).toBeNull();
+  });
+
+  test("staff かつ profileComplete を許可", async () => {
+    mockUserDoc = { role: "staff", active: true, profileComplete: true };
+    expect(await requireMemberProfileComplete(req)).toBe("U_user");
+  });
+
+  test("staff だが profileComplete=false は拒否", async () => {
+    mockUserDoc = { role: "staff", active: true, profileComplete: false };
     expect(await requireMemberProfileComplete(req)).toBeNull();
   });
 
