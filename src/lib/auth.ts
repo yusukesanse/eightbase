@@ -8,10 +8,14 @@
  *   麻雀リーグ/CS/ランキングなど「ゲーム機能」API で使う（ゲストに開放する対象）。
  *
  * requireMember(req):
- *   active かつ role !== "guest"（＝会員のみ。ゲストを除外）。会員専用の閲覧系 API で使う。
+ *   active かつ **ゲーム限定 role でない**（＝ゲストを除外）。会員(member)とエイト社員(staff)を許可。
+ *   staff は利用範囲を会員同等に拡大済みなので、会員専用の閲覧系 API でも通す。
  *
  * requireMemberProfileComplete(req):
- *   上記に加え profileComplete=true を要求。投稿・予約など会員専用の操作系 API で使う。
+ *   上記に加え profileComplete=true を要求。投稿・予約など会員専用の操作系 API で使う（staff も同じゲート）。
+ *
+ * requireMemberWithRole(req):
+ *   requireMember と同じ可否判定 + role を返す。role でバリデーションを分岐する API（プロフィール登録など）で使う。
  *
  * ゲストに開くゲーム系 API は requireGameUser を明示的に使うこと（既定は安全側＝ゲスト遮断）。
  *
@@ -70,7 +74,8 @@ async function resolveActiveUser(
 }
 
 /**
- * ゲーム限定 role（guest / staff=エイト社員）か。会員専用機能から除外するのに使う。
+ * ゲーム限定 role（guest のみ）か。会員専用機能から除外するのに使う。
+ * staff は会員同等に拡大したので除外しない（＝会員専用 API も通る）。
  * user=null の仮ユーザー（バイパス/プレビュー）は除外しない（従来どおり通す）。
  */
 function isGamesOnly(user: FirebaseFirestore.DocumentData | null): boolean {
@@ -98,13 +103,27 @@ export async function requireGameUserWithRole(
 }
 
 /**
- * 会員専用（閲覧系）: active かつ会員のみ。ゲスト/エイト社員（ゲーム限定）を除外する。
+ * 会員専用（閲覧系）: active かつゲーム限定 role でない。ゲストを除外し、会員/エイト社員を許可する。
  */
 export async function requireMember(req: NextRequest): Promise<string | null> {
   const r = await resolveActiveUser(req);
   if (!r) return null;
   if (isGamesOnly(r.user)) return null;
   return r.lineUserId;
+}
+
+/**
+ * 会員専用（閲覧系・role も返す版）: requireMember と同じ可否 + role。
+ * role でバリデーションや保存内容を分岐する API（プロフィール登録＝会員 3 ステップ / 社員簡素版）で使う。
+ * 仮ユーザー（バイパス/プレビュー・user=null）は role 未設定＝member 扱い。
+ */
+export async function requireMemberWithRole(
+  req: NextRequest
+): Promise<{ lineUserId: string; role: UserRole } | null> {
+  const r = await resolveActiveUser(req);
+  if (!r) return null;
+  if (isGamesOnly(r.user)) return null;
+  return { lineUserId: r.lineUserId, role: normalizeRole(r.user?.role) };
 }
 
 /**

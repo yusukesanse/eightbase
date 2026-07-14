@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMember } from "@/lib/auth";
+import { requireMember, requireMemberWithRole } from "@/lib/auth";
 import { getDb } from "@/lib/firebaseAdmin";
+import { normalizeRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
+
+/** エイト社員の会社名はサーバー側で固定（入力不要・同一社内で重複しても意味がないため）。 */
+const STAFF_COMPANY_NAME = "株式会社エイトデザイン";
 
 /**
  * プロフィール情報の型定義
@@ -41,6 +45,7 @@ interface ProfileData {
   occupation?: string;
 }
 
+// 会員（member）の必須項目（3 ステップ）。
 const REQUIRED_FIELDS: (keyof ProfileData)[] = [
   "lastName",
   "firstName",
@@ -59,6 +64,17 @@ const REQUIRED_FIELDS: (keyof ProfileData)[] = [
   "city",
   "address",
   "addressType",
+];
+
+// エイト社員（staff）の必須項目（簡素版）。会社名は自動固定、住所・生年月日・性別・業種等は不要。
+const STAFF_REQUIRED_FIELDS: (keyof ProfileData)[] = [
+  "lastName",
+  "firstName",
+  "lastNameKana",
+  "firstNameKana",
+  "email",
+  "phone",
+  "jobTitle",
 ];
 
 /**
@@ -116,6 +132,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       profileComplete,
       profile,
+      // 登録フォームの分岐用（member=3 ステップ / staff=簡素版）。
+      role: normalizeRole(userData.role),
       displayName: userData.displayName,
     });
   } catch (error) {
@@ -134,16 +152,20 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireMember(req);
-    if (!userId) {
+    const auth = await requireMemberWithRole(req);
+    if (!auth) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
+    const userId = auth.lineUserId;
+    const isStaff = auth.role === "staff";
 
     const body = await req.json();
     const profile = body as ProfileData;
 
+    // 必須項目は身分で分岐（member=3 ステップ / staff=簡素版）。
+    const requiredFields = isStaff ? STAFF_REQUIRED_FIELDS : REQUIRED_FIELDS;
     // バリデーション（必須フィールドは全て string 型）
-    const missing = REQUIRED_FIELDS.filter((f) => {
+    const missing = requiredFields.filter((f) => {
       const v = profile[f];
       return typeof v !== "string" || !v.trim();
     });
@@ -208,59 +230,77 @@ export async function POST(req: NextRequest) {
 
     const docRef = snap.docs[0].ref;
 
-    // プロフィールを保存
-    const cleanProfile: Record<string, unknown> = {
-      lastName: profile.lastName.trim(),
-      firstName: profile.firstName.trim(),
-      lastNameKana: profile.lastNameKana.trim(),
-      firstNameKana: profile.firstNameKana.trim(),
-      email: profile.email.trim().toLowerCase(),
-      phone: phoneClean,
-      birthday: profile.birthday.trim(),
-      gender: profile.gender.trim(),
-      companyName: profile.companyName.trim(),
-      jobTitle: profile.jobTitle.trim(),
-      industry: profile.industry.trim(),
-      purpose: profile.purpose.trim(),
-      postalCode: profile.postalCode.trim(),
-      prefecture: profile.prefecture.trim(),
-      city: profile.city.trim(),
-      address: profile.address.trim(),
-      building: (profile.building || "").trim(),
-      addressType: profile.addressType.trim(),
-    };
+    // プロフィールを保存（身分で保存内容を分岐）。
+    // - 共通: 氏名・カナ・メール・電話・職種
+    // - staff: 会社名は自動固定（株式会社エイトデザイン）。住所・生年月日・性別・業種・利用目的・
+    //          スキル・会社URL・SNS は登録させないので保存もしない。任意で自己紹介・LINE連絡先のみ。
+    // - member: 従来どおり全項目（3 ステップ）。
+    const cleanProfile: Record<string, unknown> = isStaff
+      ? {
+          lastName: profile.lastName.trim(),
+          firstName: profile.firstName.trim(),
+          lastNameKana: profile.lastNameKana.trim(),
+          firstNameKana: profile.firstNameKana.trim(),
+          email: profile.email.trim().toLowerCase(),
+          phone: phoneClean,
+          companyName: STAFF_COMPANY_NAME,
+          jobTitle: profile.jobTitle.trim(),
+        }
+      : {
+          lastName: profile.lastName.trim(),
+          firstName: profile.firstName.trim(),
+          lastNameKana: profile.lastNameKana.trim(),
+          firstNameKana: profile.firstNameKana.trim(),
+          email: profile.email.trim().toLowerCase(),
+          phone: phoneClean,
+          birthday: profile.birthday.trim(),
+          gender: profile.gender.trim(),
+          companyName: profile.companyName.trim(),
+          jobTitle: profile.jobTitle.trim(),
+          industry: profile.industry.trim(),
+          purpose: profile.purpose.trim(),
+          postalCode: profile.postalCode.trim(),
+          prefecture: profile.prefecture.trim(),
+          city: profile.city.trim(),
+          address: profile.address.trim(),
+          building: (profile.building || "").trim(),
+          addressType: profile.addressType.trim(),
+        };
 
-    // Step 3 の任意フィールド
-    if (profile.companyUrl?.trim()) {
-      cleanProfile.companyUrl = profile.companyUrl.trim();
-    }
+    // 任意フィールド（自己紹介・LINE連絡先は staff/member 共通で保存可）。
     if (profile.bio?.trim()) {
       cleanProfile.bio = profile.bio.trim();
     }
     if (profile.lineUrl?.trim()) {
       cleanProfile.lineUrl = profile.lineUrl.trim().slice(0, 300);
     }
-    if (profile.socialLinks) {
-      const sl: Record<string, string> = {};
-      if (profile.socialLinks.instagram?.trim()) sl.instagram = profile.socialLinks.instagram.trim();
-      if (profile.socialLinks.x?.trim()) sl.x = profile.socialLinks.x.trim();
-      if (profile.socialLinks.facebook?.trim()) sl.facebook = profile.socialLinks.facebook.trim();
-      if (profile.socialLinks.other?.trim()) sl.other = profile.socialLinks.other.trim();
-      if (Object.keys(sl).length > 0) cleanProfile.socialLinks = sl;
+    // 会社URL・SNS は会員のみ（staff は登録画面に出さない）。
+    if (!isStaff) {
+      if (profile.companyUrl?.trim()) {
+        cleanProfile.companyUrl = profile.companyUrl.trim();
+      }
+      if (profile.socialLinks) {
+        const sl: Record<string, string> = {};
+        if (profile.socialLinks.instagram?.trim()) sl.instagram = profile.socialLinks.instagram.trim();
+        if (profile.socialLinks.x?.trim()) sl.x = profile.socialLinks.x.trim();
+        if (profile.socialLinks.facebook?.trim()) sl.facebook = profile.socialLinks.facebook.trim();
+        if (profile.socialLinks.other?.trim()) sl.other = profile.socialLinks.other.trim();
+        if (Object.keys(sl).length > 0) cleanProfile.socialLinks = sl;
+      }
     }
 
     const displayName = `${cleanProfile.lastName} ${cleanProfile.firstName}`;
 
-    // memberProfile にも会社名・職種・スキルを同期（メンバー検索用）
+    // memberProfile にも会社名・職種等を同期（メンバー検索用）。
     const memberProfileUpdate: Record<string, unknown> = {
       companyName: cleanProfile.companyName,
       jobTitle: cleanProfile.jobTitle,
-      industry: cleanProfile.industry,
     };
-    if (profile.companyUrl?.trim()) memberProfileUpdate.companyUrl = cleanProfile.companyUrl;
+    if (!isStaff) memberProfileUpdate.industry = cleanProfile.industry;
     if (profile.bio?.trim()) memberProfileUpdate.bio = cleanProfile.bio;
     if (profile.lineUrl?.trim()) memberProfileUpdate.lineUrl = cleanProfile.lineUrl;
-    if (profile.socialLinks) memberProfileUpdate.socialLinks = cleanProfile.socialLinks;
+    if (!isStaff && profile.companyUrl?.trim()) memberProfileUpdate.companyUrl = cleanProfile.companyUrl;
+    if (!isStaff && profile.socialLinks && cleanProfile.socialLinks) memberProfileUpdate.socialLinks = cleanProfile.socialLinks;
 
     await docRef.update({
       profile: cleanProfile,
@@ -276,8 +316,8 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date().toISOString(),
     };
 
-    // skills は Step 3 で設定された場合に同期
-    if (Array.isArray(profile.skills) && profile.skills.length > 0) {
+    // skills は Step 3 で設定された場合に同期（staff はスキル登録なし＝同期しない）
+    if (!isStaff && Array.isArray(profile.skills) && profile.skills.length > 0) {
       memberProfileUpdate.skills = profile.skills;
     }
 

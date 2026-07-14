@@ -5,6 +5,7 @@
 import {
   normalizeRole,
   isGamesOnlyRole,
+  usesUrlInvite,
   mahjongPaymentRequired,
   ROLE_LABELS,
 } from "@/lib/roles";
@@ -19,11 +20,18 @@ describe("roles — 参加者種別ヘルパー", () => {
     expect(normalizeRole("visitor")).toBe("member"); // 旧/未知は会員扱い
   });
 
-  test("isGamesOnlyRole: guest と staff のみ true（会員は全機能）", () => {
+  test("isGamesOnlyRole: guest のみ true（staff は会員同等に拡大・member は全機能）", () => {
     expect(isGamesOnlyRole("guest")).toBe(true);
-    expect(isGamesOnlyRole("staff")).toBe(true);
+    expect(isGamesOnlyRole("staff")).toBe(false);
     expect(isGamesOnlyRole("member")).toBe(false);
     expect(isGamesOnlyRole(undefined)).toBe(false);
+  });
+
+  test("usesUrlInvite: guest と staff は URL 招待（member は OTP）", () => {
+    expect(usesUrlInvite("guest")).toBe(true);
+    expect(usesUrlInvite("staff")).toBe(true);
+    expect(usesUrlInvite("member")).toBe(false);
+    expect(usesUrlInvite(undefined)).toBe(false);
   });
 
   test("mahjongPaymentRequired: 会員/ゲストは要、エイト社員(staff)は不要", () => {

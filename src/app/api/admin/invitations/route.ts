@@ -3,7 +3,7 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
 import { normalizeRole } from "@/lib/roles";
-import { sendPasscodeEmail, sendGuestInviteEmail } from "@/lib/email";
+import { sendPasscodeEmail, sendGuestInviteEmail, sendStaffInviteEmail } from "@/lib/email";
 import {
   createInvitation,
   buildGuestInviteUrl,
@@ -167,13 +167,18 @@ export async function PATCH(req: NextRequest) {
       emailError: null,
     });
 
-    // メール再送（member: パスコード / guest: ワンタイムURL）
+    // メール再送（member: パスコード / guest・staff: ワンタイムURL・文言は身分別）
     let emailSent = false;
     const savedEmail = data.email as string | undefined;
     if (savedEmail) {
       try {
         if (usesUrlInvite(role)) {
-          await sendGuestInviteEmail(savedEmail, data.displayName || "", buildGuestInviteUrl(passcode), expiryDays);
+          const inviteUrl = buildGuestInviteUrl(passcode);
+          if (role === "staff") {
+            await sendStaffInviteEmail(savedEmail, data.displayName || "", inviteUrl, expiryDays);
+          } else {
+            await sendGuestInviteEmail(savedEmail, data.displayName || "", inviteUrl, expiryDays);
+          }
         } else {
           await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
         }

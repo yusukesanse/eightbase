@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     );
 
     // 遷移先は AuthGuard の判定と一致させる（ループ防止）:
-    // guest/staff→Info(ゲーム) / member未完了→プロフィール設定 / member完了→予約ホーム
+    // guest→Info(ゲーム) / member・staff未完了→プロフィール設定 / 完了→予約ホーム
     const home = isGamesOnlyRole(target.role)
       ? "/info"
       : target.profileComplete

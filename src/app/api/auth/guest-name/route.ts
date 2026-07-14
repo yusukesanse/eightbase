@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { isGamesOnlyRole } from "@/lib/roles";
+import { usesUrlInvite } from "@/lib/roles";
 import { getDb } from "@/lib/firebaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const userRef = snap.docs[0].ref;
   const data = snap.docs[0].data();
   // ゲスト/エイト社員（URL招待でオンボードする身分）のみ。会員は別フロー。
-  if (!isGamesOnlyRole(data.role)) {
+  if (!usesUrlInvite(data.role)) {
     return NextResponse.json({ error: "この操作はゲスト/エイト社員のみ利用できます" }, { status: 403 });
   }
 
