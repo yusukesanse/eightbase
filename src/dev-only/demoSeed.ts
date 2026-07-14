@@ -92,7 +92,12 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
       await doc.ref.update({ active: false, updatedAt: nowIso });
     }
   }
-  await db.collection("seasons").doc(seasonId).set({ active: true, updatedAt: nowIso }, { merge: true });
+  //    demoユーザー(SELF)を GM に固定する。demo は SELF で常時ログインして卓を手動振り分けするため、
+  //    管理UIでの GM 設定漏れに関係なく、常に SELF が GM＝操作できる状態を保証する。
+  await db
+    .collection("seasons")
+    .doc(seasonId)
+    .set({ active: true, gameMasterIds: [SELF.lineUserId], updatedAt: nowIso }, { merge: true });
 
   // 1) 日程（過去1・当日・未来1）。demoDummy タグ付き。
   const schedule = [
@@ -133,53 +138,30 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     tableCount++;
   }
 
-  // 3) 当日の卓（抜け番デモ）: 2卓(8名)＋待機4名＝12名。round1・reporting。
-  //    demoユーザーは A卓。dayState に待機キュー(FIFO)・現ラウンドを保存し、半荘確定ごとに
-  //    src/lib/mahjongRotation で次卓を自動生成する（/api/mahjong/day）。
-  const dayA: P[] = [SELF, DUMMIES[0], DUMMIES[1], DUMMIES[2]];
-  const dayB: P[] = [DUMMIES[3], DUMMIES[4], DUMMIES[5], DUMMIES[6]];
-  const dayWaiting: P[] = [DUMMIES[7], DUMMIES[8], DUMMIES[9], DUMMIES[10]];
-  const reportingMembers = (g: P[]) =>
-    g.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "", points: null, rank: null, reportedAt: null }));
-  for (const [label, group] of [["A", dayA], ["B", dayB]] as const) {
-    await db.collection("mahjongTables").doc(`demo-tbl-${seasonId}-${today}-r1-${label}`).set({
-      seasonId,
-      eventDate: today,
-      createdBy: "system",
-      memberIds: group.map((p) => p.lineUserId),
-      members: reportingMembers(group),
-      status: "reporting",
-      round: 1,
-      tableLabel: label,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      ...DUMMY_FLAG,
-    });
-    tableCount++;
-  }
+  // 3) 当日（GM 手動振り分けデモ）: demoユーザー(SELF)＝GM 兼プレイヤー。卓は作らず、
+  //    dayState を「GM 振り分け待ち」(awaitingAssignment=true) で投入する。demoユーザーが
+  //    アプリの GM パネルで A/B を手動で振り分けて確定する（＝自動卓確定はしない）。
+  //    受付は「ゲーム開始」済み(entryClosedAt) にして、GM が即振り分けられる状態にする。
+  //    ダミーは自己申告しないため、申告は「進める」でダミー分を補完 → 次半荘も
+  //    awaitingAssignment=true に戻り、GM が改めて振り分ける（下記 4 の paid プールが対象）。
   await db.collection("mahjongDayState").doc(`${seasonId}_${today}`).set({
     seasonId,
     eventDate: today,
     round: 1,
-    waiting: dayWaiting.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "" })),
-    tableLabels: ["A", "B"],
+    waiting: [],
+    tableLabels: [],
     lastSwap: null,
-    // 「GM が受付を締めて round1 を確定済み（＝進行中）」の状態で投入する。
-    // GM シーズンでは GET /day が awaitingAssignment=true/未設定 の間、卓・待機を [] で返して
-    // 一般参加者に見せない。ここを false（確定済み）にしないと、事前生成した当日の卓
-    //（demoユーザーが着席）が丸ごと隠れて「参加者/卓が空」に見えてしまう。
-    // entryClosedAt / roundAssignedAt も揃え、GM パネルも「第1半荘 進行中」で整合させる。
-    awaitingAssignment: false,
+    awaitingAssignment: true,
     entryClosedAt: nowIso,
-    startedBy: "system",
-    roundAssignedAt: nowIso,
-    roundAssignedBy: "system",
+    startedBy: SELF.lineUserId,
     updatedAt: nowIso,
     ...DUMMY_FLAG,
   });
 
-  // 4) 当日の参加表明（支払い済み）＝人数確保。ゲスト/スタッフでログインして参加・支払いを試せるよう
-  //    7名だけ入れ、残り1枠（先着8名）を空ける。
+  // 4) 当日の参加表明（支払い済み）＝GM が手動振り分けする paid プール。
+  //    demoユーザー(SELF＝GM 兼プレイヤー) ＋ ダミー7名 ＝ 8名（先着上限 MAX_ENTRIES_PER_DATE）。
+  //    GM はこの8名を A/B に自由に振り分ける（4+4 の2卓、または 4名+4名待機など）。
+  //    ※ SELF を必ず paid に含めること。含めないと GM が自分を卓に座らせられない（申告UIに到達しない）。
   let entryCount = 0;
   const paidEntry = async (date: string, p: P) => {
     await db.collection("mahjongEntries").doc(`demo-ent-${seasonId}-${date}-${p.lineUserId}`).set({
@@ -196,8 +178,8 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     });
     entryCount++;
   };
-  const slots = Math.min(7, MAHJONG_MAX_ENTRIES_PER_DATE - 1);
-  for (const p of DUMMIES.slice(0, slots)) await paidEntry(today, p);
+  const todayPool: P[] = [SELF, ...DUMMIES.slice(0, MAHJONG_MAX_ENTRIES_PER_DATE - 1)];
+  for (const p of todayPool) await paidEntry(today, p);
 
   // 5) CS（参戦者＝16名）。卓は必ず4名: 16→準決4卓→決勝1卓(4名)のクリーンなブラケット。
   //    「展開(running)」で投入し、demoユーザーが勝敗入力→次ラウンド→優勝/敗北UIまで確認できる。
