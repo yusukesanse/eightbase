@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import type {
@@ -19,6 +19,16 @@ const TIER_STYLES: Record<MahjongLeagueTier, string> = {
   M3: "bg-orange-50 text-orange-600",
 };
 
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** "YYYY-MM-DD" を "M/D（曜）" に整形（日付部品から Date を作るのでTZの影響を受けない）。 */
+function formatEventDate(d: string): string {
+  const [y, m, day] = d.split("-").map(Number);
+  if (!y || !m || !day) return d;
+  const wd = WEEKDAYS[new Date(y, m - 1, day).getDay()];
+  return `${m}/${day}（${wd}）`;
+}
+
 /* ───────── メインコンポーネント ───────── */
 
 export default function SeasonMahjongPage() {
@@ -32,6 +42,35 @@ export default function SeasonMahjongPage() {
   const [confirming, setConfirming] = useState(false);
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
   const [tab, setTab] = useState<"standings" | "tables" | "rotation" | "history">("standings");
+  // 卓一覧タブ: 選択中の開催日（日付を選ぶとその日の卓だけ表示する）
+  const [tableDate, setTableDate] = useState<string | null>(null);
+
+  // 卓が存在する開催日（新しい順）。日付セレクタの選択肢に使う。
+  const tableDates = useMemo(
+    () => Array.from(new Set(tables.map((t) => t.eventDate))).sort((a, b) => b.localeCompare(a)),
+    [tables]
+  );
+  // 既定は最新の開催日。選択が消えた（データ更新で無くなった）場合も最新へ寄せる。
+  useEffect(() => {
+    if (tableDates.length === 0) {
+      if (tableDate !== null) setTableDate(null);
+    } else if (!tableDate || !tableDates.includes(tableDate)) {
+      setTableDate(tableDates[0]);
+    }
+  }, [tableDates, tableDate]);
+
+  // 選択日の卓（半荘→卓ラベル順）。手動作成卓(round=undefined)は末尾にまとめる。
+  const dayTables = useMemo(() => {
+    if (!tableDate) return [];
+    return tables
+      .filter((t) => t.eventDate === tableDate)
+      .sort((a, b) => {
+        const ra = a.round ?? Number.MAX_SAFE_INTEGER;
+        const rb = b.round ?? Number.MAX_SAFE_INTEGER;
+        if (ra !== rb) return ra - rb;
+        return (a.tableLabel ?? "").localeCompare(b.tableLabel ?? "");
+      });
+  }, [tables, tableDate]);
 
   // silent=true はバックグラウンド更新（ポーリング）。loading を触らず全画面スピナーを出さない。
   const fetchAll = useCallback(async (silent = false) => {
@@ -224,7 +263,7 @@ export default function SeasonMahjongPage() {
         )}
       </section>
 
-      {/* ───── 卓一覧 ───── */}
+      {/* ───── 卓一覧（日付を選ぶとその日の卓だけ表示） ───── */}
       <section className={tab === "tables" ? "" : "hidden"}>
         <h2 className="text-sm font-bold text-[#231714] mb-3">卓一覧（申告状況）</h2>
         {tables.length === 0 ? (
@@ -232,54 +271,95 @@ export default function SeasonMahjongPage() {
             卓がまだ作成されていません
           </div>
         ) : (
-          <div className="space-y-3">
-            {tables.map((t) => (
-              <div key={t.tableId} className="bg-white rounded-xl border border-[#231714]/10 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[#231714]">{t.eventDate}</span>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        t.status === "completed"
-                          ? "bg-[#B0E401]/20 text-[#231714]"
-                          : "bg-orange-50 text-orange-600"
+          <>
+            {/* 開催日セレクタ（卓のある日だけ・新しい順） */}
+            <div className="mb-4">
+              <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {tableDates.map((d) => {
+                  const active = d === tableDate;
+                  const n = tables.filter((t) => t.eventDate === d).length;
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => setTableDate(d)}
+                      className={`shrink-0 px-3.5 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        active
+                          ? "bg-[#231714] text-white border-[#231714]"
+                          : "bg-white text-[#231714]/70 border-[#231714]/10 hover:bg-gray-50"
                       }`}
                     >
-                      {t.status === "completed" ? "集計済み" : "申告待ち"}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditTable(t)}
-                      className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
-                    >
-                      修正
+                      {formatEventDate(d)}
+                      <span className={`ml-1.5 text-xs ${active ? "text-white/60" : "text-[#231714]/35"}`}>{n}卓</span>
                     </button>
-                    <button
-                      onClick={() => deleteTable(t.tableId)}
-                      className="px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
-                    >
-                      削除
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {t.members.map((m) => (
-                    <div key={m.lineUserId} className="bg-gray-50 rounded-lg p-2.5">
-                      <div className="text-xs font-medium text-[#231714] truncate">{m.displayName}</div>
-                      {m.points !== null ? (
-                        <div className="mt-1 text-xs text-[#231714]/60">
-                          {m.rank}位 / {m.points.toLocaleString()}点
-                        </div>
-                      ) : (
-                        <div className="mt-1 text-xs text-orange-500">未申告</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+
+            {dayTables.length === 0 ? (
+              <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+                この開催日の卓はありません
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {dayTables.map((t) => (
+                  <div key={t.tableId} className="bg-white rounded-xl border border-[#231714]/10 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-[#231714]">
+                          {t.round != null ? `第${t.round}半荘` : "手動作成"}
+                          {t.tableLabel ? ` ・ ${t.tableLabel}卓` : ""}
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            t.status === "completed"
+                              ? "bg-[#B0E401]/20 text-[#231714]"
+                              : "bg-orange-50 text-orange-600"
+                          }`}
+                        >
+                          {t.status === "completed" ? "集計済み" : "申告待ち"}
+                        </span>
+                        {t.needsReview && (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-50 text-red-600">
+                            要確認
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditTable(t)}
+                          className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                        >
+                          修正
+                        </button>
+                        <button
+                          onClick={() => deleteTable(t.tableId)}
+                          className="px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {t.members.map((m) => (
+                        <div key={m.lineUserId} className="bg-gray-50 rounded-lg p-2.5">
+                          <div className="text-xs font-medium text-[#231714] truncate">{m.displayName}</div>
+                          {m.points !== null ? (
+                            <div className="mt-1 text-xs text-[#231714]/60">
+                              {m.rank}位 / {m.points.toLocaleString()}点
+                            </div>
+                          ) : (
+                            <div className="mt-1 text-xs text-orange-500">未申告</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
 
