@@ -116,11 +116,22 @@ export function buildInitialDay(participants: RotPlayer[]): { tables: { label: s
   return { tables, waiting: participants.slice(nTables * 4) };
 }
 
-/** 手動卓振り分け（GM）シーズンかどうかを seasonId から判定する。 */
-export async function isManualSeason(seasonId: string): Promise<boolean> {
-  const doc = await getDb().collection("seasons").doc(seasonId).get();
-  const gm = (doc.data()?.gameMasterIds ?? []) as unknown;
-  return Array.isArray(gm) && gm.length > 0;
+/**
+ * 手動卓振り分け（GM）シーズンかどうかを判定する。
+ *
+ * 【2026-07-14】自動卓確定（GM 未設定シーズンの自動進行）は廃止した。
+ * 全シーズンを GM 手動として扱うため、常に true を返す。これで startDay /
+ * advanceDayIfRoundComplete の「非 manual（自動生成）」分岐は到達不能になる（分岐コードは残置）。
+ * 廃止の背景・復活手順は docs/麻雀リーグ-自動卓確定-廃止.md を参照。
+ *
+ * 復活する場合は下の `return true;` を外し、コメントアウトした旧判定を有効化すること。
+ */
+export async function isManualSeason(_seasonId: string): Promise<boolean> {
+  return true;
+  // --- 旧実装（自動進行フォールバック）: gameMasterIds が空なら自動進行だった ---
+  // const doc = await getDb().collection("seasons").doc(_seasonId).get();
+  // const gm = (doc.data()?.gameMasterIds ?? []) as unknown;
+  // return Array.isArray(gm) && gm.length > 0;
 }
 
 /**
