@@ -164,6 +164,10 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     waiting: dayWaiting.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "" })),
     tableLabels: ["A", "B"],
     lastSwap: null,
+    // GM（手動振り分け）シーズンでも矛盾しないよう明示する。未設定だと GET /assignment は
+    // `?? true`（振り分け待ち）と解釈するので、awaitingAssignment を必ず持たせて GET/POST を揃える。
+    // 非 GM（自動進行）シーズンでは GET /day が manualSeason=false 時に false 扱いするため無害。
+    awaitingAssignment: true,
     updatedAt: nowIso,
     ...DUMMY_FLAG,
   });

@@ -98,14 +98,20 @@ export async function POST(req: NextRequest) {
     // 一度確定した半荘は組み直せない（申告の途中で卓が変わると成績が壊れる）。
     // 全員の申告が済んで次 round に進むと awaitingAssignment=true に戻り、再び振り分けられる。
     // ＝ awaitingAssignment=true の間だけ確定でき、その間の既存卓は残骸なので下で上書きする。
-    if (day.awaitingAssignment !== true) {
+    //
+    // ⚠️ 未設定(undefined)は「振り分け待ち」として扱う。GET /assignment が `?? true`（未設定→編集可）
+    // なのに、ここで `!== true`（未設定→確定済み）にすると、フィールドを持たない dayState
+    //（旧仕様・demo seed 由来）で「画面は編集できるのに保存すると 409」になる。判定を GET と揃える。
+    const awaiting = day.awaitingAssignment ?? true;
+    if (!awaiting) {
       return { status: 409 as const, error: "この半荘の卓は確定済みです（全員の申告が終わると次の半荘を組めます）" };
     }
 
-    const newLabels = new Set(tables.map((t) => t.label));
-    // 新しい編成に無いラベルの既存卓は削除
+    // この round の既存卓はすべて削除してから新編成を作る。ラベル一致だけ残すと、
+    // doc ID の違う残骸（demo seed の `demo-tbl-…` 等）が同ラベルで重複して残る。
+    // awaiting 中は申告が入っていない（locked 判定で保証）ので全消しして安全。
     for (const t of existing) {
-      if (!newLabels.has(t.tableLabel ?? "")) tx.delete(db.collection("mahjongTables").doc(t.id));
+      tx.delete(db.collection("mahjongTables").doc(t.id));
     }
     // A/B 卓を upsert（reporting）
     for (const t of tables) {
