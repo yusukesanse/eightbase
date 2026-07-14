@@ -36,9 +36,15 @@ export async function GET(req: NextRequest) {
 
   const db = getDb();
   // dayState と 卓一覧は独立＝並列取得（startDay 後）。
+  // 卓は eventDate で絞る（等値2条件なので複合インデックス不要）。当日画面は 12 秒ごとに
+  // ポーリングされるため、シーズン全件を読むと開催を重ねるほど読み取りが膨らむ。
   const [daySnap, snap] = await Promise.all([
     db.collection("mahjongDayState").doc(`${season.seasonId}_${eventDate}`).get(),
-    db.collection("mahjongTables").where("seasonId", "==", season.seasonId).get(),
+    db
+      .collection("mahjongTables")
+      .where("seasonId", "==", season.seasonId)
+      .where("eventDate", "==", eventDate)
+      .get(),
   ]);
   const day = daySnap.exists ? (daySnap.data() as MahjongDayState & { awaitingAssignment?: boolean }) : null;
   const round = day?.round ?? 1;
