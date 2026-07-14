@@ -46,6 +46,8 @@ export function JoinTab({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // 選択日の参加者一覧（仮予約/確定を区別して表示・内部IDは持たない）
   const [dateEntries, setDateEntries] = useState<{ displayName: string; status?: string }[]>([]);
+  // 選択日が満員か（抜け番許容OFFのシーズンで定員8名に達している）。未参加者の新規参加を止める。
+  const [dateFull, setDateFull] = useState(false);
   const today = todayJst();
 
   // 楽観的UI: 参加/キャンセルを即時反映（サーバー確定を待たず表示）。失敗時はロールバック。
@@ -78,13 +80,17 @@ export function JoinTab({
   useEffect(() => {
     if (!selectedDate) {
       setDateEntries([]);
+      setDateFull(false);
       return;
     }
     let alive = true;
     fetch(`/api/mahjong/entries?eventDate=${selectedDate}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        if (alive) setDateEntries(d.entries ?? []);
+        if (alive) {
+          setDateEntries(d.entries ?? []);
+          setDateFull(!!d.full);
+        }
       })
       .catch(() => {});
     return () => {
@@ -315,6 +321,9 @@ export function JoinTab({
               ) : entered ? (
                 // 支払い不要（staff等）＝参加確定。いつでも解除可。
                 <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
+              ) : dateFull ? (
+                // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可。
+                <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/40">満員</span>
               ) : (
                 <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
                   {busy === selectedDate ? "..." : "参加する"}
@@ -330,7 +339,10 @@ export function JoinTab({
       {/* この日の参加者（仮予約/確定） */}
       {selectedDate && dateEntries.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">この日の参加者（{dateEntries.length}名）</div>
+          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">
+            この日の参加者（{dateEntries.length}名）
+            {dateFull && <span className="ml-1.5 text-[#b48f13]">満員</span>}
+          </div>
           <div className="flex flex-col gap-1.5">
             {dateEntries.map((e, i) => {
               const conf = e.status === "paid";

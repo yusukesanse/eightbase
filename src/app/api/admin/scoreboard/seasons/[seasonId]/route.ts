@@ -125,6 +125,11 @@ export async function PUT(
       updates.gameMasterIds = sanitizeGameMasterIds(body.gameMasterIds);
     }
 
+    // mahjongAllowByeSeats（抜け番許容。true=8名以上の予約可 / false=8名で締切）。
+    if (body.mahjongAllowByeSeats !== undefined) {
+      updates.mahjongAllowByeSeats = body.mahjongAllowByeSeats === true;
+    }
+
     // ルール・約款（Markdown）。"" で消せる。
     for (const key of ["rulesMarkdown", "termsMarkdown"] as const) {
       if (body[key] === undefined) continue;

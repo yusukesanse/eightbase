@@ -109,6 +109,8 @@ export async function POST(req: NextRequest) {
       rankingMetric: body.rankingMetric === "total" ? "total" : "average",
       // ゲームマスター（手動卓振り分け）。空=自動進行シーズン。
       gameMasterIds: sanitizeGameMasterIds(body.gameMasterIds),
+      // 麻雀: 抜け番許容（true=8名以上の予約可 / 既定false=8名で締切）。
+      mahjongAllowByeSeats: body.mahjongAllowByeSeats === true,
       // ルール・約款（Markdown）。未指定は空。
       rulesMarkdown: rules,
       termsMarkdown: terms,

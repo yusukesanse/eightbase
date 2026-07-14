@@ -181,6 +181,11 @@ export interface Season {
    */
   gameMasterIds?: string[];
   /**
+   * 麻雀: 1開催日あたりの参加予約の定員（MAHJONG_MAX_ENTRIES_PER_DATE=8名）を超える予約を許すか。
+   * 未設定/false = 8名で締切（2卓ちょうど）。true = 抜け番（待機）を許容し 8名以上の予約を受け付ける。
+   */
+  mahjongAllowByeSeats?: boolean;
+  /**
    * ルール・約款（Markdown）。シーズンは種目別なので、これで「種目ごと × シーズンごと」を満たす。
    * 利用者アプリの「ルール/約款」タブに表示する（閲覧のみ。同意フローは持たない）。
    */
