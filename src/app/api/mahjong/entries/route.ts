@@ -46,13 +46,15 @@ export async function GET(req: NextRequest) {
     // mine=1: 自分の参加一覧（開催日＋支払い状態）。カレンダー参加UI・月1回制御に使う。
     if (req.nextUrl.searchParams.get("mine") === "1") {
       if (!season) return NextResponse.json({ entries: [], paymentRequired });
+      // 自分の分だけ読む（等値2条件なので複合インデックス不要）。
+      // シーズン全件を読んで JS で絞ると、ポーリングのたびに参加者数×開催日数を読むことになる。
       const snap = await getDb()
         .collection("mahjongEntries")
         .where("seasonId", "==", season.seasonId)
+        .where("lineUserId", "==", userId)
         .get();
       const my = snap.docs
         .map((d) => d.data() as MahjongEntry)
-        .filter((e) => e.lineUserId === userId)
         .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
       return NextResponse.json({ entries: my, paymentRequired });
     }
