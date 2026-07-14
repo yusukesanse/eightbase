@@ -24,6 +24,7 @@ const EMPTY_FORM = {
   endDate: "",
   rankingMetric: "average" as "average" | "total",
   gameMasterIds: [] as string[], // ゲームマスター（手動卓振り分け）。空=自動進行
+  mahjongAllowByeSeats: false, // 抜け番許容。false=8名で締切 / true=8名以上の予約可
   rulesMarkdown: "", // ルール（Markdown）。利用者アプリの「ルール/約款」タブに表示
   termsMarkdown: "", // 約款（Markdown）
 };
@@ -109,6 +110,7 @@ export default function SeasonsPage() {
       endDate: s.endDate,
       rankingMetric: s.rankingMetric === "total" ? "total" : "average",
       gameMasterIds: s.gameMasterIds ?? [],
+      mahjongAllowByeSeats: s.mahjongAllowByeSeats ?? false,
       rulesMarkdown: s.rulesMarkdown ?? "",
       termsMarkdown: s.termsMarkdown ?? "",
     });
@@ -137,6 +139,7 @@ export default function SeasonsPage() {
         endDate: form.endDate,
         rankingMetric: form.rankingMetric,
         gameMasterIds: form.gameMasterIds,
+        mahjongAllowByeSeats: form.mahjongAllowByeSeats,
         rulesMarkdown: form.rulesMarkdown,
         termsMarkdown: form.termsMarkdown,
       };
@@ -411,6 +414,28 @@ export default function SeasonsPage() {
                   </select>
                   <p className="text-xs text-gray-400 mt-1">
                     順位の決定に使う指標。同点時は連対率→試合数→名前順。既定はアベレージ。
+                  </p>
+                </div>
+              )}
+
+              {/* 麻雀: 参加予約の定員（抜け番許容） */}
+              {form.gameCategory === "mahjong" && (
+                <div>
+                  <label className={labelClass}>参加予約の定員（麻雀）</label>
+                  <label className="flex items-start gap-2 mt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.mahjongAllowByeSeats}
+                      onChange={(e) => setForm({ ...form, mahjongAllowByeSeats: e.target.checked })}
+                      className="mt-0.5 w-4 h-4 accent-[#231714]"
+                    />
+                    <span className="text-sm text-[#231714]">
+                      抜け番を許容する（8名以上の予約を許可）
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-400 mt-1">
+                    未チェック（既定）は<b>1開催日8名まで</b>で締切（2卓ちょうど）。チェックすると
+                    <b>8名以上の予約</b>を受け付け、余りは当日GMが抜け番（待機）にできます。
                   </p>
                 </div>
               )}

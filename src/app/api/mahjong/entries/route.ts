@@ -10,7 +10,7 @@ import {
   isSaturdayMahjongDate,
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
-import type { MahjongEntry } from "@/types";
+import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -71,17 +71,22 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // 当日分だけ読む（等値2条件なので複合インデックス不要）。シーズン全件スキャンを避ける。
     const snap = await getDb()
       .collection("mahjongEntries")
       .where("seasonId", "==", season.seasonId)
+      .where("eventDate", "==", eventDate)
       .get();
 
     const rawEntries = snap.docs
       .map((d) => ({ ...(d.data() as MahjongEntry), entryId: d.id }))
-      .filter((e) => e.eventDate === eventDate)
       .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt));
 
     const myEntry = rawEntries.find((e) => e.lineUserId === userId);
+
+    // 定員（8名）。抜け番許容シーズンは無制限。満員かつ未参加なら新規参加不可。
+    const allowByeSeats = season.mahjongAllowByeSeats === true;
+    const full = !allowByeSeats && rawEntries.length >= MAHJONG_MAX_ENTRIES_PER_DATE;
 
     // 一覧は公開DTOのみ（内部lineUserId/entryId・決済照合情報は返さない）。
     // 他人へは表示名・アイコン・仮予約/確定だけ。自分の決済状態は下の me で返す。
@@ -95,6 +100,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       entries,
       entered: !!myEntry,
+      full,
+      capacity: allowByeSeats ? null : MAHJONG_MAX_ENTRIES_PER_DATE,
+      count: rawEntries.length,
       me: {
         entered: !!myEntry,
         paymentRequired,
@@ -173,12 +181,25 @@ export async function POST(req: NextRequest) {
     // 参加は「1ユーザー月1回」。月ロックdoc(mahjongMonthlyLocks)を transaction 内で
     // 読んで原子的に確保する（同一docへの並行書き込みは競合検知＝phantomすり抜けを防ぐ）。
     // 同日は冪等（再表明可）、別日・同月は 409、別月は許可。stale lockは自己回復。
+    // 定員: 抜け番許容OFFのシーズンは 1 開催日 MAHJONG_MAX_ENTRIES_PER_DATE(8) 名で締切。
+    const allowByeSeats = season.mahjongAllowByeSeats === true;
     const ym = eventDate.slice(0, 7);
     const lockRef = db.collection("mahjongMonthlyLocks").doc(`${season.seasonId}_${userId}_${ym}`);
     try {
       await db.runTransaction(async (tx) => {
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
+        // 新規参加のときだけ定員を判定（既存の自分の再表明は席を増やさない＝冪等）。
+        // 開催日の予約数を等値2条件で数え、8名到達なら締切（トランザクション内なので競合時は自動リトライ）。
+        if (!entrySnap.exists && !allowByeSeats) {
+          const dateSnap = await tx.get(
+            db
+              .collection("mahjongEntries")
+              .where("seasonId", "==", season.seasonId)
+              .where("eventDate", "==", eventDate)
+          );
+          if (dateSnap.size >= MAHJONG_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
+        }
         if (!entrySnap.exists && lockSnap.exists) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
@@ -197,6 +218,15 @@ export async function POST(req: NextRequest) {
       if (e instanceof Error && e.message === "MONTHLY_LIMIT") {
         return NextResponse.json(
           { error: "参加は同じ月に1回までです（別の月をお選びください）", monthlyLimit: true },
+          { status: 409 }
+        );
+      }
+      if (e instanceof Error && e.message === "FULL") {
+        return NextResponse.json(
+          {
+            error: `この開催日は満員です（定員${MAHJONG_MAX_ENTRIES_PER_DATE}名）。別の開催日をお選びください。`,
+            full: true,
+          },
           { status: 409 }
         );
       }
