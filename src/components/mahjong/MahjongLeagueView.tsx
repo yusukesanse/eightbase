@@ -207,7 +207,6 @@ export function MahjongLeagueView() {
           enteredDates={enteredDates}
           closedDates={closedDates}
           cancelledDates={cancelledDates}
-          tables={tables}
           paymentRequired={paymentRequired}
           paymentStatusByDate={paymentStatusByDate}
           onChanged={() => loadCore(true)}

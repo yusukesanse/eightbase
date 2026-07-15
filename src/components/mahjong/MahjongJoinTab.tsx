@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  MAHJONG_ENTRY_FEE,
-  type PublicMahjongTable,
-  type MahjongPaymentStatus,
-} from "@/types";
+import { MAHJONG_ENTRY_FEE, type MahjongPaymentStatus } from "@/types";
 import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
 import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS, MAHJONG_CANCEL_POLICY } from "@/lib/date";
@@ -32,7 +28,6 @@ export function JoinTab({
   enteredDates,
   closedDates,
   cancelledDates,
-  tables,
   paymentRequired,
   paymentStatusByDate,
   onChanged,
@@ -40,7 +35,6 @@ export function JoinTab({
   enteredDates: Set<string>;
   closedDates: Set<string>;
   cancelledDates: Set<string>;
-  tables: PublicMahjongTable[];
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
   onChanged: () => void;
@@ -289,7 +283,6 @@ export function JoinTab({
       {selectedDate ? (
         (() => {
           const entered = effectiveEntered.has(selectedDate);
-          const confirmed = tables.some((t) => t.eventDate === selectedDate);
           const payStatus = paymentStatusByDate[selectedDate] ?? null;
           const needsPay = entered && paymentRequired;
           // 参加確定・未払い（会員/ゲスト）→ 支払い促しの注意書きを表示。社員・支払い済みには出さない。
@@ -322,7 +315,7 @@ export function JoinTab({
             <>
             <div
               className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2.5 px-4 py-3"
-              style={{ boxShadow: `inset 0 0 0 1.5px ${confirmed ? CONFIRM : entered ? ACCENT : "#eceff1"}` }}
+              style={{ boxShadow: `inset 0 0 0 1.5px ${entered ? ACCENT : "#eceff1"}` }}
             >
               <div className="flex items-center gap-3">
                 <div className="w-[50px] text-center shrink-0">
@@ -333,17 +326,15 @@ export function JoinTab({
                   {/* truncate で狭幅でも1行維持（折り返さない） */}
                   <div className="text-[14.5px] font-extrabold text-[#231714] truncate">リーグ戦（土曜）</div>
                   <div className="text-[12px] text-[#231714]/50 mt-0.5 truncate">
-                    {confirmed
-                      ? "卓が確定しています"
-                      : !entered
-                        ? isPast
-                          ? "この開催日は終了しました"
-                          : monthlyBlocked
-                            ? "今月は別の日に参加確定済みです"
-                            : dateFull
-                              ? "満員です（参加者を確認できます）"
-                              : "この日に参加できます"
-                        : !paymentRequired
+                    {!entered
+                      ? isPast
+                        ? "この開催日は終了しました"
+                        : monthlyBlocked
+                          ? "今月は別の日に参加確定済みです"
+                          : dateFull
+                            ? "満員です（参加者を確認できます）"
+                            : "この日に参加できます"
+                      : !paymentRequired
                           ? "参加確定"
                           : payStatus === "paid"
                             ? "支払い済み"
@@ -352,13 +343,7 @@ export function JoinTab({
                               : "参加確定（未払い）"}
                   </div>
                 </div>
-                {confirmed ? (
-                  // 卓の中身は「卓確認/申告」タブで見る（GM が半荘ごとに組むため、参加タブでの
-                  // スナップショット表示は実態とずれる）。ここは確定した事実だけを示す。
-                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: CONFIRM, color: "#fff" }}>
-                    <CheckIcon />卓確定
-                  </span>
-                ) : needsPay && payStatus === "paid" ? (
+                {needsPay && payStatus === "paid" ? (
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2 whitespace-nowrap" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
                     {canCancelMahjong(selectedDate) ? (
