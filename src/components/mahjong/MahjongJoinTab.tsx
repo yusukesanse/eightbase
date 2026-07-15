@@ -44,10 +44,15 @@ export function JoinTab({
   const [cancelDate, setCancelDate] = useState<string | null>(null);
   // カレンダーで選択中の開催日（土曜）
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  // 選択日の参加者一覧（仮予約/確定を区別して表示・内部IDは持たない）
-  const [dateEntries, setDateEntries] = useState<{ displayName: string; status?: string }[]>([]);
+  // 選択日の参加者一覧（支払い済み/未払いを区別して表示・内部IDは持たない）
+  const [dateEntries, setDateEntries] = useState<
+    { displayName: string; status?: string; displayStatus?: "paid" | "joined_unpaid" }[]
+  >([]);
   // 選択日が満員か（抜け番許容OFFのシーズンで定員8名に達している）。未参加者の新規参加を止める。
   const [dateFull, setDateFull] = useState(false);
+  // 参加確定人数 / 定員（capacity=null は抜け番許容シーズン＝上限なし）。ヘッダー「n / 8名」に使う。
+  const [dateCount, setDateCount] = useState(0);
+  const [dateCapacity, setDateCapacity] = useState<number | null>(null);
   const today = todayJst();
 
   // 楽観的UI: 参加/キャンセルを即時反映（サーバー確定を待たず表示）。失敗時はロールバック。
@@ -81,6 +86,8 @@ export function JoinTab({
     if (!selectedDate) {
       setDateEntries([]);
       setDateFull(false);
+      setDateCount(0);
+      setDateCapacity(null);
       return;
     }
     let alive = true;
@@ -90,6 +97,8 @@ export function JoinTab({
         if (alive) {
           setDateEntries(d.entries ?? []);
           setDateFull(!!d.full);
+          setDateCount(typeof d.count === "number" ? d.count : (d.entries ?? []).length);
+          setDateCapacity(typeof d.capacity === "number" ? d.capacity : null);
         }
       })
       .catch(() => {});
@@ -159,26 +168,36 @@ export function JoinTab({
     }
   }
 
-  // 月1回制御＋土曜のみ。実効の参加日集合（楽観差分込み）から選択可否を決める。
   const enteredArr = Array.from(effectiveEntered);
   const isSat = (dateStr: string) => new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
-  const selectable = (dateStr: string) => {
-    // 参加済みの日は曜日・過去に関わらず常に選べる（詳細確認・取消のため）。
+
+  // カレンダーでタップ可（＝参加者一覧を閲覧できる）。満員・当月別日参加済みでも閲覧はできる。
+  // 選択不可: 非土曜・過去・休催・中止。参加済みの日は曜日/過去に関わらず常に選べる（詳細確認・取消）。
+  const isViewableDate = (dateStr: string) => {
     if (effectiveEntered.has(dateStr)) return true;
     if (!isSat(dateStr) || dateStr < today) return false;
-    if (closedDates.has(dateStr)) return false; // 休催日は選べない
-    if (cancelledDates.has(dateStr)) return false; // 人数不足で中止の日は選べない
+    if (closedDates.has(dateStr)) return false; // 休催日
+    if (cancelledDates.has(dateStr)) return false; // 人数不足で中止
+    return true;
+  };
+
+  // その月に別日で参加確定済みか（月1回制限）。当日自身が参加済みのケースは呼び出し側で除外する。
+  const isMonthlyBlocked = (dateStr: string) => {
     const ym = dateStr.slice(0, 7);
-    return !enteredArr.some((e) => e.slice(0, 7) === ym); // 同月に他の参加があれば不可
+    return enteredArr.some((e) => e.slice(0, 7) === ym && e !== dateStr);
   };
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
         毎週土曜が開催日です。カレンダーから参加日を選んでください（参加は1か月に1回）。
-        {paymentRequired && `　参加ボタンで仮予約→決済で参加確定。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()}。`}
+        {paymentRequired && `　「参加する」で参加が確定します（定員8名）。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は別途お支払いください。`}
         {`　${MAHJONG_CANCEL_POLICY}`}
       </p>
+      {/* 懇親会の常時案内（ON/OFF 不要・費用は実費で参加費に含まない） */}
+      <div className="text-[12px] text-[#231714]/70 bg-[#f6f8f4] border border-[#e4ebe0] rounded-xl px-3 py-2 leading-relaxed">
+        ※ 参加当日は懇親会があります（費用は実費・参加費には含まれません）
+      </div>
       {payMsg && (
         <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>
       )}
@@ -187,7 +206,7 @@ export function JoinTab({
         <MonthCalendar
           value={selectedDate}
           onSelect={setSelectedDate}
-          isSelectable={(d) => selectable(d)}
+          isSelectable={(d) => isViewableDate(d)}
           marked={(d) => effectiveEntered.has(d)}
           accent={ACCENT}
         />
@@ -202,14 +221,17 @@ export function JoinTab({
             {[...enteredArr].sort().map((d) => {
               const cancelled = cancelledDates.has(d);
               const st = paymentStatusByDate[d] ?? null;
-              const conf = !paymentRequired || st === "paid";
+              // paidLike = 支払い済み or 社員（支払い不要）。それ以外は参加確定（未払い）。
+              const paidLike = !paymentRequired || st === "paid";
               const label = cancelled
                 ? "中止（人数不足）"
-                : conf
-                  ? "参加確定"
-                  : st === "cancelRequested"
-                    ? "返金対応中"
-                    : "仮予約（未決済）";
+                : st === "cancelRequested"
+                  ? "返金対応中"
+                  : !paymentRequired
+                    ? "参加確定"
+                    : st === "paid"
+                      ? "支払い済み"
+                      : "参加確定（未払い）";
               const { md, wd } = dateParts(d);
               const active = selectedDate === d;
               return (
@@ -226,7 +248,7 @@ export function JoinTab({
                     style={
                       cancelled
                         ? { background: "#fdeede", color: "#a1502c" }
-                        : conf
+                        : paidLike
                           ? { background: "#eef4dd", color: "#6f9023" }
                           : { background: "#fdf4e3", color: "#b48f13" }
                     }
@@ -246,7 +268,10 @@ export function JoinTab({
           const confirmed = tables.some((t) => t.eventDate === selectedDate);
           const payStatus = paymentStatusByDate[selectedDate] ?? null;
           const needsPay = entered && paymentRequired;
-          const isConfirmed = entered && (!paymentRequired || payStatus === "paid");
+          // 参加確定・未払い（会員/ゲスト）→ 支払い促しの注意書きを表示。社員・支払い済みには出さない。
+          const unpaidNotice = needsPay && payStatus !== "paid" && payStatus !== "cancelRequested";
+          // 未参加日: この月に別日で参加確定済みなら新規参加不可（閲覧は可）。
+          const monthlyBlocked = !entered && isMonthlyBlocked(selectedDate);
           const { md, wd } = dateParts(selectedDate);
           // 人数不足で自動中止（流会）になった日は、参加/決済導線を出さず中止の案内にする。
           if (cancelledDates.has(selectedDate)) {
@@ -267,6 +292,7 @@ export function JoinTab({
             );
           }
           return (
+            <>
             <div
               className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
               style={{ boxShadow: `inset 0 0 0 1.5px ${confirmed ? CONFIRM : entered ? ACCENT : "#eceff1"}` }}
@@ -281,12 +307,18 @@ export function JoinTab({
                   {confirmed
                     ? "卓が確定しています"
                     : !entered
-                      ? "この日に参加できます"
-                      : isConfirmed
+                      ? monthlyBlocked
+                        ? "今月は別の日に参加確定済みです"
+                        : dateFull
+                          ? "満員です（参加者を確認できます）"
+                          : "この日に参加できます"
+                      : !paymentRequired
                         ? "参加確定"
-                        : payStatus === "cancelRequested"
-                          ? "返金対応中"
-                          : "仮予約（未決済）"}
+                        : payStatus === "paid"
+                          ? "支払い済み"
+                          : payStatus === "cancelRequested"
+                            ? "返金対応中"
+                            : "参加確定（未払い）"}
                 </div>
               </div>
               {confirmed ? (
@@ -311,7 +343,7 @@ export function JoinTab({
                   {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
                 </div>
               ) : needsPay ? (
-                // 仮予約（未決済）: 支払い＋いつでも解除可（返金なし）。別日を選び直せる。
+                // 参加確定・未払い: 支払い＋いつでも解除可（返金なし）。別日を選び直せる。
                 <div className="shrink-0 flex flex-col items-end gap-1">
                   <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
                     {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
@@ -322,40 +354,66 @@ export function JoinTab({
                 // 支払い不要（staff等）＝参加確定。いつでも解除可。
                 <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
               ) : dateFull ? (
-                // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可。
+                // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可（閲覧は可）。
                 <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/40">満員</span>
+              ) : monthlyBlocked ? (
+                // 当月に別日で参加確定済み（月1回制限）。新規参加ボタンは出さない（閲覧のみ）。
+                <span className="shrink-0 inline-flex items-center rounded-full text-[11px] font-bold px-3 py-2 bg-[#fdf4e3] text-[#b48f13]">今月は参加済み</span>
               ) : (
                 <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
                   {busy === selectedDate ? "..." : "参加する"}
                 </button>
               )}
             </div>
+
+            {/* 参加確定・未払いのときの支払い促し（社員・支払い済みには出さない）。§4.4 の3文案を表示。 */}
+            {unpaidNotice && (
+              <div className="rounded-2xl border px-4 py-3 space-y-2" style={{ background: "#fff9ec", borderColor: "#f0d9a8" }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[13px] font-extrabold text-[#b48f13]">参加確定（未払い）</span>
+                </div>
+                <p className="text-[12.5px] font-bold text-[#8a6a12] leading-relaxed">
+                  参加枠を確保しました。当日の卓振り分けには、参加費（¥{MAHJONG_ENTRY_FEE.toLocaleString()}）のお支払いが完了している必要があります。開催日までにお支払いください。
+                </p>
+                <p className="text-[12px] text-[#8a6a12]/90 leading-relaxed">
+                  未払いのまま当日を迎えると、卓の振り分け対象外となります。
+                </p>
+                <p className="text-[12px] text-[#8a6a12]/80 leading-relaxed">
+                  参加するには参加費のお支払いが必要です。お早めに「支払いする」から決済を完了してください。
+                </p>
+              </div>
+            )}
+            </>
           );
         })()
       ) : (
         <div className="text-center text-[12px] text-[#231714]/40 py-4">参加する土曜日をカレンダーから選んでください</div>
       )}
 
-      {/* この日の参加者（仮予約/確定） */}
-      {selectedDate && dateEntries.length > 0 && (
+      {/* この日の参加者（支払い済み / 参加済み・未払い）。0名でも空状態を表示。 */}
+      {selectedDate && !cancelledDates.has(selectedDate) && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
           <div className="text-[11px] font-extrabold text-[#97999d] mb-2">
-            この日の参加者（{dateEntries.length}名）
+            この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
             {dateFull && <span className="ml-1.5 text-[#b48f13]">満員</span>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            {dateEntries.map((e, i) => {
-              const conf = e.status === "paid";
-              return (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{e.displayName}</span>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={conf ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>
-                    {conf ? "確定" : "仮予約"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          {dateEntries.length === 0 ? (
+            <div className="text-[12px] text-[#231714]/40 py-2">まだ参加者がいません。</div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {dateEntries.map((e, i) => {
+                const paid = (e.displayStatus ?? (e.status === "paid" ? "paid" : "joined_unpaid")) === "paid";
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{e.displayName}</span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={paid ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>
+                      {paid ? "支払い済み" : "参加済み（未払い）"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

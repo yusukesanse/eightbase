@@ -1,6 +1,10 @@
 /**
  * 麻雀参加エントリーの状態機械。サーバーで不正遷移を拒否するための単一定義。
- * reserved(仮予約) → paid(確定) → cancelRequested(依頼) → refunded(返金) / cancelRejected(却下)
+ * reserved → paid → cancelRequested → refunded / cancelRejected
+ *
+ * ※ 状態名は内部表現。利用者向けラベルは別軸で扱う（「仮予約」は使わない）:
+ *   reserved = 参加確定（未払い） / paid = 支払い済み（GM 卓振り分け対象）。
+ *   POST 時点で参加確定＝定員8名・月ロックを消費する（reserved でも枠は確保済み）。
  */
 export type MahjongEntryStatus =
   | "reserved"
