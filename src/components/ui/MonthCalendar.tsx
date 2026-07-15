@@ -18,7 +18,6 @@ export default function MonthCalendar({
   marked,
   accent = "#2f7d57",
   size = "sm",
-  allowPast = false,
 }: {
   value: string | null;
   onSelect: (dateStr: string) => void;
@@ -28,13 +27,11 @@ export default function MonthCalendar({
   accent?: string;
   /** sm=コンパクト（既定）/ lg=大きめ（管理カレンダー用） */
   size?: "sm" | "lg";
-  /** 過去の月へも戻れるようにする（管理画面の過去開催日の閲覧用）。既定は当月より前に戻れない。 */
-  allowPast?: boolean;
 }) {
   const lg = size === "lg";
   const today = dayjs().format("YYYY-MM-DD");
   const [month, setMonth] = useState(() => (value ? dayjs(value) : dayjs()).startOf("month"));
-  const prevDisabled = !allowPast && month.isSame(dayjs().startOf("month"), "month");
+  const atCurrentMonth = month.isSame(dayjs().startOf("month"), "month");
 
   const days = useMemo(() => {
     const first = month.startOf("month");
@@ -52,10 +49,10 @@ export default function MonthCalendar({
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={() => setMonth((m) => m.subtract(1, "month"))}
-          disabled={prevDisabled}
+          disabled={atCurrentMonth}
           className={clsx(
             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-            prevDisabled ? "text-gray-200" : "text-[#231714] hover:bg-gray-50"
+            atCurrentMonth ? "text-gray-200" : "text-[#231714] hover:bg-gray-50"
           )}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
