@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import MonthCalendar from "@/components/ui/MonthCalendar";
 import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import type {
   MahjongStanding,
@@ -44,16 +43,15 @@ export default function SeasonMahjongPage() {
   const [confirming, setConfirming] = useState(false);
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
   const [tab, setTab] = useState<"standings" | "tables" | "rotation" | "history">("standings");
-  // 卓一覧タブ: 選択中の開催日（日付を選ぶとその日の卓だけ表示する）
+  // 卓一覧タブ: 選択中の開催日（日付を選ぶとその日の卓だけ表示する）＋プルダウン開閉
   const [tableDate, setTableDate] = useState<string | null>(null);
+  const [dateOpen, setDateOpen] = useState(false);
 
   // 卓が存在する開催日（新しい順）。日付セレクタの選択肢に使う。
   const tableDates = useMemo(
     () => Array.from(new Set(tables.map((t) => t.eventDate))).sort((a, b) => b.localeCompare(a)),
     [tables]
   );
-  // カレンダーの isSelectable/marked は日付セルごとに呼ばれるので Set で O(1) 参照する。
-  const tableDateSet = useMemo(() => new Set(tableDates), [tableDates]);
   // 既定は最新の開催日。選択が消えた（データ更新で無くなった）場合も最新へ寄せる。
   useEffect(() => {
     if (tableDates.length === 0) {
@@ -276,29 +274,52 @@ export default function SeasonMahjongPage() {
           </div>
         ) : (
           <>
-            {/* 開催日セレクタ（カレンダー方式・卓のある日だけ選択可＝印付き）。開催日が増えても探しやすい。 */}
-            <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,300px),1fr] items-start">
-              <div className="bg-white rounded-xl border border-[#231714]/10 p-3">
-                <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日を選択</div>
-                <MonthCalendar
-                  // 最新開催日が判明したら、その月で開くよう一度だけ再マウントする。
-                  key={tableDates[0] ?? "none"}
-                  value={tableDate}
-                  onSelect={setTableDate}
-                  isSelectable={(d) => tableDateSet.has(d)}
-                  marked={(d) => tableDateSet.has(d)}
-                  accent="#231714"
-                  size="lg"
-                  allowPast
-                />
-                <p className="text-[10.5px] text-[#231714]/35 mt-1">● のついた日が開催日です</p>
+            {/* 開催日セレクタ（プルダウン・新しい順）。開催日が増えてもスクロールで探せる。 */}
+            <div className="mb-4">
+              <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日</div>
+              <div className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => setDateOpen((o) => !o)}
+                  className="inline-flex items-center justify-between gap-3 min-w-[190px] px-3.5 py-2 rounded-lg text-sm font-medium border border-[#231714]/15 bg-white hover:bg-gray-50"
+                >
+                  <span className="text-[#231714]">
+                    {tableDate ? formatEventDate(tableDate) : "開催日を選択"}
+                    {tableDate && <span className="ml-2 text-xs text-[#231714]/40">{dayTables.length}卓</span>}
+                  </span>
+                  <svg className={`transition-transform ${dateOpen ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {dateOpen && (
+                  <>
+                    {/* クリック外で閉じる */}
+                    <div className="fixed inset-0 z-10" onClick={() => setDateOpen(false)} />
+                    <div className="absolute left-0 mt-1 z-20 min-w-[210px] max-h-[280px] overflow-y-auto bg-white rounded-lg border border-[#231714]/10 shadow-lg py-1">
+                      {tableDates.map((d) => {
+                        const active = d === tableDate;
+                        const n = tables.filter((t) => t.eventDate === d).length;
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => {
+                              setTableDate(d);
+                              setDateOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-sm text-left hover:bg-gray-50 ${active ? "font-bold text-[#231714]" : "text-[#231714]/70"}`}
+                          >
+                            <span>
+                              {formatEventDate(d)}
+                              <span className="ml-2 text-xs text-[#231714]/40">{n}卓</span>
+                            </span>
+                            {active && (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#231714" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
-              {tableDate && (
-                <div className="text-sm text-[#231714]/70">
-                  <span className="font-bold text-[#231714]">{formatEventDate(tableDate)}</span>
-                  <span className="ml-2 text-xs text-[#231714]/40">{dayTables.length}卓</span>
-                </div>
-              )}
             </div>
 
             {dayTables.length === 0 ? (
