@@ -30,6 +30,51 @@ function formatEventDate(d: string): string {
   return `${m}/${day}（${wd}）`;
 }
 
+/** UTC正午基準で土曜か（開催日=毎週土曜。TZ非依存）。 */
+function isSatDate(d: string): boolean {
+  return new Date(`${d}T12:00:00Z`).getUTCDay() === 6;
+}
+
+/** "YYYY-MM" を "YYYY年M月" に整形。 */
+function formatYm(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${y}年${m}月`;
+}
+
+/** 開始〜終了（YYYY-MM-DD）を含む月（YYYY-MM）の配列。新しい順。 */
+function monthsInRange(startDate: string, endDate: string): string[] {
+  const res: string[] = [];
+  let [y, m] = startDate.slice(0, 7).split("-").map(Number);
+  const endYm = endDate.slice(0, 7);
+  for (let i = 0; i < 240; i++) {
+    const ym = `${y}-${String(m).padStart(2, "0")}`;
+    res.push(ym);
+    if (ym >= endYm) break;
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return res.reverse();
+}
+
+/** その月の開催日（土曜）。期間内・休催除外。日付昇順。 */
+function eventDatesInMonth(
+  ym: string,
+  range: { startDate: string; endDate: string } | null,
+  closed: Set<string>
+): string[] {
+  const [y, m] = ym.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const res: string[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ds = `${ym}-${String(day).padStart(2, "0")}`;
+    if (!isSatDate(ds)) continue;
+    if (range && (ds < range.startDate || ds > range.endDate)) continue;
+    if (closed.has(ds)) continue; // 休催は開催日ではない
+    res.push(ds);
+  }
+  return res;
+}
+
 /* ───────── メインコンポーネント ───────── */
 
 export default function SeasonMahjongPage() {
@@ -43,23 +88,63 @@ export default function SeasonMahjongPage() {
   const [confirming, setConfirming] = useState(false);
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
   const [tab, setTab] = useState<"standings" | "tables" | "rotation" | "history">("standings");
-  // 卓一覧タブ: 選択中の開催日（日付を選ぶとその日の卓だけ表示する）＋プルダウン開閉
+  // 卓一覧タブ: 選択中の開催日（月・日プルダウン）。月=シーズン開催期間、日=日程の開催日と連携。
   const [tableDate, setTableDate] = useState<string | null>(null);
-  const [dateOpen, setDateOpen] = useState(false);
+  const [selMonth, setSelMonth] = useState<string | null>(null);
+  const [seasonRange, setSeasonRange] = useState<{ startDate: string; endDate: string } | null>(null);
+  const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
 
   // 卓が存在する開催日（新しい順）。日付セレクタの選択肢に使う。
   const tableDates = useMemo(
     () => Array.from(new Set(tables.map((t) => t.eventDate))).sort((a, b) => b.localeCompare(a)),
     [tables]
   );
-  // 既定は最新の開催日。選択が消えた（データ更新で無くなった）場合も最新へ寄せる。
+
+  // シーズン開催期間（月プルダウン用）と休催日（開催日から除外）を取得。
   useEffect(() => {
-    if (tableDates.length === 0) {
-      if (tableDate !== null) setTableDate(null);
-    } else if (!tableDate || !tableDates.includes(tableDate)) {
-      setTableDate(tableDates[0]);
-    }
+    if (!seasonId) return;
+    fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((d) => {
+        const s = (d.seasons ?? []).find((x: { seasonId: string }) => x.seasonId === seasonId);
+        if (s?.startDate && s?.endDate) setSeasonRange({ startDate: s.startDate, endDate: s.endDate });
+      })
+      .catch(() => {});
+    fetch("/api/admin/mahjong/closed-dates", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((d) => setClosedDates(new Set<string>(d.dates ?? [])))
+      .catch(() => {});
+  }, [seasonId]);
+
+  // 月の選択肢（シーズン開催期間の各月・新しい順）。期間未取得時は卓のある月でフォールバック。
+  const monthOptions = useMemo(() => {
+    if (seasonRange) return monthsInRange(seasonRange.startDate, seasonRange.endDate);
+    return Array.from(new Set(tableDates.map((d) => d.slice(0, 7)))).sort((a, b) => b.localeCompare(a));
+  }, [seasonRange, tableDates]);
+
+  // 選択月の開催日（日プルダウン・昇順）。日程の開催日（毎週土曜−休催）と連携。
+  const dayOptions = useMemo(
+    () => (selMonth ? eventDatesInMonth(selMonth, seasonRange, closedDates) : []),
+    [selMonth, seasonRange, closedDates]
+  );
+
+  // 初期選択: 最新の開催日（卓のある日）→ その月を選択。
+  useEffect(() => {
+    if (tableDate === null && tableDates.length > 0) setTableDate(tableDates[0]);
   }, [tableDates, tableDate]);
+  useEffect(() => {
+    if (selMonth === null && monthOptions.length > 0) {
+      setSelMonth(tableDate ? tableDate.slice(0, 7) : monthOptions[0]);
+    }
+  }, [selMonth, monthOptions, tableDate]);
+
+  // 月を変えたら、その月の開催日（卓のある日を優先）に切り替える。
+  function changeMonth(ym: string) {
+    setSelMonth(ym);
+    const days = eventDatesInMonth(ym, seasonRange, closedDates);
+    const withTables = days.find((d) => tableDates.includes(d));
+    setTableDate(withTables ?? days[0] ?? null);
+  }
 
   // 選択日の卓（半荘→卓ラベル順）。手動作成卓(round=undefined)は末尾にまとめる。
   const dayTables = useMemo(() => {
@@ -274,51 +359,38 @@ export default function SeasonMahjongPage() {
           </div>
         ) : (
           <>
-            {/* 開催日セレクタ（プルダウン・新しい順）。開催日が増えてもスクロールで探せる。 */}
+            {/* 開催日セレクタ（月・日プルダウン）。月=シーズン開催期間、日=日程の開催日（毎週土曜−休催）。 */}
             <div className="mb-4">
               <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日</div>
-              <div className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setDateOpen((o) => !o)}
-                  className="inline-flex items-center justify-between gap-3 min-w-[190px] px-3.5 py-2 rounded-lg text-sm font-medium border border-[#231714]/15 bg-white hover:bg-gray-50"
+              <div className="flex items-center gap-2">
+                <select
+                  value={selMonth ?? ""}
+                  onChange={(e) => changeMonth(e.target.value)}
+                  className="px-3 py-2 text-sm border border-[#231714]/15 rounded-lg bg-white"
                 >
-                  <span className="text-[#231714]">
-                    {tableDate ? formatEventDate(tableDate) : "開催日を選択"}
-                    {tableDate && <span className="ml-2 text-xs text-[#231714]/40">{dayTables.length}卓</span>}
-                  </span>
-                  <svg className={`transition-transform ${dateOpen ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {dateOpen && (
-                  <>
-                    {/* クリック外で閉じる */}
-                    <div className="fixed inset-0 z-10" onClick={() => setDateOpen(false)} />
-                    <div className="absolute left-0 mt-1 z-20 min-w-[210px] max-h-[280px] overflow-y-auto bg-white rounded-lg border border-[#231714]/10 shadow-lg py-1">
-                      {tableDates.map((d) => {
-                        const active = d === tableDate;
-                        const n = tables.filter((t) => t.eventDate === d).length;
-                        return (
-                          <button
-                            key={d}
-                            onClick={() => {
-                              setTableDate(d);
-                              setDateOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-sm text-left hover:bg-gray-50 ${active ? "font-bold text-[#231714]" : "text-[#231714]/70"}`}
-                          >
-                            <span>
-                              {formatEventDate(d)}
-                              <span className="ml-2 text-xs text-[#231714]/40">{n}卓</span>
-                            </span>
-                            {active && (
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#231714" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
+                  {monthOptions.length === 0 && <option value="">-</option>}
+                  {monthOptions.map((ym) => (
+                    <option key={ym} value={ym}>{formatYm(ym)}</option>
+                  ))}
+                </select>
+                <select
+                  value={tableDate && tableDate.slice(0, 7) === selMonth ? tableDate : ""}
+                  onChange={(e) => setTableDate(e.target.value || null)}
+                  className="px-3 py-2 text-sm border border-[#231714]/15 rounded-lg bg-white"
+                >
+                  {dayOptions.length === 0 ? (
+                    <option value="">開催日なし</option>
+                  ) : (
+                    dayOptions.map((d) => {
+                      const n = tables.filter((t) => t.eventDate === d).length;
+                      return (
+                        <option key={d} value={d}>
+                          {formatEventDate(d)}（{n > 0 ? `${n}卓` : "卓なし"}）
+                        </option>
+                      );
+                    })
+                  )}
+                </select>
               </div>
             </div>
 
