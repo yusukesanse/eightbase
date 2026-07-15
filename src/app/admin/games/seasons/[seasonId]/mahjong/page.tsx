@@ -41,7 +41,7 @@ function formatYm(ym: string): string {
   return `${y}年${m}月`;
 }
 
-/** 開始〜終了（YYYY-MM-DD）を含む月（YYYY-MM）の配列。新しい順。 */
+/** 開始〜終了（YYYY-MM-DD）を含む月（YYYY-MM）の配列。昇順（古い→新しい）。 */
 function monthsInRange(startDate: string, endDate: string): string[] {
   const res: string[] = [];
   let [y, m] = startDate.slice(0, 7).split("-").map(Number);
@@ -53,7 +53,7 @@ function monthsInRange(startDate: string, endDate: string): string[] {
     m += 1;
     if (m > 12) { m = 1; y += 1; }
   }
-  return res.reverse();
+  return res;
 }
 
 /** その月の開催日（土曜）。期間内・休催除外。日付昇順。 */
@@ -116,10 +116,10 @@ export default function SeasonMahjongPage() {
       .catch(() => {});
   }, [seasonId]);
 
-  // 月の選択肢（シーズン開催期間の各月・新しい順）。期間未取得時は卓のある月でフォールバック。
+  // 月の選択肢（シーズン開催期間の各月・昇順）。期間未取得時は卓のある月でフォールバック。
   const monthOptions = useMemo(() => {
     if (seasonRange) return monthsInRange(seasonRange.startDate, seasonRange.endDate);
-    return Array.from(new Set(tableDates.map((d) => d.slice(0, 7)))).sort((a, b) => b.localeCompare(a));
+    return Array.from(new Set(tableDates.map((d) => d.slice(0, 7)))).sort((a, b) => a.localeCompare(b));
   }, [seasonRange, tableDates]);
 
   // 選択月の開催日（日プルダウン・昇順）。日程の開催日（毎週土曜−休催）と連携。
