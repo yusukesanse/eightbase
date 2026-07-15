@@ -294,75 +294,94 @@ export function JoinTab({
           return (
             <>
             <div
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3"
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2.5 px-4 py-3"
               style={{ boxShadow: `inset 0 0 0 1.5px ${confirmed ? CONFIRM : entered ? ACCENT : "#eceff1"}` }}
             >
-              <div className="w-[50px] text-center shrink-0">
-                <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
+              <div className="flex items-center gap-3">
+                <div className="w-[50px] text-center shrink-0">
+                  <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
+                  <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {/* truncate で狭幅でも1行維持（折り返さない） */}
+                  <div className="text-[14.5px] font-extrabold text-[#231714] truncate">リーグ戦（土曜）</div>
+                  <div className="text-[12px] text-[#231714]/50 mt-0.5 truncate">
+                    {confirmed
+                      ? "卓が確定しています"
+                      : !entered
+                        ? monthlyBlocked
+                          ? "今月は別の日に参加確定済みです"
+                          : dateFull
+                            ? "満員です（参加者を確認できます）"
+                            : "この日に参加できます"
+                        : !paymentRequired
+                          ? "参加確定"
+                          : payStatus === "paid"
+                            ? "支払い済み"
+                            : payStatus === "cancelRequested"
+                              ? "返金対応中"
+                              : "参加確定（未払い）"}
+                  </div>
+                </div>
+                {confirmed ? (
+                  // 卓の中身は「卓確認/申告」タブで見る（GM が半荘ごとに組むため、参加タブでの
+                  // スナップショット表示は実態とずれる）。ここは確定した事実だけを示す。
+                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: CONFIRM, color: "#fff" }}>
+                    <CheckIcon />卓確定
+                  </span>
+                ) : needsPay && payStatus === "paid" ? (
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2 whitespace-nowrap" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
+                    {canCancelMahjong(selectedDate) ? (
+                      <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2 whitespace-nowrap">支払いをキャンセル</button>
+                    ) : (
+                      <span className="text-[10px] text-[#97999d] whitespace-nowrap">キャンセル期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
+                    )}
+                    {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
+                  </div>
+                ) : needsPay && payStatus === "cancelRequested" ? (
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="text-[11px] font-bold text-[#b48f13] whitespace-nowrap">返金対応中</span>
+                    {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
+                  </div>
+                ) : needsPay ? (
+                  // 参加確定・未払いの操作は下の全幅ボタン行に出す（レスポンシブで折り返さない）。
+                  null
+                ) : entered ? (
+                  // 支払い不要（staff等）＝参加確定。いつでも解除可。
+                  <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2 whitespace-nowrap">参加をやめる</button>
+                ) : dateFull ? (
+                  // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可（閲覧は可）。
+                  <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/40">満員</span>
+                ) : monthlyBlocked ? (
+                  // 当月に別日で参加確定済み（月1回制限）。新規参加ボタンは出さない（閲覧のみ）。
+                  <span className="shrink-0 inline-flex items-center rounded-full text-[11px] font-bold px-3 py-2 bg-[#fdf4e3] text-[#b48f13] whitespace-nowrap">今月は参加済み</span>
+                ) : (
+                  <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform whitespace-nowrap" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
+                    {busy === selectedDate ? "..." : "参加する"}
+                  </button>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14.5px] font-extrabold text-[#231714]">リーグ戦（土曜）</div>
-                <div className="text-[12px] text-[#231714]/50 mt-0.5">
-                  {confirmed
-                    ? "卓が確定しています"
-                    : !entered
-                      ? monthlyBlocked
-                        ? "今月は別の日に参加確定済みです"
-                        : dateFull
-                          ? "満員です（参加者を確認できます）"
-                          : "この日に参加できます"
-                      : !paymentRequired
-                        ? "参加確定"
-                        : payStatus === "paid"
-                          ? "支払い済み"
-                          : payStatus === "cancelRequested"
-                            ? "返金対応中"
-                            : "参加確定（未払い）"}
-                </div>
-              </div>
-              {confirmed ? (
-                // 卓の中身は「卓確認/申告」タブで見る（GM が半荘ごとに組むため、参加タブでの
-                // スナップショット表示は実態とずれる）。ここは確定した事実だけを示す。
-                <span className="shrink-0 inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: CONFIRM, color: "#fff" }}>
-                  <CheckIcon />卓確定
-                </span>
-              ) : needsPay && payStatus === "paid" ? (
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
-                  {canCancelMahjong(selectedDate) ? (
-                    <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">支払いをキャンセル</button>
-                  ) : (
-                    <span className="text-[10px] text-[#97999d]">キャンセル期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
-                  )}
-                  {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
-                </div>
-              ) : needsPay && payStatus === "cancelRequested" ? (
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="text-[11px] font-bold text-[#b48f13]">返金対応中</span>
-                  {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
-                </div>
-              ) : needsPay ? (
-                // 参加確定・未払い: 支払い＋いつでも解除可（返金なし）。別日を選び直せる。
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <button onClick={() => pay(selectedDate)} disabled={busy === selectedDate} className="inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform text-white" style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}>
+
+              {/* 参加確定・未払い: 支払い/取消を全幅の押しやすいボタン行に（レスポンシブでも折り返さない） */}
+              {unpaidNotice && (
+                <div className="flex items-stretch gap-2">
+                  <button
+                    onClick={() => pay(selectedDate)}
+                    disabled={busy === selectedDate}
+                    className="flex-[3] inline-flex items-center justify-center gap-1 rounded-xl text-[13.5px] font-extrabold py-2.5 active:scale-[0.98] disabled:opacity-50 transition-transform text-white whitespace-nowrap"
+                    style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}
+                  >
                     {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
                   </button>
-                  <button onClick={() => toggle(selectedDate, true)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2">キャンセルして別日を選ぶ</button>
+                  <button
+                    onClick={() => toggle(selectedDate, true)}
+                    disabled={busy === selectedDate}
+                    className="flex-[2] inline-flex items-center justify-center rounded-xl text-[12.5px] font-bold py-2.5 border border-[#231714]/15 text-[#231714]/55 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50 transition-transform whitespace-nowrap"
+                  >
+                    参加をやめる
+                  </button>
                 </div>
-              ) : entered ? (
-                // 支払い不要（staff等）＝参加確定。いつでも解除可。
-                <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2">参加をやめる</button>
-              ) : dateFull ? (
-                // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可（閲覧は可）。
-                <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/40">満員</span>
-              ) : monthlyBlocked ? (
-                // 当月に別日で参加確定済み（月1回制限）。新規参加ボタンは出さない（閲覧のみ）。
-                <span className="shrink-0 inline-flex items-center rounded-full text-[11px] font-bold px-3 py-2 bg-[#fdf4e3] text-[#b48f13]">今月は参加済み</span>
-              ) : (
-                <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
-                  {busy === selectedDate ? "..." : "参加する"}
-                </button>
               )}
             </div>
 
