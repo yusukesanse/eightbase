@@ -23,7 +23,7 @@ function payLabel(e: MahjongEntry): { t: string; c: string; bg: string } {
   if (e.paymentStatus === "cancelRequested") return { t: "返金対応中", c: "#a1502c", bg: "#fff4ec" };
   if (e.paymentStatus === "pending") return { t: "決済中", c: "#1172a5", bg: "#eaf3f8" };
   if (e.status === "paid") return { t: "参加確定", c: "#2f7d57", bg: "#eef6f0" }; // staff等（支払い免除）
-  return { t: "仮予約", c: "#b48f13", bg: "#fdf4e3" };
+  return { t: "参加済み（未払い）", c: "#b48f13", bg: "#fdf4e3" }; // 参加確定・未払い（利用者向けに「仮予約」は使わない）
 }
 
 export default function MahjongScheduleCalendar() {

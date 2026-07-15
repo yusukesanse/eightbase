@@ -11,6 +11,7 @@ import {
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
+import { deriveStatus } from "@/lib/mahjongEntryStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -89,13 +90,20 @@ export async function GET(req: NextRequest) {
     const full = !allowByeSeats && rawEntries.length >= MAHJONG_MAX_ENTRIES_PER_DATE;
 
     // 一覧は公開DTOのみ（内部lineUserId/entryId・決済照合情報は返さない）。
-    // 他人へは表示名・アイコン・仮予約/確定だけ。自分の決済状態は下の me で返す。
-    const entries = rawEntries.map((e) => ({
-      displayName: e.displayName,
-      pictureUrl: e.pictureUrl ?? "",
-      status: e.status ?? (e.paymentStatus === "paid" ? "paid" : "reserved"),
-      isMe: e.lineUserId === userId,
-    }));
+    // 他人へは表示名・アイコン・支払い状況だけ。自分の決済状態は下の me で返す。
+    // displayStatus は利用者向けラベル用: "paid"(支払い済み/社員免除) / "joined_unpaid"(参加済み・未払い)。
+    // ※「仮予約」は利用者向けに使わない。POST 時点で参加確定（枠・月ロック消費）。
+    const entries = rawEntries.map((e) => {
+      const ds = deriveStatus(e);
+      const paid = ds !== "reserved" && ds !== "refunded";
+      return {
+        displayName: e.displayName,
+        pictureUrl: e.pictureUrl ?? "",
+        status: e.status ?? (e.paymentStatus === "paid" ? "paid" : "reserved"),
+        displayStatus: paid ? ("paid" as const) : ("joined_unpaid" as const),
+        isMe: e.lineUserId === userId,
+      };
+    });
 
     return NextResponse.json({
       entries,
@@ -127,7 +135,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
     const userId = auth.lineUserId;
-    // 支払い必須(member/guest)は仮予約、免除(staff)は参加時点で確定。
+    // 会員/ゲストは参加確定（未払い・内部 reserved）、免除(staff)は参加時点で支払い済み扱い。
+    // ※ POST 時点で参加確定＝定員8名・月ロックを消費する（利用者向けに「仮予約」とは呼ばない）。
     const status: "reserved" | "paid" = mahjongPaymentRequired(auth.role) ? "reserved" : "paid";
 
     const body = await req.json().catch(() => null);
@@ -281,7 +290,7 @@ export async function DELETE(req: NextRequest) {
         { status: 409 }
       );
     }
-    // 未決済（仮予約）はいつでも取消可（返金なし）。取消後は別日を選べる。
+    // 未払いの参加確定はいつでも取消可（返金なし・枠と月ロックを解放）。取消後は別日を選べる。
     await ref.delete();
     await releaseMonthlyLock(db, season.seasonId, userId, eventDate);
     return NextResponse.json({ success: true });
