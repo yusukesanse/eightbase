@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import MonthCalendar from "@/components/ui/MonthCalendar";
+import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import type {
   MahjongStanding,
   MahjongTable,
@@ -50,6 +52,8 @@ export default function SeasonMahjongPage() {
     () => Array.from(new Set(tables.map((t) => t.eventDate))).sort((a, b) => b.localeCompare(a)),
     [tables]
   );
+  // カレンダーの isSelectable/marked は日付セルごとに呼ばれるので Set で O(1) 参照する。
+  const tableDateSet = useMemo(() => new Set(tableDates), [tableDates]);
   // 既定は最新の開催日。選択が消えた（データ更新で無くなった）場合も最新へ寄せる。
   useEffect(() => {
     if (tableDates.length === 0) {
@@ -272,29 +276,29 @@ export default function SeasonMahjongPage() {
           </div>
         ) : (
           <>
-            {/* 開催日セレクタ（卓のある日だけ・新しい順） */}
-            <div className="mb-4">
-              <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {tableDates.map((d) => {
-                  const active = d === tableDate;
-                  const n = tables.filter((t) => t.eventDate === d).length;
-                  return (
-                    <button
-                      key={d}
-                      onClick={() => setTableDate(d)}
-                      className={`shrink-0 px-3.5 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                        active
-                          ? "bg-[#231714] text-white border-[#231714]"
-                          : "bg-white text-[#231714]/70 border-[#231714]/10 hover:bg-gray-50"
-                      }`}
-                    >
-                      {formatEventDate(d)}
-                      <span className={`ml-1.5 text-xs ${active ? "text-white/60" : "text-[#231714]/35"}`}>{n}卓</span>
-                    </button>
-                  );
-                })}
+            {/* 開催日セレクタ（カレンダー方式・卓のある日だけ選択可＝印付き）。開催日が増えても探しやすい。 */}
+            <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,300px),1fr] items-start">
+              <div className="bg-white rounded-xl border border-[#231714]/10 p-3">
+                <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日を選択</div>
+                <MonthCalendar
+                  // 最新開催日が判明したら、その月で開くよう一度だけ再マウントする。
+                  key={tableDates[0] ?? "none"}
+                  value={tableDate}
+                  onSelect={setTableDate}
+                  isSelectable={(d) => tableDateSet.has(d)}
+                  marked={(d) => tableDateSet.has(d)}
+                  accent="#231714"
+                  size="lg"
+                  allowPast
+                />
+                <p className="text-[10.5px] text-[#231714]/35 mt-1">● のついた日が開催日です</p>
               </div>
+              {tableDate && (
+                <div className="text-sm text-[#231714]/70">
+                  <span className="font-bold text-[#231714]">{formatEventDate(tableDate)}</span>
+                  <span className="ml-2 text-xs text-[#231714]/40">{dayTables.length}卓</span>
+                </div>
+              )}
             </div>
 
             {dayTables.length === 0 ? (
@@ -564,18 +568,21 @@ function EditTableModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // 点数は「絶対値 + 符号」で保持。箱下（トビ）のマイナスを ±トグルで入力できるようにする
+  //（数値キーボードで "-" が打てない端末対策・利用者アプリの申告と同方式）。
   const [rows, setRows] = useState(
     table.members.map((m) => ({
       lineUserId: m.lineUserId,
       displayName: m.displayName,
-      points: m.points !== null ? String(m.points) : "",
+      points: m.points !== null ? String(Math.abs(m.points)) : "",
+      sign: (m.points ?? 0) < 0 ? (-1 as 1 | -1) : (1 as 1 | -1),
       rank: m.rank !== null ? String(m.rank) : "",
     }))
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = rows.reduce((sum, r) => sum + (Number(r.points) || 0), 0);
+  const total = rows.reduce((sum, r) => sum + (Number(r.points) || 0) * r.sign, 0);
 
   async function save() {
     setError(null);
@@ -594,7 +601,7 @@ function EditTableModal({
         body: JSON.stringify({
           members: rows.map((r) => ({
             lineUserId: r.lineUserId,
-            points: Number(r.points),
+            points: Number(r.points) * r.sign, // 絶対値 × 符号（マイナス対応）
             rank: Number(r.rank),
           })),
         }),
@@ -642,15 +649,23 @@ function EditTableModal({
                   <option key={n} value={n}>{n}位</option>
                 ))}
               </select>
+              <PointsSignToggle
+                sign={r.sign}
+                onChange={(s) => setRows((prev) => prev.map((p, j) => (j === i ? { ...p, sign: s } : p)))}
+                accent="#231714"
+              />
               <input
                 type="number"
+                inputMode="numeric"
+                min={0}
                 step={100}
                 value={r.points}
                 onChange={(e) =>
-                  setRows((prev) => prev.map((p, j) => (j === i ? { ...p, points: e.target.value } : p)))
+                  // 絶対値のみ入力（符号はトグル）。先頭の "-" は無視して桁だけを保持。
+                  setRows((prev) => prev.map((p, j) => (j === i ? { ...p, points: e.target.value.replace(/-/g, "") } : p)))
                 }
                 placeholder="点数"
-                className="w-28 px-3 py-2 text-sm border border-[#231714]/10 rounded-lg text-right"
+                className="w-24 px-3 py-2 text-sm border border-[#231714]/10 rounded-lg text-right"
               />
             </div>
           ))}
