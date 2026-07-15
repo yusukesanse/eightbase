@@ -144,33 +144,17 @@ export function tierForRank(rank: number): MahjongLeagueTier {
 }
 
 /**
- * シーズンの完了済み卓から通算アベレージ順位表を計算する。
+ * 完了済み卓の配列から順位表を計算する純関数（DB アクセスなし）。
+ * `computeStandings`（通算）と `computeDayStandings`（当日）で集計・並び順を共有する。
  * 並び順（公式ルール準拠）:
- *   1. アベレージ降順
- *   2. 連対率降順（1位または2位の割合。アベレージ同点時のタイブレーク）
+ *   1. metric（合計点 or アベレージ）降順
+ *   2. 連対率降順（1位または2位の割合。同点時のタイブレーク）
  *   3. 試合数降順 → 名前順（連対率も同じ場合の決定的フォールバック）
  */
-export async function computeStandings(
-  seasonId: string,
-  metricOverride?: MahjongRankingMetric
-): Promise<MahjongStanding[]> {
-  const db = getDb();
-  // 順位方式（シーズン設定 rankingMetric。未設定/指定なしは "average"）。
-  let metric: MahjongRankingMetric = metricOverride ?? "average";
-  if (!metricOverride) {
-    try {
-      const seasonDoc = await db.collection("seasons").doc(seasonId).get();
-      metric = normalizeRankingMetric(seasonDoc.data()?.rankingMetric);
-    } catch {
-      metric = "average"; // シーズン取得失敗時は既定（アベレージ）
-    }
-  }
-  // 複合インデックス不要: seasonId のみで where し、status は JS 側でフィルタ
-  const snap = await db
-    .collection("mahjongTables")
-    .where("seasonId", "==", seasonId)
-    .get();
-
+export function rankTablesToStandings(
+  tables: MahjongTable[],
+  metric: MahjongRankingMetric
+): MahjongStanding[] {
   const acc = new Map<
     string,
     {
@@ -183,8 +167,7 @@ export async function computeStandings(
     }
   >();
 
-  for (const doc of snap.docs) {
-    const table = doc.data() as MahjongTable;
+  for (const table of tables) {
     if (table.status !== "completed") continue;
     for (const m of table.members) {
       if (m.points === null || m.rank === null) continue;
@@ -221,7 +204,6 @@ export async function computeStandings(
     csEligible: s.gamesPlayed >= MAHJONG_CS_MIN_GAMES,
   }));
 
-  // 順位キー: metric（合計点 or アベレージ）降順 → 連対率 → 試合数 → 名前
   standings.sort(
     (a, b) =>
       (metric === "total" ? b.totalPoints - a.totalPoints : b.average - a.average) ||
@@ -235,6 +217,57 @@ export async function computeStandings(
     rank: i + 1,
     tier: tierForRank(i + 1),
   }));
+}
+
+/** シーズンの順位方式を解決（override 優先・未指定はシーズン設定 → 既定 average）。 */
+export async function resolveSeasonMetric(
+  seasonId: string,
+  override?: MahjongRankingMetric
+): Promise<MahjongRankingMetric> {
+  if (override) return override;
+  try {
+    const seasonDoc = await getDb().collection("seasons").doc(seasonId).get();
+    return normalizeRankingMetric(seasonDoc.data()?.rankingMetric);
+  } catch {
+    return "average"; // シーズン取得失敗時は既定（アベレージ）
+  }
+}
+
+/**
+ * シーズンの完了済み卓から通算順位表を計算する。集計・並び順は `rankTablesToStandings` を共有。
+ */
+export async function computeStandings(
+  seasonId: string,
+  metricOverride?: MahjongRankingMetric
+): Promise<MahjongStanding[]> {
+  const metric = await resolveSeasonMetric(seasonId, metricOverride);
+  // 複合インデックス不要: seasonId のみで where し、status は JS 側でフィルタ
+  const snap = await getDb()
+    .collection("mahjongTables")
+    .where("seasonId", "==", seasonId)
+    .get();
+  const tables = snap.docs.map((d) => d.data() as MahjongTable);
+  return rankTablesToStandings(tables, metric);
+}
+
+/**
+ * 特定開催日（eventDate）だけの順位表を計算する。当該日の completed 卓のみ集計。
+ * 通算とは集計範囲が異なるため数値は一致しない（それが正常）。tier は付くが当日UIでは使わない。
+ * 読み取りは seasonId+eventDate の等値2条件で絞る（複合インデックス不要・CLAUDE.md 方針）。
+ */
+export async function computeDayStandings(
+  seasonId: string,
+  eventDate: string,
+  metricOverride?: MahjongRankingMetric
+): Promise<MahjongStanding[]> {
+  const metric = await resolveSeasonMetric(seasonId, metricOverride);
+  const snap = await getDb()
+    .collection("mahjongTables")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", eventDate)
+    .get();
+  const tables = snap.docs.map((d) => d.data() as MahjongTable);
+  return rankTablesToStandings(tables, metric);
 }
 
 /** シーズンの完了済み卓の数を返す（編成スナップショットの参考値） */
