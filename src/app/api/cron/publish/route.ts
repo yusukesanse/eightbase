@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
-import { broadcastContentPublished } from "@/lib/line";
+import { getDb } from "@/lib/firebaseAdmin";
+import { broadcastContentPublished, sanitizeAudience } from "@/lib/line";
+import type { UserRole } from "@/lib/roles";
 import { checkCronAuth } from "@/lib/cronAuth";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,12 @@ export async function GET(req: NextRequest) {
 
   let publishedCount = 0;
   const errors: string[] = [];
-  const publishedItems: { type: "event" | "game" | "news"; title: string }[] = [];
+  const publishedItems: {
+    type: "event" | "game" | "news";
+    title: string;
+    lineNotify: boolean;
+    audience: UserRole[];
+  }[] = [];
 
   const collections: { name: string; type: "event" | "game" | "news" }[] = [
     { name: "events", type: "event" },
@@ -49,10 +55,14 @@ export async function GET(req: NextRequest) {
 
       const batch = db.batch();
       for (const doc of docsToPublish) {
+        const d = doc.data();
         batch.update(doc.ref, { published: true, scheduledAt: null });
         publishedItems.push({
           type: col.type,
-          title: doc.data().title || `新しい${col.type === "event" ? "イベント" : col.type === "news" ? "ニュース" : "ゲーム"}`,
+          title: d.title || `新しい${col.type === "event" ? "イベント" : col.type === "news" ? "ニュース" : "ゲーム"}`,
+          // 保存された配信設定に従う（未設定の旧 doc は種別デフォルト）。
+          lineNotify: d.lineNotify !== false,
+          audience: sanitizeAudience(d.lineBroadcastAudience, col.type),
         });
         publishedCount++;
       }
@@ -64,16 +74,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // LINE 通知送信
+  // LINE 通知送信（各コンテンツの保存された配信対象 role・文面別に送る）
   if (publishedItems.length > 0) {
     try {
-      const userIds = await getAllActiveLineUserIds();
-      if (userIds.length > 0) {
-        for (const item of publishedItems) {
-          await broadcastContentPublished(userIds, item.type, item.title);
-        }
-        console.log(`[cron/publish] broadcast sent for ${publishedItems.length} items to ${userIds.length} users`);
+      let sent = 0;
+      for (const item of publishedItems) {
+        if (!item.lineNotify || item.audience.length === 0) continue;
+        await broadcastContentPublished(item.type, item.title, item.audience);
+        sent++;
       }
+      console.log(`[cron/publish] broadcast sent for ${sent}/${publishedItems.length} items`);
     } catch (e) {
       const errMsg = `broadcast: ${e instanceof Error ? e.message : String(e)}`;
       errors.push(errMsg);

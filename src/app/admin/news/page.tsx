@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
 import DateTimePicker from "@/components/ui/DateTimePicker";
+import { LineAudienceField } from "@/components/admin/LineAudienceField";
 
 interface NewsItem {
   newsId: string;
@@ -14,7 +15,12 @@ interface NewsItem {
   priority?: string;
   published: boolean;
   scheduledAt?: string;
+  lineNotify?: boolean;
+  lineBroadcastAudience?: string[];
 }
+
+// 種別デフォルト配信対象（サーバー側 defaultBroadcastAudience と一致させる）。
+const NEWS_DEFAULT_AUDIENCE = ["member", "staff"];
 
 const NEWS_CATEGORIES = ["info", "facility", "community"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -39,6 +45,8 @@ const EMPTY_FORM = {
   priority: "normal",
   published: false,
   scheduledAt: "",
+  lineNotify: true,
+  lineBroadcastAudience: NEWS_DEFAULT_AUDIENCE as string[],
 };
 
 type PublishMode = "immediate" | "draft" | "scheduled";
@@ -103,6 +111,8 @@ export default function AdminNewsPage() {
       priority: item.priority ?? "normal",
       published: item.published,
       scheduledAt: item.scheduledAt ? dayjs(item.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
+      lineNotify: item.lineNotify !== false,
+      lineBroadcastAudience: Array.isArray(item.lineBroadcastAudience) ? item.lineBroadcastAudience : NEWS_DEFAULT_AUDIENCE,
     });
     setPublishMode(getPublishMode({
       ...item,
@@ -110,6 +120,8 @@ export default function AdminNewsPage() {
       priority: item.priority ?? "normal",
       scheduledAt: item.scheduledAt ?? "",
       publishedAt: item.publishedAt,
+      lineNotify: item.lineNotify !== false,
+      lineBroadcastAudience: Array.isArray(item.lineBroadcastAudience) ? item.lineBroadcastAudience : NEWS_DEFAULT_AUDIENCE,
     }));
     setImageFile(null);
     setImagePreview(item.imageUrl ?? "");
@@ -514,6 +526,17 @@ export default function AdminNewsPage() {
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* LINE 配信設定 */}
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-2">LINE 配信</label>
+                <LineAudienceField
+                  notify={form.lineNotify}
+                  audience={form.lineBroadcastAudience}
+                  onNotifyChange={(b) => setForm({ ...form, lineNotify: b })}
+                  onAudienceChange={(roles) => setForm({ ...form, lineBroadcastAudience: roles })}
+                />
               </div>
             </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
 import DateTimePicker from "@/components/ui/DateTimePicker";
+import { LineAudienceField } from "@/components/admin/LineAudienceField";
 
 interface EventItem {
   eventId: string;
@@ -17,7 +18,12 @@ interface EventItem {
   scheduledAt?: string;
   createdAt?: string;
   goodCount?: number;
+  lineNotify?: boolean;
+  lineBroadcastAudience?: string[];
 }
+
+// 種別デフォルト配信対象（サーバー側 defaultBroadcastAudience と一致させる）。
+const EVENT_DEFAULT_AUDIENCE = ["member", "staff"];
 
 const EVENT_CATEGORIES = [
   "ワークショップ",
@@ -37,6 +43,8 @@ const EMPTY_FORM: Omit<EventItem, "eventId" | "createdAt"> = {
   imageUrl: "",
   published: false,
   scheduledAt: "",
+  lineNotify: true,
+  lineBroadcastAudience: EVENT_DEFAULT_AUDIENCE,
 };
 
 type PublishMode = "immediate" | "draft" | "scheduled";
@@ -105,6 +113,8 @@ export default function AdminEventsPage() {
       imageUrl: ev.imageUrl ?? "",
       published: ev.published,
       scheduledAt: ev.scheduledAt ? dayjs(ev.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
+      lineNotify: ev.lineNotify !== false,
+      lineBroadcastAudience: Array.isArray(ev.lineBroadcastAudience) ? ev.lineBroadcastAudience : EVENT_DEFAULT_AUDIENCE,
     });
     setPublishMode(getPublishMode(ev));
     setIsOtherCategory(!isPreset && !!ev.category);
@@ -531,6 +541,17 @@ export default function AdminEventsPage() {
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* LINE 配信設定 */}
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/60 mb-2">LINE 配信</label>
+                <LineAudienceField
+                  notify={form.lineNotify !== false}
+                  audience={form.lineBroadcastAudience ?? EVENT_DEFAULT_AUDIENCE}
+                  onNotifyChange={(b) => setForm({ ...form, lineNotify: b })}
+                  onAudienceChange={(roles) => setForm({ ...form, lineBroadcastAudience: roles })}
+                />
               </div>
             </div>
 

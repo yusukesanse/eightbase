@@ -4,6 +4,8 @@
  */
 
 import { liffUrl } from "./liffUrl";
+import { getActiveLineUserIdsByRoles } from "./firebaseAdmin";
+import type { UserRole } from "./roles";
 
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
@@ -306,7 +308,21 @@ export async function sendMahjongForfeitNotice(
 }
 
 // ─── コンテンツ公開通知（イベント・ゲーム・ニュース）─────────────────────────
-type ContentType = "event" | "game" | "news";
+export type ContentType = "event" | "game" | "news";
+
+const VALID_AUDIENCE_ROLES: UserRole[] = ["member", "staff", "guest"];
+
+/**
+ * 保存/受信した配信対象を UserRole[] に正規化する。
+ * - 配列: 既知 role のみ残し重複排除（空配列＝送らない、として尊重）。
+ * - 配列でない（未設定の旧 doc 等）: 種別の既定にフォールバック。
+ */
+export function sanitizeAudience(input: unknown, contentType: ContentType): UserRole[] {
+  if (!Array.isArray(input)) return defaultBroadcastAudience(contentType);
+  return Array.from(
+    new Set(input.filter((r): r is UserRole => VALID_AUDIENCE_ROLES.includes(r as UserRole)))
+  );
+}
 
 const CONTENT_CONFIG: Record<ContentType, { label: string; path: string; color: string }> = {
   event: { label: "イベント", path: "/events", color: "#A5C1C8" },
@@ -314,79 +330,123 @@ const CONTENT_CONFIG: Record<ContentType, { label: string; path: string; color: 
   news:  { label: "ニュース", path: "/news",   color: "#A5C1C8" },
 };
 
-export async function broadcastContentPublished(
-  userIds: string[],
-  contentType: ContentType,
-  title: string,
-) {
-  if (userIds.length === 0) return;
+/**
+ * 種別ごとの既定配信対象（doc に lineBroadcastAudience が無い場合のフォールバック）。
+ * ニュース/イベントは会員系のみ、ゲームは全員（ゲストも閲覧可）。
+ */
+export function defaultBroadcastAudience(contentType: ContentType): UserRole[] {
+  return contentType === "game" ? ["member", "staff", "guest"] : ["member", "staff"];
+}
 
+/** ボタンの遷移先。ゲストは会員専用ルート(/news,/events)に入れないので /info に振る。 */
+function contentLink(contentType: ContentType, forGuest: boolean): { uri: string; label: string } {
   const config = CONTENT_CONFIG[contentType];
-  const url = liffUrl(config.path);
+  // ゲームは全員 /games。ニュース/イベントのゲスト宛は導線が無いので /info（ゲームハブ）。
+  if (forGuest && contentType !== "game") {
+    return { uri: liffUrl("/info"), label: "アプリを開く" };
+  }
+  return { uri: liffUrl(config.path), label: `${config.label}を見る` };
+}
 
-  await multicastMessage(userIds, [
-    {
-      type: "flex",
-      altText: `新しい${config.label}があります！「${title}」`,
-      contents: {
-        type: "bubble",
-        header: {
-          type: "box",
-          layout: "vertical",
-          backgroundColor: config.color,
-          paddingAll: "14px",
-          contents: [
-            {
-              type: "text",
-              text: `新しい${config.label}があります！`,
-              color: "#231714",
-              weight: "bold",
-              size: "md",
-            },
-          ],
-        },
-        body: {
-          type: "box",
-          layout: "vertical",
-          spacing: "sm",
-          contents: [
-            {
-              type: "text",
-              text: title,
-              weight: "bold",
-              size: "md",
-              wrap: true,
-              color: "#231714",
-            },
-            {
-              type: "text",
-              text: "以下から確認できます。",
-              color: "#888888",
-              size: "xs",
-              margin: "md",
-              wrap: true,
-            },
-          ],
-        },
-        footer: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "button",
-              action: {
-                type: "uri",
-                label: `${config.label}を見る`,
-                uri: url,
-              },
-              style: "primary",
-              color: "#A5C1C8",
-            },
-          ],
-        },
+function contentFlex(contentType: ContentType, title: string, forGuest: boolean): object {
+  const config = CONTENT_CONFIG[contentType];
+  const link = contentLink(contentType, forGuest);
+  return {
+    type: "flex",
+    altText: `新しい${config.label}があります！「${title}」`,
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: config.color,
+        paddingAll: "14px",
+        contents: [
+          { type: "text", text: `新しい${config.label}があります！`, color: "#231714", weight: "bold", size: "md" },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+          { type: "text", text: title, weight: "bold", size: "md", wrap: true, color: "#231714" },
+          { type: "text", text: "以下から確認できます。", color: "#888888", size: "xs", margin: "md", wrap: true },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          { type: "button", action: { type: "uri", label: link.label, uri: link.uri }, style: "primary", color: "#A5C1C8" },
+        ],
       },
     },
-  ]);
+  };
+}
+
+/**
+ * コンテンツ公開の一斉通知。**宛先 role ごとに文面（導線）を分けて** multicast する。
+ * - member/staff … 会員系の導線（/news, /events, /games）
+ * - guest … ゲーム=/games、ニュース/イベント=/info（会員専用ルートに入れないため）
+ * 宛先は `getActiveLineUserIdsByRoles` で登録ユーザーのみに限定（未登録フォロワーには届かない）。
+ */
+export async function broadcastContentPublished(
+  contentType: ContentType,
+  title: string,
+  audience: UserRole[],
+) {
+  if (!audience || audience.length === 0) return;
+
+  const memberRoles = audience.filter((r) => r === "member" || r === "staff");
+  if (memberRoles.length > 0) {
+    const ids = await getActiveLineUserIdsByRoles(memberRoles);
+    if (ids.length > 0) await multicastMessage(ids, [contentFlex(contentType, title, false)]);
+  }
+  if (audience.includes("guest")) {
+    const ids = await getActiveLineUserIdsByRoles(["guest"]);
+    if (ids.length > 0) await multicastMessage(ids, [contentFlex(contentType, title, true)]);
+  }
+}
+
+/**
+ * 管理者アプリ「メッセージ送信」からの自由文配信。指定 lineUserId 群へ multicast。
+ * text（＋任意でリンク1つ＝ボタン）。宛先 role 解決は呼び出し側で行う（登録ユーザーのみ）。
+ */
+export async function sendAdminMessage(
+  userIds: string[],
+  text: string,
+  linkUrl?: string,
+): Promise<void> {
+  if (userIds.length === 0 || !text.trim()) return;
+  const trimmed = text.trim();
+
+  const messages: object[] = linkUrl
+    ? [
+        {
+          type: "flex",
+          altText: trimmed.slice(0, 100),
+          contents: {
+            type: "bubble",
+            body: {
+              type: "box",
+              layout: "vertical",
+              spacing: "md",
+              contents: [{ type: "text", text: trimmed, wrap: true, size: "md", color: "#231714" }],
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                { type: "button", action: { type: "uri", label: "開く", uri: linkUrl }, style: "primary", color: "#A5C1C8" },
+              ],
+            },
+          },
+        },
+      ]
+    : [{ type: "text", text: trimmed }];
+
+  await multicastMessage(userIds, messages);
 }
 
 // ─── 掲示板コメント通知 ──────────────────────────────────────────────────────

@@ -197,3 +197,8 @@ Vercel のサーバーは UTC で動く。`new Date("2026-07-11T00:00:00+09:00")
 
 ### 詳細ページ
 - `news`/`events`/`games` は個別GET（`/api/news/[id]` `/api/events/[eventId]` `/api/games/[gameId]`）で取得し、一覧の `limit` に依存しない。
+
+### LINE 公式アカウント配信（role 別文面・宛先）
+- 一斉配信の宛先は必ず `getActiveLineUserIdsByRoles(roles)`（`src/lib/firebaseAdmin.ts`）で **登録ユーザーの選択 role のみ**に絞る。**friend 全体への broadcast API は使わない**（未登録フォロワー＝第三者に届く）。
+- コンテンツ公開: news/event/game は doc の `lineNotify`（既定ON）＋ `lineBroadcastAudience: UserRole[]`（未設定は種別デフォルト＝news/event: member+staff / game: all）に従い、`broadcastContentPublished(contentType, title, audience)`（`src/lib/line.ts`）が **role 別文面**で送る。ゲストは会員専用ルートに入れないので news/event のゲスト宛リンクは `/info`。管理UIは news/events の編集画面（`LineAudienceField`）。cron 公開（`api/cron/publish`）も同設定を参照。
+- 管理者アプリ「メッセージ送信」（`/admin/messages`・`/api/admin/messages`）: 自由文＋任意リンクを宛先 role 選択で `sendAdminMessage` 配信。送信履歴は `adminMessageLogs`。要件: `docs/requirements/LINE公式アカウント-配信文面-区分-要件定義.md`。
