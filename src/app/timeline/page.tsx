@@ -202,12 +202,13 @@ export default function TimelinePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative py-3 text-[14px] font-medium transition-colors ${
-                active ? "text-[#1c1f21]" : "text-[#6b6e73]"
+              aria-current={active ? "page" : undefined}
+              className={`relative py-3 text-[14px] transition-colors ${
+                active ? "text-[#33636e] font-bold" : "text-[#6b6e73] font-medium"
               }`}
             >
               {tab.label}
-              {active && <span className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full bg-[#a5c1c7]" />}
+              {active && <span className="absolute left-0 right-0 bottom-0 h-[3px] rounded-full bg-[#33636e]" />}
             </button>
           );
         })}

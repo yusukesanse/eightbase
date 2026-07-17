@@ -86,15 +86,16 @@ export default function InfoPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-3 text-xs font-medium text-center relative transition-colors ${
+            aria-current={activeTab === tab.id ? "page" : undefined}
+            className={`flex-1 py-3 text-xs text-center relative transition-colors ${
               activeTab === tab.id
-                ? "text-[#4f757e]"
-                : "text-gray-500 hover:text-gray-600"
+                ? "text-[#33636e] font-bold"
+                : "text-gray-500 font-medium hover:text-gray-600"
             }`}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-[20%] right-[20%] h-[2px] bg-[#A5C1C8] rounded-full" />
+              <span className="absolute bottom-0 left-[18%] right-[18%] h-[3px] bg-[#33636e] rounded-full" />
             )}
           </button>
         ))}
@@ -420,15 +421,17 @@ function GamesTab() {
 
   return (
     <div>
-      {/* ゲーム選択（選んだゲームの内容がそのまま表示される） */}
-      <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1 overflow-x-auto">
+      {/* ゲーム選択（選択中は白ピル＋アクセント文字＋太字＋リングで明示） */}
+      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1 overflow-x-auto">
         {GAME_CATEGORIES.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setGameCategory(cat.id as ScoreboardGameId)}
             className={clsx(
-              "flex-1 px-2.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-              gameCategory === cat.id ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/60"
+              "flex-1 px-2.5 py-2 rounded-lg text-xs whitespace-nowrap transition-all",
+              gameCategory === cat.id
+                ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
+                : "text-[#231714]/60 font-medium"
             )}
           >
             {cat.label}
@@ -442,12 +445,14 @@ function GamesTab() {
             <>
               {/* 期間切替 + 月ナビ */}
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex gap-0.5 bg-[#231714]/5 rounded-lg p-0.5">
+                <div className="flex gap-0.5 bg-[#231714]/[0.08] rounded-lg p-0.5">
                   <button
                     onClick={() => setPeriod("monthly")}
                     className={clsx(
-                      "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
-                      period === "monthly" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/60"
+                      "px-2.5 py-1 rounded-md text-[11px] transition-all",
+                      period === "monthly"
+                        ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
+                        : "text-[#231714]/60 font-medium"
                     )}
                   >
                     月間
@@ -455,8 +460,10 @@ function GamesTab() {
                   <button
                     onClick={() => setPeriod("annual")}
                     className={clsx(
-                      "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
-                      period === "annual" ? "bg-white text-[#231714] shadow-sm" : "text-[#231714]/60"
+                      "px-2.5 py-1 rounded-md text-[11px] transition-all",
+                      period === "annual"
+                        ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
+                        : "text-[#231714]/60 font-medium"
                     )}
                   >
                     年間
