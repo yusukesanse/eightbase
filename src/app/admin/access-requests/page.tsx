@@ -144,8 +144,8 @@ export default function AdminAccessRequestsPage() {
                         {st.label}
                       </span>
                     </div>
-                    <div className="text-xs text-[#231714]/70 mt-1">{it.companyName}</div>
-                    <div className="text-xs text-[#231714]/65">{it.email}</div>
+                    <div className="text-xs text-[#231714]/85 mt-1">{it.companyName}</div>
+                    <div className="text-xs text-[#231714]/85">{it.email}</div>
                     <div className="text-[11px] text-[#8a8f94] mt-1">
                       LINE名: {it.lineDisplayName || "—"}　/　{fmt(it.createdAt)}
                     </div>

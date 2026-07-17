@@ -44,7 +44,7 @@ export default function NewsDetailPage() {
   if (!item) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
-        <p className="text-gray-500 text-sm">ニュースが見つかりません</p>
+        <p className="text-gray-700 text-sm">ニュースが見つかりません</p>
         <button onClick={() => router.back()} className="text-sm text-[#4f757e]">戻る</button>
       </div>
     );
@@ -88,7 +88,7 @@ export default function NewsDetailPage() {
           {item.title}
         </h1>
 
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-700 mt-2">
           {dayjs(item.publishedAt).format("YYYY年M月D日（ddd）")}
         </p>
 

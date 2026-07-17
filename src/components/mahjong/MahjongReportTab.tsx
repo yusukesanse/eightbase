@@ -78,11 +78,11 @@ function ReportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#1c1f21]">スコアを申告</h3>
-        <p className="text-[11px] text-[#231714]/65 mt-1 mb-5">
+        <p className="text-[11px] text-[#231714]/85 mt-1 mb-5">
           同卓4人の合計が100,000点になると自動で確定します。
         </p>
 
-        <label className="block text-[11px] font-extrabold text-[#6b6e73] tracking-[0.04em] mb-2">最終持ち点</label>
+        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mb-2">最終持ち点</label>
         <div className="flex items-center gap-2.5">
           <PointsSignToggle sign={sign} onChange={setSign} accent={ACCENT} />
           <div
@@ -103,12 +103,12 @@ function ReportModal({
               className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
               style={{ fontSize: "30px" }}
             />
-            <span className="text-[14px] font-bold text-[#6b6e73]">点</span>
+            <span className="text-[14px] font-bold text-[#3f4247]">点</span>
           </div>
         </div>
-        <div className="text-[11px] text-[#6b6e73] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
+        <div className="text-[11px] text-[#3f4247] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
 
-        <label className="block text-[11px] font-extrabold text-[#6b6e73] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
+        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((n) => (
             <button
@@ -274,7 +274,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
     return (
       <div className="flex flex-col gap-4">
         {gmPanel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/60">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">
           {msg}
         </div>
       </div>
@@ -289,7 +289,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
         <div>
           <div className="text-[12px] font-extrabold text-[#40434a]">第{day.round}半荘・抜け番あり</div>
-          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">半荘ごとに自動で卓を組み直します</div>
+          <div className="text-[10.5px] text-[#3c4f54] mt-0.5">半荘ごとに自動で卓を組み直します</div>
         </div>
         <span className="text-[12px] font-black" style={{ color: myTable ? ACCENT : "#c0563c" }}>{myTable ? "対戦中" : "待機中"}</span>
       </div>
@@ -298,7 +298,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-extrabold text-[#231714]">{myTable.tableLabel}卓</span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>第{day.round}半荘</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#3c4f54" }}>第{day.round}半荘</span>
           </div>
           <TableBoard table={myTable} />
           <button
@@ -312,7 +312,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
           <div className="text-[13px] font-extrabold text-[#231714]">今回は待機（抜け番）です</div>
-          <div className="text-[11px] text-[#231714]/65 mt-1 mb-3">
+          <div className="text-[11px] text-[#231714]/85 mt-1 mb-3">
             {demo ? "この半荘を進めると、次の卓で交代・INします" : "対戦中の卓が終わると、次の半荘で交代・INします"}
           </div>
           {demo && (
@@ -355,18 +355,18 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5">
-        <div className="text-[11px] font-extrabold text-[#6b6e73] mb-2">待機順（先頭が次にIN）</div>
+        <div className="text-[11px] font-extrabold text-[#3f4247] mb-2">待機順（先頭が次にIN）</div>
         {day.waiting.length === 0 ? (
-          <div className="text-[11px] text-[#231714]/60">待機者はいません</div>
+          <div className="text-[11px] text-[#231714]/80">待機者はいません</div>
         ) : (
           <ol className="flex flex-col gap-1.5">
             {day.waiting.map((w, i) => (
               <li key={i} className="flex items-center gap-2 text-[12.5px]">
-                <span className="w-5 text-[#6b6e73] font-bold tabular-nums">{i + 1}</span>
+                <span className="w-5 text-[#3f4247] font-bold tabular-nums">{i + 1}</span>
                 <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
                 <span className="font-bold text-[#1c1f21]">
                   {w.displayName}
-                  {w.isMe && <span className="ml-1 text-[10px] text-[#5f7a80]">（あなた）</span>}
+                  {w.isMe && <span className="ml-1 text-[10px] text-[#3c4f54]">（あなた）</span>}
                 </span>
               </li>
             ))}
@@ -400,7 +400,7 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
   const inNames = new Set(swap.in.map((p) => p.displayName));
   return (
     <BottomSheet open title="次の卓はこちらです" onClose={onClose} dismissible={false} closeButton={false}>
-      <p className="text-[12px] text-[#231714]/60 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
+      <p className="text-[12px] text-[#231714]/80 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
       {swap.reason && (
         <div className="mb-3 rounded-xl bg-[#fdf4e3] px-3 py-2 text-[12px] font-bold text-[#b48f13]">{swap.reason}</div>
       )}
@@ -409,7 +409,7 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
           <div key={t.tableId} className="rounded-xl border border-gray-100 p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-extrabold text-[#231714]">{t.tableLabel}卓</span>
-              <span className="text-[10px] text-[#6b6e73]">{t.members.length}名</span>
+              <span className="text-[10px] text-[#3f4247]">{t.members.length}名</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {t.members.map((m, i) => {

@@ -57,7 +57,7 @@ export default function MahjongAuditPanel() {
   return (
     <div className="p-5 max-w-4xl">
       <h1 className="text-lg font-bold text-[#231714] mb-1">麻雀 監査ログ</h1>
-      <p className="text-sm text-[#231714]/60 mb-4">
+      <p className="text-sm text-[#231714]/80 mb-4">
         返金・キャンセル・休催化・進行確定・卓確定の操作履歴（新しい順）。卓確定に <b>⚠️</b> は自己申告の異常検知フラグです。
       </p>
 
@@ -74,20 +74,20 @@ export default function MahjongAuditPanel() {
             </option>
           ))}
         </select>
-        <span className="text-xs text-[#231714]/60">{items.length} 件</span>
+        <span className="text-xs text-[#231714]/80">{items.length} 件</span>
       </div>
 
       {loading ? (
-        <div className="py-10 text-center text-sm text-[#231714]/60">読み込み中…</div>
+        <div className="py-10 text-center text-sm text-[#231714]/80">読み込み中…</div>
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/60">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/80">
           監査ログはありません
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm bg-white rounded-xl border border-[#231714]/10">
             <thead>
-              <tr className="text-left text-[11px] text-[#231714]/65 border-b border-[#231714]/10">
+              <tr className="text-left text-[11px] text-[#231714]/85 border-b border-[#231714]/10">
                 <th className="px-3 py-2">時刻</th>
                 <th className="px-3 py-2">種別</th>
                 <th className="px-3 py-2">実行者</th>
@@ -101,14 +101,14 @@ export default function MahjongAuditPanel() {
                 const flagged = it.meta?.flagged === true;
                 return (
                   <tr key={it.id} className="border-b border-[#231714]/5 last:border-0">
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/60 tabular-nums whitespace-nowrap">{fmt(it.createdAt)}</td>
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/80 tabular-nums whitespace-nowrap">{fmt(it.createdAt)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <span className="text-[11px] font-black" style={{ color: l.color }}>{l.text}</span>
                       {flagged && <span title={String(it.meta?.reason ?? "")}> ⚠️</span>}
                     </td>
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/70 max-w-[160px] truncate">{it.actor}</td>
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/60">{targetText(it.target)}</td>
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/60">
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/85 max-w-[160px] truncate">{it.actor}</td>
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/80">{targetText(it.target)}</td>
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/80">
                       {it.beforeStatus || it.afterStatus ? `${it.beforeStatus ?? "-"} → ${it.afterStatus ?? "-"}` : "-"}
                     </td>
                   </tr>

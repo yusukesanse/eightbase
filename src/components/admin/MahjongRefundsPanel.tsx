@@ -71,33 +71,33 @@ export default function MahjongRefundsPanel() {
   return (
     <div className="p-5 max-w-3xl">
       <h1 className="text-lg font-bold text-[#231714] mb-1">麻雀 返金対応</h1>
-      <p className="text-sm text-[#231714]/60 mb-4">
+      <p className="text-sm text-[#231714]/80 mb-4">
         キャンセル依頼（未対応）を Square で <b>1件ずつ手動返金</b>したら「返金済」に、応じない場合は「却下」にします。
         操作は監査ログに記録されます。未対応 <b>{pendingCount}</b> 件（うち流会 <b>{forfeitPendingCount}</b> 件）。
       </p>
 
       <div className="flex flex-wrap items-center gap-4 mb-3">
-        <label className="inline-flex items-center gap-2 text-sm text-[#231714]/70">
+        <label className="inline-flex items-center gap-2 text-sm text-[#231714]/85">
           <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} />
           未対応のみ表示
         </label>
-        <label className="inline-flex items-center gap-2 text-sm text-[#231714]/70">
+        <label className="inline-flex items-center gap-2 text-sm text-[#231714]/85">
           <input type="checkbox" checked={forfeitOnly} onChange={(e) => setForfeitOnly(e.target.checked)} />
           流会（人数不足）のみ表示
         </label>
       </div>
 
       {loading ? (
-        <div className="py-10 text-center text-sm text-[#231714]/60">読み込み中…</div>
+        <div className="py-10 text-center text-sm text-[#231714]/80">読み込み中…</div>
       ) : rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/60">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/80">
           {pendingOnly ? "未対応の返金依頼はありません" : "返金対象はありません"}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm bg-white rounded-xl border border-[#231714]/10">
             <thead>
-              <tr className="text-left text-[11px] text-[#231714]/65 border-b border-[#231714]/10">
+              <tr className="text-left text-[11px] text-[#231714]/85 border-b border-[#231714]/10">
                 <th className="px-3 py-2">対象日</th>
                 <th className="px-3 py-2">ユーザー</th>
                 <th className="px-3 py-2 text-right">金額</th>
@@ -123,7 +123,7 @@ export default function MahjongRefundsPanel() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">¥{it.amount.toLocaleString()}</td>
-                    <td className="px-3 py-2 font-mono text-[11px] text-[#231714]/70 break-all max-w-[180px]">
+                    <td className="px-3 py-2 font-mono text-[11px] text-[#231714]/85 break-all max-w-[180px]">
                       {it.orderId ?? "-"}
                     </td>
                     <td className="px-3 py-2">
@@ -131,10 +131,10 @@ export default function MahjongRefundsPanel() {
                         {s.text}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/60 tabular-nums">{fmt(it.cancelRequestedAt)}</td>
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/60 tabular-nums">
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/80 tabular-nums">{fmt(it.cancelRequestedAt)}</td>
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/80 tabular-nums">
                       {fmt(it.refundProcessedAt)}
-                      {it.refundProcessedBy && <div className="text-[10px] text-[#231714]/60">{it.refundProcessedBy}</div>}
+                      {it.refundProcessedBy && <div className="text-[10px] text-[#231714]/80">{it.refundProcessedBy}</div>}
                     </td>
                     <td className="px-3 py-2">
                       {it.state === "pending" ? (
@@ -156,7 +156,7 @@ export default function MahjongRefundsPanel() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-[#231714]/55">—</span>
+                        <span className="text-[11px] text-[#231714]/75">—</span>
                       )}
                     </td>
                   </tr>

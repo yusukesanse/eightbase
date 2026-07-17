@@ -81,7 +81,7 @@ export function InviteModal({
                   ? usesUrl ? `${ROLE_LABELS[role]}招待メールを送信しました` : "招待メールを送信しました"
                   : usesUrl ? "招待URLを発行しました" : "ワンタイムパスワードを発行しました"}
               </h3>
-              <p className="text-xs text-[#231714]/65 mt-1">
+              <p className="text-xs text-[#231714]/85 mt-1">
                 {emailSent
                   ? usesUrl
                     ? `${email} 宛に参加用URLをメール送信しました（有効期限: 2日間）`
@@ -119,7 +119,7 @@ export function InviteModal({
               )}
               <button
                 onClick={() => onCreated(`${name} さん${usesUrl ? `に${ROLE_LABELS[role]}招待` : emailSent ? "に招待メール" : "のワンタイムパスワード"}${emailSent ? "を送信" : "を発行"}しました`)}
-                className={`${fallbackValue ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
+                className={`${fallbackValue ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>
@@ -128,7 +128,7 @@ export function InviteModal({
         ) : (
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">ユーザーを招待</h3>
-            <p className="text-xs text-[#231714]/65 mb-4">
+            <p className="text-xs text-[#231714]/85 mb-4">
               {usesUrl
                 ? role === "staff"
                   ? "エイト社員は会員同等の全機能（予約・掲示板・メンバー等）を利用でき、ゲーム参加費は不要です。メールのワンタイムURLを開くと登録され、簡素版プロフィール登録に進みます。"
@@ -137,7 +137,7 @@ export function InviteModal({
             </p>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">種別</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">種別</label>
                 <div className="grid grid-cols-3 gap-2">
                   {([
                     { v: "member", label: "会員", desc: "全機能" },
@@ -151,17 +151,17 @@ export function InviteModal({
                       className={`py-2 rounded-xl text-sm border transition-colors ${
                         role === opt.v
                           ? "border-[#231714] bg-[#231714] text-white"
-                          : "border-[#231714]/15 text-[#231714]/70 hover:bg-[#231714]/5"
+                          : "border-[#231714]/15 text-[#231714]/85 hover:bg-[#231714]/5"
                       }`}
                     >
                       {opt.label}
-                      <span className={`block text-[10px] ${role === opt.v ? "text-white/70" : "text-[#231714]/60"}`}>{opt.desc}</span>
+                      <span className={`block text-[10px] ${role === opt.v ? "text-white/70" : "text-[#231714]/80"}`}>{opt.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">名前</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">名前</label>
                 <input
                   type="text"
                   value={name}
@@ -172,7 +172,7 @@ export function InviteModal({
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">メールアドレス</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">メールアドレス</label>
                 <input
                   type="email"
                   value={email}
@@ -188,7 +188,7 @@ export function InviteModal({
                 </div>
               )}
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors">
+                <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors">
                   キャンセル
                 </button>
                 <button type="submit" disabled={loading} className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">

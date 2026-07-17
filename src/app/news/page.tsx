@@ -57,12 +57,12 @@ export default function NewsPage() {
             <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
           </div>
         ) : news.length === 0 ? (
-          <div className="text-center py-16 text-sm text-gray-500">お知らせはありません</div>
+          <div className="text-center py-16 text-sm text-gray-700">お知らせはありません</div>
         ) : (
           <div className="space-y-5">
             {/* 日付ヘッダー */}
             <div>
-              <p className="text-[11px] text-gray-500 font-medium">{today}</p>
+              <p className="text-[11px] text-gray-700 font-medium">{today}</p>
               <h2 className="text-lg font-black text-[#231714] mt-0.5">Breaking News</h2>
             </div>
 
@@ -74,7 +74,7 @@ export default function NewsPage() {
             {/* Top Stories 横スクロール */}
             {topStories.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Top Stories</h3>
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Top Stories</h3>
                 <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
                   {topStories.map(item => (
                     <TopStoryCard key={item.newsId} item={item} onClick={() => router.push(`/news/${item.newsId}`)} />
@@ -86,7 +86,7 @@ export default function NewsPage() {
             {/* 残りのニュース */}
             {rest.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Recent</h3>
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Recent</h3>
                 <div className="space-y-3">
                   {rest.map(item => (
                     <CompactNewsCard key={item.newsId} item={item} onClick={() => router.push(`/news/${item.newsId}`)} />
@@ -123,8 +123,8 @@ function FeaturedNewsCard({ item, onClick }: { item: NewsItem; onClick: () => vo
         <h3 className="text-base font-bold text-[#231714] mt-2 leading-snug line-clamp-2">
           {item.title}
         </h3>
-        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.body}</p>
-        <p className="text-[10px] text-gray-500 mt-2">
+        <p className="text-xs text-gray-700 mt-1 line-clamp-2">{item.body}</p>
+        <p className="text-[10px] text-gray-700 mt-2">
           {dayjs(item.publishedAt).format("YYYY年M月D日")}
         </p>
       </div>
@@ -152,7 +152,7 @@ function TopStoryCard({ item, onClick }: { item: NewsItem; onClick: () => void }
         <h3 className="text-xs font-bold text-[#231714] mt-1 leading-snug line-clamp-3">
           {item.title}
         </h3>
-        <p className="text-[10px] text-gray-500 mt-1">
+        <p className="text-[10px] text-gray-700 mt-1">
           {dayjs(item.publishedAt).format("M月D日")}
         </p>
       </div>
@@ -186,7 +186,7 @@ function CompactNewsCard({ item, onClick }: { item: NewsItem; onClick: () => voi
         <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
           {item.title}
         </h3>
-        <p className="text-[10px] text-gray-500 mt-1">
+        <p className="text-[10px] text-gray-700 mt-1">
           {dayjs(item.publishedAt).format("M月D日")}
         </p>
       </div>

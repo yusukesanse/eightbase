@@ -191,7 +191,7 @@ export default function AdminUsersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-[#231714]">管理者設定</h1>
-          <p className="text-sm text-[#231714]/60 mt-1">
+          <p className="text-sm text-[#231714]/80 mt-1">
             ログイン中: {currentEmail}
             {currentIsSuperAdmin && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
@@ -220,7 +220,7 @@ export default function AdminUsersPage() {
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "admins"
               ? "border-gray-900 text-[#231714]"
-              : "border-transparent text-[#231714]/60 hover:text-[#231714]/60"
+              : "border-transparent text-[#231714]/80 hover:text-[#231714]/80"
           }`}
         >
           管理者一覧
@@ -230,7 +230,7 @@ export default function AdminUsersPage() {
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "logs"
               ? "border-gray-900 text-[#231714]"
-              : "border-transparent text-[#231714]/60 hover:text-[#231714]/60"
+              : "border-transparent text-[#231714]/80 hover:text-[#231714]/80"
           }`}
         >
           ログイン履歴
@@ -246,7 +246,7 @@ export default function AdminUsersPage() {
               <h2 className="text-sm font-semibold text-[#231714] mb-3">管理者を追加</h2>
               <form onSubmit={handleAdd} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">
+                  <label className="block text-xs font-medium text-[#231714]/80 mb-1">
                     Googleメールアドレス <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -259,7 +259,7 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">
+                  <label className="block text-xs font-medium text-[#231714]/80 mb-1">
                     名前（任意）
                   </label>
                   <input
@@ -326,15 +326,15 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="flex items-center gap-3 mt-1">
                       {admin.name && (
-                        <p className="text-xs text-[#231714]/60">{admin.name}</p>
+                        <p className="text-xs text-[#231714]/80">{admin.name}</p>
                       )}
                       {admin.createdAt && (
-                        <p className="text-xs text-[#231714]/60">
+                        <p className="text-xs text-[#231714]/80">
                           追加日: {new Date(admin.createdAt).toLocaleDateString("ja-JP")}
                         </p>
                       )}
                       {admin.createdBy && admin.createdBy !== "環境変数" && (
-                        <p className="text-xs text-[#231714]/60">
+                        <p className="text-xs text-[#231714]/80">
                           追加者: {admin.createdBy}
                         </p>
                       )}
@@ -347,7 +347,7 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => handleDelete(admin)}
                         disabled={deletingId === admin.id}
-                        className="ml-3 p-2 text-[#231714]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="ml-3 p-2 text-[#231714]/80 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="削除"
                       >
                         {deletingId === admin.id ? (
@@ -364,7 +364,7 @@ export default function AdminUsersPage() {
 
               {admins.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-sm text-[#231714]/60">管理者が登録されていません</p>
+                  <p className="text-sm text-[#231714]/80">管理者が登録されていません</p>
                 </div>
               )}
             </div>
@@ -372,7 +372,7 @@ export default function AdminUsersPage() {
 
           {currentIsSuperAdmin && (
             <div className="mt-4 px-4 py-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-[#231714]/60 leading-relaxed">
+              <p className="text-xs text-[#231714]/80 leading-relaxed">
                 スーパー管理者（環境変数で設定）は常にアクセス可能で、削除できません。
                 ここで追加した管理者は、Googleアカウントでログインできるようになります。
               </p>
@@ -396,7 +396,7 @@ export default function AdminUsersPage() {
             </div>
           ) : logs.length === 0 ? (
             <div className="px-5 py-8 text-center">
-              <p className="text-sm text-[#231714]/60">ログイン履歴がありません</p>
+              <p className="text-sm text-[#231714]/80">ログイン履歴がありません</p>
             </div>
           ) : (
             <div className="divide-y divide-[#231714]/5">
@@ -417,12 +417,12 @@ export default function AdminUsersPage() {
                         {log.email || "(不明)"}
                       </span>
                       {log.name && (
-                        <span className="text-xs text-[#231714]/60">
+                        <span className="text-xs text-[#231714]/80">
                           ({log.name})
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#231714]/60">
+                    <div className="flex items-center gap-3 text-xs text-[#231714]/80">
                       <span>{formatTimestamp(log.timestamp)}</span>
                       {log.reason && (
                         <span className="text-red-500">理由: {log.reason}</span>

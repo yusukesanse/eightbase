@@ -89,7 +89,7 @@ export default function DemoDataPage() {
   return (
     <div className="p-5 max-w-2xl">
       <h1 className="text-lg font-bold text-[#231714]">検証データ（麻雀）</h1>
-      <p className="text-[12.5px] text-[#231714]/65 mt-1 leading-relaxed">
+      <p className="text-[12.5px] text-[#231714]/85 mt-1 leading-relaxed">
         麻雀の実機確認用に、選んだシーズンへダミー参加者を投入します。参加は<strong>支払い済み</strong>で入ります。
         ダミーは <code>demoDummy</code> タグ付きで投入され、削除でまとめて消せます（シーズン・ログインユーザーは残ります）。
         <br />
@@ -107,15 +107,15 @@ export default function DemoDataPage() {
       )}
 
       {loading ? (
-        <div className="mt-6 text-sm text-[#231714]/60">読み込み中...</div>
+        <div className="mt-6 text-sm text-[#231714]/80">読み込み中...</div>
       ) : seasons.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-[#231714]/65">
+        <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-[#231714]/85">
           先に「シーズン」タブで麻雀シーズンを作成してください。
         </div>
       ) : (
         <div className="mt-5 space-y-5">
           <div>
-            <label className="block text-[11px] font-extrabold text-[#231714]/65 tracking-wide mb-1.5">
+            <label className="block text-[11px] font-extrabold text-[#231714]/85 tracking-wide mb-1.5">
               対象シーズン
             </label>
             <select
@@ -151,14 +151,14 @@ export default function DemoDataPage() {
               </button>
             ) : (
               <div className="rounded-2xl border border-[#f0c5bb] bg-[#fdf4f2] p-3">
-                <p className="text-[12.5px] text-[#231714]/70 mb-2.5">
+                <p className="text-[12.5px] text-[#231714]/85 mb-2.5">
                   demoDummy タグの参加/順位/卓/CS を全て削除します。シーズンとログインユーザーは残ります。よろしいですか？
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setConfirmClear(false)}
                     disabled={busy !== null}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#231714]/60 bg-white border border-gray-200"
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#231714]/80 bg-white border border-gray-200"
                   >
                     やめる
                   </button>
@@ -174,7 +174,7 @@ export default function DemoDataPage() {
             )}
           </div>
 
-          <div className="rounded-xl bg-[#f7f8f8] p-3.5 text-[12px] text-[#231714]/55 leading-relaxed">
+          <div className="rounded-xl bg-[#f7f8f8] p-3.5 text-[12px] text-[#231714]/75 leading-relaxed">
             投入される内容：
             <ul className="mt-1 list-disc pl-4 space-y-0.5">
               <li>完了卓12名分（M1/M2/M3の順位・ピラミッド）＋CS参戦者8名</li>
@@ -185,7 +185,7 @@ export default function DemoDataPage() {
                 ダミー分の申告は同タブの「デモ操作」（1名ずつ／一括）で代行します。
               </li>
             </ul>
-            <p className="mt-2 text-[#231714]/55">
+            <p className="mt-2 text-[#231714]/75">
               ※ もう一度この投入を実行すると当日の進行（開始・卓・申告）がリセットされ、最初からやり直せます。
             </p>
           </div>

@@ -89,14 +89,14 @@ function MiniKPI({
   return (
     <div className="px-4 py-4 rounded-xl bg-white border border-gray-200 shadow-sm min-w-0">
       <div className="flex items-center gap-2 mb-2">
-        {icon && <span className={`${accent || "text-gray-500"}`}>{icon}</span>}
-        <p className="text-xs text-gray-500 font-medium truncate">{label}</p>
+        {icon && <span className={`${accent || "text-gray-700"}`}>{icon}</span>}
+        <p className="text-xs text-gray-700 font-medium truncate">{label}</p>
       </div>
       <div className="flex items-baseline gap-1">
         <span className={`text-xl sm:text-2xl font-bold ${accent || "text-[#1a1a2e]"}`}>
           {value}
         </span>
-        {unit && <span className="text-xs text-gray-500">{unit}</span>}
+        {unit && <span className="text-xs text-gray-700">{unit}</span>}
       </div>
     </div>
   );
@@ -113,7 +113,7 @@ function ChartHeader({
     <div className="mb-4 px-1">
       <h3 className="text-sm font-bold text-[#1a1a2e]">{title}</h3>
       {subtitle && (
-        <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+        <p className="text-xs text-gray-700 mt-0.5">{subtitle}</p>
       )}
     </div>
   );
@@ -244,7 +244,7 @@ export default function AdminDashboardPage() {
       {/* ヘッダー */}
       <div className="mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-[#1a1a2e]">ダッシュボード</h2>
-        <p className="text-sm text-gray-500 mt-1">{today}</p>
+        <p className="text-sm text-gray-700 mt-1">{today}</p>
       </div>
 
       {/* 審査モード トグル — UI非表示（API・ロジックは維持） */}
@@ -260,7 +260,7 @@ export default function AdminDashboardPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-700 mt-0.5">
                 {reviewMode
                   ? "有効: 未登録ユーザーでもログイン可能です"
                   : "無効: 登録済みユーザーのみログイン可能です"}
@@ -351,7 +351,7 @@ export default function AdminDashboardPage() {
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-700">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -387,7 +387,7 @@ export default function AdminDashboardPage() {
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-700">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-700">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -461,7 +461,7 @@ export default function AdminDashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-700">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -479,7 +479,7 @@ export default function AdminDashboardPage() {
                       const pct = maxGood > 0 ? (item.goodCount / maxGood) * 100 : 0;
                       return (
                         <div key={item.id} className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-gray-500 w-4 text-right shrink-0">
+                          <span className="text-xs font-bold text-gray-700 w-4 text-right shrink-0">
                             {i + 1}
                           </span>
                           <div className="flex-1 min-w-0">
@@ -506,7 +506,7 @@ export default function AdminDashboardPage() {
                       );
                     })
                 ) : (
-                  <div className="flex items-center justify-center py-8 text-sm text-gray-500">
+                  <div className="flex items-center justify-center py-8 text-sm text-gray-700">
                     データがありません
                   </div>
                 )}
@@ -520,7 +520,7 @@ export default function AdminDashboardPage() {
             <MiniKPI label="イベント" value={`${stats?.publishedEvents ?? 0}/${stats?.totalEvents ?? 0}`} unit="公開中" accent="text-teal-600" />
             <Link
               href="/admin/users"
-              className="flex items-center gap-2.5 px-4 py-4 text-xs font-medium rounded-xl bg-white border border-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:shadow-md transition-all duration-200"
+              className="flex items-center gap-2.5 px-4 py-4 text-xs font-medium rounded-xl bg-white border border-gray-200 shadow-sm text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all duration-200"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.3"/>
@@ -530,7 +530,7 @@ export default function AdminDashboardPage() {
             </Link>
             <Link
               href="/admin/reservations"
-              className="flex items-center gap-2.5 px-4 py-4 text-xs font-medium rounded-xl bg-white border border-gray-200 shadow-sm text-gray-600 hover:bg-gray-50 hover:shadow-md transition-all duration-200"
+              className="flex items-center gap-2.5 px-4 py-4 text-xs font-medium rounded-xl bg-white border border-gray-200 shadow-sm text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all duration-200"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.3"/>

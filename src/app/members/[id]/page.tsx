@@ -110,7 +110,7 @@ export default function MemberDetailPage() {
           <h1 className="text-[15px] font-medium text-[#231714]">メンバー</h1>
         </header>
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-sm text-gray-500">メンバーが見つかりません</p>
+          <p className="text-sm text-gray-700">メンバーが見つかりません</p>
           <button
             onClick={() => router.push("/members")}
             className="mt-4 text-[13px] text-[#4f757e]"
@@ -154,7 +154,7 @@ export default function MemberDetailPage() {
             {member.displayName}
           </h2>
           {member.catchphrase && (
-            <p className="text-[12px] text-[#231714]/60 mt-1">
+            <p className="text-[12px] text-[#231714]/80 mt-1">
               {member.catchphrase}
             </p>
           )}
@@ -167,20 +167,20 @@ export default function MemberDetailPage() {
           <p className="text-[20px] font-medium text-[#231714]">
             {member.skills.length}
           </p>
-          <p className="text-[10px] text-[#231714]/60 mt-0.5">スキル</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">スキル</p>
         </div>
         <div className="flex-1 text-center py-3 border-l border-gray-100">
           <p className="text-[20px] font-medium text-[#231714]">
             {member.postCount}
           </p>
-          <p className="text-[10px] text-[#231714]/60 mt-0.5">投稿</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">投稿</p>
         </div>
       </div>
 
       {/* スキル */}
       {member.skills.length > 0 && (
         <div className="bg-white mt-3 px-5 py-4">
-          <h3 className="text-[12px] text-[#231714]/60 mb-3">スキル</h3>
+          <h3 className="text-[12px] text-[#231714]/80 mb-3">スキル</h3>
           <div className="flex flex-wrap gap-2">
             {member.skills.map((skill) => (
               <span

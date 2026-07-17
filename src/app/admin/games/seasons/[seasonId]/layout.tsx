@@ -42,7 +42,7 @@ export default function SeasonDetailLayout({
       <div className="px-4 pt-4 pb-2">
         <Link
           href="/admin/games/seasons"
-          className="inline-flex items-center text-sm text-[#231714]/65 hover:text-[#231714]/80 transition-colors"
+          className="inline-flex items-center text-sm text-[#231714]/85 hover:text-[#231714]/90 transition-colors"
         >
           ← シーズン一覧
         </Link>
@@ -58,7 +58,7 @@ export default function SeasonDetailLayout({
                 ${
                   season.active
                     ? "bg-[#B0E401]/20 text-[#231714]"
-                    : "bg-[#231714]/5 text-[#231714]/60"
+                    : "bg-[#231714]/5 text-[#231714]/80"
                 }
               `}
             >
@@ -85,7 +85,7 @@ export default function SeasonDetailLayout({
                   ${
                     active
                       ? "text-[#231714]"
-                      : "text-[#231714]/60 hover:text-[#231714]/70"
+                      : "text-[#231714]/80 hover:text-[#231714]/85"
                   }
                 `}
               >

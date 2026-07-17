@@ -50,7 +50,7 @@ export default function MyPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500">読み込み中...</p>
+          <p className="text-sm text-gray-700">読み込み中...</p>
         </div>
       </div>
     );
@@ -86,7 +86,7 @@ export default function MyPage() {
               {user.displayName || user.lineDisplayName}
             </p>
             {user.catchphrase && (
-              <p className="text-[12px] text-[#231714]/60 mt-1 truncate">{user.catchphrase}</p>
+              <p className="text-[12px] text-[#231714]/80 mt-1 truncate">{user.catchphrase}</p>
             )}
           </div>
         </div>
@@ -96,15 +96,15 @@ export default function MyPage() {
       <div className="bg-white border-b border-gray-100 flex">
         <div className="flex-1 text-center py-3">
           <p className="text-[20px] font-medium text-[#231714]">{user.skills.length}</p>
-          <p className="text-[10px] text-[#231714]/60 mt-0.5">スキル</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">スキル</p>
         </div>
         <div className="flex-1 text-center py-3 border-x border-gray-100">
           <p className="text-[20px] font-medium text-[#231714]">{user.postCount}</p>
-          <p className="text-[10px] text-[#231714]/60 mt-0.5">投稿</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">投稿</p>
         </div>
         <div className="flex-1 text-center py-3">
           <p className="text-[20px] font-medium text-[#231714]">{user.reservationCount}</p>
-          <p className="text-[10px] text-[#231714]/60 mt-0.5">予約</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">予約</p>
         </div>
       </div>
 

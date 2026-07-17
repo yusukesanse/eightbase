@@ -73,7 +73,7 @@ function CompleteInner() {
         {state === "loading" && (
           <div className="flex flex-col items-center gap-4 py-8">
             <Spinner />
-            <p className="text-sm text-[#231714]/60">決済を確認しています…</p>
+            <p className="text-sm text-[#231714]/80">決済を確認しています…</p>
           </div>
         )}
 
@@ -82,7 +82,7 @@ function CompleteInner() {
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
               <span className="text-red-500 text-2xl">!</span>
             </div>
-            <p className="text-sm text-[#231714]/70">{errorMsg}</p>
+            <p className="text-sm text-[#231714]/85">{errorMsg}</p>
             <Link
               href="/my-reservations"
               className="mt-2 w-full py-3 rounded-2xl text-sm font-bold bg-[#4f757e] text-white text-center"
@@ -104,7 +104,7 @@ function CompleteInner() {
             </div>
 
             {reservation && (
-              <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/80 space-y-1">
+              <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/90 space-y-1">
                 <div className="font-bold text-[#1c1f21]">{reservation.facilityName}</div>
                 <div>
                   {reservation.date} {reservation.startTime}〜{reservation.endTime}
@@ -119,7 +119,7 @@ function CompleteInner() {
                 <div className="text-[34px] font-black tabular-nums text-[#1c1f21] tracking-[0.15em] my-1">
                   {passcode}
                 </div>
-                <div className="text-[11px] text-[#231714]/65">
+                <div className="text-[11px] text-[#231714]/85">
                   予約時間中のみ有効です。終了後は無効になります。
                 </div>
               </div>

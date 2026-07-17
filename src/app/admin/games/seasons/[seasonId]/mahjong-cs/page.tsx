@@ -11,7 +11,7 @@ const TIER_STYLES: Record<MahjongLeagueTier, string> = {
   M3: "bg-orange-50 text-orange-600",
 };
 // リーグ未参加の自己エントリー者（tier 未設定）用の表示。
-const NON_LEAGUE_TIER_STYLE = "bg-gray-100 text-gray-600";
+const NON_LEAGUE_TIER_STYLE = "bg-gray-100 text-gray-700";
 
 export default function SeasonMahjongCsPage() {
   const [events, setEvents] = useState<MahjongCsEvent[]>([]);
@@ -111,13 +111,13 @@ export default function SeasonMahjongCsPage() {
       {/* CS作成 */}
       <section className="bg-white rounded-xl border border-[#231714]/10 p-4">
         <h2 className="text-sm font-bold text-[#231714] mb-3">チャンピオンシップを作成</h2>
-        <p className="text-xs text-[#231714]/65 mb-3">
+        <p className="text-xs text-[#231714]/85 mb-3">
           CSは誰でも参加可（資格制限なし）。最新の確定リーグ編成にいる全員を参戦者として取り込みます。
           <b>開催日を指定して作成すると、その確定日になった時点でリーグ順位シード（M1）付きの予選が自動生成されます。</b>
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-[#231714]/60 mb-1">大会名</label>
+            <label className="block text-xs text-[#231714]/80 mb-1">大会名</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -125,7 +125,7 @@ export default function SeasonMahjongCsPage() {
             />
           </div>
           <div className="w-40">
-            <label className="block text-xs text-[#231714]/60 mb-1">開催日</label>
+            <label className="block text-xs text-[#231714]/80 mb-1">開催日</label>
             <DatePicker value={eventDate} onChange={setEventDate} placeholder="開催日を選択" />
           </div>
           <button
@@ -147,7 +147,7 @@ export default function SeasonMahjongCsPage() {
               className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${
                 selected?.csEventId === ev.csEventId
                   ? "bg-[#231714] text-white border-[#231714]"
-                  : "bg-white text-[#231714]/60 border-[#231714]/10"
+                  : "bg-white text-[#231714]/80 border-[#231714]/10"
               }`}
             >
               {ev.name}（{ev.eventDate}）
@@ -162,7 +162,7 @@ export default function SeasonMahjongCsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-[#231714]">{selected.name}</h2>
-              <p className="text-xs text-[#231714]/65 mt-0.5">
+              <p className="text-xs text-[#231714]/85 mt-0.5">
                 {selected.eventDate}・参戦{selected.entrants.length}名（シードM1 {seedCount}名）・
                 {selected.status === "setup" ? "確定日待ち（当日に自動生成）" : selected.status === "running" ? "進行中" : "終了"}
               </p>
@@ -201,7 +201,7 @@ export default function SeasonMahjongCsPage() {
             <section>
               <h3 className="text-sm font-bold text-[#231714] mb-2">参戦者</h3>
               {selected.entrants.length === 0 ? (
-                <p className="text-xs text-[#231714]/60">
+                <p className="text-xs text-[#231714]/80">
                   参戦者がまだいません。利用者はポータル側から自己エントリーできます。
                 </p>
               ) : (
@@ -220,7 +220,7 @@ export default function SeasonMahjongCsPage() {
                         {e.displayName}
                         <button
                           onClick={() => removeEntrant(e.lineUserId)}
-                          className="text-[#231714]/55 hover:text-red-500"
+                          className="text-[#231714]/75 hover:text-red-500"
                         >
                           ×
                         </button>
@@ -234,13 +234,13 @@ export default function SeasonMahjongCsPage() {
           {/* ブラケット */}
           <section className="space-y-5">
             {selected.rounds.length === 0 ? (
-              <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/60">
+              <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/80">
                 まだトーナメントが生成されていません
               </div>
             ) : (
               selected.rounds.map((round, ri) => (
                 <div key={ri}>
-                  <div className="text-xs font-bold text-[#231714]/65 mb-2">
+                  <div className="text-xs font-bold text-[#231714]/85 mb-2">
                     {round.label}（各卓 上位{round.advanceCount}名通過）
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -260,7 +260,7 @@ export default function SeasonMahjongCsPage() {
                             </span>
                             <button
                               onClick={() => setEditMatch(m)}
-                              className="px-2 py-1 text-xs font-medium text-[#231714]/60 border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                              className="px-2 py-1 text-xs font-medium text-[#231714]/80 border border-[#231714]/10 rounded-lg hover:bg-gray-50"
                             >
                               {m.status === "completed" ? "修正" : "結果入力"}
                             </button>
@@ -272,7 +272,7 @@ export default function SeasonMahjongCsPage() {
                             .map((p) => (
                               <div key={p.lineUserId} className="flex items-center justify-between text-sm">
                                 <span className="text-[#231714]">{p.displayName}</span>
-                                <span className="text-xs text-[#231714]/65">
+                                <span className="text-xs text-[#231714]/85">
                                   {p.rank !== null ? `${p.rank}位 / ${p.points?.toLocaleString()}` : "—"}
                                 </span>
                               </div>
@@ -373,7 +373,7 @@ function MatchResultModal({
         <h3 className="text-base font-bold text-[#231714] mb-1">
           {match.label} の{wasCompleted ? "結果修正" : "結果入力"}
         </h3>
-        <p className="text-xs text-[#231714]/65 mb-2">
+        <p className="text-xs text-[#231714]/85 mb-2">
           {is4 ? "合計100,000点・" : ""}順位は1〜{match.players.length}を1人ずつ
         </p>
         {wasCompleted && (
@@ -411,7 +411,7 @@ function MatchResultModal({
           ))}
         </div>
         {is4 && (
-          <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/65" : "text-red-500"}`}>
+          <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/85" : "text-red-500"}`}>
             合計: {total.toLocaleString()} 点
           </div>
         )}
@@ -419,7 +419,7 @@ function MatchResultModal({
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
+            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/80 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
           >
             キャンセル
           </button>

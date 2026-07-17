@@ -106,7 +106,7 @@ export default function AdminMessagesPage() {
   return (
     <div className="p-4 sm:p-8 max-w-2xl">
       <h1 className="text-xl font-bold text-[#231714] mb-1">メッセージ送信</h1>
-      <p className="text-sm text-[#231714]/65 mb-6">
+      <p className="text-sm text-[#231714]/85 mb-6">
         LINE公式アカウントから、選んだ区分の登録ユーザーのみへメッセージを送信します。
         登録ユーザー以外の第三者には届きません。
       </p>
@@ -132,7 +132,7 @@ export default function AdminMessagesPage() {
         placeholder="送信するメッセージを入力"
         className="w-full px-3 py-2.5 text-sm border border-[#231714]/15 rounded-lg resize-y focus:outline-none focus:border-[#231714]"
       />
-      <div className="text-right text-[11px] text-[#231714]/60 mt-1">{text.length} / {MAX_TEXT}</div>
+      <div className="text-right text-[11px] text-[#231714]/80 mt-1">{text.length} / {MAX_TEXT}</div>
 
       {/* リンク（任意） */}
       <label className="block text-sm font-bold text-[#231714] mb-1.5 mt-3">リンク（任意）</label>
@@ -155,18 +155,18 @@ export default function AdminMessagesPage() {
               type="button"
               onClick={() => toggleRole(o.role)}
               className={`text-left px-3 py-2.5 rounded-lg border transition-colors ${
-                on ? "border-[#231714] bg-[#231714] text-white" : "border-[#231714]/15 bg-white text-[#231714]/70 hover:bg-gray-50"
+                on ? "border-[#231714] bg-[#231714] text-white" : "border-[#231714]/15 bg-white text-[#231714]/85 hover:bg-gray-50"
               }`}
             >
               <div className="text-sm font-bold">{o.label}</div>
-              <div className={`text-[11px] ${on ? "text-white/60" : "text-[#231714]/60"}`}>{o.desc}</div>
+              <div className={`text-[11px] ${on ? "text-white/60" : "text-[#231714]/80"}`}>{o.desc}</div>
             </button>
           );
         })}
       </div>
 
       {/* 対象人数 */}
-      <div className="mt-3 text-sm text-[#231714]/60">
+      <div className="mt-3 text-sm text-[#231714]/80">
         送信対象:{" "}
         <span className="font-bold text-[#231714]">
           {roleList.length === 0 ? "—" : countLoading ? "…" : count != null ? `${count}名` : "取得失敗"}
@@ -187,13 +187,13 @@ export default function AdminMessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !sending && setConfirming(false)}>
           <div className="bg-white rounded-2xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-[#231714] mb-2">送信の確認</h3>
-            <p className="text-sm text-[#231714]/70 mb-1">
+            <p className="text-sm text-[#231714]/85 mb-1">
               宛先: <b>{ROLE_OPTIONS.filter((o) => roles.has(o.role)).map((o) => o.label).join(" / ")}</b>
             </p>
-            <p className="text-sm text-[#231714]/70 mb-3">
+            <p className="text-sm text-[#231714]/85 mb-3">
               対象: <b>{count != null ? `${count}名` : "—"}</b>
             </p>
-            <div className="rounded-lg bg-gray-50 border border-[#231714]/10 px-3 py-2 text-xs text-[#231714]/70 max-h-32 overflow-y-auto whitespace-pre-wrap">
+            <div className="rounded-lg bg-gray-50 border border-[#231714]/10 px-3 py-2 text-xs text-[#231714]/85 max-h-32 overflow-y-auto whitespace-pre-wrap">
               {text.trim()}
               {linkUrl.trim() && <div className="mt-1 text-[#1172a5]">🔗 {linkUrl.trim()}</div>}
             </div>
@@ -201,7 +201,7 @@ export default function AdminMessagesPage() {
               <button
                 onClick={() => setConfirming(false)}
                 disabled={sending}
-                className="flex-1 py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/15 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+                className="flex-1 py-2.5 text-sm font-medium text-[#231714]/80 border border-[#231714]/15 rounded-xl hover:bg-gray-50 disabled:opacity-50"
               >
                 キャンセル
               </button>

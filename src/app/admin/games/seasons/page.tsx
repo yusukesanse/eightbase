@@ -209,7 +209,7 @@ export default function SeasonsPage() {
   /* ───────── UI ───────── */
 
   const inputClass = "w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]";
-  const labelClass = "block text-xs font-medium text-[#231714]/60 mb-1";
+  const labelClass = "block text-xs font-medium text-[#231714]/80 mb-1";
 
   return (
     <div className="p-8">
@@ -217,7 +217,7 @@ export default function SeasonsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#231714]">シーズン管理</h2>
-          <p className="text-sm text-[#231714]/60 mt-1">ランキング集計期間の作成・管理</p>
+          <p className="text-sm text-[#231714]/80 mt-1">ランキング集計期間の作成・管理</p>
         </div>
         <div className="flex items-center gap-2">
           {/* 休催日/返金/監査 は各シーズン詳細のタブへ移動 */}
@@ -238,7 +238,7 @@ export default function SeasonsPage() {
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
       ) : seasons.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/60">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
           シーズンがまだ作成されていません
         </div>
       ) : (
@@ -260,17 +260,17 @@ export default function SeasonsPage() {
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         s.active
                           ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
+                          : "bg-gray-100 text-gray-700"
                       }`}
                     >
                       {s.active ? "有効" : "無効"}
                     </span>
                   </div>
-                  <p className="text-sm text-[#231714]/65">
+                  <p className="text-sm text-[#231714]/85">
                     {s.startDate} 〜 {s.endDate}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="px-2 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/70">
+                    <span className="px-2 py-0.5 rounded bg-[#A5C1C8]/15 text-[10px] font-medium text-[#231714]/85">
                       CS上位{s.csConfig?.[s.gameCategory ?? "mahjong"]?.topN ?? 3}名
                     </span>
                   </div>
@@ -280,7 +280,7 @@ export default function SeasonsPage() {
                     onClick={() => toggleActive(s)}
                     className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                       s.active
-                        ? "border border-gray-200 text-[#231714]/60 hover:bg-gray-50"
+                        ? "border border-gray-200 text-[#231714]/80 hover:bg-gray-50"
                         : "bg-green-50 text-green-700 hover:bg-green-100"
                     }`}
                   >
@@ -310,7 +310,7 @@ export default function SeasonsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <h3 className="text-base font-semibold text-[#231714] mb-2">削除の確認</h3>
-            <p className="text-sm text-[#231714]/60 mb-5">
+            <p className="text-sm text-[#231714]/80 mb-5">
               このシーズンを削除しますか？スコアが登録済みの場合は削除できません。
             </p>
             <div className="flex gap-3 justify-end">
@@ -359,7 +359,7 @@ export default function SeasonsPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[10px] text-[#231714]/60 mt-1">
+                <p className="text-[10px] text-[#231714]/80 mt-1">
                   シーズンは種目ごとに作成します（麻雀・ダーツ・ビリヤード・ポーカー）。
                 </p>
               </div>
@@ -412,7 +412,7 @@ export default function SeasonsPage() {
                     <option value="average">アベレージ（通算平均点）</option>
                     <option value="total">合計点（通算合計）</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-700 mt-1">
                     順位の決定に使う指標。同点時は連対率→試合数→名前順。既定はアベレージ。
                   </p>
                 </div>
@@ -433,7 +433,7 @@ export default function SeasonsPage() {
                       抜け番を許容する（8名以上の予約を許可）
                     </span>
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-700 mt-1">
                     未チェック（既定）は<b>1開催日8名まで</b>で締切（2卓ちょうど）。チェックすると
                     <b>8名以上の予約</b>を受け付け、余りは当日GMが抜け番（待機）にできます。
                   </p>
@@ -444,7 +444,7 @@ export default function SeasonsPage() {
               {form.gameCategory === "mahjong" && (
                 <div>
                   <label className={labelClass}>ゲームマスター（手動卓振り分け）</label>
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="text-xs text-gray-700 mb-2">
                     指定すると、そのシーズンは<b>GMが利用者アプリで手動で卓を組む</b>方式になります（自動の抜け番・交代はオフ）。
                     未指定なら現行どおり自動進行。複数選択可。
                   </p>
@@ -455,7 +455,7 @@ export default function SeasonsPage() {
                         return (
                           <span key={id} className="inline-flex items-center gap-1 bg-[#231714]/5 rounded-full pl-2.5 pr-1.5 py-1 text-xs text-[#231714]">
                             {c?.displayName ?? id}
-                            <button type="button" onClick={() => toggleGm(id)} className="text-[#231714]/60 hover:text-red-500 leading-none">×</button>
+                            <button type="button" onClick={() => toggleGm(id)} className="text-[#231714]/80 hover:text-red-500 leading-none">×</button>
                           </span>
                         );
                       })}
@@ -482,7 +482,7 @@ export default function SeasonsPage() {
                         </label>
                       ))}
                     {gmCandidates.length === 0 && (
-                      <div className="px-3 py-3 text-xs text-gray-500">LINE連携済みの利用者がいません。</div>
+                      <div className="px-3 py-3 text-xs text-gray-700">LINE連携済みの利用者がいません。</div>
                     )}
                   </div>
                 </div>
@@ -503,7 +503,7 @@ export default function SeasonsPage() {
                   value={form.termsMarkdown}
                   onChange={(v) => setForm({ ...form, termsMarkdown: v })}
                 />
-                <p className="text-[10px] text-[#231714]/60 mt-1">
+                <p className="text-[10px] text-[#231714]/80 mt-1">
                   未入力なら、利用者アプリの「ルール/約款」タブにその項目は表示されません。
                 </p>
               </div>

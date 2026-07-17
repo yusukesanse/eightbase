@@ -42,7 +42,7 @@ const EMPTY_MEMBERS: MemberItem[] = [];
 const BANNERS = [
   "linear-gradient(120deg, #a5c1c7 0%, #7fa0a6 100%)",
   "linear-gradient(120deg, #c4d7db 0%, #8fb0b6 100%)",
-  "linear-gradient(120deg, #b9c7cc 0%, #5f7a80 100%)",
+  "linear-gradient(120deg, #b9c7cc 0%, #3c4f54 100%)",
   "linear-gradient(120deg, #d3dee0 0%, #a5c1c7 100%)",
 ];
 
@@ -129,9 +129,9 @@ export default function MembersPage() {
       {/* ヘッダー + 検索 */}
       <div className="px-5 pt-12">
         <h1 className="text-[18px] font-bold text-[#1c1f21]">メンバー</h1>
-        <p className="text-[12px] text-[#6d6f74] mt-0.5">{members.length}人のメンバー</p>
+        <p className="text-[12px] text-[#45484d] mt-0.5">{members.length}人のメンバー</p>
         <div className="relative mt-3">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6e73]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3f4247]">
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -154,7 +154,7 @@ export default function MembersPage() {
             className={`shrink-0 px-3.5 py-1.5 text-[12px] font-medium rounded-full border transition-colors ${
               filter === f
                 ? "bg-[#4f757e] text-white border-[#a5c1c7]"
-                : "bg-white text-[#6d6f74] border-[#eceff1]"
+                : "bg-white text-[#45484d] border-[#eceff1]"
             }`}
           >
             {f}
@@ -168,7 +168,7 @@ export default function MembersPage() {
           <MemberCard key={m.lineUserId} m={m} banner={BANNERS[i % BANNERS.length]} onOpen={() => openMember(m)} />
         ))}
         {list.length === 0 && (
-          <div className="bg-white rounded-[18px] py-7 text-center text-[14px] text-[#6b6e73] shadow-sm">該当者なし</div>
+          <div className="bg-white rounded-[18px] py-7 text-center text-[14px] text-[#3f4247] shadow-sm">該当者なし</div>
         )}
       </div>
 
@@ -196,7 +196,7 @@ export default function MembersPage() {
               <Avatar src={open.pictureUrl} name={open.displayName} size="lg" />
               <div className="min-w-0">
                 {open.companyName && <div className="font-bold text-[#1c1f21]">{open.companyName}</div>}
-                {open.jobTitle && <div className="text-[13px] text-[#6d6f74]">{open.jobTitle}</div>}
+                {open.jobTitle && <div className="text-[13px] text-[#45484d]">{open.jobTitle}</div>}
               </div>
             </div>
 
@@ -209,7 +209,7 @@ export default function MembersPage() {
             {open.skills.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {open.skills.map((t) => (
-                  <span key={t} className="px-2.5 py-1 text-[11px] rounded-full bg-[#eef4f5] text-[#5f7a80]">
+                  <span key={t} className="px-2.5 py-1 text-[11px] rounded-full bg-[#eef4f5] text-[#3c4f54]">
                     {t}
                   </span>
                 ))}
@@ -219,7 +219,7 @@ export default function MembersPage() {
             <MemberLinks companyUrl={open.companyUrl} sns={open.socialLinks} />
 
             {!open.lineUrl && (
-              <p className="text-[12px] text-[#6b6e73] leading-relaxed">
+              <p className="text-[12px] text-[#3f4247] leading-relaxed">
                 この方はLINE連絡先（友だち追加URL）を未登録のため、「LINEで連絡」はご利用いただけません。
               </p>
             )}
@@ -247,7 +247,7 @@ function MemberCard({ m, banner, onOpen }: { m: MemberItem; banner: string; onOp
           style={{ background: "rgba(255,255,255,.92)" }}
         >
           <LineGlyph size={12} />
-          <span className="text-[10.5px] font-bold text-[#6d6f74]">LINE</span>
+          <span className="text-[10.5px] font-bold text-[#45484d]">LINE</span>
         </span>
       </div>
 
@@ -260,16 +260,16 @@ function MemberCard({ m, banner, onOpen }: { m: MemberItem; banner: string; onOp
       <div style={{ padding: "40px 16px 16px" }}>
         <div className="text-[18px] font-bold text-[#1c1f21] leading-[1.3]">{m.displayName}</div>
         {roleCompany && (
-          <div className="text-[14px] text-[#6d6f74] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{roleCompany}</div>
+          <div className="text-[14px] text-[#45484d] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{roleCompany}</div>
         )}
         {m.skills.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {m.skills.slice(0, 3).map((t) => (
-              <span key={t} className="px-2.5 py-1 text-[11px] rounded-full bg-[#f6f8f9] text-[#6d6f74]">
+              <span key={t} className="px-2.5 py-1 text-[11px] rounded-full bg-[#f6f8f9] text-[#45484d]">
                 {t}
               </span>
             ))}
-            {more > 0 && <span className="px-2.5 py-1 text-[11px] rounded-full bg-[#eef4f5] text-[#5f7a80]">+{more}</span>}
+            {more > 0 && <span className="px-2.5 py-1 text-[11px] rounded-full bg-[#eef4f5] text-[#3c4f54]">+{more}</span>}
           </div>
         )}
       </div>
@@ -291,7 +291,7 @@ function MemberLinks({ companyUrl, sns }: { companyUrl: string; sns: SocialLinks
 
   return (
     <div className="border-t border-[#eceff1] pt-3.5">
-      <p className="text-[12px] font-bold text-[#6b6e73] mb-2" style={{ letterSpacing: "0.04em" }}>リンク</p>
+      <p className="text-[12px] font-bold text-[#3f4247] mb-2" style={{ letterSpacing: "0.04em" }}>リンク</p>
 
       {companyUrl && (
         <a
@@ -304,7 +304,7 @@ function MemberLinks({ companyUrl, sns }: { companyUrl: string; sns: SocialLinks
             <GlobeIcon size={18} />
           </span>
           <span className="flex-1 min-w-0 text-[14px] text-[#3f7c98] truncate">{stripUrl(companyUrl)}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6e73" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3f4247" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
             <path d="M9 6l6 6-6 6" />
           </svg>
         </a>

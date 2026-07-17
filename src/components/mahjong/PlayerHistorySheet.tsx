@@ -106,7 +106,7 @@ export function PlayerHistorySheet({
     };
   }, [lineUserId, seasonId]);
 
-  const tierColor = data?.standing ? TIER_COLOR[data.standing.tier] : "#6b6e73";
+  const tierColor = data?.standing ? TIER_COLOR[data.standing.tier] : "#3f4247";
 
   return (
     <BottomSheet open onClose={onClose}>
@@ -115,7 +115,7 @@ export function PlayerHistorySheet({
             <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : !data ? (
-          <div className="py-10 text-center text-sm text-[#231714]/60">
+          <div className="py-10 text-center text-sm text-[#231714]/80">
             戦歴を取得できませんでした
           </div>
         ) : (
@@ -135,12 +135,12 @@ export function PlayerHistorySheet({
                     >
                       {data.standing.tier}
                     </span>
-                    <span className="text-[12px] font-bold text-[#6b6e73]">
+                    <span className="text-[12px] font-bold text-[#3f4247]">
                       {data.standing.rank}位
                     </span>
                   </div>
                 ) : (
-                  <div className="text-[12px] text-[#6b6e73] mt-1">このシーズンの戦歴なし</div>
+                  <div className="text-[12px] text-[#3f4247] mt-1">このシーズンの戦歴なし</div>
                 )}
               </div>
             </div>
@@ -157,7 +157,7 @@ export function PlayerHistorySheet({
                   ].map((c) => (
                     <div key={c.label} className="rounded-xl bg-[#f6f8f9] py-2.5 text-center">
                       <div className="text-[15px] font-black text-[#1c1f21] tabular-nums">{c.val}</div>
-                      <div className="text-[10px] text-[#6b6e73] mt-0.5">{c.label}</div>
+                      <div className="text-[10px] text-[#3f4247] mt-0.5">{c.label}</div>
                     </div>
                   ))}
                 </div>
@@ -165,7 +165,7 @@ export function PlayerHistorySheet({
                 {/* AVG推移スパークライン */}
                 {data.avgTrend.length >= 2 && (
                   <div className="mt-4">
-                    <div className="text-[11px] font-extrabold text-[#6b6e73] mb-1.5">AVG推移</div>
+                    <div className="text-[11px] font-extrabold text-[#3f4247] mb-1.5">AVG推移</div>
                     <div className="rounded-xl bg-[#f6f8f9] px-2 py-2">
                       <Sparkline points={data.avgTrend.map((p) => p.cumulativeAverage)} />
                     </div>
@@ -174,7 +174,7 @@ export function PlayerHistorySheet({
 
                 {/* 戦歴リスト */}
                 <div className="mt-4">
-                  <div className="text-[11px] font-extrabold text-[#6b6e73] mb-1.5">
+                  <div className="text-[11px] font-extrabold text-[#3f4247] mb-1.5">
                     戦歴（{data.games.length}戦）
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -188,7 +188,7 @@ export function PlayerHistorySheet({
                           {fmtDate(g.eventDate)}
                         </span>
                         {g.round ? (
-                          <span className="text-[10px] text-[#6b6e73]">第{g.round}回戦</span>
+                          <span className="text-[10px] text-[#3f4247]">第{g.round}回戦</span>
                         ) : null}
                         <span className="flex-1" />
                         <span className="text-[14px] font-black tabular-nums text-[#1c1f21]">

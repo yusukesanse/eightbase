@@ -90,7 +90,7 @@ export default function InfoPage() {
             className={`flex-1 py-3 text-xs text-center relative transition-colors ${
               activeTab === tab.id
                 ? "text-[#33636e] font-bold"
-                : "text-gray-500 font-medium hover:text-gray-600"
+                : "text-gray-700 font-medium hover:text-gray-700"
             }`}
           >
             {tab.label}
@@ -226,7 +226,7 @@ function EventsTab({
                 "text-[11px] px-3 py-1.5 rounded-full font-medium transition-colors",
                 timeFilter === f.id
                   ? "bg-[#4f757e] text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               )}
             >
               {f.label}
@@ -243,7 +243,7 @@ function EventsTab({
                 "text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition-colors flex-shrink-0",
                 categoryFilter === "all"
                   ? "bg-[#231714] text-white"
-                  : "bg-gray-100 text-gray-500"
+                  : "bg-gray-100 text-gray-700"
               )}
             >
               すべて
@@ -256,7 +256,7 @@ function EventsTab({
                   "text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition-colors flex-shrink-0",
                   categoryFilter === cat
                     ? "bg-[#231714] text-white"
-                    : "bg-gray-100 text-gray-500"
+                    : "bg-gray-100 text-gray-700"
                 )}
               >
                 {EVENT_CATEGORY_LABELS[cat] || cat}
@@ -267,7 +267,7 @@ function EventsTab({
       </div>
 
       {/* ソート説明 */}
-      <p className="text-[10px] text-gray-500">
+      <p className="text-[10px] text-gray-700">
         {timeFilter === "upcoming"
           ? "直近のイベントから表示"
           : timeFilter === "past"
@@ -278,7 +278,7 @@ function EventsTab({
       {/* タイムライン */}
       {grouped.length === 0 ? (
         <div className="text-center py-10">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-700">
             {timeFilter === "upcoming"
               ? "今後のイベントはありません"
               : timeFilter === "past"
@@ -293,7 +293,7 @@ function EventsTab({
               {/* 月ヘッダー */}
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-bold text-[#231714]">{month}</span>
-                <span className="text-[10px] text-gray-500">{items.length}件</span>
+                <span className="text-[10px] text-gray-700">{items.length}件</span>
               </div>
 
               {/* タイムラインリスト */}
@@ -345,14 +345,14 @@ function EventsTab({
                                 <span className={clsx("text-[9px] px-1.5 py-0.5 rounded-full font-bold", catColor.bg, catColor.text)}>
                                   {catLabel}
                                 </span>
-                                <span className="text-[10px] text-gray-500">
+                                <span className="text-[10px] text-gray-700">
                                   {start.format("M/D（ddd）")}
                                 </span>
                               </div>
                               <h3 className="text-[13px] font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
                                 {ev.title}
                               </h3>
-                              <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-500">
+                              <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-700">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <circle cx="12" cy="12" r="10" />
                                   <path d="M12 6v6l4 2" />
@@ -360,7 +360,7 @@ function EventsTab({
                                 <span>{start.format("HH:mm")}〜{end.format("HH:mm")}</span>
                               </div>
                               {ev.location && (
-                                <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                <p className="text-[10px] text-gray-700 mt-0.5 truncate">
                                   {ev.location}
                                 </p>
                               )}
@@ -431,7 +431,7 @@ function GamesTab() {
               "flex-1 px-2.5 py-2 rounded-lg text-xs whitespace-nowrap transition-all",
               gameCategory === cat.id
                 ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                : "text-[#231714]/60 font-medium"
+                : "text-[#231714]/80 font-medium"
             )}
           >
             {cat.label}
@@ -452,7 +452,7 @@ function GamesTab() {
                       "px-2.5 py-1 rounded-md text-[11px] transition-all",
                       period === "monthly"
                         ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                        : "text-[#231714]/60 font-medium"
+                        : "text-[#231714]/80 font-medium"
                     )}
                   >
                     月間
@@ -463,7 +463,7 @@ function GamesTab() {
                       "px-2.5 py-1 rounded-md text-[11px] transition-all",
                       period === "annual"
                         ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                        : "text-[#231714]/60 font-medium"
+                        : "text-[#231714]/80 font-medium"
                     )}
                   >
                     年間
@@ -471,13 +471,13 @@ function GamesTab() {
                 </div>
                 {period === "monthly" && (
                   <div className="flex items-center gap-1.5 ml-auto">
-                    <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/60 hover:text-[#231714] rounded">
+                    <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/80 hover:text-[#231714] rounded">
                       ←
                     </button>
                     <span className="text-xs font-medium text-[#231714] min-w-[70px] text-center">
                       {yearMonth.replace("-", "年") + "月"}
                     </span>
-                    <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/60 hover:text-[#231714] rounded">
+                    <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/80 hover:text-[#231714] rounded">
                       →
                     </button>
                   </div>
@@ -501,9 +501,9 @@ function GamesTab() {
                           <span className={clsx(
                             "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                             user.rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                            user.rank === 2 ? "bg-gray-100 text-gray-600" :
+                            user.rank === 2 ? "bg-gray-100 text-gray-700" :
                             user.rank === 3 ? "bg-orange-100 text-orange-600" :
-                            "bg-gray-50 text-gray-500"
+                            "bg-gray-50 text-gray-700"
                           )}>
                             {user.rank}
                           </span>
@@ -522,7 +522,7 @@ function GamesTab() {
                             <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                               <div className="h-full rounded-full bg-[#A5C1C8] transition-all" style={{ width: `${pct}%` }} />
                             </div>
-                            <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/60">
+                            <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/80">
                               <span>{user.playedCount}回参加</span>
                             </div>
                           </div>
@@ -586,10 +586,10 @@ function NewsTab({
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                   <span className="text-[10px] font-bold text-[#231714]">{cfg.label}</span>
-                  <span className="text-[10px] text-gray-500">{dayjs(item.publishedAt).format("M月D日")}</span>
+                  <span className="text-[10px] text-gray-700">{dayjs(item.publishedAt).format("M月D日")}</span>
                 </div>
                 <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">{item.title}</h3>
-                <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">{item.body}</p>
+                <p className="text-[11px] text-gray-700 mt-1 line-clamp-1">{item.body}</p>
               </div>
             </div>
           </div>
@@ -610,7 +610,7 @@ function EmptyState({ message }: { message: string }) {
         <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="2" />
         <path d="M20 14v8M20 26v0" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
       </svg>
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="text-sm text-gray-700">{message}</p>
     </div>
   );
 }

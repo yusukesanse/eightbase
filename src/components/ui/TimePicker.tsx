@@ -95,7 +95,7 @@ export default function TimePicker({
           w-full flex items-center justify-between gap-2
           px-3 py-2.5 border rounded-xl text-sm transition-all
           ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/30" : "border-[#231714]/15 hover:border-[#231714]/30"}
-          ${!value ? "text-[#231714]/60" : "text-[#231714]"}
+          ${!value ? "text-[#231714]/80" : "text-[#231714]"}
           bg-white cursor-pointer
         `}
       >
@@ -106,7 +106,7 @@ export default function TimePicker({
           </svg>
           <span>{displayValue || placeholder}</span>
         </div>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#231714]/55 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#231714]/75 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>

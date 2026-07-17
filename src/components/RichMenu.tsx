@@ -113,7 +113,7 @@ export function RichMenu() {
               "relative flex flex-col items-center justify-center py-2 gap-1 text-xs transition-colors",
               active
                 ? "text-[#33636e] font-bold"
-                : "text-gray-500 hover:text-gray-600"
+                : "text-gray-700 hover:text-gray-700"
             )}
           >
             {/* 「今ここ」を色だけに頼らず、上部インジケーターバー＋淡いアクセント地でも示す（色弱配慮） */}
@@ -126,7 +126,7 @@ export function RichMenu() {
             <span
               className={clsx(
                 "relative z-10 transition-colors",
-                active ? "text-[#33636e]" : "text-gray-500"
+                active ? "text-[#33636e]" : "text-gray-700"
               )}
             >
               {menu.icon}

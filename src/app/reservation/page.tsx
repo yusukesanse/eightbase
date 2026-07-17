@@ -446,14 +446,14 @@ export default function ReservationPage() {
       {/* ── ヘッダー ── */}
       <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
         <h1 className="text-[15px] font-medium leading-tight text-[#231714]">施設予約</h1>
-        <p className="text-[11px] text-[#231714]/65 mt-0.5">EIGHT BASE UNGA</p>
+        <p className="text-[11px] text-[#231714]/85 mt-0.5">EIGHT BASE UNGA</p>
       </header>
 
       {/* ── マイ予約リンク ── */}
       <div className="px-5 pt-3">
         <Link
           href="/my-reservations"
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-[#231714]/70"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-[#231714]/85"
         >
           マイ予約
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -464,11 +464,11 @@ export default function ReservationPage() {
 
       {/* ── 施設選択 ── */}
       <section className="px-5 pt-4 pb-2">
-        <p className="text-[11px] font-bold text-[#231714]/60 uppercase tracking-widest mb-3">施設を選択</p>
+        <p className="text-[11px] font-bold text-[#231714]/80 uppercase tracking-widest mb-3">施設を選択</p>
 
         {meetingRooms.length > 0 && (
           <div className="mb-3">
-            <p className="text-[10px] text-[#231714]/60 mb-1.5">会議室</p>
+            <p className="text-[10px] text-[#231714]/80 mb-1.5">会議室</p>
             <div className="flex gap-2 flex-wrap">
               {meetingRooms.map((f) => (
                 <FacilityPill
@@ -489,7 +489,7 @@ export default function ReservationPage() {
 
         {booths.length > 0 && (
           <div>
-            <p className="text-[10px] text-[#231714]/60 mb-1.5">リモートブース</p>
+            <p className="text-[10px] text-[#231714]/80 mb-1.5">リモートブース</p>
             <div className="flex gap-2 flex-wrap">
               {booths.map((f) => (
                 <FacilityPill
@@ -510,7 +510,7 @@ export default function ReservationPage() {
 
         {activities.length > 0 && (
           <div className="mt-3">
-            <p className="text-[10px] text-[#231714]/60 mb-1.5">アクティビティ</p>
+            <p className="text-[10px] text-[#231714]/80 mb-1.5">アクティビティ</p>
             <div className="flex gap-2 flex-wrap">
               {activities.map((f) => (
                 <FacilityPill
@@ -564,7 +564,7 @@ export default function ReservationPage() {
           {/* 曜日ヘッダー */}
           <div className="grid grid-cols-7 mb-1">
             {DAY_LABELS.map((d) => (
-              <div key={d} className="text-center text-[10px] font-medium text-[#231714]/55 py-1">
+              <div key={d} className="text-center text-[10px] font-medium text-[#231714]/75 py-1">
                 {d}
               </div>
             ))}
@@ -625,16 +625,16 @@ export default function ReservationPage() {
           ) : weekRefreshing ? (
             <div className="flex items-center justify-center gap-1.5 py-2">
               <div className="w-3 h-3 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
-              <span className="text-[10px] text-[#231714]/60">空き状況を更新中…</span>
+              <span className="text-[10px] text-[#231714]/80">空き状況を更新中…</span>
             </div>
           ) : null}
 
           {/* 凡例 */}
           <div className="flex items-center gap-4 mt-2 justify-center">
-            <span className="flex items-center gap-1 text-[9px] text-[#231714]/60">
+            <span className="flex items-center gap-1 text-[9px] text-[#231714]/80">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B0E401]" /> 空きあり
             </span>
-            <span className="flex items-center gap-1 text-[9px] text-[#231714]/60">
+            <span className="flex items-center gap-1 text-[9px] text-[#231714]/80">
               <span className="w-1.5 h-1.5 rounded-full bg-[#A5C1C8]" /> 一部予約
             </span>
           </div>
@@ -648,7 +648,7 @@ export default function ReservationPage() {
                 <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-sm text-[#231714]/60 leading-relaxed">
+            <p className="text-sm text-[#231714]/80 leading-relaxed">
               施設を選択すると<br />空き状況が表示されます
             </p>
           </div>
@@ -662,11 +662,11 @@ export default function ReservationPage() {
           <section className="px-5 pt-4 pb-2 flex-1">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-[11px] font-bold text-[#231714]/60 uppercase tracking-widest">
+                <h3 className="text-[11px] font-bold text-[#231714]/80 uppercase tracking-widest">
                   時間を選択
                 </h3>
                 {dayRefreshing && (
-                  <span className="flex items-center gap-1 text-[10px] text-[#231714]/60">
+                  <span className="flex items-center gap-1 text-[10px] text-[#231714]/80">
                     <span className="w-2.5 h-2.5 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
                     更新中…
                   </span>
@@ -683,7 +683,7 @@ export default function ReservationPage() {
               </div>
             ) : (
               <>
-                <p className="text-[10px] text-[#231714]/60 mb-2">
+                <p className="text-[10px] text-[#231714]/80 mb-2">
                   {isFixedDuration
                     ? (!selStart
                       ? "開始時間をタップしてください（終了は自動設定されます）"
@@ -697,7 +697,7 @@ export default function ReservationPage() {
                 {/* 固定枠の内訳表示 */}
                 {isFixedDuration && fixedMinDuration > 0 && (
                   <div className="mb-2 px-3 py-2 bg-[#A5C1C8]/10 rounded-lg">
-                    <p className="text-[11px] text-[#231714]/70">
+                    <p className="text-[11px] text-[#231714]/85">
                       {facilityPrepTime > 0
                         ? `利用${fixedMinDuration - facilityPrepTime}分 ＋ 準備${facilityPrepTime}分 = 合計${fixedMinDuration}分の固定枠`
                         : `${fixedMinDuration}分の固定枠`}
@@ -752,7 +752,7 @@ export default function ReservationPage() {
           {/* 規約本文（スクロール領域） */}
           <div className="flex-1 overflow-y-auto relative" onScroll={handleTermsScroll}>
             <div className="px-5 py-5">
-              <div className="prose prose-sm max-w-none text-[#231714]/80
+              <div className="prose prose-sm max-w-none text-[#231714]/90
                 prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
                 prose-h2:text-base prose-h3:text-sm
                 prose-p:my-1.5 prose-p:leading-relaxed
@@ -782,7 +782,7 @@ export default function ReservationPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
                   <path d="M12 5v14M19 12l-7 7-7-7" />
                 </svg>
-                <p className="text-[12px] text-[#231714]/60">最後までスクロールしてください</p>
+                <p className="text-[12px] text-[#231714]/80">最後までスクロールしてください</p>
               </div>
             </div>
           )}
@@ -803,13 +803,13 @@ export default function ReservationPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[11px] text-[#231714]/65">{selectedFacility?.name}</p>
+                  <p className="text-[11px] text-[#231714]/85">{selectedFacility?.name}</p>
                   <p className="text-xs font-bold text-[#231714]">
                     {dayjs(selectedDate!).format("M/D（ddd）")} {selStart}〜{selEnd}
                   </p>
                   {/* 固定枠の内訳 */}
                   {isFixedDuration && facilityPrepTime > 0 && (
-                    <p className="text-[10px] text-[#231714]/60">
+                    <p className="text-[10px] text-[#231714]/80">
                       利用{fixedMinDuration - facilityPrepTime}分 ＋ 準備{facilityPrepTime}分
                     </p>
                   )}
@@ -825,7 +825,7 @@ export default function ReservationPage() {
                     <circle cx="8" cy="8" r="8" fill="#B0E401"/>
                     <path d="M4.5 8l2.5 2.5L11.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <span className="text-xs text-[#231714]/70">利用規約に同意済み</span>
+                  <span className="text-xs text-[#231714]/85">利用規約に同意済み</span>
                 </div>
               ) : (
                 <button
@@ -847,7 +847,7 @@ export default function ReservationPage() {
 
             {/* トレーラー: 決済額の案内 */}
             {isTrailer && selectedFacility?.paymentAmount ? (
-              <p className="text-xs text-[#231714]/60 text-center">
+              <p className="text-xs text-[#231714]/80 text-center">
                 決済額 ¥{selectedFacility.paymentAmount.toLocaleString()}（税込）／ 決済後に解錠コードが表示されます
               </p>
             ) : null}
@@ -865,7 +865,7 @@ export default function ReservationPage() {
                 "w-full py-3.5 rounded-2xl text-sm font-bold transition-all",
                 canConfirm && !paying
                   ? "bg-[#B0E401] text-[#231714] active:scale-[0.98] shadow-sm shadow-[#B0E401]/20"
-                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-700 cursor-not-allowed"
               )}
             >
               {paying
@@ -876,7 +876,7 @@ export default function ReservationPage() {
             </button>
           </div>
         ) : (
-          <p className="text-center text-[11px] text-[#231714]/55 py-1">
+          <p className="text-center text-[11px] text-[#231714]/75 py-1">
             {!selectedFacility
               ? "上から施設を選択してください"
               : !selectedDate

@@ -68,7 +68,7 @@ export default function MonthCalendar({
 
       <div className="grid grid-cols-7 mb-1">
         {DAY_LABELS.map((d) => (
-          <div key={d} className="text-center text-[10px] font-medium text-[#231714]/55 py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] font-medium text-[#231714]/75 py-1">{d}</div>
         ))}
       </div>
 

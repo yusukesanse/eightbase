@@ -19,7 +19,7 @@ export function TermsEditor({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-xs font-medium text-gray-600">{label}</label>
+        <label className="text-xs font-medium text-gray-700">{label}</label>
         <div className="flex border border-[#231714]/15 rounded-md overflow-hidden">
           <button
             type="button"
@@ -27,7 +27,7 @@ export function TermsEditor({
             className={`px-3 py-1 text-[11px] font-medium transition-colors ${
               tab === "edit"
                 ? "bg-[#231714] text-white"
-                : "text-[#231714]/65 hover:bg-[#231714]/5"
+                : "text-[#231714]/85 hover:bg-[#231714]/5"
             }`}
           >
             編集
@@ -38,7 +38,7 @@ export function TermsEditor({
             className={`px-3 py-1 text-[11px] font-medium transition-colors ${
               tab === "preview"
                 ? "bg-[#231714] text-white"
-                : "text-[#231714]/65 hover:bg-[#231714]/5"
+                : "text-[#231714]/85 hover:bg-[#231714]/5"
             }`}
           >
             プレビュー
@@ -55,7 +55,7 @@ export function TermsEditor({
             rows={10}
             className="w-full px-3 py-2 border border-[#231714]/20 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent resize-y"
           />
-          <p className="text-[10px] text-[#231714]/60 mt-1">
+          <p className="text-[10px] text-[#231714]/80 mt-1">
             Markdown記法が使えます: <code className="bg-gray-100 px-1 rounded">**太字**</code> <code className="bg-gray-100 px-1 rounded">## 見出し</code> <code className="bg-gray-100 px-1 rounded">1. 番号リスト</code> <code className="bg-gray-100 px-1 rounded">| 表 |</code>
             <br />
             太字が効かないときは前後に半角スペースを入れてください（<code className="bg-gray-100 px-1 rounded">は**待機（抜け番）**と</code> のように全角記号に挟まれると強調になりません）。
@@ -64,7 +64,7 @@ export function TermsEditor({
       ) : (
         <div className="border border-[#231714]/20 rounded-lg px-4 py-3 min-h-[200px] max-h-[300px] overflow-y-auto bg-gray-50">
           {value ? (
-            <div className="prose prose-sm max-w-none text-[#231714]/80
+            <div className="prose prose-sm max-w-none text-[#231714]/90
               prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-3 prose-headings:mb-1.5
               prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
               prose-p:my-1 prose-p:leading-relaxed prose-p:text-sm
@@ -73,7 +73,7 @@ export function TermsEditor({
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
             </div>
           ) : (
-            <p className="text-sm text-[#231714]/55 text-center py-8">
+            <p className="text-sm text-[#231714]/75 text-center py-8">
               プレビューする内容がありません
             </p>
           )}

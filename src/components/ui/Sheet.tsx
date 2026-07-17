@@ -15,7 +15,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       type="button"
       onClick={onClose}
       aria-label="閉じる"
-      className="w-8 h-8 -mr-1.5 rounded-full flex items-center justify-center text-[#6d6f74] hover:bg-[#f6f8f9] transition-colors"
+      className="w-8 h-8 -mr-1.5 rounded-full flex items-center justify-center text-[#45484d] hover:bg-[#f6f8f9] transition-colors"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
         <path d="M6 6l12 12M18 6L6 18" />
