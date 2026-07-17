@@ -107,7 +107,7 @@ export default function MahjongScheduleCalendar() {
             accent="#c0563c"
             size="lg"
           />
-          <div className="mt-4 text-xs text-[#231714]/50 flex items-center gap-1.5">
+          <div className="mt-4 text-xs text-[#231714]/65 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#c0563c" }} />
             赤印＝休催（この土曜は開催しない）
           </div>
@@ -116,7 +116,7 @@ export default function MahjongScheduleCalendar() {
         {/* 詳細パネル */}
         <div className="lg:w-[380px] shrink-0">
           {!selected ? (
-            <div className="bg-white rounded-2xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/40">
+            <div className="bg-white rounded-2xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/60">
               日付をクリックすると詳細を表示します
             </div>
           ) : (
@@ -143,7 +143,7 @@ export default function MahjongScheduleCalendar() {
                   {busy ? "..." : selClosed ? "開催に戻す" : "この日を休催にする"}
                 </button>
               ) : (
-                <p className="text-[11px] text-[#231714]/40 mb-2">過去の開催日のため休催切替はできません（閲覧のみ）。</p>
+                <p className="text-[11px] text-[#231714]/60 mb-2">過去の開催日のため休催切替はできません（閲覧のみ）。</p>
               )}
 
               {warn && (
@@ -154,15 +154,15 @@ export default function MahjongScheduleCalendar() {
 
               <div className="flex items-center justify-between mt-4 mb-2">
                 <h3 className="text-sm font-bold text-[#231714]">参加者（{entries.length}名）</h3>
-                {entries.length > 0 && <span className="text-[11px] text-[#231714]/50">支払済 {paidCount}名</span>}
+                {entries.length > 0 && <span className="text-[11px] text-[#231714]/65">支払済 {paidCount}名</span>}
               </div>
 
               {loadingEntries ? (
-                <div className="py-6 text-center text-sm text-[#231714]/40">読み込み中…</div>
+                <div className="py-6 text-center text-sm text-[#231714]/60">読み込み中…</div>
               ) : selClosed && entries.length === 0 ? (
-                <div className="py-6 text-center text-sm text-[#231714]/40">休催日・参加者なし</div>
+                <div className="py-6 text-center text-sm text-[#231714]/60">休催日・参加者なし</div>
               ) : entries.length === 0 ? (
-                <div className="py-6 text-center text-sm text-[#231714]/40">まだ参加者はいません</div>
+                <div className="py-6 text-center text-sm text-[#231714]/60">まだ参加者はいません</div>
               ) : (
                 <div className="flex flex-col divide-y divide-[#231714]/5">
                   {entries.map((e) => {

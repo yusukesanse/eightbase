@@ -22,7 +22,7 @@ type RoleFilter = "all" | "member" | "guest" | "staff";
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) {
     return (
-      <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#231714]/20 ml-1 inline-block">
+      <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#231714]/55 ml-1 inline-block">
         <path d="M6 2l3 3.5H3L6 2z" fill="currentColor" />
         <path d="M6 10L3 6.5h6L6 10z" fill="currentColor" />
       </svg>
@@ -326,7 +326,7 @@ export default function AdminUsersPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#231714]">ユーザー管理</h2>
-          <p className="text-sm text-[#231714]/40 mt-1">登録ユーザーの管理・追加</p>
+          <p className="text-sm text-[#231714]/60 mt-1">登録ユーザーの管理・追加</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -355,7 +355,7 @@ export default function AdminUsersPage() {
       {/* 検索・フィルターバー */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -543,9 +543,9 @@ export default function AdminUsersPage() {
               ) : (
                 <>全 {users.length} 名</>
               )}
-              <span className="ml-2 text-xs text-[#231714]/40">（会員 {memberCount}・ゲスト {guestCount}・エイト社員 {staffCount}）</span>
+              <span className="ml-2 text-xs text-[#231714]/60">（会員 {memberCount}・ゲスト {guestCount}・エイト社員 {staffCount}）</span>
             </p>
-            <p className="text-xs text-[#231714]/30">行をクリックで詳細表示</p>
+            <p className="text-xs text-[#231714]/55">行をクリックで詳細表示</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -590,7 +590,7 @@ export default function AdminUsersPage() {
                               </span>
                             )}
                           </p>
-                          <p className="text-xs text-[#231714]/40">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
+                          <p className="text-xs text-[#231714]/60">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
                         </div>
                       </div>
                     </td>
@@ -604,7 +604,7 @@ export default function AdminUsersPage() {
                           連携済み
                         </span>
                       ) : (
-                        <span className="text-xs text-[#231714]/40">未連携</span>
+                        <span className="text-xs text-[#231714]/60">未連携</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-xs text-[#231714]/60">
@@ -619,7 +619,7 @@ export default function AdminUsersPage() {
             </table>
           </div>
           {filteredUsers.length === 0 && (
-            <div className="px-6 py-12 text-center text-sm text-[#231714]/40">
+            <div className="px-6 py-12 text-center text-sm text-[#231714]/60">
               {hasActiveFilter
                 ? "条件に一致するユーザーが見つかりません。"
                 : "ユーザーがいません。まず追加してください。"}

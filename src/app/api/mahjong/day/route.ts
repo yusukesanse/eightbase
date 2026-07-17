@@ -4,7 +4,7 @@ import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
 import { getActiveSeason, toPublicMahjongTable, isManualAssignmentSeason, isGameMaster } from "@/lib/mahjong";
 import { startDay } from "@/lib/mahjongDay";
-import { advanceDemoDay } from "@/dev-only/mahjongDemo";
+import { advanceDemoDay, reportOneDemoDummy } from "@/dev-only/mahjongDemo";
 import type { MahjongDayState, MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 /**
  * 当日の抜け番進行。
  *  GET  ?eventDate= … 現ラウンドの卓＋待機キュー＋直近の交代結果（開催日は自動で卓組み）
- *  PATCH { eventDate, myRank? } … DEV-ONLY: デモの半荘進行（ダミー補完→次卓生成）
+ *  PATCH { eventDate, myRank? } … DEV-ONLY: デモの半荘進行（ダミー一括補完→次卓生成）
+ *  PATCH { eventDate, step: true } … DEV-ONLY: ダミー1名分だけ申告を代行（進捗を1人ずつ確認）
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,6 +74,8 @@ export async function GET(req: NextRequest) {
     manualSeason,
     isGameMaster: gm,
     awaitingAssignment,
+    // GM が「本日の対局を終了」した日（以降この日の卓は組まれない）。
+    finished: !!day?.finishedAt,
   });
 }
 
@@ -92,6 +95,11 @@ export async function PATCH(req: NextRequest) {
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
 
   try {
+    // step=true: ダミー1名分だけ代行申告（GM パネルの申告進捗が1人ずつ増えるのを確認できる）。
+    if (body?.step === true) {
+      const result = await reportOneDemoDummy(season.seasonId, eventDate, userId);
+      return NextResponse.json({ success: true, ...result });
+    }
     const { swap } = await advanceDemoDay(season.seasonId, eventDate, userId, myRank);
     return NextResponse.json({ success: true, swap });
   } catch (error) {

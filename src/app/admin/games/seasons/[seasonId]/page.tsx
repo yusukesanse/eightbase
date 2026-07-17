@@ -201,7 +201,7 @@ export default function SeasonOverviewPage() {
 
             <div className="space-y-3">
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/65">
                   種目
                 </span>
                 <p className="text-sm font-semibold text-[#231714] mt-0.5">
@@ -210,7 +210,7 @@ export default function SeasonOverviewPage() {
               </div>
 
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/65">
                   シーズン名
                 </span>
                 <p className="text-sm font-semibold text-[#231714] mt-0.5">
@@ -219,7 +219,7 @@ export default function SeasonOverviewPage() {
               </div>
 
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/65">
                   期間
                 </span>
                 <p className="text-sm text-[#231714] mt-0.5">
@@ -228,7 +228,7 @@ export default function SeasonOverviewPage() {
               </div>
 
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/65">
                   ステータス
                 </span>
                 <div className="mt-1">
@@ -284,7 +284,7 @@ export default function SeasonOverviewPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-xs font-medium text-[#231714]/50">
+            <span className="text-xs font-medium text-[#231714]/65">
               シーズンID
             </span>
             <p className="text-[#231714]/70 mt-0.5 font-mono text-xs break-all">
@@ -292,7 +292,7 @@ export default function SeasonOverviewPage() {
             </p>
           </div>
           <div>
-            <span className="text-xs font-medium text-[#231714]/50">
+            <span className="text-xs font-medium text-[#231714]/65">
               作成日
             </span>
             <p className="text-[#231714]/70 mt-0.5">
@@ -302,7 +302,7 @@ export default function SeasonOverviewPage() {
             </p>
           </div>
           <div>
-            <span className="text-xs font-medium text-[#231714]/50">
+            <span className="text-xs font-medium text-[#231714]/65">
               最終更新
             </span>
             <p className="text-[#231714]/70 mt-0.5">

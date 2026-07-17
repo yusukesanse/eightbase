@@ -190,10 +190,10 @@ export default function ShibaGame() {
       </div>
 
       <p className="text-sm font-medium text-[#231714] mt-4 font-mono">NO ACCOUNT</p>
-      <p className="text-xs text-[#231714]/30 mt-1 font-mono">ご利用には招待が必要です</p>
+      <p className="text-xs text-[#231714]/55 mt-1 font-mono">ご利用には招待が必要です</p>
       <Link
         href="/login"
-        className="inline-block mt-5 text-xs text-[#A5C1C8] underline underline-offset-2"
+        className="inline-block mt-5 text-xs text-[#4f757e] underline underline-offset-2"
       >
         招待（ワンタイムパスワード）をお持ちの方はこちら
       </Link>

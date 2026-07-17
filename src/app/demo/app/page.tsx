@@ -34,7 +34,7 @@ export default function DemoMiniAppPage() {
         {/* ヘッダー */}
         <header className="px-4 pt-5 pb-3">
           <h1 className="text-xl font-bold text-[#231714]">麻雀リーグ</h1>
-          <p className="text-xs text-[#231714]/50 mt-0.5">2026前期シーズン</p>
+          <p className="text-xs text-[#231714]/65 mt-0.5">2026前期シーズン</p>
         </header>
 
         {/* タブ */}
@@ -52,7 +52,7 @@ export default function DemoMiniAppPage() {
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   tab === t.id
                     ? "bg-white text-[#231714] shadow-sm"
-                    : "text-[#231714]/40"
+                    : "text-[#231714]/60"
                 }`}
               >
                 {t.label}
@@ -80,7 +80,7 @@ export default function DemoMiniAppPage() {
             <div
               key={label}
               className={`flex flex-col items-center justify-center py-3 gap-1 text-[10px] ${
-                label === "ゲーム" ? "text-[#A5C1C8] font-medium" : "text-gray-400"
+                label === "ゲーム" ? "text-[#4f757e] font-medium" : "text-gray-500"
               }`}
             >
               <span className={`w-5 h-5 rounded ${label === "ゲーム" ? "bg-[#A5C1C8]" : "bg-gray-200"}`} />
@@ -131,7 +131,7 @@ function TablesSection({
       >
         {entered ? "参加表明済み（取り消す）" : "今回のリーグ戦に参加表明する"}
       </button>
-      <p className="text-[11px] text-[#231714]/40 px-1">
+      <p className="text-[11px] text-[#231714]/60 px-1">
         卓は参加表明者をもとに管理者が自動で組みます。組まれた卓が下に表示されます。
       </p>
 
@@ -159,7 +159,7 @@ function TablesSection({
                   <div className="text-[11px] font-medium text-[#231714] truncate">
                     {m.displayName}
                     {m.lineUserId === MOCK_ME.lineUserId && (
-                      <span className="ml-1 text-[#A5C1C8]">（自分）</span>
+                      <span className="ml-1 text-[#4f757e]">（自分）</span>
                     )}
                   </div>
                   {m.points !== null ? (
@@ -242,7 +242,7 @@ function ReportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#231714]">スコアを申告</h3>
-        <p className="text-xs text-[#231714]/50 mt-1 mb-4">
+        <p className="text-xs text-[#231714]/65 mt-1 mb-4">
           {table.eventDate} の卓 / 4人の合計が100,000点になると自動で確定します
         </p>
 

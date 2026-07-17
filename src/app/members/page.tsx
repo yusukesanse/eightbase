@@ -131,7 +131,7 @@ export default function MembersPage() {
         <h1 className="text-[18px] font-bold text-[#1c1f21]">メンバー</h1>
         <p className="text-[12px] text-[#6d6f74] mt-0.5">{members.length}人のメンバー</p>
         <div className="relative mt-3">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-[#97999d]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6e73]">
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -153,7 +153,7 @@ export default function MembersPage() {
             onClick={() => setFilter(f)}
             className={`shrink-0 px-3.5 py-1.5 text-[12px] font-medium rounded-full border transition-colors ${
               filter === f
-                ? "bg-[#a5c1c7] text-white border-[#a5c1c7]"
+                ? "bg-[#4f757e] text-white border-[#a5c1c7]"
                 : "bg-white text-[#6d6f74] border-[#eceff1]"
             }`}
           >
@@ -168,7 +168,7 @@ export default function MembersPage() {
           <MemberCard key={m.lineUserId} m={m} banner={BANNERS[i % BANNERS.length]} onOpen={() => openMember(m)} />
         ))}
         {list.length === 0 && (
-          <div className="bg-white rounded-[18px] py-7 text-center text-[14px] text-[#97999d] shadow-sm">該当者なし</div>
+          <div className="bg-white rounded-[18px] py-7 text-center text-[14px] text-[#6b6e73] shadow-sm">該当者なし</div>
         )}
       </div>
 
@@ -219,7 +219,7 @@ export default function MembersPage() {
             <MemberLinks companyUrl={open.companyUrl} sns={open.socialLinks} />
 
             {!open.lineUrl && (
-              <p className="text-[12px] text-[#97999d] leading-relaxed">
+              <p className="text-[12px] text-[#6b6e73] leading-relaxed">
                 この方はLINE連絡先（友だち追加URL）を未登録のため、「LINEで連絡」はご利用いただけません。
               </p>
             )}
@@ -291,7 +291,7 @@ function MemberLinks({ companyUrl, sns }: { companyUrl: string; sns: SocialLinks
 
   return (
     <div className="border-t border-[#eceff1] pt-3.5">
-      <p className="text-[12px] font-bold text-[#97999d] mb-2" style={{ letterSpacing: "0.04em" }}>リンク</p>
+      <p className="text-[12px] font-bold text-[#6b6e73] mb-2" style={{ letterSpacing: "0.04em" }}>リンク</p>
 
       {companyUrl && (
         <a
@@ -304,7 +304,7 @@ function MemberLinks({ companyUrl, sns }: { companyUrl: string; sns: SocialLinks
             <GlobeIcon size={18} />
           </span>
           <span className="flex-1 min-w-0 text-[14px] text-[#3f7c98] truncate">{stripUrl(companyUrl)}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#97999d" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6e73" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
             <path d="M9 6l6 6-6 6" />
           </svg>
         </a>

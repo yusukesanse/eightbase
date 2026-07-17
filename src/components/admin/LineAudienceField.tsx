@@ -44,7 +44,7 @@ export function LineAudienceField({
 
       {notify && (
         <div className="mt-2.5">
-          <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">配信対象（複数選択可）</div>
+          <div className="text-[11px] font-bold text-[#231714]/65 mb-1.5">配信対象（複数選択可）</div>
           <div className="flex flex-wrap gap-2">
             {ROLE_OPTIONS.map((o) => {
               const on = audience.includes(o.role);
@@ -66,7 +66,7 @@ export function LineAudienceField({
             <p className="text-[11px] text-[#d8533a] mt-1.5">対象が未選択のため通知は送られません。</p>
           )}
           {audience.includes("guest") && (
-            <p className="text-[11px] text-[#231714]/40 mt-1.5">
+            <p className="text-[11px] text-[#231714]/60 mt-1.5">
               ※ ゲスト宛のニュース/イベントのリンクは自動で「アプリを開く（/info）」になります。
             </p>
           )}

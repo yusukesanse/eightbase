@@ -67,7 +67,7 @@ type EditSection = "name" | "contact" | "work" | "address" | null;
 const INPUT_EDIT = "w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10";
 
 const EditIcon = ({ onClick }: { onClick: () => void }) => (
-  <button type="button" onClick={onClick} className="p-1.5 rounded-lg hover:bg-[#231714]/5 transition-colors text-[#231714]/30 hover:text-[#231714]/60">
+  <button type="button" onClick={onClick} className="p-1.5 rounded-lg hover:bg-[#231714]/5 transition-colors text-[#231714]/55 hover:text-[#231714]/60">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <path d="M10.086 1.914a1.5 1.5 0 012.121 2.121L5.06 11.182l-2.828.707.707-2.828L10.086 1.914z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
@@ -193,7 +193,7 @@ export default function ProfilePage() {
 
   const ReadOnlyRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-start justify-between py-1.5">
-      <span className="text-[11px] text-[#231714]/40 min-w-[70px] shrink-0">{label}</span>
+      <span className="text-[11px] text-[#231714]/60 min-w-[70px] shrink-0">{label}</span>
       <span className="text-sm text-[#231714] text-right">{value || "未設定"}</span>
     </div>
   );
@@ -209,7 +209,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
         <h1 className="text-[15px] font-medium leading-tight text-[#231714]">マイプロフィール</h1>
-        <p className="text-[11px] text-[#231714]/50 mt-0.5">登録情報の確認・編集</p>
+        <p className="text-[11px] text-[#231714]/65 mt-0.5">登録情報の確認・編集</p>
       </header>
 
       <div className="flex-1 px-4 pt-5 pb-4 space-y-4">
@@ -221,12 +221,12 @@ export default function ProfilePage() {
           {editing === "name" ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <div><label className="block text-[11px] text-[#231714]/40 mb-1">姓</label><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_EDIT} /></div>
-                <div><label className="block text-[11px] text-[#231714]/40 mb-1">名</label><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_EDIT} /></div>
+                <div><label className="block text-[11px] text-[#231714]/60 mb-1">姓</label><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_EDIT} /></div>
+                <div><label className="block text-[11px] text-[#231714]/60 mb-1">名</label><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_EDIT} /></div>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <div><label className="block text-[11px] text-[#231714]/40 mb-1">セイ</label><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_EDIT} /></div>
-                <div><label className="block text-[11px] text-[#231714]/40 mb-1">メイ</label><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_EDIT} /></div>
+                <div><label className="block text-[11px] text-[#231714]/60 mb-1">セイ</label><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_EDIT} /></div>
+                <div><label className="block text-[11px] text-[#231714]/60 mb-1">メイ</label><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_EDIT} /></div>
               </div>
               <SaveButtons />
             </>
@@ -239,9 +239,9 @@ export default function ProfilePage() {
         <Section title="連絡先・基本情報" icon="clipboard" editing={editing === "contact"} onEdit={() => { setEditing("contact"); setError(null); }}>
           {editing === "contact" ? (
             <>
-              <div><label className="block text-[11px] text-[#231714]/40 mb-1">メールアドレス</label><input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">電話番号</label><input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">生年月日</label>
+              <div><label className="block text-[11px] text-[#231714]/60 mb-1">メールアドレス</label><input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">電話番号</label><input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">生年月日</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[{ idx: 0, label: "年", count: 80, fmt: (i: number) => new Date().getFullYear() - i }, { idx: 1, label: "月", count: 12, fmt: (i: number) => i + 1 }, { idx: 2, label: "日", count: 31, fmt: (i: number) => i + 1 }].map(({ idx, label, count, fmt }) => (
                     <select key={idx} value={form.birthday ? form.birthday.split("-")[idx] : ""} onChange={(e) => { const p = (form.birthday || "--").split("-"); p[idx] = e.target.value; updateForm("birthday", p.join("-")); }} className={INPUT_EDIT}>
@@ -251,7 +251,7 @@ export default function ProfilePage() {
                   ))}
                 </div>
               </div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">性別</label>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">性別</label>
                 <div className="grid grid-cols-4 gap-2">
                   {GENDER_OPTIONS.map((opt) => (
                     <button key={opt.value} type="button" onClick={() => updateForm("gender", opt.value)} className={`py-2 text-xs rounded-xl border transition-colors ${form.gender === opt.value ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{opt.label}</button>
@@ -269,22 +269,22 @@ export default function ProfilePage() {
         <Section title="お仕事について" icon="briefcase" editing={editing === "work"} onEdit={() => { setEditing("work"); setError(null); }}>
           {editing === "work" ? (
             <>
-              <div><label className="block text-[11px] text-[#231714]/40 mb-1">会社名・屋号</label><input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / フリーランス" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">職種</label><input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 営業" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">業種</label>
-                <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_EDIT} ${!form.industry ? "text-[#231714]/30" : ""}`}>
+              <div><label className="block text-[11px] text-[#231714]/60 mb-1">会社名・屋号</label><input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / フリーランス" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">職種</label><input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 営業" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">業種</label>
+                <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_EDIT} ${!form.industry ? "text-[#231714]/55" : ""}`}>
                   <option value="">選択してください</option>
                   {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">利用目的</label>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">利用目的</label>
                 <div className="flex flex-wrap gap-2">
                   {PURPOSE_OPTIONS.map((opt) => (
                     <button key={opt} type="button" onClick={() => updateForm("purpose", opt)} className={`px-3 py-2 text-xs rounded-xl border transition-colors ${form.purpose === opt ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{opt}</button>
                   ))}
                 </div>
               </div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/40 mb-1">会社URL <span className="text-[#231714]/20">任意</span></label><input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={INPUT_EDIT} /></div>
+              <div className="mt-3"><label className="block text-[11px] text-[#231714]/60 mb-1">会社URL <span className="text-[#231714]/55">任意</span></label><input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={INPUT_EDIT} /></div>
               <SaveButtons />
             </>
           ) : (
@@ -296,20 +296,20 @@ export default function ProfilePage() {
         <Section title="住所" icon="home" editing={editing === "address"} onEdit={() => { setEditing("address"); setError(null); }}>
           {editing === "address" ? (
             <>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">住所種別</label>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/60 mb-1">住所種別</label>
                 <div className="grid grid-cols-2 gap-2">
                   {["home", "office"].map((t) => (
                     <button key={t} type="button" onClick={() => updateForm("addressType", t)} className={`py-2.5 text-xs rounded-xl border transition-colors ${form.addressType === t ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/60 border-[#231714]/10"}`}>{t === "home" ? "自宅住所" : "会社住所"}</button>
                   ))}
                 </div>
               </div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">郵便番号</label>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/60 mb-1">郵便番号</label>
                 <div className="flex gap-2"><input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8} className={`flex-1 ${INPUT_EDIT}`} /><button type="button" onClick={lookupPostalCode} className="px-4 py-2.5 text-xs bg-[#A5C1C8]/30 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap">住所検索</button></div>
               </div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">都道府県</label><select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_EDIT} ${!form.prefecture ? "text-[#231714]/30" : ""}`}><option value="">選択してください</option>{PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">市区町村</label><input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={INPUT_EDIT} /></div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/40 mb-1">番地</label><input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={INPUT_EDIT} /></div>
-              <div><label className="block text-[11px] text-[#231714]/40 mb-1">建物名 <span className="text-[#231714]/20">任意</span></label><input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={INPUT_EDIT} /></div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/60 mb-1">都道府県</label><select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_EDIT} ${!form.prefecture ? "text-[#231714]/55" : ""}`}><option value="">選択してください</option>{PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/60 mb-1">市区町村</label><input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={INPUT_EDIT} /></div>
+              <div className="mb-3"><label className="block text-[11px] text-[#231714]/60 mb-1">番地</label><input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={INPUT_EDIT} /></div>
+              <div><label className="block text-[11px] text-[#231714]/60 mb-1">建物名 <span className="text-[#231714]/55">任意</span></label><input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={INPUT_EDIT} /></div>
               <SaveButtons />
             </>
           ) : (

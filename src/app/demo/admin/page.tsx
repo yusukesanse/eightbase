@@ -33,7 +33,7 @@ export default function DemoAdminPage() {
       <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-8">
         <div>
           <h1 className="text-xl font-bold text-[#231714]">麻雀リーグ管理</h1>
-          <p className="text-xs text-[#231714]/50 mt-0.5">2026前期シーズン</p>
+          <p className="text-xs text-[#231714]/65 mt-0.5">2026前期シーズン</p>
         </div>
 
         {/* 順位表 */}
@@ -63,7 +63,7 @@ export default function DemoAdminPage() {
                     <td className="px-4 py-3 text-right text-sm font-bold text-[#231714]">
                       {s.average.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-[#231714]/50">{s.gamesPlayed}試合</td>
+                    <td className="px-4 py-3 text-right text-xs text-[#231714]/65">{s.gamesPlayed}試合</td>
                   </tr>
                 ))}
               </tbody>
@@ -184,7 +184,7 @@ function EditModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-bold text-[#231714] mb-1">申告内容の修正</h3>
-        <p className="text-xs text-[#231714]/50 mb-4">合計は 100,000 点になる必要があります</p>
+        <p className="text-xs text-[#231714]/65 mb-4">合計は 100,000 点になる必要があります</p>
 
         <div className="space-y-3">
           {rows.map((r, i) => (
@@ -216,7 +216,7 @@ function EditModal({
           ))}
         </div>
 
-        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/50" : "text-red-500"}`}>
+        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/65" : "text-red-500"}`}>
           合計: {total.toLocaleString()} 点
         </div>
 

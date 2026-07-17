@@ -264,7 +264,7 @@ export default function AdminNewsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#231714]">ニュース管理</h2>
-          <p className="text-sm text-[#231714]/40 mt-1">ニュースの作成・編集・削除</p>
+          <p className="text-sm text-[#231714]/60 mt-1">ニュースの作成・編集・削除</p>
         </div>
         <button
           onClick={openCreate}
@@ -283,12 +283,12 @@ export default function AdminNewsPage() {
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
               statusTab === tab.key
                 ? "bg-white text-[#231714] shadow-sm"
-                : "text-[#231714]/40 hover:text-[#231714]/60"
+                : "text-[#231714]/60 hover:text-[#231714]/60"
             }`}
           >
             {tab.label}
             <span className={`min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold ${
-              statusTab === tab.key ? "bg-[#231714] text-white" : "bg-[#231714]/10 text-[#231714]/40"
+              statusTab === tab.key ? "bg-[#231714] text-white" : "bg-[#231714]/10 text-[#231714]/60"
             }`}>
               {tab.count}
             </span>
@@ -303,7 +303,7 @@ export default function AdminNewsPage() {
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
       ) : filteredNews.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/60">
           {statusTab === "all" ? "ニュースがありません" : "該当するニュースがありません"}
         </div>
       ) : (
@@ -338,13 +338,13 @@ export default function AdminNewsPage() {
                     {item.publishedAt ? dayjs(item.publishedAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3">{statusBadge(item)}</td>
-                  <td className="px-6 py-3 text-[#231714]/40 text-xs whitespace-nowrap">
+                  <td className="px-6 py-3 text-[#231714]/60 text-xs whitespace-nowrap">
                     {item.scheduledAt ? dayjs(item.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => openEdit(item)}
-                      className="text-xs text-[#A5C1C8] hover:underline mr-3"
+                      className="text-xs text-[#4f757e] hover:underline mr-3"
                     >
                       編集
                     </button>
@@ -470,7 +470,7 @@ export default function AdminNewsPage() {
                   {imagePreview ? (
                     <img src={imagePreview} alt="preview" className="mx-auto max-h-40 object-contain rounded" />
                   ) : (
-                    <div className="text-[#231714]/40 text-sm py-4">
+                    <div className="text-[#231714]/60 text-sm py-4">
                       クリックして画像を選択（5MB以下）
                     </div>
                   )}
@@ -521,7 +521,7 @@ export default function AdminNewsPage() {
                       value={form.scheduledAt ?? ""}
                       onChange={(v) => setForm({ ...form, scheduledAt: v })}
                     />
-                    <p className="text-xs text-[#231714]/40 mt-1">
+                    <p className="text-xs text-[#231714]/60 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）
                     </p>
                   </div>

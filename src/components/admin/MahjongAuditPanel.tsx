@@ -74,20 +74,20 @@ export default function MahjongAuditPanel() {
             </option>
           ))}
         </select>
-        <span className="text-xs text-[#231714]/40">{items.length} 件</span>
+        <span className="text-xs text-[#231714]/60">{items.length} 件</span>
       </div>
 
       {loading ? (
-        <div className="py-10 text-center text-sm text-[#231714]/40">読み込み中…</div>
+        <div className="py-10 text-center text-sm text-[#231714]/60">読み込み中…</div>
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/60">
           監査ログはありません
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm bg-white rounded-xl border border-[#231714]/10">
             <thead>
-              <tr className="text-left text-[11px] text-[#231714]/50 border-b border-[#231714]/10">
+              <tr className="text-left text-[11px] text-[#231714]/65 border-b border-[#231714]/10">
                 <th className="px-3 py-2">時刻</th>
                 <th className="px-3 py-2">種別</th>
                 <th className="px-3 py-2">実行者</th>

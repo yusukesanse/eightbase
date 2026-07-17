@@ -86,7 +86,7 @@ export default function PreviewPage() {
           <h1 className="text-xl font-bold text-[#231714] text-center">
             EIGHTBASE プレビュー
           </h1>
-          <p className="mt-2 text-xs text-[#231714]/50 text-center">
+          <p className="mt-2 text-xs text-[#231714]/65 text-center">
             チーム共有用のUIプレビューモードです。
             <br />
             アクセストークンを入力してください。
@@ -111,7 +111,7 @@ export default function PreviewPage() {
             </button>
           </div>
 
-          <p className="mt-6 text-[10px] text-[#231714]/30 text-center">
+          <p className="mt-6 text-[10px] text-[#231714]/55 text-center">
             閲覧専用のプレビューモードです。
           </p>
         </div>
@@ -252,13 +252,13 @@ export default function PreviewPage() {
             <h1 className="text-xl font-bold text-[#231714]">
               EIGHTBASE プレビュー
             </h1>
-            <p className="text-xs text-[#231714]/50 mt-0.5">
+            <p className="text-xs text-[#231714]/65 mt-0.5">
               ログイン不要で全画面を確認できます
             </p>
           </div>
           <button
             onClick={deactivate}
-            className="px-3 py-1.5 text-xs text-[#231714]/50 border border-[#231714]/10 rounded-lg hover:bg-white"
+            className="px-3 py-1.5 text-xs text-[#231714]/65 border border-[#231714]/10 rounded-lg hover:bg-white"
           >
             終了
           </button>
@@ -289,7 +289,7 @@ export default function PreviewPage() {
           <NavLink href="/admin/admin-users" label="管理者設定" desc="UIのみ表示（データは非公開）" />
         </Section>
 
-        <p className="mt-8 text-[10px] text-[#231714]/30 text-center">
+        <p className="mt-8 text-[10px] text-[#231714]/55 text-center">
           プレビューモードは7日間有効です。上部バナーの「終了」で解除できます。
         </p>
       </div>
@@ -318,9 +318,9 @@ function NavLink({ href, label, desc }: { href: string; label: string; desc: str
     >
       <div>
         <div className="text-sm font-medium text-[#231714]">{label}</div>
-        <div className="text-[11px] text-[#231714]/40 mt-0.5">{desc}</div>
+        <div className="text-[11px] text-[#231714]/60 mt-0.5">{desc}</div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#231714]/20">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#231714]/55">
         <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </Link>
@@ -343,9 +343,9 @@ function MiniAppLink({ onClick, label, desc }: { onClick: () => void; label: str
           </span>
           <span className="text-sm font-medium text-[#231714]">{label}</span>
         </div>
-        <div className="text-[11px] text-[#231714]/40 mt-0.5 ml-7">{desc}</div>
+        <div className="text-[11px] text-[#231714]/60 mt-0.5 ml-7">{desc}</div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#231714]/20">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#231714]/55">
         <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </button>

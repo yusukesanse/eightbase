@@ -207,7 +207,7 @@ export function JoinTab({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[12px] text-[#231714]/50 leading-relaxed px-0.5">
+      <p className="text-[12px] text-[#231714]/65 leading-relaxed px-0.5">
         毎週土曜が開催日です。カレンダーから参加日を選んでください（参加は1か月に1回）。
         {paymentRequired && `　「参加する」で参加が確定します（定員8名）。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は別途お支払いください。`}
         {`　${MAHJONG_CANCEL_POLICY}`}
@@ -233,7 +233,7 @@ export function JoinTab({
       {/* あなたの参加状況（カレンダー下） */}
       {enteredArr.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#97999d] mb-1">あなたの参加状況</div>
+          <div className="text-[11px] font-extrabold text-[#6b6e73] mb-1">あなたの参加状況</div>
           {/* 参加予定日ごとに1行（日付＝左 / 状態＝右）。タップで下の詳細に切替。 */}
           <div className="flex flex-col divide-y divide-gray-100">
             {[...enteredArr].sort().map((d) => {
@@ -259,7 +259,7 @@ export function JoinTab({
                   className={`flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70 ${active ? "" : ""}`}
                 >
                   <span className="text-[13px] font-bold text-[#231714]">
-                    {md}（{wd}）{active && <span className="ml-1 text-[10px] text-[#A5C1C8]">▼</span>}
+                    {md}（{wd}）{active && <span className="ml-1 text-[10px] text-[#4f757e]">▼</span>}
                   </span>
                   <span
                     className="shrink-0 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full"
@@ -299,11 +299,11 @@ export function JoinTab({
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3" style={{ boxShadow: "inset 0 0 0 1.5px #f0c9b0" }}>
                 <div className="w-[50px] text-center shrink-0">
                   <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                  <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
+                  <div className="text-[11px] text-[#231714]/60 mt-0.5">{wd}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14.5px] font-extrabold text-[#a1502c]">中止（人数不足）</div>
-                  <div className="text-[12px] text-[#231714]/50 mt-0.5">
+                  <div className="text-[12px] text-[#231714]/65 mt-0.5">
                     参加者が規定人数に満たなかったため中止になりました。
                     {entered && "お支払い済みの参加費は返金対応します（担当よりご連絡します）。"}
                   </div>
@@ -320,12 +320,12 @@ export function JoinTab({
               <div className="flex items-center gap-3">
                 <div className="w-[50px] text-center shrink-0">
                   <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                  <div className="text-[11px] text-[#231714]/40 mt-0.5">{wd}</div>
+                  <div className="text-[11px] text-[#231714]/60 mt-0.5">{wd}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   {/* truncate で狭幅でも1行維持（折り返さない） */}
                   <div className="text-[14.5px] font-extrabold text-[#231714] truncate">リーグ戦（土曜）</div>
-                  <div className="text-[12px] text-[#231714]/50 mt-0.5 truncate">
+                  <div className="text-[12px] text-[#231714]/65 mt-0.5 truncate">
                     {!entered
                       ? isPast
                         ? "この開催日は終了しました"
@@ -347,9 +347,9 @@ export function JoinTab({
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2 whitespace-nowrap" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
                     {canCancelMahjong(selectedDate) ? (
-                      <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/40 underline underline-offset-2 whitespace-nowrap">支払いをキャンセル</button>
+                      <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/60 underline underline-offset-2 whitespace-nowrap">支払いをキャンセル</button>
                     ) : (
-                      <span className="text-[10px] text-[#97999d] whitespace-nowrap">キャンセル期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
+                      <span className="text-[10px] text-[#6b6e73] whitespace-nowrap">キャンセル期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
                     )}
                     {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
                   </div>
@@ -363,10 +363,10 @@ export function JoinTab({
                   null
                 ) : entered ? (
                   // 支払い不要（staff等）＝参加確定。いつでも解除可。
-                  <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/40 underline underline-offset-2 whitespace-nowrap">参加をやめる</button>
+                  <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/60 underline underline-offset-2 whitespace-nowrap">参加をやめる</button>
                 ) : dateFull ? (
                   // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可（閲覧は可）。
-                  <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/40">満員</span>
+                  <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/60">満員</span>
                 ) : monthlyBlocked ? (
                   // 当月に別日で参加確定済み（月1回制限）。新規参加ボタンは出さない（閲覧のみ）。
                   <span className="shrink-0 inline-flex items-center rounded-full text-[11px] font-bold px-3 py-2 bg-[#fdf4e3] text-[#b48f13] whitespace-nowrap">今月は参加済み</span>
@@ -420,19 +420,19 @@ export function JoinTab({
           );
         })()
       ) : (
-        <div className="text-center text-[12px] text-[#231714]/40 py-4">参加する土曜日をカレンダーから選んでください</div>
+        <div className="text-center text-[12px] text-[#231714]/60 py-4">参加する土曜日をカレンダーから選んでください</div>
       )}
 
       {/* この日の参加者（支払い済み / 参加済み・未払い）。0名でも空状態を表示。
           終了した過去日は当日順位を出すので参加者一覧は隠す。 */}
       {selectedDate && !cancelledDates.has(selectedDate) && !isPastSaturday(selectedDate, today) && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#97999d] mb-2">
+          <div className="text-[11px] font-extrabold text-[#6b6e73] mb-2">
             この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
             {dateFull && <span className="ml-1.5 text-[#b48f13]">満員</span>}
           </div>
           {dateEntries.length === 0 ? (
-            <div className="text-[12px] text-[#231714]/40 py-2">まだ参加者がいません。</div>
+            <div className="text-[12px] text-[#231714]/60 py-2">まだ参加者がいません。</div>
           ) : (
             <div className="flex flex-col gap-1.5">
               {dateEntries.map((e, i) => {
@@ -460,7 +460,7 @@ export function JoinTab({
             rankingMetric={dayStandings.rankingMetric}
           />
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-6 text-center text-[12px] text-[#231714]/40">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-6 text-center text-[12px] text-[#231714]/60">
             この日の成績はまだありません。
           </div>
         )

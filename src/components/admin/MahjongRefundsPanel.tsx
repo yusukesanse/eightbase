@@ -88,16 +88,16 @@ export default function MahjongRefundsPanel() {
       </div>
 
       {loading ? (
-        <div className="py-10 text-center text-sm text-[#231714]/40">読み込み中…</div>
+        <div className="py-10 text-center text-sm text-[#231714]/60">読み込み中…</div>
       ) : rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-8 text-center text-sm text-[#231714]/60">
           {pendingOnly ? "未対応の返金依頼はありません" : "返金対象はありません"}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm bg-white rounded-xl border border-[#231714]/10">
             <thead>
-              <tr className="text-left text-[11px] text-[#231714]/50 border-b border-[#231714]/10">
+              <tr className="text-left text-[11px] text-[#231714]/65 border-b border-[#231714]/10">
                 <th className="px-3 py-2">対象日</th>
                 <th className="px-3 py-2">ユーザー</th>
                 <th className="px-3 py-2 text-right">金額</th>
@@ -134,7 +134,7 @@ export default function MahjongRefundsPanel() {
                     <td className="px-3 py-2 text-[11px] text-[#231714]/60 tabular-nums">{fmt(it.cancelRequestedAt)}</td>
                     <td className="px-3 py-2 text-[11px] text-[#231714]/60 tabular-nums">
                       {fmt(it.refundProcessedAt)}
-                      {it.refundProcessedBy && <div className="text-[10px] text-[#231714]/40">{it.refundProcessedBy}</div>}
+                      {it.refundProcessedBy && <div className="text-[10px] text-[#231714]/60">{it.refundProcessedBy}</div>}
                     </td>
                     <td className="px-3 py-2">
                       {it.state === "pending" ? (
@@ -156,7 +156,7 @@ export default function MahjongRefundsPanel() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-[#231714]/30">—</span>
+                        <span className="text-[11px] text-[#231714]/55">—</span>
                       )}
                     </td>
                   </tr>

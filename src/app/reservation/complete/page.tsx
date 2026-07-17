@@ -85,7 +85,7 @@ function CompleteInner() {
             <p className="text-sm text-[#231714]/70">{errorMsg}</p>
             <Link
               href="/my-reservations"
-              className="mt-2 w-full py-3 rounded-2xl text-sm font-bold bg-[#A5C1C8] text-white text-center"
+              className="mt-2 w-full py-3 rounded-2xl text-sm font-bold bg-[#4f757e] text-white text-center"
             >
               マイ予約を確認
             </Link>
@@ -119,7 +119,7 @@ function CompleteInner() {
                 <div className="text-[34px] font-black tabular-nums text-[#1c1f21] tracking-[0.15em] my-1">
                   {passcode}
                 </div>
-                <div className="text-[11px] text-[#231714]/50">
+                <div className="text-[11px] text-[#231714]/65">
                   予約時間中のみ有効です。終了後は無効になります。
                 </div>
               </div>
@@ -134,7 +134,7 @@ function CompleteInner() {
 
             <Link
               href="/my-reservations"
-              className="w-full py-3 rounded-2xl text-sm font-bold bg-[#A5C1C8] text-white text-center"
+              className="w-full py-3 rounded-2xl text-sm font-bold bg-[#4f757e] text-white text-center"
             >
               マイ予約を確認
             </Link>

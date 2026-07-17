@@ -81,7 +81,7 @@ export default function AccessRequestForm() {
         >
           ログイン
         </a>
-        <p className="text-[11px] text-[#231714]/40 mt-2">
+        <p className="text-[11px] text-[#231714]/60 mt-2">
           ワンタイムパスワードが届いてから入力してください
         </p>
       </div>
@@ -160,7 +160,7 @@ export default function AccessRequestForm() {
           {submitting ? "送信中..." : "申請する"}
         </button>
 
-        <p className="text-[11px] text-[#231714]/40 mt-4 text-center">
+        <p className="text-[11px] text-[#231714]/60 mt-4 text-center">
           既にワンタイムパスワードをお持ちの方は{" "}
           <a href="/login" className="underline text-[#231714]/60">ログイン</a>
         </p>

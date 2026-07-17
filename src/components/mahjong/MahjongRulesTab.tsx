@@ -53,7 +53,7 @@ export function MahjongRulesTab() {
 
   if (available.length === 0) {
     return (
-      <div className="py-16 text-center text-sm text-[#231714]/40">
+      <div className="py-16 text-center text-sm text-[#231714]/60">
         ルール・約款はまだ登録されていません。
       </div>
     );
@@ -71,7 +71,7 @@ export function MahjongRulesTab() {
               key={d}
               onClick={() => setDoc(d)}
               className={`flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all ${
-                doc === d ? "bg-white shadow-sm" : "text-[#231714]/40"
+                doc === d ? "bg-white shadow-sm" : "text-[#231714]/60"
               }`}
               style={doc === d ? { color: ACCENT } : undefined}
             >

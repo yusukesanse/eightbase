@@ -204,7 +204,7 @@ export default function LoginPage() {
             )}
             <div>
               <p className="text-sm font-medium text-[#231714]">{lineInfo.displayName}</p>
-              <p className="text-xs text-[#231714]/40">LINE アカウント</p>
+              <p className="text-xs text-[#231714]/60">LINE アカウント</p>
             </div>
             <div className="ml-auto">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#06C755]/10 text-[#06C755] text-xs font-medium rounded-full">
@@ -219,7 +219,7 @@ export default function LoginPage() {
           {/* ワンタイムパスワードフォーム */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <h2 className="text-base font-semibold text-[#231714] mb-1">ワンタイムパスワード</h2>
-            <p className="text-xs text-[#231714]/50 mb-4 leading-relaxed">
+            <p className="text-xs text-[#231714]/65 mb-4 leading-relaxed">
               招待メールに記載されたワンタイムパスワードを入力してください。
               初回のみの操作です。
             </p>
@@ -263,7 +263,7 @@ export default function LoginPage() {
             </form>
           </div>
 
-          <p className="text-xs text-[#231714]/30 text-center mt-4 leading-relaxed">
+          <p className="text-xs text-[#231714]/55 text-center mt-4 leading-relaxed">
             ワンタイムパスワードがわからない場合は<br />管理者にお問い合わせください
           </p>
         </div>
@@ -282,7 +282,7 @@ export default function LoginPage() {
         <h2 className="text-base font-bold text-[#231714]">
           アカウントが見つかりません
         </h2>
-        <p className="text-xs text-[#231714]/50 mt-2 leading-relaxed">
+        <p className="text-xs text-[#231714]/65 mt-2 leading-relaxed">
           ご利用には招待が必要です。招待メールをお持ちの方は、メール内のワンタイムパスワードでログインしてください。わからない場合は管理者にお問い合わせください。
         </p>
       </div>

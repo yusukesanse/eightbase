@@ -138,12 +138,30 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     tableCount++;
   }
 
+  // 2.5) 当日フローのリセット: GM が振り分けた当日卓（doc ID `tbl-…`）は demoDummy タグが付かず、
+  //      再投入・削除の対象から漏れる。再投入を「最初からやり直し」にするため、この開催日(today)の
+  //      卓は**タグに関係なく**全消しする（当日の start/assign/finish 状態は下の dayState 全置換でリセット）。
+  //      ※ past/future の日付は消さない（完了卓＝順位デモを保持する）。
+  const todayTblSnap = await db
+    .collection("mahjongTables")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", today)
+    .get();
+  for (let i = 0; i < todayTblSnap.docs.length; i += 400) {
+    const batch = db.batch();
+    for (const doc of todayTblSnap.docs.slice(i, i + 400)) batch.delete(doc.ref);
+    await batch.commit();
+  }
+
   // 3) 当日（GM 手動振り分けデモ）: demoユーザー(SELF)＝GM 兼プレイヤー。卓は作らず、
   //    dayState を「GM 振り分け待ち」(awaitingAssignment=true) で投入する。demoユーザーが
   //    アプリの GM パネルで A/B を手動で振り分けて確定する（＝自動卓確定はしない）。
-  //    受付は「ゲーム開始」済み(entryClosedAt) にして、GM が即振り分けられる状態にする。
-  //    ダミーは自己申告しないため、申告は「進める」でダミー分を補完 → 次半荘も
-  //    awaitingAssignment=true に戻り、GM が改めて振り分ける（下記 4 の paid プールが対象）。
+  //    受付は**締め切らない**（entryClosedAt を打たない）。GM の「ゲーム開始（受付を締め切る）」
+  //    から一連の当日フロー（開始→振り分け→申告→本日終了）を通しで体験できるようにする。
+  //    ダミーは自己申告しないため、申告は「ダミー1名分を申告」or「一括申告」で代行 →
+  //    次半荘も awaitingAssignment=true に戻り、GM が改めて振り分ける（下記 4 の paid プールが対象）。
+  //    ※ set はドキュメント全置換なので、再シードすれば entryClosedAt/finishedAt も消えて
+  //      当日フローを最初からやり直せる（＝デモのリセット手段）。
   await db.collection("mahjongDayState").doc(`${seasonId}_${today}`).set({
     seasonId,
     eventDate: today,
@@ -152,8 +170,6 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
     tableLabels: [],
     lastSwap: null,
     awaitingAssignment: true,
-    entryClosedAt: nowIso,
-    startedBy: SELF.lineUserId,
     updatedAt: nowIso,
     ...DUMMY_FLAG,
   });

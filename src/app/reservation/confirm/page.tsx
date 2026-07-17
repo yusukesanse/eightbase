@@ -90,7 +90,7 @@ function ConfirmContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-gray-400">予約処理中...</p>
+        <p className="text-sm text-gray-500">予約処理中...</p>
       </div>
     );
   }
@@ -173,7 +173,7 @@ function ConfirmContent() {
         <StepIndicator step={2} total={2} />
 
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
-          <p className="text-xs font-medium text-gray-400 mb-1">予約内容</p>
+          <p className="text-xs font-medium text-gray-500 mb-1">予約内容</p>
           <DetailRow label="施設" value={facility?.name ?? ""} />
           <DetailRow label="日付" value={dateLabel} />
           <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
@@ -181,7 +181,7 @@ function ConfirmContent() {
           {termsAgreed && <DetailRow label="利用規約" value="同意済み ✓" />}
         </div>
 
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-gray-500 text-center">
           予約確定後はLINEにて通知が届きます
         </p>
 
@@ -192,7 +192,7 @@ function ConfirmContent() {
             "w-full py-3 rounded-xl text-sm font-medium transition-colors",
             profileLoaded
               ? "bg-[#B0E401] text-[#231714]"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-gray-200 text-gray-500 cursor-not-allowed"
           )}
         >
           予約を確定する
@@ -210,7 +210,7 @@ function ConfirmContent() {
 
 export default function ConfirmPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-center text-sm text-gray-400">読み込み中...</div>}>
+    <Suspense fallback={<div className="p-4 text-center text-sm text-gray-500">読み込み中...</div>}>
       <ConfirmContent />
     </Suspense>
   );
@@ -219,7 +219,7 @@ export default function ConfirmPage() {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-xs text-gray-400">{label}</span>
+      <span className="text-xs text-gray-500">{label}</span>
       <span className="text-sm font-medium text-gray-800">{value}</span>
     </div>
   );

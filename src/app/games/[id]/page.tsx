@@ -117,8 +117,8 @@ export default function GameDetailPage() {
   if (!game) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-        <p className="text-sm text-[#231714]/40 mb-4">ゲームが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8] hover:underline">戻る</button>
+        <p className="text-sm text-[#231714]/60 mb-4">ゲームが見つかりません</p>
+        <button onClick={() => router.back()} className="text-sm text-[#4f757e] hover:underline">戻る</button>
       </div>
     );
   }
@@ -202,7 +202,7 @@ export default function GameDetailPage() {
 
         {/* 説明 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-3">
-          <p className="text-xs font-bold text-[#231714]/40 mb-2">詳細</p>
+          <p className="text-xs font-bold text-[#231714]/60 mb-2">詳細</p>
           <p className="text-sm text-[#231714]/80 whitespace-pre-wrap leading-relaxed">{game.description}</p>
         </div>
       </div>
@@ -238,7 +238,7 @@ export default function GameDetailPage() {
           </div>
         ) : (
           <div className="text-center py-2">
-            <p className="text-xs text-[#231714]/40">
+            <p className="text-xs text-[#231714]/60">
               {isFull ? "定員に達しました" : isDeadlinePassed ? "申込締切を過ぎています" : "このゲームは現在募集していません"}
             </p>
           </div>
@@ -255,7 +255,7 @@ function InfoRow({ icon, label, value, highlight }: { icon: string; label: strin
     <div className="flex items-start gap-3">
       <span className="text-base">{icon}</span>
       <div className="flex-1">
-        <p className="text-[10px] text-[#231714]/40">{label}</p>
+        <p className="text-[10px] text-[#231714]/60">{label}</p>
         <p className={clsx("text-sm font-medium", highlight ? "text-red-500" : "text-[#231714]")}>{value}</p>
       </div>
     </div>

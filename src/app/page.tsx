@@ -138,7 +138,7 @@ export default function HomePage() {
           <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={80} height={80} priority />
         </div>
         <p className="text-sm font-medium text-[#231714]">ログアウトしました</p>
-        <p className="text-xs text-[#231714]/40 mt-1 mb-6">ご利用ありがとうございました</p>
+        <p className="text-xs text-[#231714]/60 mt-1 mb-6">ご利用ありがとうございました</p>
         <button
           onClick={runBoot}
           className="px-6 py-3 rounded-xl bg-[#231714] text-white text-sm font-medium active:scale-[0.98] transition-transform"
@@ -161,7 +161,7 @@ export default function HomePage() {
         <div className="opacity-20 mb-6">
           <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={80} height={80} priority />
         </div>
-        <p className="text-sm text-[#231714]/50 text-center">{statusText}</p>
+        <p className="text-sm text-[#231714]/65 text-center">{statusText}</p>
       </div>
     );
   }
@@ -171,7 +171,7 @@ export default function HomePage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
         <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-gray-400 mt-2">{statusText}</p>
+        <p className="text-sm text-gray-500 mt-2">{statusText}</p>
       </div>
     </div>
   );

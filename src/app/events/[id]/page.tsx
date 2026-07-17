@@ -73,8 +73,8 @@ export default function EventDetailPage() {
   if (!event) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
-        <p className="text-gray-400 text-sm">イベントが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
+        <p className="text-gray-500 text-sm">イベントが見つかりません</p>
+        <button onClick={() => router.back()} className="text-sm text-[#4f757e]">戻る</button>
       </div>
     );
   }
@@ -155,7 +155,7 @@ export default function EventDetailPage() {
         <hr className="my-5 border-gray-100" />
 
         {/* 説明文 */}
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">詳細</h2>
+        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">詳細</h2>
         <RichText
           text={event.description}
           className="text-sm text-gray-700 leading-relaxed"

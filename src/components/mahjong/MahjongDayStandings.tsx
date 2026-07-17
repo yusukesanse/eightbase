@@ -43,9 +43,9 @@ export function MahjongDayStandings({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
       <div className="flex items-baseline justify-between">
         <div className="text-[13px] font-extrabold text-[#1c1f21]">この日の順位</div>
-        <div className="text-[10.5px] text-[#97999d] tabular-nums">{eventDate}</div>
+        <div className="text-[10.5px] text-[#6b6e73] tabular-nums">{eventDate}</div>
       </div>
-      <p className="text-[10.5px] text-[#97999d] mt-0.5 mb-2.5">
+      <p className="text-[10.5px] text-[#6b6e73] mt-0.5 mb-2.5">
         ※ この開催日の成績のみ（通算はリーグタブ）
       </p>
       <div className="flex flex-col gap-1.5">
@@ -61,7 +61,7 @@ export function MahjongDayStandings({
           >
             <span
               className="w-[22px] text-center font-black tabular-nums shrink-0"
-              style={{ fontSize: s.rank <= 3 ? 16 : 14, color: s.rank <= 3 ? ACCENT : "#97999d", letterSpacing: "-.03em" }}
+              style={{ fontSize: s.rank <= 3 ? 16 : 14, color: s.rank <= 3 ? ACCENT : "#6b6e73", letterSpacing: "-.03em" }}
             >
               {s.rank}
             </span>
@@ -71,7 +71,7 @@ export function MahjongDayStandings({
                 {s.displayName}
                 {s.isMe && <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: ACCENT }}>YOU</span>}
               </div>
-              <div className="flex gap-2 mt-0.5 text-[10.5px] text-[#97999d] tabular-nums">
+              <div className="flex gap-2 mt-0.5 text-[10.5px] text-[#6b6e73] tabular-nums">
                 <span>{s.gamesPlayed}半荘</span>
                 <span>1位 {s.firstCount}</span>
                 <span>連対 {pct(s.top2Rate)}</span>
@@ -81,7 +81,7 @@ export function MahjongDayStandings({
               <div className="text-[15px] font-black text-[#1c1f21] tabular-nums leading-none">
                 {byTotal ? s.totalPoints.toLocaleString() : Math.round(s.average).toLocaleString()}
               </div>
-              <div className="text-[9px] font-bold text-[#97999d] mt-0.5">{byTotal ? "合計点" : "AVG"}</div>
+              <div className="text-[9px] font-bold text-[#6b6e73] mt-0.5">{byTotal ? "合計点" : "AVG"}</div>
             </div>
           </div>
         ))}

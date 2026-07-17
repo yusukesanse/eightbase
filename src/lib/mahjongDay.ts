@@ -106,6 +106,46 @@ export async function startGameDay(
 }
 
 /**
+ * GM の「本日の対局を終了」。以降この開催日の卓は組めない。
+ * - 半荘進行中（awaitingAssignment=false）は終了できない（全員の申告が揃うのが先）。
+ * - 1半荘も確定していない日は終了できない（開催しないなら中止＝流会で返金経路に乗せる）。
+ * - 冪等: すでに終了済みなら {ok:true, already:true}。
+ */
+export async function finishGameDay(
+  seasonId: string,
+  eventDate: string,
+  gmUserId: string
+): Promise<{ ok: true; already: boolean; roundsPlayed: number } | { ok: false; status: number; error: string }> {
+  const db = getDb();
+  const dayRef = db.collection("mahjongDayState").doc(dayId(seasonId, eventDate));
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(dayRef);
+    if (!snap.exists) return { ok: false as const, status: 400, error: "当日はまだ開始していません" };
+    const day = snap.data() as MahjongDayState;
+    if (!day.entryClosedAt) {
+      return { ok: false as const, status: 400, error: "まだゲームを開始していません" };
+    }
+    if (day.finishedAt) return { ok: true as const, already: true, roundsPlayed: Math.max(0, day.round - 1) };
+    // 半荘進行中は終了不可（申告の途中で締めると成績が壊れる）。
+    if ((day.awaitingAssignment ?? true) === false) {
+      return { ok: false as const, status: 409, error: "半荘が進行中です（全員の申告が終わると終了できます）" };
+    }
+    // 1半荘も確定していない（＝成績が無い）日は「終了」ではなく「中止（流会）」で返金経路に乗せる。
+    const tblSnap = await tx.get(
+      db.collection("mahjongTables").where("seasonId", "==", seasonId).where("eventDate", "==", eventDate)
+    );
+    const completed = tblSnap.docs.filter((d) => (d.data() as MahjongTable).status === "completed").length;
+    if (completed === 0) {
+      return { ok: false as const, status: 409, error: "まだ半荘が確定していません。開催しない場合は「中止（流会）」を使ってください" };
+    }
+    const nowIso = new Date().toISOString();
+    tx.update(dayRef, { finishedAt: nowIso, finishedBy: gmUserId, updatedAt: nowIso });
+    return { ok: true as const, already: false, roundsPlayed: Math.max(0, day.round - 1) };
+  });
+}
+
+/**
  * 参加者から初期卓＋待機を作る。卓は常に最大2卓（A/B・同時最大8名）。
  * 先頭8名をA/B卓に割当、9名以上は待機キュー（FIFO）。座席・待機は participants の順。
  */
@@ -122,7 +162,7 @@ export function buildInitialDay(participants: RotPlayer[]): { tables: { label: s
  * 【2026-07-14】自動卓確定（GM 未設定シーズンの自動進行）は廃止した。
  * 全シーズンを GM 手動として扱うため、常に true を返す。これで startDay /
  * advanceDayIfRoundComplete の「非 manual（自動生成）」分岐は到達不能になる（分岐コードは残置）。
- * 廃止の背景・復活手順は docs/麻雀リーグ-自動卓確定-廃止.md を参照。
+ * 廃止の背景・復活手順は docs/games/mahjong/麻雀リーグ-自動卓確定-廃止.md を参照。
  *
  * 復活する場合は下の `return true;` を外し、コメントアウトした旧判定を有効化すること。
  */

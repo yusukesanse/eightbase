@@ -220,7 +220,7 @@ export default function AdminUsersPage() {
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "admins"
               ? "border-gray-900 text-[#231714]"
-              : "border-transparent text-[#231714]/40 hover:text-[#231714]/60"
+              : "border-transparent text-[#231714]/60 hover:text-[#231714]/60"
           }`}
         >
           管理者一覧
@@ -230,7 +230,7 @@ export default function AdminUsersPage() {
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             tab === "logs"
               ? "border-gray-900 text-[#231714]"
-              : "border-transparent text-[#231714]/40 hover:text-[#231714]/60"
+              : "border-transparent text-[#231714]/60 hover:text-[#231714]/60"
           }`}
         >
           ログイン履歴
@@ -329,12 +329,12 @@ export default function AdminUsersPage() {
                         <p className="text-xs text-[#231714]/60">{admin.name}</p>
                       )}
                       {admin.createdAt && (
-                        <p className="text-xs text-[#231714]/40">
+                        <p className="text-xs text-[#231714]/60">
                           追加日: {new Date(admin.createdAt).toLocaleDateString("ja-JP")}
                         </p>
                       )}
                       {admin.createdBy && admin.createdBy !== "環境変数" && (
-                        <p className="text-xs text-[#231714]/40">
+                        <p className="text-xs text-[#231714]/60">
                           追加者: {admin.createdBy}
                         </p>
                       )}
@@ -347,7 +347,7 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => handleDelete(admin)}
                         disabled={deletingId === admin.id}
-                        className="ml-3 p-2 text-[#231714]/40 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="ml-3 p-2 text-[#231714]/60 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="削除"
                       >
                         {deletingId === admin.id ? (
@@ -364,7 +364,7 @@ export default function AdminUsersPage() {
 
               {admins.length === 0 && (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-sm text-[#231714]/40">管理者が登録されていません</p>
+                  <p className="text-sm text-[#231714]/60">管理者が登録されていません</p>
                 </div>
               )}
             </div>
@@ -396,7 +396,7 @@ export default function AdminUsersPage() {
             </div>
           ) : logs.length === 0 ? (
             <div className="px-5 py-8 text-center">
-              <p className="text-sm text-[#231714]/40">ログイン履歴がありません</p>
+              <p className="text-sm text-[#231714]/60">ログイン履歴がありません</p>
             </div>
           ) : (
             <div className="divide-y divide-[#231714]/5">
@@ -417,12 +417,12 @@ export default function AdminUsersPage() {
                         {log.email || "(不明)"}
                       </span>
                       {log.name && (
-                        <span className="text-xs text-[#231714]/40">
+                        <span className="text-xs text-[#231714]/60">
                           ({log.name})
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#231714]/40">
+                    <div className="flex items-center gap-3 text-xs text-[#231714]/60">
                       <span>{formatTimestamp(log.timestamp)}</span>
                       {log.reason && (
                         <span className="text-red-500">理由: {log.reason}</span>

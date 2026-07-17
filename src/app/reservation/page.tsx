@@ -446,7 +446,7 @@ export default function ReservationPage() {
       {/* ── ヘッダー ── */}
       <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
         <h1 className="text-[15px] font-medium leading-tight text-[#231714]">施設予約</h1>
-        <p className="text-[11px] text-[#231714]/50 mt-0.5">EIGHT BASE UNGA</p>
+        <p className="text-[11px] text-[#231714]/65 mt-0.5">EIGHT BASE UNGA</p>
       </header>
 
       {/* ── マイ予約リンク ── */}
@@ -464,11 +464,11 @@ export default function ReservationPage() {
 
       {/* ── 施設選択 ── */}
       <section className="px-5 pt-4 pb-2">
-        <p className="text-[11px] font-bold text-[#231714]/40 uppercase tracking-widest mb-3">施設を選択</p>
+        <p className="text-[11px] font-bold text-[#231714]/60 uppercase tracking-widest mb-3">施設を選択</p>
 
         {meetingRooms.length > 0 && (
           <div className="mb-3">
-            <p className="text-[10px] text-[#231714]/40 mb-1.5">会議室</p>
+            <p className="text-[10px] text-[#231714]/60 mb-1.5">会議室</p>
             <div className="flex gap-2 flex-wrap">
               {meetingRooms.map((f) => (
                 <FacilityPill
@@ -489,7 +489,7 @@ export default function ReservationPage() {
 
         {booths.length > 0 && (
           <div>
-            <p className="text-[10px] text-[#231714]/40 mb-1.5">リモートブース</p>
+            <p className="text-[10px] text-[#231714]/60 mb-1.5">リモートブース</p>
             <div className="flex gap-2 flex-wrap">
               {booths.map((f) => (
                 <FacilityPill
@@ -510,7 +510,7 @@ export default function ReservationPage() {
 
         {activities.length > 0 && (
           <div className="mt-3">
-            <p className="text-[10px] text-[#231714]/40 mb-1.5">アクティビティ</p>
+            <p className="text-[10px] text-[#231714]/60 mb-1.5">アクティビティ</p>
             <div className="flex gap-2 flex-wrap">
               {activities.map((f) => (
                 <FacilityPill
@@ -544,7 +544,7 @@ export default function ReservationPage() {
               className={clsx(
                 "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
                 currentMonth.isSame(dayjs().startOf("month"), "month")
-                  ? "text-gray-200"
+                  ? "text-gray-400"
                   : "text-[#231714] hover:bg-gray-50"
               )}
             >
@@ -564,7 +564,7 @@ export default function ReservationPage() {
           {/* 曜日ヘッダー */}
           <div className="grid grid-cols-7 mb-1">
             {DAY_LABELS.map((d) => (
-              <div key={d} className="text-center text-[10px] font-medium text-[#231714]/30 py-1">
+              <div key={d} className="text-center text-[10px] font-medium text-[#231714]/55 py-1">
                 {d}
               </div>
             ))}
@@ -625,16 +625,16 @@ export default function ReservationPage() {
           ) : weekRefreshing ? (
             <div className="flex items-center justify-center gap-1.5 py-2">
               <div className="w-3 h-3 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
-              <span className="text-[10px] text-[#231714]/40">空き状況を更新中…</span>
+              <span className="text-[10px] text-[#231714]/60">空き状況を更新中…</span>
             </div>
           ) : null}
 
           {/* 凡例 */}
           <div className="flex items-center gap-4 mt-2 justify-center">
-            <span className="flex items-center gap-1 text-[9px] text-[#231714]/40">
+            <span className="flex items-center gap-1 text-[9px] text-[#231714]/60">
               <span className="w-1.5 h-1.5 rounded-full bg-[#B0E401]" /> 空きあり
             </span>
-            <span className="flex items-center gap-1 text-[9px] text-[#231714]/40">
+            <span className="flex items-center gap-1 text-[9px] text-[#231714]/60">
               <span className="w-1.5 h-1.5 rounded-full bg-[#A5C1C8]" /> 一部予約
             </span>
           </div>
@@ -648,7 +648,7 @@ export default function ReservationPage() {
                 <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-sm text-[#231714]/40 leading-relaxed">
+            <p className="text-sm text-[#231714]/60 leading-relaxed">
               施設を選択すると<br />空き状況が表示されます
             </p>
           </div>
@@ -662,11 +662,11 @@ export default function ReservationPage() {
           <section className="px-5 pt-4 pb-2 flex-1">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-[11px] font-bold text-[#231714]/40 uppercase tracking-widest">
+                <h3 className="text-[11px] font-bold text-[#231714]/60 uppercase tracking-widest">
                   時間を選択
                 </h3>
                 {dayRefreshing && (
-                  <span className="flex items-center gap-1 text-[10px] text-[#231714]/40">
+                  <span className="flex items-center gap-1 text-[10px] text-[#231714]/60">
                     <span className="w-2.5 h-2.5 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
                     更新中…
                   </span>
@@ -683,7 +683,7 @@ export default function ReservationPage() {
               </div>
             ) : (
               <>
-                <p className="text-[10px] text-[#231714]/40 mb-2">
+                <p className="text-[10px] text-[#231714]/60 mb-2">
                   {isFixedDuration
                     ? (!selStart
                       ? "開始時間をタップしてください（終了は自動設定されます）"
@@ -714,8 +714,8 @@ export default function ReservationPage() {
                         onClick={() => handleSlotClick(slot)}
                         className={clsx(
                           "py-2.5 rounded-xl text-xs font-medium transition-all",
-                          state === "booked" && "bg-gray-50 text-gray-200 line-through cursor-not-allowed",
-                          state === "past" && "bg-gray-50 text-gray-200 cursor-not-allowed",
+                          state === "booked" && "bg-gray-50 text-gray-400 line-through cursor-not-allowed",
+                          state === "past" && "bg-gray-50 text-gray-400 cursor-not-allowed",
                           state === "free" && "bg-[#FAFAFA] text-[#231714] hover:bg-[#A5C1C8]/20 active:scale-95 border border-gray-100",
                           state === "selected-start" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]",
                           state === "selected-range" && "bg-[#B0E401]/15 text-[#231714] border border-[#B0E401]/20",
@@ -782,7 +782,7 @@ export default function ReservationPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
                   <path d="M12 5v14M19 12l-7 7-7-7" />
                 </svg>
-                <p className="text-[12px] text-[#231714]/40">最後までスクロールしてください</p>
+                <p className="text-[12px] text-[#231714]/60">最後までスクロールしてください</p>
               </div>
             </div>
           )}
@@ -803,13 +803,13 @@ export default function ReservationPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[11px] text-[#231714]/50">{selectedFacility?.name}</p>
+                  <p className="text-[11px] text-[#231714]/65">{selectedFacility?.name}</p>
                   <p className="text-xs font-bold text-[#231714]">
                     {dayjs(selectedDate!).format("M/D（ddd）")} {selStart}〜{selEnd}
                   </p>
                   {/* 固定枠の内訳 */}
                   {isFixedDuration && facilityPrepTime > 0 && (
-                    <p className="text-[10px] text-[#231714]/40">
+                    <p className="text-[10px] text-[#231714]/60">
                       利用{fixedMinDuration - facilityPrepTime}分 ＋ 準備{facilityPrepTime}分
                     </p>
                   )}
@@ -831,7 +831,7 @@ export default function ReservationPage() {
                 <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
-                  className="w-full py-2.5 rounded-xl text-xs font-medium border border-[#A5C1C8] text-[#A5C1C8]"
+                  className="w-full py-2.5 rounded-xl text-xs font-medium border border-[#A5C1C8] text-[#4f757e]"
                 >
                   利用規約を確認する
                 </button>
@@ -865,7 +865,7 @@ export default function ReservationPage() {
                 "w-full py-3.5 rounded-2xl text-sm font-bold transition-all",
                 canConfirm && !paying
                   ? "bg-[#B0E401] text-[#231714] active:scale-[0.98] shadow-sm shadow-[#B0E401]/20"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
               )}
             >
               {paying
@@ -876,7 +876,7 @@ export default function ReservationPage() {
             </button>
           </div>
         ) : (
-          <p className="text-center text-[11px] text-[#231714]/30 py-1">
+          <p className="text-center text-[11px] text-[#231714]/55 py-1">
             {!selectedFacility
               ? "上から施設を選択してください"
               : !selectedDate

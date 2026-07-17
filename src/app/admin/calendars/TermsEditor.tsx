@@ -27,7 +27,7 @@ export function TermsEditor({
             className={`px-3 py-1 text-[11px] font-medium transition-colors ${
               tab === "edit"
                 ? "bg-[#231714] text-white"
-                : "text-[#231714]/50 hover:bg-[#231714]/5"
+                : "text-[#231714]/65 hover:bg-[#231714]/5"
             }`}
           >
             編集
@@ -38,7 +38,7 @@ export function TermsEditor({
             className={`px-3 py-1 text-[11px] font-medium transition-colors ${
               tab === "preview"
                 ? "bg-[#231714] text-white"
-                : "text-[#231714]/50 hover:bg-[#231714]/5"
+                : "text-[#231714]/65 hover:bg-[#231714]/5"
             }`}
           >
             プレビュー
@@ -55,7 +55,7 @@ export function TermsEditor({
             rows={10}
             className="w-full px-3 py-2 border border-[#231714]/20 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent resize-y"
           />
-          <p className="text-[10px] text-[#231714]/40 mt-1">
+          <p className="text-[10px] text-[#231714]/60 mt-1">
             Markdown記法が使えます: <code className="bg-gray-100 px-1 rounded">**太字**</code> <code className="bg-gray-100 px-1 rounded">## 見出し</code> <code className="bg-gray-100 px-1 rounded">1. 番号リスト</code> <code className="bg-gray-100 px-1 rounded">| 表 |</code>
             <br />
             太字が効かないときは前後に半角スペースを入れてください（<code className="bg-gray-100 px-1 rounded">は**待機（抜け番）**と</code> のように全角記号に挟まれると強調になりません）。
@@ -73,7 +73,7 @@ export function TermsEditor({
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
             </div>
           ) : (
-            <p className="text-sm text-[#231714]/30 text-center py-8">
+            <p className="text-sm text-[#231714]/55 text-center py-8">
               プレビューする内容がありません
             </p>
           )}

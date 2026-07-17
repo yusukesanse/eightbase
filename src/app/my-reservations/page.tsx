@@ -79,7 +79,7 @@ export default function MyReservationsPage() {
         {/* 施設予約へ戻るリンク */}
         <Link
           href="/reservation"
-          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-600 transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -90,7 +90,7 @@ export default function MyReservationsPage() {
         {loading ? (
           <div className="text-center py-8">
             <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-sm text-gray-400 mt-2">読み込み中...</p>
+            <p className="text-sm text-gray-500 mt-2">読み込み中...</p>
           </div>
         ) : error ? (
           <div className="text-center py-8">
@@ -103,7 +103,7 @@ export default function MyReservationsPage() {
             <p className="text-sm text-red-500">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-3 text-xs text-[#A5C1C8] underline"
+              className="mt-3 text-xs text-[#4f757e] underline"
             >
               再読み込み
             </button>
@@ -114,7 +114,7 @@ export default function MyReservationsPage() {
           <>
             {upcoming.length > 0 && (
               <>
-                <p className="text-xs font-medium text-gray-400">今後の予約</p>
+                <p className="text-xs font-medium text-gray-500">今後の予約</p>
                 {upcoming.map((r) => (
                   <ReservationCard
                     key={r.reservationId}
@@ -127,14 +127,14 @@ export default function MyReservationsPage() {
             )}
 
             {upcoming.length === 0 && (
-              <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-400 text-center">
+              <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500 text-center">
                 今後の予約はありません
               </div>
             )}
 
             {past.length > 0 && (
               <>
-                <p className="text-xs font-medium text-gray-400 pt-1">過去の予約</p>
+                <p className="text-xs font-medium text-gray-500 pt-1">過去の予約</p>
                 {past.map((r) => (
                   <ReservationCard
                     key={r.reservationId}
@@ -195,7 +195,7 @@ function ReservationCard({
         />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-800">{r.facilityName}</p>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             {dateLabel}　{r.startTime}〜{r.endTime}
           </p>
         </div>
@@ -216,7 +216,7 @@ function ReservationCard({
           <div className="text-[22px] font-black tabular-nums tracking-[0.15em] text-[#1c1f21]">
             {r.switchBotPasscode}
           </div>
-          <div className="text-[10px] text-gray-400">
+          <div className="text-[10px] text-gray-500">
             {r.startTime}〜{r.endTime} のみ有効
           </div>
         </div>
@@ -242,11 +242,11 @@ function EmptyState() {
           <path d="M8 13h4M8 17h6" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>
-      <p className="text-sm text-gray-400">予約はありません</p>
-      <p className="text-xs text-gray-300 mt-1">施設予約から予約を作成できます</p>
+      <p className="text-sm text-gray-500">予約はありません</p>
+      <p className="text-xs text-gray-500 mt-1">施設予約から予約を作成できます</p>
       <Link
         href="/reservation"
-        className="mt-4 inline-block text-xs text-[#A5C1C8] border border-[#A5C1C8] rounded-xl px-4 py-2"
+        className="mt-4 inline-block text-xs text-[#4f757e] border border-[#A5C1C8] rounded-xl px-4 py-2"
       >
         施設を予約する
       </Link>

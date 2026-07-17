@@ -9,7 +9,7 @@ import { Badge, GENDER_LABELS, ADDRESS_TYPE_LABELS } from "./usersShared";
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="flex items-start py-2.5 border-b border-[#231714]/5 last:border-b-0">
-      <span className="text-xs text-[#231714]/40 w-28 shrink-0 pt-0.5">{label}</span>
+      <span className="text-xs text-[#231714]/60 w-28 shrink-0 pt-0.5">{label}</span>
       <span className="text-sm text-[#231714] flex-1">{value || "—"}</span>
     </div>
   );
@@ -94,7 +94,7 @@ export function UserDetailPanel({
             <div className="flex-1 pt-1">
               <h2 className="text-xl font-bold text-[#231714]">{user.displayName}</h2>
               {p && (
-                <p className="text-xs text-[#231714]/40 mt-0.5">
+                <p className="text-xs text-[#231714]/60 mt-0.5">
                   {p.lastNameKana} {p.firstNameKana}
                 </p>
               )}
@@ -115,7 +115,7 @@ export function UserDetailPanel({
                     LINE連携済み
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-[#231714]/5 text-[#231714]/40 text-xs rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-[#231714]/5 text-[#231714]/60 text-xs rounded-full">
                     LINE未連携
                   </span>
                 )}
@@ -147,7 +147,7 @@ export function UserDetailPanel({
         <div className="px-6 py-5 space-y-5">
           {/* 連絡先情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/60 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1a3 3 0 013 3v0a3 3 0 01-6 0v0a3 3 0 013-3z" stroke="#A5C1C8" strokeWidth="1.2" />
                 <path d="M2 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
@@ -165,7 +165,7 @@ export function UserDetailPanel({
 
           {/* 基本情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/60 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="2" y="3" width="10" height="9" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
                 <path d="M4 3V2M10 3V2M2 6h10" stroke="#A5C1C8" strokeWidth="1.2" strokeLinecap="round" />
@@ -184,7 +184,7 @@ export function UserDetailPanel({
 
           {/* プロフィール・スキル */}
           <section>
-            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/60 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1.5l1.6 3.3 3.6.5-2.6 2.5.6 3.6L7 9.7 3.8 11.4l.6-3.6L1.8 5.3l3.6-.5L7 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
               </svg>
@@ -202,7 +202,7 @@ export function UserDetailPanel({
 
           {/* 住所情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/60 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1.5l5 4v6.5a1 1 0 01-1 1H3a1 1 0 01-1-1V5.5l5-4z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" />
                 <path d="M5.5 13V9.5h3V13" stroke="#A5C1C8" strokeWidth="1.2" />
@@ -221,7 +221,7 @@ export function UserDetailPanel({
 
           {/* アカウント情報 */}
           <section>
-            <h3 className="text-xs font-semibold text-[#231714]/40 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-[#231714]/60 uppercase tracking-wider mb-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="3" y="5" width="8" height="7" rx="1.5" stroke="#A5C1C8" strokeWidth="1.2" />
                 <path d="M5 5V3.5a2 2 0 014 0V5" stroke="#A5C1C8" strokeWidth="1.2" />
@@ -259,7 +259,7 @@ export function UserDetailPanel({
 
           {/* 区分変更（同一LINE IDのまま role を更新＝戦績は継承） */}
           <div className="pt-3">
-            <p className="text-xs font-bold text-[#231714]/50 mb-1.5">区分</p>
+            <p className="text-xs font-bold text-[#231714]/65 mb-1.5">区分</p>
             <div className="flex gap-2">
               {(["member", "guest", "staff"] as UserRole[]).map((r) => (
                 <button
@@ -276,7 +276,7 @@ export function UserDetailPanel({
                 </button>
               ))}
             </div>
-            <p className="text-xs text-[#231714]/30 mt-2">
+            <p className="text-xs text-[#231714]/55 mt-2">
               会員=全機能／ゲスト・エイト社員=ゲームのみ。麻雀の戦績は区分を変えても引き継がれます（会員化時はプロフィール登録が別途必要）。
             </p>
           </div>
@@ -293,7 +293,7 @@ export function UserDetailPanel({
               </svg>
               ユーザーを完全に削除
             </button>
-            <p className="text-xs text-[#231714]/30 text-center mt-2">
+            <p className="text-xs text-[#231714]/55 text-center mt-2">
               予約データを含むすべての関連データが削除されます
             </p>
           </div>

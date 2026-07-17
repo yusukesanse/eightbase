@@ -121,7 +121,7 @@ export default function SkillsSettingsPage() {
 
       {/* キャッチコピー */}
       <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/50 mb-2">キャッチコピー</label>
+        <label className="block text-[12px] text-[#231714]/65 mb-2">キャッチコピー</label>
         <input
           type="text"
           value={catchphrase}
@@ -130,19 +130,19 @@ export default function SkillsSettingsPage() {
           maxLength={40}
           className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
         />
-        <p className="text-[10px] text-gray-300 mt-1 text-right">{catchphrase.length}/40</p>
+        <p className="text-[10px] text-gray-500 mt-1 text-right">{catchphrase.length}/40</p>
       </div>
 
       {/* 選択中のスキル */}
       {selectedSkills.length > 0 && (
         <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-          <p className="text-[12px] text-[#231714]/50 mb-3">選択中のスキル ({selectedSkills.length})</p>
+          <p className="text-[12px] text-[#231714]/65 mb-3">選択中のスキル ({selectedSkills.length})</p>
           <div className="flex flex-wrap gap-2">
             {selectedSkills.map((skill) => (
               <button
                 key={skill}
                 onClick={() => toggleSkill(skill)}
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded-full bg-[#A5C1C8] text-white"
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded-full bg-[#4f757e] text-white"
               >
                 {skill}
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -183,7 +183,7 @@ export default function SkillsSettingsPage() {
                       onClick={() => toggleSkill(skill)}
                       className={`px-3 py-1.5 text-[11px] rounded-full border transition-colors ${
                         active
-                          ? "bg-[#A5C1C8] text-white border-[#A5C1C8]"
+                          ? "bg-[#4f757e] text-white border-[#A5C1C8]"
                           : "bg-white text-[#231714]/60 border-gray-200 hover:border-[#A5C1C8]"
                       }`}
                     >
@@ -199,7 +199,7 @@ export default function SkillsSettingsPage() {
 
       {/* カスタムスキル追加 */}
       <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/50 mb-2">その他のスキルを追加</label>
+        <label className="block text-[12px] text-[#231714]/65 mb-2">その他のスキルを追加</label>
         <div className="flex gap-2">
           <input
             type="text"
@@ -212,7 +212,7 @@ export default function SkillsSettingsPage() {
           <button
             onClick={addCustomSkill}
             disabled={!customSkill.trim()}
-            className="px-4 py-2.5 text-[12px] rounded-lg bg-[#A5C1C8] text-white disabled:opacity-40 transition-opacity"
+            className="px-4 py-2.5 text-[12px] rounded-lg bg-[#4f757e] text-white disabled:opacity-40 transition-opacity"
           >
             追加
           </button>
@@ -221,7 +221,7 @@ export default function SkillsSettingsPage() {
 
       {/* 会社URL */}
       <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/50 mb-2">会社・事業のURL</label>
+        <label className="block text-[12px] text-[#231714]/65 mb-2">会社・事業のURL</label>
         <input
           type="url"
           value={companyUrl}
@@ -229,13 +229,13 @@ export default function SkillsSettingsPage() {
           placeholder="https://example.com"
           className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
         />
-        <p className="text-[10px] text-gray-300 mt-1">URLを登録すると、メンバーページからあなたの事業が見つけやすくなります</p>
+        <p className="text-[10px] text-gray-500 mt-1">URLを登録すると、メンバーページからあなたの事業が見つけやすくなります</p>
       </div>
 
       {/* SNS・リンク */}
       <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/50 mb-2">SNS・リンク</label>
-        <p className="text-[10px] text-gray-300 mb-3">メンバーとの交流のきっかけになります</p>
+        <label className="block text-[12px] text-[#231714]/65 mb-2">SNS・リンク</label>
+        <p className="text-[10px] text-gray-500 mb-3">メンバーとの交流のきっかけになります</p>
         <div className="space-y-2.5">
           <div className="flex items-center gap-2">
             <span className="w-8 text-center text-sm">𝕏</span>
@@ -268,7 +268,7 @@ export default function SkillsSettingsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-8 text-center text-[11px] text-[#231714]/40">他</span>
+            <span className="w-8 text-center text-[11px] text-[#231714]/60">他</span>
             <input
               type="text"
               value={socialLinks.other}
@@ -282,7 +282,7 @@ export default function SkillsSettingsPage() {
 
       {/* LINE連絡先（友だち追加URL） */}
       <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/50 mb-2">LINE連絡先（友だち追加URL）</label>
+        <label className="block text-[12px] text-[#231714]/65 mb-2">LINE連絡先（友だち追加URL）</label>
         <input
           type="url"
           value={lineUrl}
@@ -290,7 +290,7 @@ export default function SkillsSettingsPage() {
           placeholder="https://line.me/ti/p/～ または LINEの友だち追加URL"
           className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
         />
-        <p className="text-[10px] text-gray-300 mt-1 leading-relaxed">
+        <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
           登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーがあなたに直接連絡できます。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
         </p>
       </div>
@@ -300,7 +300,7 @@ export default function SkillsSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3 text-[14px] font-medium rounded-xl bg-[#A5C1C8] text-white disabled:opacity-50 transition-opacity"
+          className="w-full py-3 text-[14px] font-medium rounded-xl bg-[#4f757e] text-white disabled:opacity-50 transition-opacity"
         >
           {saving ? "保存中..." : "保存する"}
         </button>

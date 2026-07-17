@@ -113,7 +113,7 @@ export default function EventsPage() {
             <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
           </div>
         ) : events.length === 0 ? (
-          <div className="text-center py-16 text-sm text-gray-400">
+          <div className="text-center py-16 text-sm text-gray-500">
             現在開催予定のイベントはありません
           </div>
         ) : (
@@ -121,7 +121,7 @@ export default function EventsPage() {
             {/* Featured (大きいカード) */}
             {featured && (
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Featured</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Featured</p>
                 <FeaturedCard event={featured} onToggleGood={handleToggleGood} onClick={() => router.push(`/events/${featured.eventId}`)} />
               </div>
             )}
@@ -129,7 +129,7 @@ export default function EventsPage() {
             {/* 残りのイベント */}
             {rest.length > 0 && (
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upcoming</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Upcoming</p>
                 <div className="space-y-3">
                   {rest.map(ev => (
                     <CompactCard key={ev.eventId} event={ev} onToggleGood={handleToggleGood} onClick={() => router.push(`/events/${ev.eventId}`)} />
@@ -147,7 +147,7 @@ export default function EventsPage() {
 /* ─── グッド表示（アイコン＋数字） ─── */
 function GoodBadge({ count, liked }: { count: number; liked: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#231714]/40"}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#231714]/60"}`}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
       </svg>
@@ -183,7 +183,7 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
           <span className={clsx("text-[10px] px-2 py-0.5 rounded-full font-medium", style.bg, style.text)}>
             {style.label}
           </span>
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-gray-500">
             {start.format("M/D（ddd）")}
           </span>
         </div>
@@ -192,7 +192,7 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
         </h3>
         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ev.description}</p>
         <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-gray-500">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
             </svg>
@@ -240,11 +240,11 @@ function CompactCard({ event: ev, onToggleGood, onClick }: {
         <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
           {ev.title}
         </h3>
-        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-400">
+        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-500">
           <span>{start.format("M/D（ddd）HH:mm")}〜{end.format("HH:mm")}</span>
         </div>
         <div className="flex items-center justify-between mt-1.5">
-          <span className="text-[11px] text-gray-400 truncate">{ev.location}</span>
+          <span className="text-[11px] text-gray-500 truncate">{ev.location}</span>
           <button
             onClick={(e) => onToggleGood(e, ev.eventId)}
             className="flex items-center gap-0.5 flex-shrink-0"

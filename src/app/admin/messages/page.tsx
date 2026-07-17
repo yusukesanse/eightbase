@@ -106,7 +106,7 @@ export default function AdminMessagesPage() {
   return (
     <div className="p-4 sm:p-8 max-w-2xl">
       <h1 className="text-xl font-bold text-[#231714] mb-1">メッセージ送信</h1>
-      <p className="text-sm text-[#231714]/50 mb-6">
+      <p className="text-sm text-[#231714]/65 mb-6">
         LINE公式アカウントから、選んだ区分の登録ユーザーのみへメッセージを送信します。
         登録ユーザー以外の第三者には届きません。
       </p>
@@ -132,7 +132,7 @@ export default function AdminMessagesPage() {
         placeholder="送信するメッセージを入力"
         className="w-full px-3 py-2.5 text-sm border border-[#231714]/15 rounded-lg resize-y focus:outline-none focus:border-[#231714]"
       />
-      <div className="text-right text-[11px] text-[#231714]/40 mt-1">{text.length} / {MAX_TEXT}</div>
+      <div className="text-right text-[11px] text-[#231714]/60 mt-1">{text.length} / {MAX_TEXT}</div>
 
       {/* リンク（任意） */}
       <label className="block text-sm font-bold text-[#231714] mb-1.5 mt-3">リンク（任意）</label>
@@ -159,7 +159,7 @@ export default function AdminMessagesPage() {
               }`}
             >
               <div className="text-sm font-bold">{o.label}</div>
-              <div className={`text-[11px] ${on ? "text-white/60" : "text-[#231714]/40"}`}>{o.desc}</div>
+              <div className={`text-[11px] ${on ? "text-white/60" : "text-[#231714]/60"}`}>{o.desc}</div>
             </button>
           );
         })}

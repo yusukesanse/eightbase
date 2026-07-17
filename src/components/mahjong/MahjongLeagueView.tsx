@@ -173,8 +173,8 @@ export function MahjongLeagueView() {
               subTab === t.id
                 ? "bg-white text-[#231714] shadow-sm"
                 : t.enabled
-                  ? "text-[#231714]/40"
-                  : "text-[#231714]/20"
+                  ? "text-[#231714]/60"
+                  : "text-[#231714]/55"
             }`}
           >
             {t.label}

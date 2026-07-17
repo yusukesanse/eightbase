@@ -125,7 +125,7 @@ const DropZone = memo(function DropZone({
       }}
     >
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : isPool ? "#97999d" : "#5f7a80" }}>
+        <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : isPool ? "#6b6e73" : "#5f7a80" }}>
           {label}{cap != null ? `（${members.length}/${cap}）` : `（${members.length}）`}
         </span>
         {lit ? (
@@ -143,7 +143,7 @@ const DropZone = memo(function DropZone({
       </div>
       <div className="flex flex-wrap gap-1.5">
         {members.length === 0 ? (
-          <span className="text-[11px] text-[#231714]/30">{lit ? litText : emptyText}</span>
+          <span className="text-[11px] text-[#231714]/55">{lit ? litText : emptyText}</span>
         ) : (
           members.map((m) => renderChip(m))
         )}
@@ -164,6 +164,10 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
   // この半荘の卓を確定済みか（true の間は組み直せない＝振り分け UI を畳む）。
   const [assigned, setAssigned] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
+  // GM が「本日の対局を終了」を押したか。以降この日の卓は組めない。
+  const [finished, setFinished] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   // 開催日の中止（流会）。返金を伴うので確認を挟む。
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -196,6 +200,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
         setRound(d.round ?? 1);
         setLocked(!!d.locked);
         setStarted(!!d.started);
+        setFinished(!!d.finished);
         setAssigned(d.awaitingAssignment === false);
         setProgress(d.progress ?? null);
         setPool(d.pool ?? []);
@@ -372,6 +377,27 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     }
   };
 
+  /** 本日の対局を終了する。以降この日の卓は組めない。 */
+  const finishDay = async () => {
+    setFinishing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mahjong/day/finish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ eventDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "終了に失敗しました"); return; }
+      setConfirmFinish(false);
+      await load();
+      onChanged();
+    } finally {
+      setFinishing(false);
+    }
+  };
+
   /** この開催日を中止（流会）にする。支払い済みは返金対象になる。 */
   const cancelDay = async () => {
     setCancelling(true);
@@ -444,7 +470,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
     <div className="rounded-2xl border-2 p-4 flex flex-col gap-3" style={{ borderColor: ACCENT, background: "color-mix(in srgb, " + ACCENT + " 5%, #fff)" }}>
       <div className="flex items-center justify-between">
         <div className="text-[13px] font-black" style={{ color: ACCENT }}>
-          {!started ? "ゲーム開始（GM）" : assigned ? `第${round}半荘 進行中` : `卓振り分け（GM）・第${round}半荘`}
+          {!started ? "ゲーム開始（GM）" : finished ? "本日の対局は終了しました" : assigned ? `第${round}半荘 進行中` : `卓振り分け（GM）・第${round}半荘`}
         </div>
         {assigned && progress && (
           <span className="text-[10px] font-bold text-[#5f7a80] tabular-nums">
@@ -455,6 +481,16 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
 
       {loading ? (
         <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>
+      ) : started && finished ? (
+        /* ── 本日終了: 以降この日の卓は組めない ── */
+        <>
+          <p className="text-[12px] font-bold text-[#231714] leading-relaxed">
+            全{Math.max(1, round - 1)}半荘が確定しました。おつかれさまでした。
+          </p>
+          <p className="text-[11px] text-[#231714]/60 leading-relaxed">
+            この開催日の卓はこれ以上組めません。結果は「リーグ」タブの順位に反映されます。
+          </p>
+        </>
       ) : !started ? (
         /* ── 開始前: 受付中。押した瞬間が締切になる ── */
         <>
@@ -464,10 +500,10 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             そのときの支払い済みメンバーで卓を組みます。
           </p>
           <div className="rounded-2xl border border-dashed p-2.5" style={{ borderColor: "#e4e7e9", background: "#fff" }}>
-            <div className="text-[11px] font-extrabold text-[#97999d] mb-1.5">支払い済み（{pool.length}名）</div>
+            <div className="text-[11px] font-extrabold text-[#6b6e73] mb-1.5">支払い済み（{pool.length}名）</div>
             <div className="flex flex-wrap gap-1.5">
               {pool.length === 0 ? (
-                <span className="text-[11px] text-[#231714]/30">まだいません</span>
+                <span className="text-[11px] text-[#231714]/55">まだいません</span>
               ) : (
                 pool.map((m) => (
                   <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border" style={{ borderColor: "#e4e7e9", color: "#231714" }}>
@@ -486,7 +522,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             {starting ? "開始中…" : "ゲーム開始（受付を締め切る）"}
           </button>
           {pool.length < MIN_PARTICIPANTS && (
-            <p className="text-[10.5px] text-[#231714]/50 text-center">
+            <p className="text-[10.5px] text-[#231714]/65 text-center">
               支払い済みが{MIN_PARTICIPANTS}名以上になると開始できます。
             </p>
           )}
@@ -595,7 +631,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
               </div>
             ))}
           </div>
-          <p className="text-[10.5px] text-[#231714]/50 text-center">
+          <p className="text-[10.5px] text-[#231714]/65 text-center">
             全員のスコア申告が終わると、次の半荘の振り分けができます。
             <br />
             人数を間違えて始めた卓は「この卓の半荘を取り消す」でやり直せます。
@@ -607,7 +643,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
           {done && !error && <div className="text-[11px] font-bold text-[#2f7d57] bg-[#eef6f0] rounded-lg px-3 py-2">卓を確定しました。</div>}
 
           {!locked && (
-            <p className="text-[10.5px] text-[#231714]/50">
+            <p className="text-[10.5px] text-[#231714]/65">
               {selectedId
                 ? "置きたい枠をタップしてください。"
                 : "参加者を指でつまんで、A卓 / B卓 / 待機 へ運びます（タップで選んでから枠をタップしても移動できます）。"}
@@ -667,13 +703,50 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             </button>
           )}
           {!valid && !locked && (
-            <p className="text-[10.5px] text-[#231714]/50 text-center">
+            <p className="text-[10.5px] text-[#231714]/65 text-center">
               {unplaced > 0
                 ? "全員をA卓/B卓/待機に配置すると確定できます。"
                 : !seatsOk(aCount) || !seatsOk(bCount)
                   ? `卓は${SEATS_PER_TABLE}名ちょうど。人数が足りない卓は「この卓を使わない」で全員を待機へ送れます。`
                   : `少なくとも1卓（${SEATS_PER_TABLE}名）が必要です。`}
             </p>
+          )}
+
+          {/* 本日終了。1半荘以上確定した振り分け待ちで出す（サーバーも同条件で検証）。 */}
+          {!locked && round > 1 && (
+            !confirmFinish ? (
+              <button
+                onClick={() => setConfirmFinish(true)}
+                className="text-[10.5px] font-bold text-[#5f7a80] underline underline-offset-2 self-center"
+              >
+                本日の対局を終了する（次の半荘を組まない）
+              </button>
+            ) : (
+              <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#c9d6cf", background: "#f7faf8" }}>
+                <p className="text-[11px] font-bold leading-relaxed" style={{ color: ACCENT }}>
+                  本日の対局を終了します（第{round - 1}半荘まで確定済み）。
+                  終了するとこの開催日の卓はこれ以上組めません。
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmFinish(false)}
+                    disabled={finishing}
+                    className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40"
+                    style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}
+                  >
+                    やめる
+                  </button>
+                  <button
+                    onClick={finishDay}
+                    disabled={finishing}
+                    className="flex-1 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40"
+                    style={{ background: ACCENT }}
+                  >
+                    {finishing ? "終了中…" : "終了する"}
+                  </button>
+                </div>
+              </div>
+            )
           )}
 
           {/* 指に追従するゴースト。位置は rAF で transform を直接書く（React を経由しない）。 */}

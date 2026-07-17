@@ -173,7 +173,7 @@ export default function PostDetailPage() {
           <h1 className="text-[15px] font-medium text-[#231714]">投稿</h1>
         </header>
         <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-sm text-gray-400">投稿が見つかりません</p>
+          <p className="text-sm text-gray-500">投稿が見つかりません</p>
         </div>
       </div>
     );
@@ -231,7 +231,7 @@ export default function PostDetailPage() {
               >
                 {post.type === "offer" ? "できます" : "探してます"}
               </span>
-              <span className="text-[10px] text-gray-300">
+              <span className="text-[10px] text-gray-500">
                 {getRelativeTime(post.createdAt)}
               </span>
             </div>
@@ -247,7 +247,7 @@ export default function PostDetailPage() {
             {post.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-[11px] text-[#A5C1C8] px-2 py-0.5"
+                className="text-[11px] text-[#4f757e] px-2 py-0.5"
               >
                 #{tag}
               </span>
@@ -266,7 +266,7 @@ export default function PostDetailPage() {
                 strokeLinejoin="round"
               />
             </svg>
-            <span className={`text-[12px] ${liked ? "text-red-400" : "text-gray-400"}`}>
+            <span className={`text-[12px] ${liked ? "text-red-400" : "text-gray-500"}`}>
               {post.likes.length}
             </span>
           </button>
@@ -282,7 +282,7 @@ export default function PostDetailPage() {
                 strokeLinejoin="round"
               />
             </svg>
-            <span className="text-[12px] text-gray-400">
+            <span className="text-[12px] text-gray-500">
               {comments.length}
             </span>
           </button>
@@ -293,7 +293,7 @@ export default function PostDetailPage() {
       {comments.length > 0 && (
         <div className="mt-3">
           <div className="px-5 py-2">
-            <p className="text-[12px] text-[#231714]/40">コメント</p>
+            <p className="text-[12px] text-[#231714]/60">コメント</p>
           </div>
           {comments.map((c) => (
             <div
@@ -320,7 +320,7 @@ export default function PostDetailPage() {
                     <span className="text-[12px] font-medium text-[#231714]">
                       {c.authorName}
                     </span>
-                    <span className="text-[10px] text-gray-300">
+                    <span className="text-[10px] text-gray-500">
                       {getRelativeTime(c.createdAt)}
                     </span>
                   </div>
@@ -351,7 +351,7 @@ export default function PostDetailPage() {
           <button
             onClick={submitComment}
             disabled={!commentText.trim() || sending}
-            className="shrink-0 w-9 h-9 rounded-full bg-[#A5C1C8] text-white disabled:opacity-40 transition-opacity flex items-center justify-center"
+            className="shrink-0 w-9 h-9 rounded-full bg-[#4f757e] text-white disabled:opacity-40 transition-opacity flex items-center justify-center"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M2 8l5-5v3.5h5a1 1 0 011 1v1a1 1 0 01-1 1H7V13L2 8z" fill="white" />

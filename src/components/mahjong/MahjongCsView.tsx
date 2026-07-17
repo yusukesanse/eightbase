@@ -125,7 +125,7 @@ export function MahjongCsView() {
   }
   if (!event) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/60">
         チャンピオンシップはまだ開催されていません
       </div>
     );
@@ -143,7 +143,7 @@ export function MahjongCsView() {
         <div className="text-[11px] text-white/55 mt-0.5">{event.eventDate}</div>
       </div>
 
-      <p className="text-[11px] text-[#231714]/50 leading-relaxed px-0.5">
+      <p className="text-[11px] text-[#231714]/65 leading-relaxed px-0.5">
         M1リーグ所属者は<b style={{ color: M1 }}>準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
       </p>
 
@@ -159,7 +159,7 @@ export function MahjongCsView() {
       )}
 
       {event.rounds.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/60">
           トーナメント表はまだ公開されていません
         </div>
       ) : (
@@ -175,7 +175,7 @@ export function MahjongCsView() {
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex items-baseline gap-1.5 mb-1.5">
                     <span className="text-[11.5px] font-black" style={{ color: gold ? MEDAL[1] : "#5f6266" }}>{round.label}</span>
-                    <span className="text-[9.5px] text-[#97999d]">1着通過</span>
+                    <span className="text-[9.5px] text-[#6b6e73]">1着通過</span>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
                     {round.matches.map((m) => (
@@ -235,7 +235,7 @@ function CsEntryPanel({
       <div className="flex items-center justify-between">
         <div>
           <div className="text-[13px] font-black text-[#231714]">チャンピオンシップに参加</div>
-          <div className="text-[11px] text-[#231714]/50 mt-0.5">
+          <div className="text-[11px] text-[#231714]/65 mt-0.5">
             どなたでも参加できます（現在 {count} 名エントリー中）
           </div>
         </div>
@@ -284,7 +284,7 @@ function ChampCrown({ champ }: { champ?: { displayName: string; pictureUrl?: str
           <div className="text-[9px] font-extrabold tracking-wide" style={{ color: MEDAL[1] }}>WINNER</div>
         </div>
       ) : (
-        <div className="mt-0.5 text-[10.5px] text-[#97999d]">優勝者 未定</div>
+        <div className="mt-0.5 text-[10.5px] text-[#6b6e73]">優勝者 未定</div>
       )}
     </div>
   );
@@ -413,9 +413,9 @@ function BracketSlot({
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       ) : pending ? (
-        <span className="text-[9px] text-[#97999d] shrink-0">—</span>
+        <span className="text-[9px] text-[#6b6e73] shrink-0">—</span>
       ) : (
-        <span className="text-[9px] text-[#97999d] tabular-nums shrink-0">{p.rank != null ? `${p.rank}着` : "—"}</span>
+        <span className="text-[9px] text-[#6b6e73] tabular-nums shrink-0">{p.rank != null ? `${p.rank}着` : "—"}</span>
       )}
     </div>
   );
@@ -453,9 +453,9 @@ function CsInputSheet({
     <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
       {iAmIn ? (
         <>
-          <p className="text-[11px] text-[#231714]/50 mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
+          <p className="text-[11px] text-[#231714]/65 mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
 
-          <label className="block text-[11px] font-extrabold text-[#97999d] mb-2">最終持ち点</label>
+          <label className="block text-[11px] font-extrabold text-[#6b6e73] mb-2">最終持ち点</label>
           <div className="flex items-center gap-2.5">
             <PointsSignToggle sign={sign} onChange={setSign} accent="#2f7d57" />
             <div className="flex flex-1 items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? "#2f7d57" : "#e4e7e9"}` }}>
@@ -469,12 +469,12 @@ function CsInputSheet({
                 className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
                 style={{ fontSize: "28px" }}
               />
-              <span className="text-[13px] font-bold text-[#97999d]">点</span>
+              <span className="text-[13px] font-bold text-[#6b6e73]">点</span>
             </div>
           </div>
-          {n === 4 && <div className="text-[11px] text-[#97999d] mt-1.5">100点単位（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>}
+          {n === 4 && <div className="text-[11px] text-[#6b6e73] mt-1.5">100点単位（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>}
 
-          <label className="block text-[11px] font-extrabold text-[#97999d] mt-5 mb-2">卓内順位</label>
+          <label className="block text-[11px] font-extrabold text-[#6b6e73] mt-5 mb-2">卓内順位</label>
           <div className="flex gap-2">
             {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
               <button
@@ -491,7 +491,7 @@ function CsInputSheet({
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-[#97999d] mt-2.5">1着のみ次のラウンドへ進出します。</p>
+          <p className="text-[11px] text-[#6b6e73] mt-2.5">1着のみ次のラウンドへ進出します。</p>
 
           {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
 
@@ -511,7 +511,7 @@ function CsInputSheet({
         </>
       ) : (
         <>
-          <p className="text-[11px] text-[#231714]/50 mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
+          <p className="text-[11px] text-[#231714]/65 mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
           <div className="flex flex-col gap-1.5 mb-4">
             {match.players.map((p, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">

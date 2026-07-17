@@ -65,7 +65,7 @@ export function ReissuePasscodeModal({
             <h3 className="text-base font-semibold text-[#231714] mb-1">
               {emailSent ? "招待メールを再送しました" : "パスワードを再発行しました"}
             </h3>
-            <p className="text-xs text-[#231714]/50 mb-4">
+            <p className="text-xs text-[#231714]/65 mb-4">
               {emailSent
                 ? `${user.email} 宛にパスワードをメール送信しました`
                 : `${user.displayName} さんに新しいパスワードを伝えてください`}

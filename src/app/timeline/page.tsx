@@ -203,7 +203,7 @@ export default function TimelinePage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`relative py-3 text-[14px] font-medium transition-colors ${
-                active ? "text-[#1c1f21]" : "text-[#97999d]"
+                active ? "text-[#1c1f21]" : "text-[#6b6e73]"
               }`}
             >
               {tab.label}
@@ -220,7 +220,7 @@ export default function TimelinePage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-[14px] text-[#97999d]">まだ投稿がありません</p>
+          <p className="text-[14px] text-[#6b6e73]">まだ投稿がありません</p>
           <p className="text-[12px] text-[#c3c7cc] mt-1">最初の投稿をしてみましょう</p>
         </div>
       ) : (
@@ -376,7 +376,7 @@ export default function TimelinePage() {
               <LikeStat count={open.likes.length} active={open.likes.includes(currentUserId)} />
             </div>
             {!open.authorLineUrl && (
-              <p className="text-[12px] text-[#97999d] leading-relaxed">
+              <p className="text-[12px] text-[#6b6e73] leading-relaxed">
                 投稿者がLINE連絡先（友だち追加URL）を未登録のため、「LINEで連絡」はご利用いただけません。
               </p>
             )}
@@ -406,7 +406,7 @@ function PostHeader({ post, large }: { post: Post; large?: boolean }) {
           <span className={`font-bold text-[#1c1f21] ${large ? "text-[16px]" : "text-[15px]"}`}>{post.authorName}</span>
           <StatusBadge type={post.type} />
         </div>
-        <div className="text-[12px] text-[#97999d]">{getRelativeTime(post.createdAt)}</div>
+        <div className="text-[12px] text-[#6b6e73]">{getRelativeTime(post.createdAt)}</div>
       </div>
     </div>
   );
@@ -463,7 +463,7 @@ function PostCard({
         >
           <LikeStat count={post.likes.length} active={liked} />
         </button>
-        <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-[#97999d]">
+        <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-[#6b6e73]">
           詳細
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 6l6 6-6 6" />
@@ -478,7 +478,7 @@ function LikeStat({ count, active }: { count: number; active?: boolean }) {
   const color = active ? "#e5484d" : "#6d6f74";
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "#e5484d" : "none"} stroke={active ? "#e5484d" : "#97999d"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "#e5484d" : "none"} stroke={active ? "#e5484d" : "#6b6e73"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.5 1.2 5.5 3.5 2-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z" />
       </svg>
       <span>{count}</span>

@@ -136,7 +136,7 @@ export default function AdminLoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-50">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-[#A5C1C8]/40 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-[#231714]/40">読み込み中...</p>
+          <p className="text-sm text-[#231714]/60">読み込み中...</p>
         </div>
       </div>
     );
@@ -159,7 +159,7 @@ export default function AdminLoginPage() {
             </svg>
           </div>
           <h1 className="text-lg font-bold text-[#231714]">管理者ログイン</h1>
-          <p className="text-xs text-[#231714]/40 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
+          <p className="text-xs text-[#231714]/60 mt-1">EIGHT BASE UNGA 管理ダッシュボード</p>
         </div>
 
         {IS_PROD ? (
@@ -176,7 +176,7 @@ export default function AdminLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="管理パスワード"
               autoComplete="current-password"
-              className="w-full rounded-xl border border-white/60 bg-white/60 px-4 py-3 text-sm text-[#231714] placeholder:text-[#231714]/30 outline-none focus:border-[#A5C1C8] focus:ring-2 focus:ring-[#A5C1C8]/30"
+              className="w-full rounded-xl border border-white/60 bg-white/60 px-4 py-3 text-sm text-[#231714] placeholder:text-[#231714]/55 outline-none focus:border-[#A5C1C8] focus:ring-2 focus:ring-[#A5C1C8]/30"
             />
             <button
               type="submit"
@@ -195,7 +195,7 @@ export default function AdminLoginPage() {
           </div>
         )}
 
-        <p className="text-[10px] text-[#231714]/30 text-center mt-5 leading-relaxed">
+        <p className="text-[10px] text-[#231714]/55 text-center mt-5 leading-relaxed">
           {IS_PROD
             ? "管理者として登録されたアカウントでログインしてください"
             : "検証/開発環境です。管理パスワードでログインしてください"}

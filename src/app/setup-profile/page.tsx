@@ -320,7 +320,7 @@ export default function SetupProfilePage() {
                 <div className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl bg-[#231714]/5 text-[#231714]/60">
                   エイトデザイン株式会社
                 </div>
-                <p className="text-[10px] text-[#231714]/30 mt-1">会社名は自動で設定されます</p>
+                <p className="text-[10px] text-[#231714]/55 mt-1">会社名は自動で設定されます</p>
               </Field>
               <div className="mt-3">
                 <Field label="職種">
@@ -331,13 +331,13 @@ export default function SetupProfilePage() {
 
             {/* 自己紹介（任意） */}
             <Card title="自己紹介（任意）" icon="edit">
-              <p className="text-[10px] text-[#231714]/40 mb-2">メンバーに一言。あとから変更もできます。</p>
+              <p className="text-[10px] text-[#231714]/60 mb-2">メンバーに一言。あとから変更もできます。</p>
               <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="例: 〇〇を担当しています。お気軽にお声がけください。" rows={3} className={`${INPUT_CLASS} resize-y`} />
             </Card>
 
             {/* LINE連絡先（任意） */}
             <Card title="LINE連絡先（任意）" icon="share">
-              <p className="text-[10px] text-[#231714]/40 mb-2 leading-relaxed">
+              <p className="text-[10px] text-[#231714]/60 mb-2 leading-relaxed">
                 登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーが直接連絡できます。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
               </p>
               <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={INPUT_CLASS} />
@@ -435,12 +435,12 @@ export default function SetupProfilePage() {
               <div className="mt-3">
                 <Field label="職種">
                   <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 税理士 / 映像ディレクター / 営業" className={INPUT_CLASS} />
-                  <p className="text-[10px] text-[#231714]/30 mt-1">あなたの専門分野が伝わるように記入してください</p>
+                  <p className="text-[10px] text-[#231714]/55 mt-1">あなたの専門分野が伝わるように記入してください</p>
                 </Field>
               </div>
               <div className="mt-3">
                 <Field label="業種">
-                  <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_CLASS} ${!form.industry ? "text-[#231714]/30" : ""}`}>
+                  <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_CLASS} ${!form.industry ? "text-[#231714]/55" : ""}`}>
                     <option value="">選択してください</option>
                     {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
@@ -484,7 +484,7 @@ export default function SetupProfilePage() {
               </div>
               <div className="mt-3">
                 <Field label="都道府県">
-                  <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_CLASS} ${!form.prefecture ? "text-[#231714]/30" : ""}`}>
+                  <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_CLASS} ${!form.prefecture ? "text-[#231714]/55" : ""}`}>
                     <option value="">選択してください</option>
                     {PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -518,11 +518,11 @@ export default function SetupProfilePage() {
 
             {/* スキル */}
             <Card title="スキル・得意分野" icon="star" required>
-              <p className="text-[10px] text-[#231714]/40 mb-3">メンバー検索であなたが見つけてもらいやすくなります</p>
+              <p className="text-[10px] text-[#231714]/60 mb-3">メンバー検索であなたが見つけてもらいやすくなります</p>
               {form.skills.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {form.skills.map((skill) => (
-                    <button key={skill} onClick={() => toggleSkill(skill)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/15 text-[#A5C1C8] font-medium">
+                    <button key={skill} onClick={() => toggleSkill(skill)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/15 text-[#4f757e] font-medium">
                       {skill}
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
                     </button>
@@ -552,7 +552,7 @@ export default function SetupProfilePage() {
 
             {/* 会社URL */}
             <Card title="会社・事業のURL" icon="link">
-              <p className="text-[10px] text-[#231714]/40 mb-2">
+              <p className="text-[10px] text-[#231714]/60 mb-2">
                 URLを登録すると、メンバーページからあなたの事業が見つけやすくなります。お仕事の依頼につながることも。
               </p>
               <input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={INPUT_CLASS} />
@@ -560,7 +560,7 @@ export default function SetupProfilePage() {
 
             {/* SNSリンク */}
             <Card title="SNSアカウント" icon="share">
-              <p className="text-[10px] text-[#231714]/40 mb-3">メンバーとの交流のきっかけになります</p>
+              <p className="text-[10px] text-[#231714]/60 mb-3">メンバーとの交流のきっかけになります</p>
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
                   <span className="w-8 text-center text-sm">𝕏</span>
@@ -575,7 +575,7 @@ export default function SetupProfilePage() {
                   <input type="text" value={form.socialLinks.facebook} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, facebook: e.target.value } }))} placeholder="https://facebook.com/..." className={`flex-1 ${INPUT_CLASS}`} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-8 text-center text-[11px] text-[#231714]/40">他</span>
+                  <span className="w-8 text-center text-[11px] text-[#231714]/60">他</span>
                   <input type="text" value={form.socialLinks.other} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, other: e.target.value } }))} placeholder="その他のURL" className={`flex-1 ${INPUT_CLASS}`} />
                 </div>
               </div>
@@ -583,7 +583,7 @@ export default function SetupProfilePage() {
 
             {/* LINE連絡先（任意・推奨） */}
             <Card title="LINE連絡先（任意）" icon="share">
-              <p className="text-[10px] text-[#231714]/40 mb-2 leading-relaxed">
+              <p className="text-[10px] text-[#231714]/60 mb-2 leading-relaxed">
                 登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーがあなたに直接連絡できます（任意・後からでも設定できます）。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
               </p>
               <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={INPUT_CLASS} />
@@ -591,7 +591,7 @@ export default function SetupProfilePage() {
 
             {/* 自己紹介 */}
             <Card title="自己紹介・PR" icon="edit" required>
-              <p className="text-[10px] text-[#231714]/40 mb-2">事業内容やアピールを自由に記入してください</p>
+              <p className="text-[10px] text-[#231714]/60 mb-2">事業内容やアピールを自由に記入してください</p>
               <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="例: Webサイトのデザイン・制作を行っています。お気軽にお声がけください。" rows={4} className={`${INPUT_CLASS} resize-y`} />
             </Card>
 
@@ -641,9 +641,9 @@ function Card({ title, icon, required, children }: { title: string; icon: string
 function Field({ label, optional, children }: { label: string; optional?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[11px] text-[#231714]/40 mb-1">
+      <label className="block text-[11px] text-[#231714]/60 mb-1">
         {label}
-        {optional && <span className="text-[#231714]/20 ml-1">任意</span>}
+        {optional && <span className="text-[#231714]/55 ml-1">任意</span>}
       </label>
       {children}
     </div>
@@ -677,15 +677,15 @@ function BirthdaySelect({ value, onChange }: { value: string; onChange: (v: stri
 
   return (
     <div className="grid grid-cols-3 gap-2">
-      <select value={parts[0] || ""} onChange={(e) => update(0, e.target.value)} className={`${selectClass} ${!parts[0] ? "text-[#231714]/30" : ""}`}>
+      <select value={parts[0] || ""} onChange={(e) => update(0, e.target.value)} className={`${selectClass} ${!parts[0] ? "text-[#231714]/55" : ""}`}>
         <option value="">年</option>
         {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}年</option>)}
       </select>
-      <select value={parts[1] || ""} onChange={(e) => update(1, e.target.value)} className={`${selectClass} ${!parts[1] ? "text-[#231714]/30" : ""}`}>
+      <select value={parts[1] || ""} onChange={(e) => update(1, e.target.value)} className={`${selectClass} ${!parts[1] ? "text-[#231714]/55" : ""}`}>
         <option value="">月</option>
         {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}月</option>)}
       </select>
-      <select value={parts[2] || ""} onChange={(e) => update(2, e.target.value)} className={`${selectClass} ${!parts[2] ? "text-[#231714]/30" : ""}`}>
+      <select value={parts[2] || ""} onChange={(e) => update(2, e.target.value)} className={`${selectClass} ${!parts[2] ? "text-[#231714]/55" : ""}`}>
         <option value="">日</option>
         {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => <option key={d} value={d}>{Number(d)}日</option>)}
       </select>

@@ -176,7 +176,7 @@ function TimeslotContent() {
         <StepIndicator step={3} total={4} />
 
         <section className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <p className="text-xs font-medium text-gray-400 px-3 pt-3 pb-2">
+          <p className="text-xs font-medium text-gray-500 px-3 pt-3 pb-2">
             開始時刻・終了時刻を順にタップ（15分単位）
           </p>
 
@@ -185,7 +185,7 @@ function TimeslotContent() {
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-[10px] font-medium text-gray-400 px-3 py-2 text-left w-20 border-r border-gray-100">
+                  <th className="text-[10px] font-medium text-gray-500 px-3 py-2 text-left w-20 border-r border-gray-100">
                     受付時刻
                   </th>
                   <th className="text-[10px] font-medium text-gray-600 px-3 py-2 text-center">
@@ -213,7 +213,7 @@ function TimeslotContent() {
                       <td
                         className={clsx(
                           "text-[11px] px-3 py-1.5 border-r border-gray-100 w-20",
-                          isHourBoundary ? "font-semibold text-gray-600" : "text-gray-400"
+                          isHourBoundary ? "font-semibold text-gray-600" : "text-gray-500"
                         )}
                       >
                         {slot}
@@ -233,15 +233,15 @@ function TimeslotContent() {
                         )}
                       >
                         {loading ? (
-                          <span className="text-gray-200 text-sm">…</span>
+                          <span className="text-gray-400 text-sm">…</span>
                         ) : state === "booked" ? (
-                          <span className="text-gray-300 text-base font-medium">×</span>
+                          <span className="text-gray-500 text-base font-medium">×</span>
                         ) : state === "free" ? (
-                          <span className="text-[#A5C1C8] text-base font-medium">○</span>
+                          <span className="text-[#4f757e] text-base font-medium">○</span>
                         ) : state === "sel-start" ? (
                           <span className="text-white text-base font-bold">●</span>
                         ) : state === "sel-range" ? (
-                          <span className="text-[#A5C1C8] text-base font-medium">○</span>
+                          <span className="text-[#4f757e] text-base font-medium">○</span>
                         ) : (
                           <span className="text-white text-base font-bold">●</span>
                         )}
@@ -255,14 +255,14 @@ function TimeslotContent() {
 
           {/* 凡例 */}
           <div className="flex gap-5 px-3 py-2 border-t border-gray-100">
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-              <span className="text-[#A5C1C8] font-medium">○</span> 空き
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+              <span className="text-[#4f757e] font-medium">○</span> 空き
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-              <span className="text-gray-300 font-medium">×</span> 予約済み
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+              <span className="text-gray-500 font-medium">×</span> 予約済み
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-              <span className="text-[#A5C1C8] font-bold">●</span> 選択中
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+              <span className="text-[#4f757e] font-bold">●</span> 選択中
             </span>
           </div>
         </section>
@@ -272,7 +272,7 @@ function TimeslotContent() {
       <div className="px-3 pb-3 bg-white border-t border-gray-100 pt-3">
         {selStart && endTime && (
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs text-gray-400">選択中</span>
+            <span className="text-xs text-gray-500">選択中</span>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-medium text-gray-800">
                 {selStart} 〜 {endTime}
@@ -320,13 +320,13 @@ function TimeslotContent() {
         )}
 
         {!selStart && (
-          <p className="text-center text-xs text-gray-400 py-2">
+          <p className="text-center text-xs text-gray-500 py-2">
             開始時刻をタップし、次に終了時刻をタップしてください
           </p>
         )}
 
         {selStart && !endTime && (
-          <p className="text-center text-xs text-gray-400 py-2">
+          <p className="text-center text-xs text-gray-500 py-2">
             <span className="font-medium text-gray-600">{selStart}</span> を選択中 — 次に終了時刻をタップ
           </p>
         )}
@@ -337,7 +337,7 @@ function TimeslotContent() {
 
 export default function TimeslotPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-center text-sm text-gray-400">読み込み中...</div>}>
+    <Suspense fallback={<div className="p-4 text-center text-sm text-gray-500">読み込み中...</div>}>
       <TimeslotContent />
     </Suspense>
   );

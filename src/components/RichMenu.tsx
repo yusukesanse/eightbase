@@ -111,14 +111,14 @@ export function RichMenu() {
             className={clsx(
               "flex flex-col items-center justify-center py-2 gap-1 text-xs transition-colors",
               active
-                ? "text-[#A5C1C8] font-medium"
-                : "text-gray-400 hover:text-gray-600"
+                ? "text-[#4f757e] font-medium"
+                : "text-gray-500 hover:text-gray-600"
             )}
           >
             <span
               className={clsx(
                 "transition-colors",
-                active ? "text-[#A5C1C8]" : "text-gray-400"
+                active ? "text-[#4f757e]" : "text-gray-500"
               )}
             >
               {menu.icon}

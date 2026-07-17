@@ -89,14 +89,14 @@ function MiniKPI({
   return (
     <div className="px-4 py-4 rounded-xl bg-white border border-gray-200 shadow-sm min-w-0">
       <div className="flex items-center gap-2 mb-2">
-        {icon && <span className={`${accent || "text-gray-400"}`}>{icon}</span>}
+        {icon && <span className={`${accent || "text-gray-500"}`}>{icon}</span>}
         <p className="text-xs text-gray-500 font-medium truncate">{label}</p>
       </div>
       <div className="flex items-baseline gap-1">
         <span className={`text-xl sm:text-2xl font-bold ${accent || "text-[#1a1a2e]"}`}>
           {value}
         </span>
-        {unit && <span className="text-xs text-gray-400">{unit}</span>}
+        {unit && <span className="text-xs text-gray-500">{unit}</span>}
       </div>
     </div>
   );
@@ -113,7 +113,7 @@ function ChartHeader({
     <div className="mb-4 px-1">
       <h3 className="text-sm font-bold text-[#1a1a2e]">{title}</h3>
       {subtitle && (
-        <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
       )}
     </div>
   );
@@ -244,7 +244,7 @@ export default function AdminDashboardPage() {
       {/* ヘッダー */}
       <div className="mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-[#1a1a2e]">ダッシュボード</h2>
-        <p className="text-sm text-gray-400 mt-1">{today}</p>
+        <p className="text-sm text-gray-500 mt-1">{today}</p>
       </div>
 
       {/* 審査モード トグル — UI非表示（API・ロジックは維持） */}
@@ -351,7 +351,7 @@ export default function AdminDashboardPage() {
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-400">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -387,7 +387,7 @@ export default function AdminDashboardPage() {
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-400">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-400">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -461,7 +461,7 @@ export default function AdminDashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-400">データがありません</div>
+                  <div className="flex items-center justify-center h-full text-sm text-gray-500">データがありません</div>
                 )}
               </div>
             </StatCard>
@@ -479,7 +479,7 @@ export default function AdminDashboardPage() {
                       const pct = maxGood > 0 ? (item.goodCount / maxGood) * 100 : 0;
                       return (
                         <div key={item.id} className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-gray-400 w-4 text-right shrink-0">
+                          <span className="text-xs font-bold text-gray-500 w-4 text-right shrink-0">
                             {i + 1}
                           </span>
                           <div className="flex-1 min-w-0">
@@ -506,7 +506,7 @@ export default function AdminDashboardPage() {
                       );
                     })
                 ) : (
-                  <div className="flex items-center justify-center py-8 text-sm text-gray-400">
+                  <div className="flex items-center justify-center py-8 text-sm text-gray-500">
                     データがありません
                   </div>
                 )}

@@ -32,7 +32,7 @@ export default function GamesLayout({ children }: { children: React.ReactNode })
                   relative px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors
                   ${active
                     ? "text-[#231714]"
-                    : "text-[#231714]/40 hover:text-[#231714]/70"
+                    : "text-[#231714]/60 hover:text-[#231714]/70"
                   }
                 `}
               >
