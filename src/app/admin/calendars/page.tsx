@@ -208,7 +208,7 @@ export default function CalendarsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-[#231714]">カレンダー連携</h1>
-          <p className="text-sm text-[#231714]/60 mt-1">
+          <p className="text-sm text-[#231714]/80 mt-1">
             Googleカレンダーと連携する施設を管理します
           </p>
         </div>
@@ -241,13 +241,13 @@ export default function CalendarsPage() {
           <div className="w-8 h-8 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : facilities.length === 0 ? (
-        <div className="text-center py-20 text-[#231714]/40">
-          <svg width="48" height="48" viewBox="0 0 16 16" fill="none" className="mx-auto mb-4 text-gray-300">
+        <div className="text-center py-20 text-[#231714]/80">
+          <svg width="48" height="48" viewBox="0 0 16 16" fill="none" className="mx-auto mb-4 text-gray-700">
             <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.2" />
             <path d="M5 1v2M11 1v2M1 7h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
           <p className="text-sm">連携中のカレンダーはありません</p>
-          <button onClick={openAddModal} className="mt-3 text-sm text-[#A5C1C8] hover:underline">
+          <button onClick={openAddModal} className="mt-3 text-sm text-[#4f757e] hover:underline">
             最初のカレンダーを追加する
           </button>
         </div>
@@ -293,7 +293,7 @@ export default function CalendarsPage() {
                       <span
                         className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
                           f.type === "meeting_room"
-                            ? "bg-[#A5C1C8]/30 text-[#A5C1C8]"
+                            ? "bg-[#A5C1C8]/30 text-[#4f757e]"
                             : f.type === "activity"
                             ? "bg-[#F59E0B]/20 text-[#92400E]"
                             : "bg-[#B0E401]/20 text-[#231714]"
@@ -302,15 +302,15 @@ export default function CalendarsPage() {
                         {f.type === "meeting_room" ? "会議室" : f.type === "activity" ? "アクティビティ" : "ブース"}
                       </span>
                       {f.active === false && (
-                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#231714]/5 text-[#231714]/60">
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#231714]/5 text-[#231714]/80">
                           無効
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-[#231714]/60 mt-1">
+                    <p className="text-xs text-[#231714]/80 mt-1">
                       定員: {f.capacity}名
                     </p>
-                    <p className="text-xs text-[#231714]/60 mt-0.5">
+                    <p className="text-xs text-[#231714]/80 mt-0.5">
                       🕐 {f.openTime ?? "09:00"} 〜 {f.closeTime ?? "18:00"}
 
                       {(f.availableDays ?? [1, 2, 3, 4, 5])
@@ -318,22 +318,22 @@ export default function CalendarsPage() {
                         .join("・")}
                     </p>
                     {(f.fixedDuration || f.minDuration || f.prepTime) && (
-                      <p className="text-xs text-[#231714]/60 mt-0.5">
+                      <p className="text-xs text-[#231714]/80 mt-0.5">
                         ⏱️ {f.fixedDuration ? "固定枠" : "最低利用"}{f.minDuration ? ` ${f.minDuration}分` : ""}
                         {f.prepTime ? ` （準備${f.prepTime}分含む）` : ""}
                       </p>
                     )}
                     {f.requireTerms && (
-                      <p className="text-xs text-[#231714]/60 mt-0.5">
+                      <p className="text-xs text-[#231714]/80 mt-0.5">
                         📋 利用規約あり
                       </p>
                     )}
                     {f.requirePayment && (
-                      <p className="text-xs text-[#231714]/60 mt-0.5">
+                      <p className="text-xs text-[#231714]/80 mt-0.5">
                         💳 決済あり（{f.hourlyRate?.toLocaleString() ?? "—"}円/時間）
                       </p>
                     )}
-                    <p className="text-xs text-[#231714]/40 mt-0.5 font-mono break-all">
+                    <p className="text-xs text-[#231714]/80 mt-0.5 font-mono break-all">
                       📅 {f.calendarId}
                     </p>
                   </div>
@@ -347,7 +347,7 @@ export default function CalendarsPage() {
                     className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                       f.active !== false
                         ? "bg-green-50 text-[#B0E401] hover:bg-[#B0E401]/10"
-                        : "bg-[#231714]/5 text-[#231714]/60 hover:bg-[#231714]/10"
+                        : "bg-[#231714]/5 text-[#231714]/80 hover:bg-[#231714]/10"
                     }`}
                   >
                     {f.active !== false ? "有効" : "無効"}
@@ -356,7 +356,7 @@ export default function CalendarsPage() {
                   {/* 編集 */}
                   <button
                     onClick={() => openEditModal(f)}
-                    className="p-1.5 text-[#231714]/40 hover:text-gray-700 hover:bg-[#231714]/5 rounded-md transition-colors"
+                    className="p-1.5 text-[#231714]/80 hover:text-gray-700 hover:bg-[#231714]/5 rounded-md transition-colors"
                     title="編集"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -367,7 +367,7 @@ export default function CalendarsPage() {
                   {/* 削除 */}
                   <button
                     onClick={() => setDeletingId(f.id)}
-                    className="p-1.5 text-[#231714]/40 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    className="p-1.5 text-[#231714]/80 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                     title="削除"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -420,7 +420,7 @@ export default function CalendarsPage() {
                   className="w-full px-3 py-2.5 border border-[#231714]/20 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
                   required
                 />
-                <p className="text-xs text-[#231714]/40 mt-1">
+                <p className="text-xs text-[#231714]/80 mt-1">
                   Googleカレンダーの設定 → カレンダーID からコピーしてください
                 </p>
               </div>
@@ -477,7 +477,7 @@ export default function CalendarsPage() {
                     required
                     className="flex-1"
                   />
-                  <span className="text-sm text-[#231714]/40 shrink-0">〜</span>
+                  <span className="text-sm text-[#231714]/80 shrink-0">〜</span>
                   <TimePicker
                     value={form.closeTime}
                     onChange={(v) => setForm({ ...form, closeTime: v })}
@@ -512,7 +512,7 @@ export default function CalendarsPage() {
                         className={`w-9 h-9 rounded-full text-sm font-medium transition-colors ${
                           checked
                             ? "bg-[#231714] text-white"
-                            : "bg-[#231714]/5 text-[#231714]/60 hover:bg-[#231714]/10"
+                            : "bg-[#231714]/5 text-[#231714]/80 hover:bg-[#231714]/10"
                         }`}
                       >
                         {label}
@@ -527,7 +527,7 @@ export default function CalendarsPage() {
 
               {/* ── 予約時間制御 ── */}
               <div className="border-t border-gray-100 pt-4 mt-2">
-                <p className="text-xs font-medium text-gray-500 mb-3">予約時間制御（任意）</p>
+                <p className="text-xs font-medium text-gray-700 mb-3">予約時間制御（任意）</p>
 
                 {/* 固定枠トグル */}
                 <label className="flex items-center gap-2 mb-3 cursor-pointer">
@@ -543,7 +543,7 @@ export default function CalendarsPage() {
                 {/* 最低利用時間 / 固定枠時間 */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       {form.fixedDuration ? "予約枠（分）" : "最低利用時間（分）"}
                     </label>
                     <input
@@ -560,7 +560,7 @@ export default function CalendarsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       準備時間（分）
                     </label>
                     <input
@@ -578,7 +578,7 @@ export default function CalendarsPage() {
                   </div>
                 </div>
                 {form.fixedDuration && form.minDuration && (
-                  <p className="text-xs text-[#231714]/50 mt-1.5">
+                  <p className="text-xs text-[#231714]/85 mt-1.5">
                     {form.prepTime
                       ? `利用${Number(form.minDuration) - Number(form.prepTime)}分 ＋ 準備${form.prepTime}分 = 合計${form.minDuration}分の枠`
                       : `${form.minDuration}分の固定枠`}
@@ -613,13 +613,13 @@ export default function CalendarsPage() {
                     type="checkbox"
                     checked={form.requirePayment}
                     onChange={(e) => setForm({ ...form, requirePayment: e.target.checked })}
-                    className="w-4 h-4 rounded border-gray-300 text-[#A5C1C8] focus:ring-[#A5C1C8]"
+                    className="w-4 h-4 rounded border-gray-300 text-[#4f757e] focus:ring-[#A5C1C8]"
                   />
                   <span className="text-sm text-gray-700">予約時にSquare決済を必須にする</span>
                 </label>
                 {form.requirePayment && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">時間単価（円/時間）</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">時間単価（円/時間）</label>
                     <input
                       type="number"
                       min="0"
@@ -629,7 +629,7 @@ export default function CalendarsPage() {
                       placeholder="1000"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
                     />
-                    <p className="text-[10px] text-gray-400 mt-1">利用時間×単価が予約時に課金されます</p>
+                    <p className="text-[10px] text-gray-700 mt-1">利用時間×単価が予約時に課金されます</p>
                   </div>
                 )}
               </div>
@@ -638,7 +638,7 @@ export default function CalendarsPage() {
               <div className="border-t border-gray-100 pt-4 space-y-3">
                 <p className="text-sm font-medium text-gray-700">決済・解錠（トレーラー等）</p>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">決済額（円・税込）</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">決済額（円・税込）</label>
                   <input
                     type="number"
                     min="0"
@@ -648,12 +648,12 @@ export default function CalendarsPage() {
                     placeholder="22000"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
                   />
-                  <p className="text-[10px] text-gray-400 mt-1">
+                  <p className="text-[10px] text-gray-700 mt-1">
                     設定すると「予約する」が「決済する」に変わり、予約ごとにSquare決済リンクを生成します（0/未設定なら通常予約）。
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">SwitchBot デバイスID</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">SwitchBot デバイスID</label>
                   <input
                     type="text"
                     value={form.switchBotDeviceId}
@@ -661,7 +661,7 @@ export default function CalendarsPage() {
                     placeholder="例: ABCDEF123456"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
                   />
-                  <p className="text-[10px] text-gray-400 mt-1">
+                  <p className="text-[10px] text-gray-700 mt-1">
                     設定すると予約ごとに、予約時間だけ有効な解錠パスコードを発行します（管理者の永続パスは別管理）。
                   </p>
                 </div>
@@ -698,7 +698,7 @@ export default function CalendarsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
             <h3 className="text-lg font-semibold text-[#231714] mb-2">施設を削除</h3>
-            <p className="text-sm text-[#231714]/60 mb-6">
+            <p className="text-sm text-[#231714]/80 mb-6">
               この施設を削除すると、関連するカレンダー連携が解除されます。この操作は取り消せません。
             </p>
             <div className="flex gap-3">

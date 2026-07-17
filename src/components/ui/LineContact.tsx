@@ -116,7 +116,7 @@ export function SheetButton({
     ? "text-white"
     : variant === "secondary"
       ? "bg-white border border-[#e4e7e9] text-[#40434a]"
-      : "bg-[#a5c1c7] text-white";
+      : "bg-[#4f757e] text-white";
   return (
     <button
       type="button"

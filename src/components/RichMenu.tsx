@@ -108,22 +108,30 @@ export function RichMenu() {
           <Link
             key={menu.href}
             href={menu.href}
+            aria-current={active ? "page" : undefined}
             className={clsx(
-              "flex flex-col items-center justify-center py-2 gap-1 text-xs transition-colors",
+              "relative flex flex-col items-center justify-center py-2 gap-1 text-xs transition-colors",
               active
-                ? "text-[#A5C1C8] font-medium"
-                : "text-gray-400 hover:text-gray-600"
+                ? "text-[#33636e] font-bold"
+                : "text-gray-700 hover:text-gray-700"
             )}
           >
+            {/* 「今ここ」を色だけに頼らず、上部インジケーターバー＋淡いアクセント地でも示す（色弱配慮） */}
+            {active && (
+              <>
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full bg-[#33636e]" />
+                <span className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-[#33636e]/[0.08]" />
+              </>
+            )}
             <span
               className={clsx(
-                "transition-colors",
-                active ? "text-[#A5C1C8]" : "text-gray-400"
+                "relative z-10 transition-colors",
+                active ? "text-[#33636e]" : "text-gray-700"
               )}
             >
               {menu.icon}
             </span>
-            {menu.label}
+            <span className="relative z-10">{menu.label}</span>
           </Link>
         );
       })}

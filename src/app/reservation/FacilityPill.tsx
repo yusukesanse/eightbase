@@ -24,7 +24,7 @@ export function FacilityPill({
       )}
     >
       {facility.name}
-      <span className={clsx("ml-1.5 text-[10px]", selected ? "text-white/60" : "text-[#231714]/30")}>
+      <span className={clsx("ml-1.5 text-[10px]", selected ? "text-white/60" : "text-[#231714]/75")}>
         {facility.capacity}名
       </span>
     </button>

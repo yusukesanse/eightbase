@@ -19,7 +19,7 @@ export default function PaymentPage() {
           </svg>
         </div>
         <h1 className="text-base font-bold text-[#231714] mb-2">オンライン決済は現在準備中です</h1>
-        <p className="text-xs text-[#231714]/50 leading-relaxed mb-6">
+        <p className="text-xs text-[#231714]/85 leading-relaxed mb-6">
           有料施設のオンライン予約は現在ご利用いただけません。ご利用をご希望の場合は管理者にお問い合わせください。
         </p>
         <button

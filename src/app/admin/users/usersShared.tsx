@@ -18,7 +18,7 @@ export function Badge({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-        active ? "bg-[#B0E401]/20 text-[#231714]" : "bg-[#231714]/10 text-[#231714]/60"
+        active ? "bg-[#B0E401]/20 text-[#231714]" : "bg-[#231714]/10 text-[#231714]/80"
       }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-[#B0E401]" : "bg-[#231714]/40"}`} />

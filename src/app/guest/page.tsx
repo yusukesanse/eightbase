@@ -139,13 +139,13 @@ function GuestInner() {
             <h1 className="text-base font-bold text-[#1c1f21]">登録が完了しました</h1>
           </div>
 
-          <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/80 leading-relaxed">
+          <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/90 leading-relaxed">
             <p className="font-bold text-[#1c1f21] mb-1.5">次回の開き方</p>
             <p className="mb-2">
               次にこのページを開くときは、<strong>LINEアプリの「ホーム」</strong>を開き、
               <strong>「ミニアプリ（最近使ったサービス）」</strong>から「EIGHT BASE」を選んでください。
             </p>
-            <p className="text-xs text-[#231714]/55">
+            <p className="text-xs text-[#231714]/75">
               ※ お送りした招待メールのリンクからも、いつでも開けます。
             </p>
           </div>
@@ -171,9 +171,9 @@ function GuestInner() {
               <span className="text-[#2f7d57] text-xl">🀄</span>
             </div>
             <h1 className="text-base font-bold text-[#1c1f21]">麻雀リーグへようこそ</h1>
-            <p className="text-xs text-[#231714]/50 mt-1">順位表に表示されるお名前をご確認ください</p>
+            <p className="text-xs text-[#231714]/85 mt-1">順位表に表示されるお名前をご確認ください</p>
           </div>
-          <label className="block text-xs font-medium text-[#231714]/60 mb-1">お名前</label>
+          <label className="block text-xs font-medium text-[#231714]/80 mb-1">お名前</label>
           <input
             type="text"
             value={name}
@@ -199,7 +199,7 @@ function GuestInner() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 text-center">
         <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} className="opacity-20 mb-5" priority />
         <p className="text-sm text-[#231714]">この招待リンクは <strong>LINEアプリ</strong> で開いてください。</p>
-        <p className="text-xs text-[#231714]/50 mt-2">メールの「麻雀リーグに参加する」ボタンをLINEで開くと参加できます。</p>
+        <p className="text-xs text-[#231714]/85 mt-2">メールの「麻雀リーグに参加する」ボタンをLINEで開くと参加できます。</p>
       </div>
     );
   }
@@ -209,7 +209,7 @@ function GuestInner() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 text-center">
         <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} className="opacity-20 mb-5" priority />
-        <p className="text-sm text-[#231714]/70">{errorMsg}</p>
+        <p className="text-sm text-[#231714]/85">{errorMsg}</p>
       </div>
     );
   }
@@ -218,7 +218,7 @@ function GuestInner() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] gap-3">
       <Spinner />
-      <p className="text-sm text-gray-400">{statusText}</p>
+      <p className="text-sm text-gray-700">{statusText}</p>
     </div>
   );
 }

@@ -100,7 +100,7 @@ export default function AdminNotificationsPage() {
         {unread > 0 && (
           <button
             onClick={markAllRead}
-            className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5"
+            className="text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5"
           >
             すべて既読
           </button>
@@ -108,9 +108,9 @@ export default function AdminNotificationsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-gray-400">読み込み中...</div>
+        <div className="text-center py-12 text-sm text-gray-700">読み込み中...</div>
       ) : items.length === 0 ? (
-        <div className="bg-gray-50 rounded-xl px-4 py-8 text-center text-sm text-gray-400">
+        <div className="bg-gray-50 rounded-xl px-4 py-8 text-center text-sm text-gray-700">
           通知はありません
         </div>
       ) : (
@@ -131,7 +131,7 @@ export default function AdminNotificationsPage() {
                   </span>
                   {!n.read && <span className="w-2 h-2 rounded-full bg-red-500" />}
                   <span className="flex-1" />
-                  <span className="text-[11px] text-gray-400">{fmt(n.createdAt)}</span>
+                  <span className="text-[11px] text-gray-700">{fmt(n.createdAt)}</span>
                 </div>
                 <p className="text-sm text-gray-700 mt-1.5 leading-relaxed">{n.message}</p>
 
@@ -155,7 +155,7 @@ export default function AdminNotificationsPage() {
                   {!n.read && (
                     <button
                       onClick={() => markRead(n.id)}
-                      className="text-[11px] text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5"
+                      className="text-[11px] text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5"
                     >
                       既読にする
                     </button>

@@ -90,7 +90,7 @@ export default function NewPostPage() {
         <button
           onClick={handleSubmit}
           disabled={submitting || !content.trim()}
-          className="px-4 py-1.5 text-[13px] font-medium rounded-full bg-[#A5C1C8] text-white disabled:opacity-40 transition-opacity"
+          className="px-4 py-1.5 text-[13px] font-medium rounded-full bg-[#4f757e] text-white disabled:opacity-40 transition-opacity"
         >
           {submitting ? "投稿中..." : "投稿する"}
         </button>
@@ -98,14 +98,14 @@ export default function NewPostPage() {
 
       {/* 投稿タイプ選択 */}
       <div className="bg-white px-5 py-4 border-b border-gray-100">
-        <p className="text-[12px] text-[#231714]/50 mb-2">投稿タイプ</p>
+        <p className="text-[12px] text-[#231714]/85 mb-2">投稿タイプ</p>
         <div className="flex gap-3">
           <button
             onClick={() => setType("offer")}
             className={`flex-1 py-2.5 rounded-lg text-[13px] font-medium border transition-colors ${
               type === "offer"
                 ? "bg-[#B0E401]/15 border-[#B0E401] text-[#7A9E00]"
-                : "bg-white border-gray-200 text-gray-400"
+                : "bg-white border-gray-200 text-gray-700"
             }`}
           >
             できます
@@ -115,7 +115,7 @@ export default function NewPostPage() {
             className={`flex-1 py-2.5 rounded-lg text-[13px] font-medium border transition-colors ${
               type === "request"
                 ? "bg-[#F5A623]/15 border-[#F5A623] text-[#C4841D]"
-                : "bg-white border-gray-200 text-gray-400"
+                : "bg-white border-gray-200 text-gray-700"
             }`}
           >
             探してます
@@ -135,16 +135,16 @@ export default function NewPostPage() {
           }
           maxLength={500}
           rows={6}
-          className="w-full text-[14px] text-[#231714] bg-transparent resize-none focus:outline-none leading-relaxed placeholder:text-gray-300"
+          className="w-full text-[14px] text-[#231714] bg-transparent resize-none focus:outline-none leading-relaxed placeholder:text-gray-700"
         />
-        <p className="text-[10px] text-gray-300 text-right mt-1">
+        <p className="text-[10px] text-gray-700 text-right mt-1">
           {content.length}/500
         </p>
       </div>
 
       {/* タグ */}
       <div className="bg-white px-5 py-4 border-b border-gray-100">
-        <p className="text-[12px] text-[#231714]/50 mb-2">タグ（最大5個）</p>
+        <p className="text-[12px] text-[#231714]/85 mb-2">タグ（最大5個）</p>
 
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
@@ -152,7 +152,7 @@ export default function NewPostPage() {
               <button
                 key={tag}
                 onClick={() => removeTag(tag)}
-                className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/10 text-[#A5C1C8]"
+                className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/10 text-[#4f757e]"
               >
                 #{tag}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -176,7 +176,7 @@ export default function NewPostPage() {
             <button
               onClick={addTag}
               disabled={!tagInput.trim()}
-              className="px-3 py-2 text-[12px] rounded-lg bg-gray-100 text-[#231714]/50 disabled:opacity-40"
+              className="px-3 py-2 text-[12px] rounded-lg bg-gray-100 text-[#231714]/85 disabled:opacity-40"
             >
               追加
             </button>

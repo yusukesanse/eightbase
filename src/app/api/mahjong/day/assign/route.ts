@@ -85,6 +85,10 @@ export async function POST(req: NextRequest) {
     if (!day.entryClosedAt) {
       return { status: 400 as const, error: "先に「ゲーム開始」を押して受付を締め切ってください" };
     }
+    // GM が「本日の対局を終了」した日は、以降の卓を組めない。
+    if (day.finishedAt) {
+      return { status: 409 as const, error: "本日の対局は終了しています" };
+    }
     // 対象の半荘はサーバーの dayState.round が唯一の真実。クライアントが送ってくる round は使わない。
     // 画面を開いたまま半荘が進むと round がずれ、GM が「現在は第N半荘の振り分け対象です」で
     // 弾かれて何も振り分けられなくなっていた。GM はいつでも「いまの半荘」を自由に組める。

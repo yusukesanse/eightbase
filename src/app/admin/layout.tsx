@@ -70,6 +70,16 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/admin/messages",
+    label: "メッセージ送信",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M17.5 2.5 9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M17.5 2.5 12 17.5l-3-6.5-6.5-3 15-5.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/calendars",
     label: "カレンダー管理",
     icon: (

@@ -16,7 +16,7 @@ import type {
 
 const TIER_STYLES: Record<MahjongLeagueTier, string> = {
   M1: "bg-yellow-100 text-yellow-700",
-  M2: "bg-gray-100 text-gray-600",
+  M2: "bg-gray-100 text-gray-700",
   M3: "bg-orange-50 text-orange-600",
 };
 
@@ -277,7 +277,7 @@ export default function SeasonMahjongPage() {
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t.id
                 ? "border-[#231714] text-[#231714]"
-                : "border-transparent text-[#231714]/40 hover:text-[#231714]/70"
+                : "border-transparent text-[#231714]/80 hover:text-[#231714]/85"
             }`}
           >
             {t.label}
@@ -300,7 +300,7 @@ export default function SeasonMahjongPage() {
           </button>
         </div>
         {standings.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
             集計済みの卓がまだありません
           </div>
         ) : (
@@ -308,17 +308,17 @@ export default function SeasonMahjongPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-[#231714]/5">
-                  <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/60 w-14">順位</th>
-                  <th className="text-center px-2 py-2.5 text-xs font-medium text-[#231714]/60 w-16">リーグ</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">プレイヤー</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/60">アベレージ</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/60 w-20">試合数</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/80 w-14">順位</th>
+                  <th className="text-center px-2 py-2.5 text-xs font-medium text-[#231714]/80 w-16">リーグ</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/80">プレイヤー</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/80">アベレージ</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/80 w-20">試合数</th>
                 </tr>
               </thead>
               <tbody>
                 {standings.map((s) => (
                   <tr key={s.lineUserId} className="border-b border-[#231714]/5 hover:bg-[#231714]/[0.02]">
-                    <td className="px-4 py-3 text-center text-sm text-[#231714]/70 font-medium">{s.rank}</td>
+                    <td className="px-4 py-3 text-center text-sm text-[#231714]/85 font-medium">{s.rank}</td>
                     <td className="px-2 py-3 text-center">
                       <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold ${TIER_STYLES[s.tier]}`}>
                         {s.tier}
@@ -329,7 +329,7 @@ export default function SeasonMahjongPage() {
                         {s.pictureUrl ? (
                           <img src={s.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
                         ) : (
-                          <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[10px] font-bold text-[#A5C1C8]">
+                          <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-[10px] font-bold text-[#4f757e]">
                             {s.displayName.charAt(0)}
                           </div>
                         )}
@@ -340,7 +340,7 @@ export default function SeasonMahjongPage() {
                       <span className="text-sm font-bold text-[#231714]">{s.average.toLocaleString()}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-xs text-[#231714]/50">{s.gamesPlayed}試合</span>
+                      <span className="text-xs text-[#231714]/85">{s.gamesPlayed}試合</span>
                     </td>
                   </tr>
                 ))}
@@ -354,14 +354,14 @@ export default function SeasonMahjongPage() {
       <section className={tab === "tables" ? "" : "hidden"}>
         <h2 className="text-sm font-bold text-[#231714] mb-3">卓一覧（申告状況）</h2>
         {tables.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
             卓がまだ作成されていません
           </div>
         ) : (
           <>
             {/* 開催日セレクタ（月・日プルダウン）。月=シーズン開催期間、日=日程の開催日（毎週土曜−休催）。 */}
             <div className="mb-4">
-              <div className="text-[11px] font-bold text-[#231714]/50 mb-1.5">開催日</div>
+              <div className="text-[11px] font-bold text-[#231714]/85 mb-1.5">開催日</div>
               <div className="flex items-center gap-2">
                 <select
                   value={selMonth ?? ""}
@@ -395,7 +395,7 @@ export default function SeasonMahjongPage() {
             </div>
 
             {dayTables.length === 0 ? (
-              <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+              <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
                 この開催日の卓はありません
               </div>
             ) : (
@@ -426,7 +426,7 @@ export default function SeasonMahjongPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setEditTable(t)}
-                          className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                          className="px-3 py-1.5 text-xs font-medium text-[#231714]/80 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
                         >
                           修正
                         </button>
@@ -443,7 +443,7 @@ export default function SeasonMahjongPage() {
                         <div key={m.lineUserId} className="bg-gray-50 rounded-lg p-2.5">
                           <div className="text-xs font-medium text-[#231714] truncate">{m.displayName}</div>
                           {m.points !== null ? (
-                            <div className="mt-1 text-xs text-[#231714]/60">
+                            <div className="mt-1 text-xs text-[#231714]/80">
                               {m.rank}位 / {m.points.toLocaleString()}点
                             </div>
                           ) : (
@@ -463,11 +463,11 @@ export default function SeasonMahjongPage() {
       {/* ───── 当日進行（抜け番） ───── */}
       <section className={tab === "rotation" ? "" : "hidden"}>
         <h2 className="text-sm font-bold text-[#231714] mb-1">当日進行（抜け番）</h2>
-        <p className="text-xs text-[#231714]/50 mb-3">
+        <p className="text-xs text-[#231714]/85 mb-3">
           利用者アプリと同じ mahjongDayState を表示しています（現ラウンド・待機順・直近の交代）。
         </p>
         {dayStates.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
             進行中の開催日はありません（参加者から自動で卓が組まれると表示されます）
           </div>
         ) : (
@@ -489,9 +489,9 @@ export default function SeasonMahjongPage() {
                   </div>
                 </div>
 
-                <div className="text-[11px] font-bold text-[#231714]/50 mb-1">待機順（先頭が次にIN）</div>
+                <div className="text-[11px] font-bold text-[#231714]/85 mb-1">待機順（先頭が次にIN）</div>
                 {(d.waiting ?? []).length === 0 ? (
-                  <div className="text-xs text-[#231714]/40 mb-3">待機者なし</div>
+                  <div className="text-xs text-[#231714]/80 mb-3">待機者なし</div>
                 ) : (
                   <ol className="flex flex-wrap gap-1.5 mb-3">
                     {d.waiting.map((w, i) => (
@@ -504,7 +504,7 @@ export default function SeasonMahjongPage() {
 
                 {d.lastSwap ? (
                   <div className="rounded-lg bg-gray-50 p-2.5">
-                    <div className="text-[11px] font-bold text-[#231714]/60 mb-1">
+                    <div className="text-[11px] font-bold text-[#231714]/80 mb-1">
                       直近の交代（第{d.lastSwap.round}半荘 → 第{d.lastSwap.round + 1}半荘）
                     </div>
                     {d.lastSwap.reason && (
@@ -516,7 +516,7 @@ export default function SeasonMahjongPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-xs text-[#231714]/40">まだ交代はありません（第1半荘）</div>
+                  <div className="text-xs text-[#231714]/80">まだ交代はありません（第1半荘）</div>
                 )}
               </div>
             ))}
@@ -530,12 +530,12 @@ export default function SeasonMahjongPage() {
           <h2 className="text-sm font-bold text-[#231714]">
             リーグ確定履歴
           </h2>
-          <p className="text-xs text-[#231714]/50 mt-1">
+          <p className="text-xs text-[#231714]/85 mt-1">
             「リーグを確定」した時点の順位（M1/M2/M3）をスナップショットとして記録します。次回の卓組みやCSのシード権の基準になります。
           </p>
         </div>
         {assignments.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
             まだリーグが確定されていません
           </div>
         ) : (
@@ -557,7 +557,7 @@ export default function SeasonMahjongPage() {
                     <div className="text-sm font-medium text-[#231714]">
                       {a.eventDate} 終了時点で確定
                     </div>
-                    <div className="text-xs text-[#231714]/50 mt-0.5">
+                    <div className="text-xs text-[#231714]/85 mt-0.5">
                       M1 {counts.M1}名 / M2 {counts.M2}名 / M3 {counts.M3}名・
                       対象{a.tableCount}卓・
                       {new Date(a.confirmedAt).toLocaleString("ja-JP")}
@@ -566,7 +566,7 @@ export default function SeasonMahjongPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setViewAssignment(a)}
-                      className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                      className="px-3 py-1.5 text-xs font-medium text-[#231714]/80 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
                     >
                       内容
                     </button>
@@ -621,27 +621,27 @@ function AssignmentModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#231714] mb-1">確定リーグ編成</h3>
-        <p className="text-xs text-[#231714]/50 mb-4">
+        <p className="text-xs text-[#231714]/85 mb-4">
           {assignment.eventDate} 終了時点 /{" "}
           {new Date(assignment.confirmedAt).toLocaleString("ja-JP")}
         </p>
         <div className="space-y-1.5">
           {assignment.entries.map((e) => (
             <div key={e.lineUserId} className="flex items-center gap-3 text-sm">
-              <span className="w-7 text-right text-[#231714]/40 text-xs">{e.rank}</span>
+              <span className="w-7 text-right text-[#231714]/80 text-xs">{e.rank}</span>
               <span
                 className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold ${TIER_STYLES[e.tier]}`}
               >
                 {e.tier}
               </span>
               <span className="flex-1 text-[#231714] truncate">{e.displayName}</span>
-              <span className="text-[#231714]/60 text-xs">{e.average.toLocaleString()}</span>
+              <span className="text-[#231714]/80 text-xs">{e.average.toLocaleString()}</span>
             </div>
           ))}
         </div>
         <button
           onClick={onClose}
-          className="mt-5 w-full py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
+          className="mt-5 w-full py-2.5 text-sm font-medium text-[#231714]/80 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
         >
           閉じる
         </button>
@@ -722,7 +722,7 @@ function EditTableModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#231714] mb-1">申告内容の修正</h3>
-        <p className="text-xs text-[#231714]/50 mb-4">
+        <p className="text-xs text-[#231714]/85 mb-4">
           {table.eventDate} の卓 / 合計は 100,000 点になる必要があります
         </p>
 
@@ -764,7 +764,7 @@ function EditTableModal({
           ))}
         </div>
 
-        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/50" : "text-red-500"}`}>
+        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/85" : "text-red-500"}`}>
           合計: {total.toLocaleString()} 点
         </div>
 
@@ -773,7 +773,7 @@ function EditTableModal({
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
+            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/80 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
           >
             キャンセル
           </button>

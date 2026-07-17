@@ -65,7 +65,7 @@ export function ReissuePasscodeModal({
             <h3 className="text-base font-semibold text-[#231714] mb-1">
               {emailSent ? "招待メールを再送しました" : "パスワードを再発行しました"}
             </h3>
-            <p className="text-xs text-[#231714]/50 mb-4">
+            <p className="text-xs text-[#231714]/85 mb-4">
               {emailSent
                 ? `${user.email} 宛にパスワードをメール送信しました`
                 : `${user.displayName} さんに新しいパスワードを伝えてください`}
@@ -89,7 +89,7 @@ export function ReissuePasscodeModal({
               )}
               <button
                 onClick={() => onReissued(`${user.displayName} さん${emailSent ? "に招待メールを再送" : "のパスワードを再発行"}しました`)}
-                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors`}
+                className={`${passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>
@@ -98,10 +98,10 @@ export function ReissuePasscodeModal({
         ) : (
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">パスワードを再発行</h3>
-            <p className="text-sm text-[#231714]/60 mb-4">{user.displayName} さんのワンタイムパスワードを再発行します。以前のパスワードは無効になります。</p>
+            <p className="text-sm text-[#231714]/80 mb-4">{user.displayName} さんのワンタイムパスワードを再発行します。以前のパスワードは無効になります。</p>
             {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
             <div className="flex gap-2">
-              <button onClick={onClose} className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5">
+              <button onClick={onClose} className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5">
                 キャンセル
               </button>
               <button onClick={handleReissue} disabled={loading} className="flex-1 py-2.5 text-sm bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50">

@@ -73,8 +73,8 @@ export default function EventDetailPage() {
   if (!event) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
-        <p className="text-gray-400 text-sm">イベントが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#A5C1C8]">戻る</button>
+        <p className="text-gray-700 text-sm">イベントが見つかりません</p>
+        <button onClick={() => router.back()} className="text-sm text-[#4f757e]">戻る</button>
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function EventDetailPage() {
               <p className="text-sm font-medium text-[#231714]">
                 {start.format("YYYY年M月D日（ddd）")}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-700 mt-0.5">
                 {start.format("HH:mm")} 〜 {end.format("HH:mm")}
               </p>
             </div>
@@ -155,7 +155,7 @@ export default function EventDetailPage() {
         <hr className="my-5 border-gray-100" />
 
         {/* 説明文 */}
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">詳細</h2>
+        <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">詳細</h2>
         <RichText
           text={event.description}
           className="text-sm text-gray-700 leading-relaxed"
@@ -168,7 +168,7 @@ export default function EventDetailPage() {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
               liked
                 ? "bg-[#B0E401]/10 text-[#231714] border border-[#B0E401]/30"
-                : "bg-gray-50 text-gray-500 border border-gray-200"
+                : "bg-gray-50 text-gray-700 border border-gray-200"
             }`}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

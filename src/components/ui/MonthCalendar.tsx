@@ -52,7 +52,7 @@ export default function MonthCalendar({
           disabled={atCurrentMonth}
           className={clsx(
             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-            atCurrentMonth ? "text-gray-200" : "text-[#231714] hover:bg-gray-50"
+            atCurrentMonth ? "text-gray-400" : "text-[#231714] hover:bg-gray-50"
           )}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
@@ -68,7 +68,7 @@ export default function MonthCalendar({
 
       <div className="grid grid-cols-7 mb-1">
         {DAY_LABELS.map((d) => (
-          <div key={d} className="text-center text-[10px] font-medium text-[#231714]/30 py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] font-medium text-[#231714]/75 py-1">{d}</div>
         ))}
       </div>
 

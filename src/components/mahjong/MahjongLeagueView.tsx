@@ -154,8 +154,8 @@ export function MahjongLeagueView() {
           </button>
         </div>
       )}
-      {/* サブタブ */}
-      <div className="flex gap-1 mb-4 bg-[#231714]/5 rounded-xl p-1">
+      {/* サブタブ（選択中は白ピル＋アクセント文字＋太字＋リング＝色だけに頼らず選択を明示） */}
+      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1">
         {(
           [
             { id: "league", label: "リーグ", enabled: true },
@@ -169,12 +169,12 @@ export function MahjongLeagueView() {
             key={t.id}
             onClick={() => t.enabled && setSubTab(t.id)}
             disabled={!t.enabled}
-            className={`flex-1 py-2 rounded-lg text-xs font-medium text-center transition-all ${
+            className={`flex-1 py-2 rounded-lg text-xs text-center transition-all ${
               subTab === t.id
-                ? "bg-white text-[#231714] shadow-sm"
+                ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
                 : t.enabled
-                  ? "text-[#231714]/40"
-                  : "text-[#231714]/20"
+                  ? "text-[#231714]/80 font-medium"
+                  : "text-[#231714]/75 font-medium"
             }`}
           >
             {t.label}

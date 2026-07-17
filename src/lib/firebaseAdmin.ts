@@ -2,6 +2,7 @@ import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage, type Storage } from "firebase-admin/storage";
 import { assertEnvConsistency } from "./env";
+import { normalizeRole, type UserRole } from "./roles";
 
 let app: App;
 let db: Firestore;
@@ -46,17 +47,34 @@ export function getDb(): Firestore {
 }
 
 /**
- * 全アクティブユーザーの lineUserId を取得
+ * 指定 role（member/guest/staff）のアクティブユーザーの lineUserId を取得する。
+ * LINE 配信の宛先はここで role 別に絞る。role 未設定の旧データは member 扱い（normalizeRole）。
+ * lineUserId の重複は排除する。**登録ユーザー以外（未登録フォロワー等）は含まれない**。
  */
-export async function getAllActiveLineUserIds(): Promise<string[]> {
+export async function getActiveLineUserIdsByRoles(roles: UserRole[]): Promise<string[]> {
+  if (roles.length === 0) return [];
+  const allow = new Set(roles);
   const snap = await getDb()
     .collection("authorizedUsers")
     .where("active", "==", true)
     .get();
 
-  return snap.docs
-    .map((doc) => doc.data().lineUserId as string | undefined)
-    .filter((id): id is string => !!id);
+  const ids = new Set<string>();
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    const id = data.lineUserId as string | undefined;
+    if (!id) continue;
+    if (!allow.has(normalizeRole(data.role))) continue;
+    ids.add(id);
+  }
+  return Array.from(ids);
+}
+
+/**
+ * 全アクティブユーザーの lineUserId を取得（後方互換）。member/guest/staff 全 role に委譲。
+ */
+export async function getAllActiveLineUserIds(): Promise<string[]> {
+  return getActiveLineUserIdsByRoles(["member", "guest", "staff"]);
 }
 
 export function getBucket() {

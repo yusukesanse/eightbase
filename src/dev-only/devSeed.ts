@@ -10,11 +10,14 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { tierForRank } from "@/lib/mahjong";
+import { upcomingSaturdayJst } from "@/lib/date";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongTableMember } from "@/types";
 
 const SEASON_ID = "dev-mh-season";
 const PAST_DATE = "2026-06-13";
-const UPCOMING_DATE = "2026-07-11";
+// 申告タブ(RotationView)は demo で upcomingSaturdayJst() を見に行くので、
+// 申告用ライブ卓もその「今週の土曜」に立てて日付を一致させる（固定日だと卓が出ない）。
+const UPCOMING_DATE = upcomingSaturdayJst();
 
 interface P {
   lineUserId: string;

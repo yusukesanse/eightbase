@@ -34,7 +34,7 @@ export default function DemoMiniAppPage() {
         {/* ヘッダー */}
         <header className="px-4 pt-5 pb-3">
           <h1 className="text-xl font-bold text-[#231714]">麻雀リーグ</h1>
-          <p className="text-xs text-[#231714]/50 mt-0.5">2026前期シーズン</p>
+          <p className="text-xs text-[#231714]/85 mt-0.5">2026前期シーズン</p>
         </header>
 
         {/* タブ */}
@@ -52,7 +52,7 @@ export default function DemoMiniAppPage() {
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   tab === t.id
                     ? "bg-white text-[#231714] shadow-sm"
-                    : "text-[#231714]/40"
+                    : "text-[#231714]/80"
                 }`}
               >
                 {t.label}
@@ -80,7 +80,7 @@ export default function DemoMiniAppPage() {
             <div
               key={label}
               className={`flex flex-col items-center justify-center py-3 gap-1 text-[10px] ${
-                label === "ゲーム" ? "text-[#A5C1C8] font-medium" : "text-gray-400"
+                label === "ゲーム" ? "text-[#4f757e] font-medium" : "text-gray-700"
               }`}
             >
               <span className={`w-5 h-5 rounded ${label === "ゲーム" ? "bg-[#A5C1C8]" : "bg-gray-200"}`} />
@@ -125,13 +125,13 @@ function TablesSection({
         onClick={onToggleEntry}
         className={`w-full py-3 rounded-xl text-sm font-bold transition-colors ${
           entered
-            ? "bg-[#231714]/5 text-[#231714]/60 border border-[#231714]/10"
+            ? "bg-[#231714]/5 text-[#231714]/80 border border-[#231714]/10"
             : "bg-[#B0E401] text-[#231714] hover:opacity-90"
         }`}
       >
         {entered ? "参加表明済み（取り消す）" : "今回のリーグ戦に参加表明する"}
       </button>
-      <p className="text-[11px] text-[#231714]/40 px-1">
+      <p className="text-[11px] text-[#231714]/80 px-1">
         卓は参加表明者をもとに管理者が自動で組みます。組まれた卓が下に表示されます。
       </p>
 
@@ -159,11 +159,11 @@ function TablesSection({
                   <div className="text-[11px] font-medium text-[#231714] truncate">
                     {m.displayName}
                     {m.lineUserId === MOCK_ME.lineUserId && (
-                      <span className="ml-1 text-[#A5C1C8]">（自分）</span>
+                      <span className="ml-1 text-[#4f757e]">（自分）</span>
                     )}
                   </div>
                   {m.points !== null ? (
-                    <div className="text-[11px] text-[#231714]/60 mt-0.5">
+                    <div className="text-[11px] text-[#231714]/80 mt-0.5">
                       {m.rank}位 / {m.points.toLocaleString()}点
                     </div>
                   ) : (
@@ -179,7 +179,7 @@ function TablesSection({
                 className={`mt-3 w-full py-2.5 rounded-xl text-sm font-bold ${
                   needsMyReport
                     ? "bg-[#231714] text-white"
-                    : "bg-[#231714]/5 text-[#231714]/60"
+                    : "bg-[#231714]/5 text-[#231714]/80"
                 }`}
               >
                 {needsMyReport ? "自分のスコアを申告する" : "申告をやり直す"}
@@ -242,11 +242,11 @@ function ReportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#231714]">スコアを申告</h3>
-        <p className="text-xs text-[#231714]/50 mt-1 mb-4">
+        <p className="text-xs text-[#231714]/85 mt-1 mb-4">
           {table.eventDate} の卓 / 4人の合計が100,000点になると自動で確定します
         </p>
 
-        <label className="block text-xs font-medium text-[#231714]/60 mb-1">
+        <label className="block text-xs font-medium text-[#231714]/80 mb-1">
           最終持ち点
         </label>
         <input
@@ -258,7 +258,7 @@ function ReportModal({
           className="w-full px-4 py-3 text-base border border-[#231714]/10 rounded-xl text-right"
         />
 
-        <label className="block text-xs font-medium text-[#231714]/60 mt-4 mb-1">
+        <label className="block text-xs font-medium text-[#231714]/80 mt-4 mb-1">
           卓内順位
         </label>
         <div className="grid grid-cols-4 gap-2">
@@ -269,7 +269,7 @@ function ReportModal({
               className={`py-3 rounded-xl text-sm font-bold border ${
                 rank === n
                   ? "bg-[#231714] text-white border-[#231714]"
-                  : "bg-white text-[#231714]/60 border-[#231714]/10"
+                  : "bg-white text-[#231714]/80 border-[#231714]/10"
               }`}
             >
               {n}位
@@ -282,7 +282,7 @@ function ReportModal({
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-3 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl"
+            className="flex-1 py-3 text-sm font-medium text-[#231714]/80 border border-[#231714]/10 rounded-xl"
           >
             キャンセル
           </button>

@@ -54,7 +54,7 @@ export function PointsSignToggle({
             aria-pressed={active}
             aria-label={s === 1 ? "プラス" : "マイナス"}
             className="w-10 py-2.5 text-[20px] font-black leading-none transition-all"
-            style={active ? { background: accent, color: "#fff" } : { background: "#f6f8f9", color: "#97999d" }}
+            style={active ? { background: accent, color: "#fff" } : { background: "#f6f8f9", color: "#3f4247" }}
           >
             {s === 1 ? "＋" : "−"}
           </button>
@@ -118,7 +118,7 @@ function Seat({ m, me }: { m: PublicMahjongTableMember; me: boolean }) {
         <Avatar src={m.pictureUrl} name={m.displayName} size={30} />
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-extrabold truncate" style={{ color: me ? "#1c1f21" : "#fff" }}>{m.displayName}</div>
-          <div className="text-[10.5px] font-bold" style={{ color: me ? "#97999d" : "rgba(255,255,255,.7)" }}>
+          <div className="text-[10.5px] font-bold" style={{ color: me ? "#3f4247" : "rgba(255,255,255,.92)" }}>
             {me ? "あなた" : done ? "申告済み" : "申告待ち"}
           </div>
         </div>
@@ -128,7 +128,7 @@ function Seat({ m, me }: { m: PublicMahjongTableMember; me: boolean }) {
           <span className="text-[16px] font-black tabular-nums" style={{ color: me ? "#1c1f21" : "#fff" }}>
             {m.points!.toLocaleString()}
           </span>
-          <span className="text-[11px] font-extrabold" style={{ color: me ? "#97999d" : "rgba(255,255,255,.8)" }}>{m.rank}着</span>
+          <span className="text-[11px] font-extrabold" style={{ color: me ? "#3f4247" : "rgba(255,255,255,.95)" }}>{m.rank}着</span>
         </div>
       )}
     </div>

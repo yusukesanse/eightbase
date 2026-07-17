@@ -265,6 +265,13 @@ export interface MahjongDayState {
   entryClosedAt?: string | null;
   /** 「ゲーム開始」を押した GM の lineUserId。 */
   startedBy?: string | null;
+  /**
+   * GM が「本日の対局を終了」を押した時刻（ISO）。以降この開催日の卓は組めない。
+   * 未設定 = 進行中（半荘が終わるたび次の振り分け待ちに戻る）。
+   */
+  finishedAt?: string | null;
+  /** 「本日の対局を終了」を押した GM の lineUserId。 */
+  finishedBy?: string | null;
   updatedAt: string;
 }
 

@@ -19,6 +19,7 @@ export type AuditEventType =
   | "day.started" // GM の「ゲーム開始」＝受付締切（参加表明・支払いを締める）
   | "day.cancelled" // GM による開催日の中止（流会）。支払い済みは返金対象へ
   | "day.manual_assigned" // GM による手動卓振り分けの確定
+  | "day.finished" // GM の「本日の対局を終了」（以降この日の卓は組めない）
   | "day.table_cancelled" // GM による卓の取り消し（その半荘のやり直し。メンバーは待機へ）
   | "day.reset"; // 当日進行の管理者リセット
 

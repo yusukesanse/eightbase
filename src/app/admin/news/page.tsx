@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
 import DateTimePicker from "@/components/ui/DateTimePicker";
+import { LineAudienceField } from "@/components/admin/LineAudienceField";
 
 interface NewsItem {
   newsId: string;
@@ -14,7 +15,12 @@ interface NewsItem {
   priority?: string;
   published: boolean;
   scheduledAt?: string;
+  lineNotify?: boolean;
+  lineBroadcastAudience?: string[];
 }
+
+// 種別デフォルト配信対象（サーバー側 defaultBroadcastAudience と一致させる）。
+const NEWS_DEFAULT_AUDIENCE = ["member", "staff"];
 
 const NEWS_CATEGORIES = ["info", "facility", "community"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -27,7 +33,7 @@ const PRIORITY_OPTIONS = ["high", "medium", "normal"] as const;
 const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
   high:   { label: "高（Breaking News）", color: "bg-red-100 text-red-700" },
   medium: { label: "中（Top Stories）",   color: "bg-amber-100 text-amber-700" },
-  normal: { label: "通常（Recent）",      color: "bg-gray-100 text-[#231714]/60" },
+  normal: { label: "通常（Recent）",      color: "bg-gray-100 text-[#231714]/80" },
 };
 
 const EMPTY_FORM = {
@@ -39,6 +45,8 @@ const EMPTY_FORM = {
   priority: "normal",
   published: false,
   scheduledAt: "",
+  lineNotify: true,
+  lineBroadcastAudience: NEWS_DEFAULT_AUDIENCE as string[],
 };
 
 type PublishMode = "immediate" | "draft" | "scheduled";
@@ -103,6 +111,8 @@ export default function AdminNewsPage() {
       priority: item.priority ?? "normal",
       published: item.published,
       scheduledAt: item.scheduledAt ? dayjs(item.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
+      lineNotify: item.lineNotify !== false,
+      lineBroadcastAudience: Array.isArray(item.lineBroadcastAudience) ? item.lineBroadcastAudience : NEWS_DEFAULT_AUDIENCE,
     });
     setPublishMode(getPublishMode({
       ...item,
@@ -110,6 +120,8 @@ export default function AdminNewsPage() {
       priority: item.priority ?? "normal",
       scheduledAt: item.scheduledAt ?? "",
       publishedAt: item.publishedAt,
+      lineNotify: item.lineNotify !== false,
+      lineBroadcastAudience: Array.isArray(item.lineBroadcastAudience) ? item.lineBroadcastAudience : NEWS_DEFAULT_AUDIENCE,
     }));
     setImageFile(null);
     setImagePreview(item.imageUrl ?? "");
@@ -230,7 +242,7 @@ export default function AdminNewsPage() {
     if (item.scheduledAt) {
       return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">予約投稿</span>;
     }
-    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#231714]/60">下書き</span>;
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#231714]/80">下書き</span>;
   }
 
   const N_TABS = [
@@ -252,7 +264,7 @@ export default function AdminNewsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#231714]">ニュース管理</h2>
-          <p className="text-sm text-[#231714]/40 mt-1">ニュースの作成・編集・削除</p>
+          <p className="text-sm text-[#231714]/80 mt-1">ニュースの作成・編集・削除</p>
         </div>
         <button
           onClick={openCreate}
@@ -271,12 +283,12 @@ export default function AdminNewsPage() {
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
               statusTab === tab.key
                 ? "bg-white text-[#231714] shadow-sm"
-                : "text-[#231714]/40 hover:text-[#231714]/60"
+                : "text-[#231714]/80 hover:text-[#231714]/80"
             }`}
           >
             {tab.label}
             <span className={`min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold ${
-              statusTab === tab.key ? "bg-[#231714] text-white" : "bg-[#231714]/10 text-[#231714]/40"
+              statusTab === tab.key ? "bg-[#231714] text-white" : "bg-[#231714]/10 text-[#231714]/80"
             }`}>
               {tab.count}
             </span>
@@ -291,7 +303,7 @@ export default function AdminNewsPage() {
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
       ) : filteredNews.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
           {statusTab === "all" ? "ニュースがありません" : "該当するニュースがありません"}
         </div>
       ) : (
@@ -299,12 +311,12 @@ export default function AdminNewsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#231714]/5 border-b border-[#231714]/5">
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">タイトル</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">カテゴリ</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">重要度</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">投稿日時</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">ステータス</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">予約時刻</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">タイトル</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">カテゴリ</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">重要度</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">投稿日時</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">ステータス</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">予約時刻</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -315,24 +327,24 @@ export default function AdminNewsPage() {
                   className={`border-b border-[#231714]/5 hover:bg-[#231714]/5 transition-colors ${i % 2 === 0 ? "" : "bg-[#231714]/5"}`}
                 >
                   <td className="px-6 py-3 font-medium text-[#231714]">{item.title}</td>
-                  <td className="px-6 py-3 text-[#231714]/60">{CATEGORY_LABELS[item.category] ?? item.category}</td>
+                  <td className="px-6 py-3 text-[#231714]/80">{CATEGORY_LABELS[item.category] ?? item.category}</td>
                   <td className="px-6 py-3">
                     {(() => {
                       const p = PRIORITY_LABELS[item.priority ?? "normal"] ?? PRIORITY_LABELS.normal;
                       return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.color}`}>{p.label.split("（")[0]}</span>;
                     })()}
                   </td>
-                  <td className="px-6 py-3 text-[#231714]/60 whitespace-nowrap">
+                  <td className="px-6 py-3 text-[#231714]/80 whitespace-nowrap">
                     {item.publishedAt ? dayjs(item.publishedAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3">{statusBadge(item)}</td>
-                  <td className="px-6 py-3 text-[#231714]/40 text-xs whitespace-nowrap">
+                  <td className="px-6 py-3 text-[#231714]/80 text-xs whitespace-nowrap">
                     {item.scheduledAt ? dayjs(item.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => openEdit(item)}
-                      className="text-xs text-[#A5C1C8] hover:underline mr-3"
+                      className="text-xs text-[#4f757e] hover:underline mr-3"
                     >
                       編集
                     </button>
@@ -355,7 +367,7 @@ export default function AdminNewsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <h3 className="text-base font-semibold text-[#231714] mb-2">削除の確認</h3>
-            <p className="text-sm text-[#231714]/60 mb-5">このニュースを削除しますか？この操作は取り消せません。</p>
+            <p className="text-sm text-[#231714]/80 mb-5">このニュースを削除しますか？この操作は取り消せません。</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteTarget(null)}
@@ -386,7 +398,7 @@ export default function AdminNewsPage() {
 
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">タイトル *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">タイトル *</label>
                 <input
                   type="text"
                   value={form.title}
@@ -397,7 +409,7 @@ export default function AdminNewsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">カテゴリ *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">カテゴリ *</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -410,7 +422,7 @@ export default function AdminNewsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-2">重要度 *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-2">重要度 *</label>
                 <div className="flex gap-2">
                   {PRIORITY_OPTIONS.map((p) => {
                     const info = PRIORITY_LABELS[p];
@@ -427,7 +439,7 @@ export default function AdminNewsPage() {
                               : p === "medium"
                               ? "bg-amber-50 border-amber-300 text-amber-700 ring-2 ring-amber-200"
                               : "bg-gray-100 border-gray-300 text-[#231714] ring-2 ring-gray-200"
-                            : "bg-white border-[#231714]/10 text-[#231714]/60 hover:bg-gray-50"
+                            : "bg-white border-[#231714]/10 text-[#231714]/80 hover:bg-gray-50"
                         }`}
                       >
                         {info.label}
@@ -438,7 +450,7 @@ export default function AdminNewsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">本文 *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">本文 *</label>
                 <textarea
                   value={form.body}
                   onChange={(e) => setForm({ ...form, body: e.target.value })}
@@ -450,7 +462,7 @@ export default function AdminNewsPage() {
 
               {/* 画像アップロード */}
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">画像</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">画像</label>
                 <div
                   className="border-2 border-dashed border-[#231714]/10 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
@@ -458,7 +470,7 @@ export default function AdminNewsPage() {
                   {imagePreview ? (
                     <img src={imagePreview} alt="preview" className="mx-auto max-h-40 object-contain rounded" />
                   ) : (
-                    <div className="text-[#231714]/40 text-sm py-4">
+                    <div className="text-[#231714]/80 text-sm py-4">
                       クリックして画像を選択（5MB以下）
                     </div>
                   )}
@@ -483,7 +495,7 @@ export default function AdminNewsPage() {
 
               {/* 公開設定 */}
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-2">公開設定</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-2">公開設定</label>
                 <div className="flex gap-3">
                   {(["immediate", "draft", "scheduled"] as PublishMode[]).map((mode) => (
                     <label key={mode} className="flex items-center gap-1.5 cursor-pointer">
@@ -504,16 +516,27 @@ export default function AdminNewsPage() {
 
                 {publishMode === "scheduled" && (
                   <div className="mt-3">
-                    <label className="block text-xs font-medium text-[#231714]/60 mb-1">公開予約日時</label>
+                    <label className="block text-xs font-medium text-[#231714]/80 mb-1">公開予約日時</label>
                     <DateTimePicker
                       value={form.scheduledAt ?? ""}
                       onChange={(v) => setForm({ ...form, scheduledAt: v })}
                     />
-                    <p className="text-xs text-[#231714]/40 mt-1">
+                    <p className="text-xs text-[#231714]/80 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* LINE 配信設定 */}
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-2">LINE 配信</label>
+                <LineAudienceField
+                  notify={form.lineNotify}
+                  audience={form.lineBroadcastAudience}
+                  onNotifyChange={(b) => setForm({ ...form, lineNotify: b })}
+                  onAudienceChange={(roles) => setForm({ ...form, lineBroadcastAudience: roles })}
+                />
               </div>
             </div>
 

@@ -70,7 +70,7 @@ export default function AccessRequestForm() {
           </svg>
         </div>
         <h1 className="text-base font-bold text-[#1c1f21]">申請を受け付けました</h1>
-        <p className="text-xs text-[#231714]/60 mt-2 leading-relaxed">
+        <p className="text-xs text-[#231714]/80 mt-2 leading-relaxed">
           管理者が承認すると、ご入力のメールアドレスに<br />
           ワンタイムパスワードが届きます。<br />
           届いたら下の「ログイン」からコードを入力してください。
@@ -81,7 +81,7 @@ export default function AccessRequestForm() {
         >
           ログイン
         </a>
-        <p className="text-[11px] text-[#231714]/40 mt-2">
+        <p className="text-[11px] text-[#231714]/80 mt-2">
           ワンタイムパスワードが届いてから入力してください
         </p>
       </div>
@@ -94,7 +94,7 @@ export default function AccessRequestForm() {
         <div className="flex flex-col items-center mb-6">
           <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} priority className="opacity-80 mb-3" />
           <h1 className="text-base font-bold text-[#1c1f21]">利用申請</h1>
-          <p className="text-xs text-[#231714]/55 mt-1 text-center">
+          <p className="text-xs text-[#231714]/75 mt-1 text-center">
             はじめての方は、以下をご入力ください。<br />管理者の承認後にご利用いただけます。
           </p>
         </div>
@@ -132,7 +132,7 @@ export default function AccessRequestForm() {
                   className={`rounded-xl border px-3 py-3 text-sm font-bold transition-colors ${
                     userType === opt.key
                       ? "border-[#231714] bg-[#231714] text-white"
-                      : "border-gray-200 bg-white text-[#231714]/70"
+                      : "border-gray-200 bg-white text-[#231714]/85"
                   }`}
                 >
                   {opt.label}
@@ -160,9 +160,9 @@ export default function AccessRequestForm() {
           {submitting ? "送信中..." : "申請する"}
         </button>
 
-        <p className="text-[11px] text-[#231714]/40 mt-4 text-center">
+        <p className="text-[11px] text-[#231714]/80 mt-4 text-center">
           既にワンタイムパスワードをお持ちの方は{" "}
-          <a href="/login" className="underline text-[#231714]/60">ログイン</a>
+          <a href="/login" className="underline text-[#231714]/80">ログイン</a>
         </p>
       </div>
     </div>
@@ -172,7 +172,7 @@ export default function AccessRequestForm() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-bold text-[#231714]/60 mb-1">{label}</span>
+      <span className="block text-[11px] font-bold text-[#231714]/80 mb-1">{label}</span>
       {children}
     </label>
   );

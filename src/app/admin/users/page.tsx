@@ -22,7 +22,7 @@ type RoleFilter = "all" | "member" | "guest" | "staff";
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) {
     return (
-      <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#231714]/20 ml-1 inline-block">
+      <svg width="12" height="12" viewBox="0 0 12 12" className="text-[#231714]/75 ml-1 inline-block">
         <path d="M6 2l3 3.5H3L6 2z" fill="currentColor" />
         <path d="M6 10L3 6.5h6L6 10z" fill="currentColor" />
       </svg>
@@ -300,7 +300,7 @@ export default function AdminUsersPage() {
   function SortableHeader({ label, sortKeyName, className }: { label: string; sortKeyName: SortKey; className?: string }) {
     return (
       <th
-        className={`text-left px-6 py-3 text-xs font-medium text-gray-500 cursor-pointer select-none hover:text-gray-800 transition-colors ${className ?? ""}`}
+        className={`text-left px-6 py-3 text-xs font-medium text-gray-700 cursor-pointer select-none hover:text-gray-800 transition-colors ${className ?? ""}`}
         onClick={() => handleSort(sortKeyName)}
       >
         {label}
@@ -326,13 +326,13 @@ export default function AdminUsersPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#231714]">ユーザー管理</h2>
-          <p className="text-sm text-[#231714]/40 mt-1">登録ユーザーの管理・追加</p>
+          <p className="text-sm text-[#231714]/80 mt-1">登録ユーザーの管理・追加</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportCsv}
             disabled={users.length === 0}
-            className="px-4 py-2.5 text-sm font-medium border border-[#231714]/10 text-[#231714]/60 rounded-xl hover:bg-[#231714]/5 disabled:opacity-30 transition-colors flex items-center gap-2"
+            className="px-4 py-2.5 text-sm font-medium border border-[#231714]/10 text-[#231714]/80 rounded-xl hover:bg-[#231714]/5 disabled:opacity-30 transition-colors flex items-center gap-2"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 1v8M4 6l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -355,7 +355,7 @@ export default function AdminUsersPage() {
       {/* 検索・フィルターバー */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700">
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-700 hover:text-gray-700"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -382,7 +382,7 @@ export default function AdminUsersPage() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors ${
-            statusFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/60"
+            statusFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/80"
           }`}
         >
           <option value="all">すべてのステータス</option>
@@ -394,7 +394,7 @@ export default function AdminUsersPage() {
           value={lineFilter}
           onChange={(e) => setLineFilter(e.target.value as LineFilter)}
           className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors ${
-            lineFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/60"
+            lineFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/80"
           }`}
         >
           <option value="all">LINE連携：すべて</option>
@@ -406,7 +406,7 @@ export default function AdminUsersPage() {
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
           className={`px-3 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors ${
-            roleFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/60"
+            roleFilter !== "all" ? "border-[#231714] text-[#231714]" : "border-[#231714]/10 text-[#231714]/80"
           }`}
         >
           <option value="all">区分：すべて</option>
@@ -418,7 +418,7 @@ export default function AdminUsersPage() {
         {hasActiveFilter && (
           <button
             onClick={() => { setSearchQuery(""); setStatusFilter("all"); setLineFilter("all"); setRoleFilter("all"); }}
-            className="px-3 py-2.5 text-xs text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-[#231714]/5 transition-colors flex items-center gap-1"
+            className="px-3 py-2.5 text-xs text-[#231714]/80 border border-[#231714]/10 rounded-xl hover:bg-[#231714]/5 transition-colors flex items-center gap-1"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
@@ -432,7 +432,7 @@ export default function AdminUsersPage() {
       {actionMsg && (
         <div className="mb-4 bg-[#B0E401]/20 border border-[#B0E401]/40 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-[#231714]">{actionMsg}</p>
-          <button onClick={() => setActionMsg(null)} className="text-[#231714]/60 text-xs hover:text-[#231714]">✕</button>
+          <button onClick={() => setActionMsg(null)} className="text-[#231714]/80 text-xs hover:text-[#231714]">✕</button>
         </div>
       )}
 
@@ -471,7 +471,7 @@ export default function AdminUsersPage() {
               </svg>
             </div>
             <h3 className="text-base font-semibold text-[#231714] text-center mb-1">ユーザーを完全に削除</h3>
-            <p className="text-sm text-[#231714]/60 text-center mb-4">
+            <p className="text-sm text-[#231714]/80 text-center mb-4">
               <span className="font-medium text-[#231714]">{deleteTarget.displayName}</span>（{deleteTarget.email}）の全データが削除されます。この操作は取り消せません。
             </p>
             <div className="bg-red-50/50 border border-red-100 rounded-xl px-3 py-2.5 mb-4">
@@ -480,7 +480,7 @@ export default function AdminUsersPage() {
               </p>
             </div>
             <div className="mb-4">
-              <label className="block text-xs font-medium text-[#231714]/60 mb-1">
+              <label className="block text-xs font-medium text-[#231714]/80 mb-1">
                 確認のため「<span className="text-red-500 font-bold">削除</span>」と入力してください
               </label>
               <input
@@ -495,7 +495,7 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }}
-                className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-[#231714]/5 transition-colors"
+                className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors"
               >
                 キャンセル
               </button>
@@ -534,7 +534,7 @@ export default function AdminUsersPage() {
       ) : (
         <div className="bg-white rounded-xl border border-[#231714]/10 overflow-hidden">
           <div className="px-6 py-4 border-b border-[#231714]/5 flex items-center justify-between">
-            <p className="text-sm text-[#231714]/60">
+            <p className="text-sm text-[#231714]/80">
               {hasActiveFilter ? (
                 <>
                   <span className="font-medium text-[#231714]">{filteredUsers.length}</span>
@@ -543,9 +543,9 @@ export default function AdminUsersPage() {
               ) : (
                 <>全 {users.length} 名</>
               )}
-              <span className="ml-2 text-xs text-[#231714]/40">（会員 {memberCount}・ゲスト {guestCount}・エイト社員 {staffCount}）</span>
+              <span className="ml-2 text-xs text-[#231714]/80">（会員 {memberCount}・ゲスト {guestCount}・エイト社員 {staffCount}）</span>
             </p>
-            <p className="text-xs text-[#231714]/30">行をクリックで詳細表示</p>
+            <p className="text-xs text-[#231714]/75">行をクリックで詳細表示</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -585,16 +585,16 @@ export default function AdminUsersPage() {
                           <p className="font-medium text-[#231714] flex items-center gap-1.5">
                             {user.displayName}
                             {user.role !== "member" && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 bg-[#231714]/5 text-[#231714]/60 text-[10px] rounded-full font-medium">
+                              <span className="inline-flex items-center px-1.5 py-0.5 bg-[#231714]/5 text-[#231714]/80 text-[10px] rounded-full font-medium">
                                 {ROLE_LABELS[user.role]}
                               </span>
                             )}
                           </p>
-                          <p className="text-xs text-[#231714]/40">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
+                          <p className="text-xs text-[#231714]/80">{user.profile?.companyName || user.profile?.occupation || user.tenantName || "—"}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[#231714]/60">{user.email}</td>
+                    <td className="px-6 py-4 text-[#231714]/80">{user.email}</td>
                     <td className="px-6 py-4">
                       {user.lineUserId ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#B0E401]/20 text-[#231714] text-xs rounded-full font-medium">
@@ -604,10 +604,10 @@ export default function AdminUsersPage() {
                           連携済み
                         </span>
                       ) : (
-                        <span className="text-xs text-[#231714]/40">未連携</span>
+                        <span className="text-xs text-[#231714]/80">未連携</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-xs text-[#231714]/60">
+                    <td className="px-6 py-4 text-xs text-[#231714]/80">
                       {user.lastLoginAt ? dayjs(user.lastLoginAt).format("YYYY/M/D HH:mm") : "—"}
                     </td>
                     <td className="px-6 py-4">
@@ -619,7 +619,7 @@ export default function AdminUsersPage() {
             </table>
           </div>
           {filteredUsers.length === 0 && (
-            <div className="px-6 py-12 text-center text-sm text-[#231714]/40">
+            <div className="px-6 py-12 text-center text-sm text-[#231714]/80">
               {hasActiveFilter
                 ? "条件に一致するユーザーが見つかりません。"
                 : "ユーザーがいません。まず追加してください。"}

@@ -50,7 +50,7 @@ export default function MyPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500">読み込み中...</p>
+          <p className="text-sm text-gray-700">読み込み中...</p>
         </div>
       </div>
     );
@@ -63,7 +63,7 @@ export default function MyPage() {
       {/* ヘッダー */}
       <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
         <div className="mb-5">
-          <h1 className="text-[15px] font-medium text-white">マイページ</h1>
+          <h1 className="text-[15px] font-medium text-[#231714]">マイページ</h1>
         </div>
 
         <div className="flex items-center gap-4">
@@ -86,7 +86,7 @@ export default function MyPage() {
               {user.displayName || user.lineDisplayName}
             </p>
             {user.catchphrase && (
-              <p className="text-[12px] text-[#231714]/60 mt-1 truncate">{user.catchphrase}</p>
+              <p className="text-[12px] text-[#231714]/80 mt-1 truncate">{user.catchphrase}</p>
             )}
           </div>
         </div>
@@ -96,15 +96,15 @@ export default function MyPage() {
       <div className="bg-white border-b border-gray-100 flex">
         <div className="flex-1 text-center py-3">
           <p className="text-[20px] font-medium text-[#231714]">{user.skills.length}</p>
-          <p className="text-[10px] text-[#231714]/40 mt-0.5">スキル</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">スキル</p>
         </div>
         <div className="flex-1 text-center py-3 border-x border-gray-100">
           <p className="text-[20px] font-medium text-[#231714]">{user.postCount}</p>
-          <p className="text-[10px] text-[#231714]/40 mt-0.5">投稿</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">投稿</p>
         </div>
         <div className="flex-1 text-center py-3">
           <p className="text-[20px] font-medium text-[#231714]">{user.reservationCount}</p>
-          <p className="text-[10px] text-[#231714]/40 mt-0.5">予約</p>
+          <p className="text-[10px] text-[#231714]/80 mt-0.5">予約</p>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export default function MyPage() {
             {user.skills.map((skill) => (
               <span
                 key={skill}
-                className="px-3 py-1 text-[11px] rounded-full bg-[#A5C1C8] text-white"
+                className="px-3 py-1 text-[11px] rounded-full bg-[#4f757e] text-white"
               >
                 {skill}
               </span>
@@ -169,7 +169,7 @@ function MenuItem({ icon, label, onClick, danger }: { icon: React.ReactNode; lab
       onClick={onClick}
       className="w-full flex items-center gap-3 px-5 py-4 bg-white border-b border-gray-50 hover:bg-gray-50 transition-colors text-left"
     >
-      <span className={danger ? "text-red-400" : "text-[#A5C1C8]"}>{icon}</span>
+      <span className={danger ? "text-red-400" : "text-[#4f757e]"}>{icon}</span>
       <span className={`flex-1 text-[13px] ${danger ? "text-red-500" : "text-[#231714]"}`}>{label}</span>
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
         <path d="M5 3l4 4-4 4" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

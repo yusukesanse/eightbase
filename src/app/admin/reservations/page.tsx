@@ -129,7 +129,7 @@ export default function AdminReservationsPage() {
       {/* ヘッダー */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-[#231714]">予約管理</h2>
-        <p className="text-sm text-[#231714]/40 mt-1">全ユーザーの予約を確認・管理</p>
+        <p className="text-sm text-[#231714]/80 mt-1">全ユーザーの予約を確認・管理</p>
       </div>
 
       {/* 成功メッセージ */}
@@ -146,15 +146,15 @@ export default function AdminReservationsPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-base font-semibold text-[#231714] mb-2">予約をキャンセルしますか？</h3>
             <div className="bg-gray-50 rounded-xl p-4 text-sm mb-4 space-y-1">
-              <p><span className="text-[#231714]/60">予約者:</span> <span className="font-medium">{cancelTarget.displayName}</span></p>
-              <p><span className="text-[#231714]/60">施設:</span> {cancelTarget.facilityName}</p>
-              <p><span className="text-[#231714]/60">日時:</span> {dayjs(cancelTarget.date).format("M月D日")} {cancelTarget.startTime}〜{cancelTarget.endTime}</p>
+              <p><span className="text-[#231714]/80">予約者:</span> <span className="font-medium">{cancelTarget.displayName}</span></p>
+              <p><span className="text-[#231714]/80">施設:</span> {cancelTarget.facilityName}</p>
+              <p><span className="text-[#231714]/80">日時:</span> {dayjs(cancelTarget.date).format("M月D日")} {cancelTarget.startTime}〜{cancelTarget.endTime}</p>
             </div>
-            <p className="text-xs text-[#231714]/40 mb-4">Google カレンダーのイベントも削除されます。</p>
+            <p className="text-xs text-[#231714]/80 mb-4">Google カレンダーのイベントも削除されます。</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setCancelTarget(null)}
-                className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-gray-50"
+                className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-gray-50"
               >
                 戻る
               </button>
@@ -175,10 +175,10 @@ export default function AdminReservationsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-base font-semibold text-[#231714] mb-1">予約を編集</h3>
-            <p className="text-sm text-[#231714]/60 mb-4">{editTarget.displayName} / {editTarget.facilityName}</p>
+            <p className="text-sm text-[#231714]/80 mb-4">{editTarget.displayName} / {editTarget.facilityName}</p>
             <form onSubmit={handleEdit} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">日付</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">日付</label>
                 <DatePicker
                   value={editForm.date}
                   onChange={(v) => setEditForm({ ...editForm, date: v })}
@@ -187,7 +187,7 @@ export default function AdminReservationsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">開始時刻</label>
+                  <label className="block text-xs font-medium text-[#231714]/80 mb-1">開始時刻</label>
                   <TimePicker
                     value={editForm.startTime}
                     onChange={(v) => setEditForm({ ...editForm, startTime: v })}
@@ -199,7 +199,7 @@ export default function AdminReservationsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">終了時刻</label>
+                  <label className="block text-xs font-medium text-[#231714]/80 mb-1">終了時刻</label>
                   <TimePicker
                     value={editForm.endTime}
                     onChange={(v) => setEditForm({ ...editForm, endTime: v })}
@@ -216,7 +216,7 @@ export default function AdminReservationsPage() {
                 <button
                   type="button"
                   onClick={() => setEditTarget(null)}
-                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/60 hover:bg-gray-50"
+                  className="flex-1 py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-gray-50"
                 >
                   キャンセル
                 </button>
@@ -236,7 +236,7 @@ export default function AdminReservationsPage() {
       {/* フィルター */}
       <div className="bg-white rounded-xl border border-[#231714]/10 p-4 mb-4 flex flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-[#231714]/60 whitespace-nowrap">日付</label>
+          <label className="text-xs font-medium text-[#231714]/80 whitespace-nowrap">日付</label>
           <DatePicker
             value={filterDate}
             onChange={(v) => setFilterDate(v)}
@@ -245,7 +245,7 @@ export default function AdminReservationsPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-[#231714]/60 whitespace-nowrap">施設</label>
+          <label className="text-xs font-medium text-[#231714]/80 whitespace-nowrap">施設</label>
           <input
             type="text"
             value={filterFacility}
@@ -255,7 +255,7 @@ export default function AdminReservationsPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-[#231714]/60 whitespace-nowrap">予約者</label>
+          <label className="text-xs font-medium text-[#231714]/80 whitespace-nowrap">予約者</label>
           <input
             type="text"
             value={filterName}
@@ -267,7 +267,7 @@ export default function AdminReservationsPage() {
         {(filterDate || filterFacility || filterName) && (
           <button
             onClick={() => { setFilterDate(""); setFilterFacility(""); setFilterName(""); }}
-            className="px-3 py-2 text-xs text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg transition-colors"
+            className="px-3 py-2 text-xs text-[#231714]/80 hover:text-[#231714] border border-[#231714]/10 rounded-lg transition-colors"
           >
             リセット
           </button>
@@ -284,7 +284,7 @@ export default function AdminReservationsPage() {
       ) : (
         <div className="bg-white rounded-xl border border-[#231714]/10 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
-            <p className="text-sm text-[#231714]/60">
+            <p className="text-sm text-[#231714]/80">
               {filtered.length} 件
               {filtered.length !== reservations.length && ` / 全 ${reservations.length} 件`}
             </p>
@@ -293,13 +293,13 @@ export default function AdminReservationsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#231714]/5 border-b border-[#231714]/5">
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">日時</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">施設</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">予約者</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">テナント</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">規約</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">状態</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60 whitespace-nowrap">操作</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">日時</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">施設</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">予約者</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">テナント</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">規約</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">状態</th>
+                  <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80 whitespace-nowrap">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -308,15 +308,15 @@ export default function AdminReservationsPage() {
                   return (
                     <tr key={r.reservationId} className={`border-b border-[#231714]/5 hover:bg-[#231714]/5 transition-colors ${isPast ? "opacity-60" : ""}`}>
                       <td className="px-6 py-3 whitespace-nowrap">
-                        <span className={`font-medium ${r.date === today ? "text-[#A5C1C8]" : "text-[#231714]"}`}>
+                        <span className={`font-medium ${r.date === today ? "text-[#4f757e]" : "text-[#231714]"}`}>
                           {dayjs(r.date).format("M/D (ddd)")}
                         </span>
-                        <span className="text-[#231714]/40 text-xs ml-2">{r.startTime}〜{r.endTime}</span>
+                        <span className="text-[#231714]/80 text-xs ml-2">{r.startTime}〜{r.endTime}</span>
                         {r.date === today && (
-                          <span className="ml-2 px-1.5 py-0.5 bg-[#A5C1C8]/30 text-[#A5C1C8] text-xs rounded-full font-medium">今日</span>
+                          <span className="ml-2 px-1.5 py-0.5 bg-[#A5C1C8]/30 text-[#4f757e] text-xs rounded-full font-medium">今日</span>
                         )}
                       </td>
-                      <td className="px-6 py-3 text-[#231714]/60 whitespace-nowrap">{r.facilityName}</td>
+                      <td className="px-6 py-3 text-[#231714]/80 whitespace-nowrap">{r.facilityName}</td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           {r.pictureUrl ? (
@@ -327,21 +327,21 @@ export default function AdminReservationsPage() {
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                             />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/30 text-[#A5C1C8] flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-[#A5C1C8]/30 text-[#4f757e] flex items-center justify-center text-xs font-bold flex-shrink-0">
                               {r.displayName.charAt(0)}
                             </div>
                           )}
                           <span className="font-medium text-[#231714]">{r.displayName}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-3 text-[#231714]/60 whitespace-nowrap">{r.tenantName || "—"}</td>
+                      <td className="px-6 py-3 text-[#231714]/80 whitespace-nowrap">{r.tenantName || "—"}</td>
                       <td className="px-6 py-3 whitespace-nowrap">
                         {r.termsAgreed ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 whitespace-nowrap" title={r.termsAgreedAt ? `同意日時: ${dayjs(r.termsAgreedAt).format("M/D HH:mm")}` : ""}>
                             同意済
                           </span>
                         ) : (
-                          <span className="text-xs text-[#231714]/30">—</span>
+                          <span className="text-xs text-[#231714]/75">—</span>
                         )}
                       </td>
                       <td className="px-6 py-3 whitespace-nowrap">
@@ -350,7 +350,7 @@ export default function AdminReservationsPage() {
                             ? "bg-[#B0E401]/20 text-[#231714]"
                             : r.status === "pending_payment"
                               ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-[#231714]/60"
+                              : "bg-gray-100 text-[#231714]/80"
                         }`}>
                           {r.status === "confirmed"
                             ? "確定"
@@ -364,7 +364,7 @@ export default function AdminReservationsPage() {
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <button
                               onClick={() => openEdit(r)}
-                              className="px-2.5 py-1.5 text-xs rounded-lg border border-[#A5C1C8]/40 text-[#A5C1C8] hover:bg-[#A5C1C8]/20 transition-colors whitespace-nowrap"
+                              className="px-2.5 py-1.5 text-xs rounded-lg border border-[#A5C1C8]/40 text-[#4f757e] hover:bg-[#A5C1C8]/20 transition-colors whitespace-nowrap"
                             >
                               編集
                             </button>
@@ -383,7 +383,7 @@ export default function AdminReservationsPage() {
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="px-6 py-12 text-center text-sm text-[#231714]/40">
+              <div className="px-6 py-12 text-center text-sm text-[#231714]/80">
                 該当する予約がありません
               </div>
             )}

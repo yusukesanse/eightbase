@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import dayjs from "dayjs";
 import DateTimePicker from "@/components/ui/DateTimePicker";
+import { LineAudienceField } from "@/components/admin/LineAudienceField";
 
 interface EventItem {
   eventId: string;
@@ -17,7 +18,12 @@ interface EventItem {
   scheduledAt?: string;
   createdAt?: string;
   goodCount?: number;
+  lineNotify?: boolean;
+  lineBroadcastAudience?: string[];
 }
+
+// 種別デフォルト配信対象（サーバー側 defaultBroadcastAudience と一致させる）。
+const EVENT_DEFAULT_AUDIENCE = ["member", "staff"];
 
 const EVENT_CATEGORIES = [
   "ワークショップ",
@@ -37,6 +43,8 @@ const EMPTY_FORM: Omit<EventItem, "eventId" | "createdAt"> = {
   imageUrl: "",
   published: false,
   scheduledAt: "",
+  lineNotify: true,
+  lineBroadcastAudience: EVENT_DEFAULT_AUDIENCE,
 };
 
 type PublishMode = "immediate" | "draft" | "scheduled";
@@ -105,6 +113,8 @@ export default function AdminEventsPage() {
       imageUrl: ev.imageUrl ?? "",
       published: ev.published,
       scheduledAt: ev.scheduledAt ? dayjs(ev.scheduledAt).format("YYYY-MM-DDTHH:mm") : "",
+      lineNotify: ev.lineNotify !== false,
+      lineBroadcastAudience: Array.isArray(ev.lineBroadcastAudience) ? ev.lineBroadcastAudience : EVENT_DEFAULT_AUDIENCE,
     });
     setPublishMode(getPublishMode(ev));
     setIsOtherCategory(!isPreset && !!ev.category);
@@ -223,7 +233,7 @@ export default function AdminEventsPage() {
     if (ev.scheduledAt) {
       return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">予約投稿</span>;
     }
-    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#231714]/60">下書き</span>;
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#231714]/80">下書き</span>;
   }
 
   const STATUS_TABS = [
@@ -245,7 +255,7 @@ export default function AdminEventsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-[#231714]">イベント管理</h2>
-          <p className="text-sm text-[#231714]/40 mt-1">イベントの作成・編集・削除</p>
+          <p className="text-sm text-[#231714]/80 mt-1">イベントの作成・編集・削除</p>
         </div>
         <button
           onClick={openCreate}
@@ -264,12 +274,12 @@ export default function AdminEventsPage() {
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
               statusTab === tab.key
                 ? "bg-white text-[#231714] shadow-sm"
-                : "text-[#231714]/40 hover:text-[#231714]/60"
+                : "text-[#231714]/80 hover:text-[#231714]/80"
             }`}
           >
             {tab.label}
             <span className={`min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold ${
-              statusTab === tab.key ? "bg-[#231714] text-white" : "bg-[#231714]/10 text-[#231714]/40"
+              statusTab === tab.key ? "bg-[#231714] text-white" : "bg-[#231714]/10 text-[#231714]/80"
             }`}>
               {tab.count}
             </span>
@@ -284,7 +294,7 @@ export default function AdminEventsPage() {
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-600">{error}</div>
       ) : filteredEvents.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
           {statusTab === "all" ? "イベントがありません" : "該当するイベントがありません"}
         </div>
       ) : (
@@ -292,12 +302,12 @@ export default function AdminEventsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-[#231714]/5">
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">タイトル</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">カテゴリ</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">開始日時</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">グッド</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">ステータス</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/60">予約時刻</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">タイトル</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">カテゴリ</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">開始日時</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">グッド</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">ステータス</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-[#231714]/80">予約時刻</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -308,8 +318,8 @@ export default function AdminEventsPage() {
                   className={`border-b border-[#231714]/5 hover:bg-[#231714]/5 transition-colors ${i % 2 === 0 ? "" : "bg-[#231714]/5"}`}
                 >
                   <td className="px-6 py-3 font-medium text-[#231714]">{ev.title}</td>
-                  <td className="px-6 py-3 text-[#231714]/60">{ev.category}</td>
-                  <td className="px-6 py-3 text-[#231714]/60 whitespace-nowrap">
+                  <td className="px-6 py-3 text-[#231714]/80">{ev.category}</td>
+                  <td className="px-6 py-3 text-[#231714]/80 whitespace-nowrap">
                     {ev.startAt ? dayjs(ev.startAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3">
@@ -322,13 +332,13 @@ export default function AdminEventsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-3">{statusBadge(ev)}</td>
-                  <td className="px-6 py-3 text-[#231714]/40 text-xs whitespace-nowrap">
+                  <td className="px-6 py-3 text-[#231714]/80 text-xs whitespace-nowrap">
                     {ev.scheduledAt ? dayjs(ev.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
                   <td className="px-6 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => openEdit(ev)}
-                      className="text-xs text-[#A5C1C8] hover:underline mr-3"
+                      className="text-xs text-[#4f757e] hover:underline mr-3"
                     >
                       編集
                     </button>
@@ -351,7 +361,7 @@ export default function AdminEventsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <h3 className="text-base font-semibold text-[#231714] mb-2">削除の確認</h3>
-            <p className="text-sm text-[#231714]/60 mb-5">このイベントを削除しますか？この操作は取り消せません。</p>
+            <p className="text-sm text-[#231714]/80 mb-5">このイベントを削除しますか？この操作は取り消せません。</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteTarget(null)}
@@ -382,7 +392,7 @@ export default function AdminEventsPage() {
 
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">タイトル *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">タイトル *</label>
                 <input
                   type="text"
                   value={form.title}
@@ -393,7 +403,7 @@ export default function AdminEventsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">カテゴリ *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">カテゴリ *</label>
                 <select
                   value={isOtherCategory ? "__other__" : form.category}
                   onChange={(e) => {
@@ -426,7 +436,7 @@ export default function AdminEventsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">開始日時 *</label>
+                  <label className="block text-xs font-medium text-[#231714]/80 mb-1">開始日時 *</label>
                   <DateTimePicker
                     value={form.startAt}
                     onChange={(v) => setForm({ ...form, startAt: v })}
@@ -434,7 +444,7 @@ export default function AdminEventsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#231714]/60 mb-1">終了日時 *</label>
+                  <label className="block text-xs font-medium text-[#231714]/80 mb-1">終了日時 *</label>
                   <DateTimePicker
                     value={form.endAt}
                     onChange={(v) => setForm({ ...form, endAt: v })}
@@ -444,7 +454,7 @@ export default function AdminEventsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">場所 *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">場所 *</label>
                 <input
                   type="text"
                   value={form.location}
@@ -455,7 +465,7 @@ export default function AdminEventsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">説明 *</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">説明 *</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -467,7 +477,7 @@ export default function AdminEventsPage() {
 
               {/* 画像アップロード */}
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-1">画像</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-1">画像</label>
                 <div
                   className="border-2 border-dashed border-[#231714]/10 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
@@ -475,7 +485,7 @@ export default function AdminEventsPage() {
                   {imagePreview ? (
                     <img src={imagePreview} alt="preview" className="mx-auto max-h-40 object-contain rounded" />
                   ) : (
-                    <div className="text-[#231714]/40 text-sm py-4">
+                    <div className="text-[#231714]/80 text-sm py-4">
                       クリックして画像を選択（5MB以下）
                     </div>
                   )}
@@ -500,7 +510,7 @@ export default function AdminEventsPage() {
 
               {/* 公開設定 */}
               <div>
-                <label className="block text-xs font-medium text-[#231714]/60 mb-2">公開設定</label>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-2">公開設定</label>
                 <div className="flex gap-3">
                   {(["immediate", "draft", "scheduled"] as PublishMode[]).map((mode) => (
                     <label key={mode} className="flex items-center gap-1.5 cursor-pointer">
@@ -521,16 +531,27 @@ export default function AdminEventsPage() {
 
                 {publishMode === "scheduled" && (
                   <div className="mt-3">
-                    <label className="block text-xs font-medium text-[#231714]/60 mb-1">公開予約日時</label>
+                    <label className="block text-xs font-medium text-[#231714]/80 mb-1">公開予約日時</label>
                     <DateTimePicker
                       value={form.scheduledAt ?? ""}
                       onChange={(v) => setForm({ ...form, scheduledAt: v })}
                     />
-                    <p className="text-xs text-[#231714]/40 mt-1">
+                    <p className="text-xs text-[#231714]/80 mt-1">
                       設定した日時に自動で公開されます（毎時チェック）
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* LINE 配信設定 */}
+              <div>
+                <label className="block text-xs font-medium text-[#231714]/80 mb-2">LINE 配信</label>
+                <LineAudienceField
+                  notify={form.lineNotify !== false}
+                  audience={form.lineBroadcastAudience ?? EVENT_DEFAULT_AUDIENCE}
+                  onNotifyChange={(b) => setForm({ ...form, lineNotify: b })}
+                  onAudienceChange={(roles) => setForm({ ...form, lineBroadcastAudience: roles })}
+                />
               </div>
             </div>
 

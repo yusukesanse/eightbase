@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
+import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { broadcastContentPublished } from "@/lib/line";
+import { broadcastContentPublished, sanitizeAudience } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +74,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
+    // LINE 配信設定: 通知ON/OFF（既定ON）と配信対象 role（未指定は種別デフォルト）。
+    const lineNotify = body.lineNotify !== false;
+    const audience = sanitizeAudience(body.lineBroadcastAudience, "event");
+
     const db = getDb();
     const data: Record<string, unknown> = {
       title,
@@ -83,6 +87,8 @@ export async function POST(req: NextRequest) {
       endAt,
       location,
       published: published ?? false,
+      lineNotify,
+      lineBroadcastAudience: audience,
       goodCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -92,11 +98,10 @@ export async function POST(req: NextRequest) {
 
     const docRef = await db.collection("events").add(data);
 
-    // 公開時は全ユーザーに LINE 通知
-    if (data.published === true) {
+    // 公開時は選択 role へ LINE 通知
+    if (data.published === true && lineNotify && audience.length > 0) {
       try {
-        const userIds = await getAllActiveLineUserIds();
-        await broadcastContentPublished(userIds, "event", title);
+        await broadcastContentPublished("event", title, audience);
       } catch (err) {
         console.error("[admin/events] broadcast failed:", err);
       }
@@ -147,6 +152,12 @@ export async function PUT(req: NextRequest) {
       fields.scheduledAt = FieldValue.delete();
     }
 
+    // LINE 配信設定の更新（送られてきたときだけ反映）。
+    if (typeof body.lineNotify === "boolean") fields.lineNotify = body.lineNotify;
+    if (Array.isArray(body.lineBroadcastAudience)) {
+      fields.lineBroadcastAudience = sanitizeAudience(body.lineBroadcastAudience, "event");
+    }
+
     const wasPublished = doc.data()?.published === true;
     await docRef.update({ ...fields, updatedAt: new Date().toISOString() });
 
@@ -154,8 +165,13 @@ export async function PUT(req: NextRequest) {
     if (!wasPublished && fields.published === true) {
       try {
         const title = fields.title || doc.data()?.title || "新しいイベント";
-        const userIds = await getAllActiveLineUserIds();
-        await broadcastContentPublished(userIds, "event", title);
+        const lineNotify = typeof body.lineNotify === "boolean" ? body.lineNotify : doc.data()?.lineNotify !== false;
+        const audience = Array.isArray(body.lineBroadcastAudience)
+          ? sanitizeAudience(body.lineBroadcastAudience, "event")
+          : sanitizeAudience(doc.data()?.lineBroadcastAudience, "event");
+        if (lineNotify && audience.length > 0) {
+          await broadcastContentPublished("event", title, audience);
+        }
       } catch (err) {
         console.error("[admin/events] broadcast failed:", err);
       }

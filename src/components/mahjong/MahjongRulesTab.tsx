@@ -53,7 +53,7 @@ export function MahjongRulesTab() {
 
   if (available.length === 0) {
     return (
-      <div className="py-16 text-center text-sm text-[#231714]/40">
+      <div className="py-16 text-center text-sm text-[#231714]/80">
         ルール・約款はまだ登録されていません。
       </div>
     );
@@ -71,7 +71,7 @@ export function MahjongRulesTab() {
               key={d}
               onClick={() => setDoc(d)}
               className={`flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all ${
-                doc === d ? "bg-white shadow-sm" : "text-[#231714]/40"
+                doc === d ? "bg-white shadow-sm" : "text-[#231714]/80"
               }`}
               style={doc === d ? { color: ACCENT } : undefined}
             >
@@ -83,7 +83,7 @@ export function MahjongRulesTab() {
 
       {/* 表はスマホ幅で溢れるので、本文ではなく表だけを横スクロールさせる。 */}
       <article
-        className="bg-white rounded-2xl p-5 prose prose-sm max-w-none text-[#231714]/80
+        className="bg-white rounded-2xl p-5 prose prose-sm max-w-none text-[#231714]/90
           prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
           prose-h1:text-base prose-h2:text-[15px] prose-h3:text-sm
           prose-p:my-1.5 prose-p:leading-relaxed prose-p:text-[13.5px]

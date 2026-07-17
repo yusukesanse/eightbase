@@ -104,6 +104,8 @@ export async function GET(req: NextRequest) {
     locked,
     // GM が「ゲーム開始」を押したか（＝受付締切済み）。未開始なら卓は組めない。
     started: !!day?.entryClosedAt,
+    // GM が「本日の対局を終了」したか。以降この日の卓は組めない。
+    finished: !!day?.finishedAt,
     pool,
     draft: { tables: draftTables, waiting: draftWaiting },
     progress,

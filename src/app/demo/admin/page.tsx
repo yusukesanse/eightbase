@@ -12,7 +12,7 @@ import { MOCK_STANDINGS, MOCK_TABLES } from "../mock";
 
 const TIER_STYLES: Record<MahjongLeagueTier, string> = {
   M1: "bg-yellow-100 text-yellow-700",
-  M2: "bg-gray-100 text-gray-600",
+  M2: "bg-gray-100 text-gray-700",
   M3: "bg-orange-50 text-orange-600",
 };
 
@@ -33,7 +33,7 @@ export default function DemoAdminPage() {
       <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-8">
         <div>
           <h1 className="text-xl font-bold text-[#231714]">麻雀リーグ管理</h1>
-          <p className="text-xs text-[#231714]/50 mt-0.5">2026前期シーズン</p>
+          <p className="text-xs text-[#231714]/85 mt-0.5">2026前期シーズン</p>
         </div>
 
         {/* 順位表 */}
@@ -43,17 +43,17 @@ export default function DemoAdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-[#231714]/5">
-                  <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/60 w-14">順位</th>
-                  <th className="text-center px-2 py-2.5 text-xs font-medium text-[#231714]/60 w-16">リーグ</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/60">プレイヤー</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/60">アベレージ</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/60 w-20">試合数</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-medium text-[#231714]/80 w-14">順位</th>
+                  <th className="text-center px-2 py-2.5 text-xs font-medium text-[#231714]/80 w-16">リーグ</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-[#231714]/80">プレイヤー</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/80">アベレージ</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-medium text-[#231714]/80 w-20">試合数</th>
                 </tr>
               </thead>
               <tbody>
                 {MOCK_STANDINGS.map((s) => (
                   <tr key={s.lineUserId} className="border-b border-[#231714]/5">
-                    <td className="px-4 py-3 text-center text-sm text-[#231714]/70 font-medium">{s.rank}</td>
+                    <td className="px-4 py-3 text-center text-sm text-[#231714]/85 font-medium">{s.rank}</td>
                     <td className="px-2 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${TIER_STYLES[s.tier]}`}>
                         {s.tier}
@@ -63,7 +63,7 @@ export default function DemoAdminPage() {
                     <td className="px-4 py-3 text-right text-sm font-bold text-[#231714]">
                       {s.average.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-[#231714]/50">{s.gamesPlayed}試合</td>
+                    <td className="px-4 py-3 text-right text-xs text-[#231714]/85">{s.gamesPlayed}試合</td>
                   </tr>
                 ))}
               </tbody>
@@ -92,7 +92,7 @@ export default function DemoAdminPage() {
                   </div>
                   <button
                     onClick={() => setEditTable(t)}
-                    className="px-3 py-1.5 text-xs font-medium text-[#231714]/60 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
+                    className="px-3 py-1.5 text-xs font-medium text-[#231714]/80 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
                   >
                     修正
                   </button>
@@ -102,7 +102,7 @@ export default function DemoAdminPage() {
                     <div key={m.lineUserId} className="bg-gray-50 rounded-lg p-2.5">
                       <div className="text-xs font-medium text-[#231714] truncate">{m.displayName}</div>
                       {m.points !== null ? (
-                        <div className="mt-1 text-xs text-[#231714]/60">
+                        <div className="mt-1 text-xs text-[#231714]/80">
                           {m.rank}位 / {m.points.toLocaleString()}点
                         </div>
                       ) : (
@@ -184,7 +184,7 @@ function EditModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-bold text-[#231714] mb-1">申告内容の修正</h3>
-        <p className="text-xs text-[#231714]/50 mb-4">合計は 100,000 点になる必要があります</p>
+        <p className="text-xs text-[#231714]/85 mb-4">合計は 100,000 点になる必要があります</p>
 
         <div className="space-y-3">
           {rows.map((r, i) => (
@@ -216,7 +216,7 @@ function EditModal({
           ))}
         </div>
 
-        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/50" : "text-red-500"}`}>
+        <div className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/85" : "text-red-500"}`}>
           合計: {total.toLocaleString()} 点
         </div>
 
@@ -225,7 +225,7 @@ function EditModal({
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/60 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
+            className="flex-1 py-2.5 text-sm font-medium text-[#231714]/80 border border-[#231714]/10 rounded-xl hover:bg-gray-50"
           >
             キャンセル
           </button>

@@ -70,9 +70,9 @@ export function LeaguePyramid({
               {/* セクション見出し */}
               <div className="flex items-center gap-2 mx-0.5 mb-2">
                 <span className="text-[13px] font-black tracking-wide" style={{ color: col }}>{t}</span>
-                <span className="text-[11px] text-[#97999d]">{TIER_META[t].desc}</span>
+                <span className="text-[11px] text-[#3f4247]">{TIER_META[t].desc}</span>
                 <span className="flex-1 h-px bg-[#eceff1]" />
-                <span className="text-[11px] text-[#97999d]">{members.length}名</span>
+                <span className="text-[11px] text-[#3f4247]">{members.length}名</span>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -94,7 +94,7 @@ export function LeaguePyramid({
                       <div className="w-[26px] text-center shrink-0">
                         <span
                           className="font-black tabular-nums"
-                          style={{ fontSize: top3 ? 19 : 16, color: top3 ? col : "#97999d", letterSpacing: "-.03em" }}
+                          style={{ fontSize: top3 ? 19 : 16, color: top3 ? col : "#3f4247", letterSpacing: "-.03em" }}
                         >
                           {s.rank}
                         </span>
@@ -107,7 +107,7 @@ export function LeaguePyramid({
                             <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: col }}>YOU</span>
                           )}
                         </div>
-                        <div className="flex gap-2.5 mt-0.5 text-[11px] text-[#97999d] tabular-nums">
+                        <div className="flex gap-2.5 mt-0.5 text-[11px] text-[#3f4247] tabular-nums">
                           <span>{s.gamesPlayed}戦</span>
                           <span>1位 {s.firstCount}</span>
                           <span>連対 {pct(s.top2Rate)}</span>
@@ -119,10 +119,10 @@ export function LeaguePyramid({
                             ? s.totalPoints.toLocaleString()
                             : Math.round(s.average).toLocaleString()}
                         </div>
-                        <div className="text-[9.5px] font-bold text-[#97999d] mt-0.5">
+                        <div className="text-[9.5px] font-bold text-[#3f4247] mt-0.5">
                           {byTotal ? "合計点" : "AVG"}
                         </div>
-                        <div className="text-[10px] text-[#97999d] tabular-nums mt-0.5">
+                        <div className="text-[10px] text-[#3f4247] tabular-nums mt-0.5">
                           {byTotal
                             ? `AVG ${Math.round(s.average).toLocaleString()}`
                             : `計 ${s.totalPoints.toLocaleString()}`}
@@ -137,7 +137,7 @@ export function LeaguePyramid({
         })}
       </div>
 
-      <p className="text-[11px] text-[#97999d] leading-relaxed px-1">
+      <p className="text-[11px] text-[#3f4247] leading-relaxed px-1">
         順位はシーズン通算{byTotal ? "合計点" : "アベレージ"}順。同点の場合は 連対率 → 試合数 → 名前順。毎月のリーグ戦後にリーグの入れ替えがあります。
       </p>
     </div>

@@ -78,11 +78,11 @@ function ReportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-[#1c1f21]">スコアを申告</h3>
-        <p className="text-[11px] text-[#231714]/50 mt-1 mb-5">
+        <p className="text-[11px] text-[#231714]/85 mt-1 mb-5">
           同卓4人の合計が100,000点になると自動で確定します。
         </p>
 
-        <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mb-2">最終持ち点</label>
+        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mb-2">最終持ち点</label>
         <div className="flex items-center gap-2.5">
           <PointsSignToggle sign={sign} onChange={setSign} accent={ACCENT} />
           <div
@@ -103,12 +103,12 @@ function ReportModal({
               className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
               style={{ fontSize: "30px" }}
             />
-            <span className="text-[14px] font-bold text-[#97999d]">点</span>
+            <span className="text-[14px] font-bold text-[#3f4247]">点</span>
           </div>
         </div>
-        <div className="text-[11px] text-[#97999d] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
+        <div className="text-[11px] text-[#3f4247] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
 
-        <label className="block text-[11px] font-extrabold text-[#97999d] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
+        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((n) => (
             <button
@@ -167,6 +167,8 @@ interface DayResp {
   manualSeason?: boolean;
   isGameMaster?: boolean;
   awaitingAssignment?: boolean;
+  /** GM が「本日の対局を終了」した日。 */
+  finished?: boolean;
 }
 
 function RotationView({ onChanged }: { onChanged: () => void }) {
@@ -178,6 +180,8 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [reportTable, setReportTable] = useState<PublicMahjongTable | null>(null);
   const [swap, setSwap] = useState<MahjongDaySwap | null>(null);
+  // デモ操作（ダミー1名分の代行申告）の結果メッセージ。
+  const [stepMsg, setStepMsg] = useState<string | null>(null);
 
   const load = useCallback(() => {
     return fetch(`/api/mahjong/day?eventDate=${eventDate}`, { credentials: "include" })
@@ -204,6 +208,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         });
         const data = await res.json().catch(() => ({}));
         setReportTable(null);
+        setStepMsg(null);
         // 先に卓を最新化してから「次の卓」モーダルを出す（新A/B卓を正しく表示）。
         await load();
         if (data?.swap) setSwap(data.swap);
@@ -214,6 +219,37 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
     },
     [eventDate, load, onChanged]
   );
+
+  // デモ: ダミー1名分だけ申告を代行する（GM パネルの申告進捗が1人ずつ増えるのを確認できる）。
+  const stepOne = useCallback(async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/mahjong/day", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ eventDate, step: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.filled) {
+        setStepMsg(
+          `${data.filled.tableLabel}卓: ${data.filled.displayName} さんの申告を代行しました。` +
+            (data.completedTable ? `（${data.completedTable}卓が確定）` : "")
+        );
+      } else if (data?.needsSelf) {
+        setStepMsg("残りはあなたの申告だけです。「スコアを申告する」から申告してください。");
+      } else if (data?.completedTable) {
+        setStepMsg(`${data.completedTable}卓を確定しました。`);
+      } else {
+        setStepMsg("代行できる申告がありません。");
+      }
+      await load();
+      if (data?.swap) setSwap(data.swap);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }, [eventDate, load, onChanged]);
 
   if (loading) {
     return (
@@ -229,14 +265,16 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
   ) : null;
 
   if (!day || day.tables.length === 0) {
-    // 手動シーズンで未確定なら「GM の振り分け待ち」。それ以外は通常の未生成メッセージ。
-    const msg = day?.manualSeason && day.awaitingAssignment
-      ? "卓はまだ確定していません（ゲームマスターの振り分け待ち）。"
-      : "まだ卓が組まれていません。";
+    // 本日終了 ＞ 手動シーズンの「GM の振り分け待ち」 ＞ 通常の未生成メッセージ。
+    const msg = day?.finished
+      ? "本日の対局はすべて終了しました。おつかれさまでした。"
+      : day?.manualSeason && day.awaitingAssignment
+        ? "卓はまだ確定していません（ゲームマスターの振り分け待ち）。"
+        : "まだ卓が組まれていません。";
     return (
       <div className="flex flex-col gap-4">
         {gmPanel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/40">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">
           {msg}
         </div>
       </div>
@@ -251,7 +289,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
         <div>
           <div className="text-[12px] font-extrabold text-[#40434a]">第{day.round}半荘・抜け番あり</div>
-          <div className="text-[10.5px] text-[#5f7a80] mt-0.5">半荘ごとに自動で卓を組み直します</div>
+          <div className="text-[10.5px] text-[#3c4f54] mt-0.5">半荘ごとに自動で卓を組み直します</div>
         </div>
         <span className="text-[12px] font-black" style={{ color: myTable ? ACCENT : "#c0563c" }}>{myTable ? "対戦中" : "待機中"}</span>
       </div>
@@ -260,7 +298,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-extrabold text-[#231714]">{myTable.tableLabel}卓</span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#5f7a80" }}>第{day.round}半荘</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#3c4f54" }}>第{day.round}半荘</span>
           </div>
           <TableBoard table={myTable} />
           <button
@@ -274,7 +312,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
           <div className="text-[13px] font-extrabold text-[#231714]">今回は待機（抜け番）です</div>
-          <div className="text-[11px] text-[#231714]/50 mt-1 mb-3">
+          <div className="text-[11px] text-[#231714]/85 mt-1 mb-3">
             {demo ? "この半荘を進めると、次の卓で交代・INします" : "対戦中の卓が終わると、次の半荘で交代・INします"}
           </div>
           {demo && (
@@ -290,19 +328,45 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         </div>
       )}
 
+      {/* デモ操作: ダミーは自己申告しないため、代行申告で実運用の流れ（1人ずつ申告→卓確定→次半荘）を再現する。 */}
+      {demo && day.tables.length > 0 && (
+        <div className="bg-white rounded-2xl border border-dashed border-[#9db3a6] p-3.5 flex flex-col gap-2">
+          <div className="text-[11px] font-extrabold text-[#3d6650]">デモ操作（ダミーの申告を代行）</div>
+          <div className="flex gap-2">
+            <button
+              onClick={stepOne}
+              disabled={busy}
+              className="flex-1 py-2.5 rounded-xl text-[12.5px] font-bold bg-white disabled:opacity-50"
+              style={{ boxShadow: `inset 0 0 0 1px ${ACCENT}`, color: ACCENT }}
+            >
+              ダミー1名分を申告
+            </button>
+            <button
+              onClick={() => advance()}
+              disabled={busy}
+              className="flex-1 py-2.5 rounded-xl text-[12.5px] font-bold text-white disabled:opacity-50"
+              style={{ background: ACCENT }}
+            >
+              残り全員分を一括申告
+            </button>
+          </div>
+          {stepMsg && <p className="text-[11px] font-bold text-[#3d6650]">{stepMsg}</p>}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5">
-        <div className="text-[11px] font-extrabold text-[#97999d] mb-2">待機順（先頭が次にIN）</div>
+        <div className="text-[11px] font-extrabold text-[#3f4247] mb-2">待機順（先頭が次にIN）</div>
         {day.waiting.length === 0 ? (
-          <div className="text-[11px] text-[#231714]/40">待機者はいません</div>
+          <div className="text-[11px] text-[#231714]/80">待機者はいません</div>
         ) : (
           <ol className="flex flex-col gap-1.5">
             {day.waiting.map((w, i) => (
               <li key={i} className="flex items-center gap-2 text-[12.5px]">
-                <span className="w-5 text-[#97999d] font-bold tabular-nums">{i + 1}</span>
+                <span className="w-5 text-[#3f4247] font-bold tabular-nums">{i + 1}</span>
                 <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
                 <span className="font-bold text-[#1c1f21]">
                   {w.displayName}
-                  {w.isMe && <span className="ml-1 text-[10px] text-[#5f7a80]">（あなた）</span>}
+                  {w.isMe && <span className="ml-1 text-[10px] text-[#3c4f54]">（あなた）</span>}
                 </span>
               </li>
             ))}
@@ -310,23 +374,22 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         )}
       </div>
 
-      {reportTable &&
-        (demo ? (
-          <ReportModal table={reportTable} onClose={() => setReportTable(null)} onDone={() => {}} onSubmit={(_p, r) => advance(r)} />
-        ) : (
-          <ReportModal
-            table={reportTable}
-            onClose={() => setReportTable(null)}
-            onDone={(data) => {
-              setReportTable(null);
-              // 先に卓を最新化してから「次の卓」モーダルを出す。
-              load().then(() => {
-                if (data?.swap) setSwap(data.swap);
-              });
-              onChanged();
-            }}
-          />
-        ))}
+      {/* 自分の申告はデモでも本番と同じ report API に送る（デモの差し替えは廃止。
+          ダミー分は上の「デモ操作」で代行し、実運用と同じ経路・流れを再現する）。 */}
+      {reportTable && (
+        <ReportModal
+          table={reportTable}
+          onClose={() => setReportTable(null)}
+          onDone={(data) => {
+            setReportTable(null);
+            // 先に卓を最新化してから「次の卓」モーダルを出す。
+            load().then(() => {
+              if (data?.swap) setSwap(data.swap);
+            });
+            onChanged();
+          }}
+        />
+      )}
       {swap && <SwapSheet swap={swap} tables={day.tables} onClose={() => setSwap(null)} />}
     </div>
   );
@@ -337,7 +400,7 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
   const inNames = new Set(swap.in.map((p) => p.displayName));
   return (
     <BottomSheet open title="次の卓はこちらです" onClose={onClose} dismissible={false} closeButton={false}>
-      <p className="text-[12px] text-[#231714]/60 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
+      <p className="text-[12px] text-[#231714]/80 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
       {swap.reason && (
         <div className="mb-3 rounded-xl bg-[#fdf4e3] px-3 py-2 text-[12px] font-bold text-[#b48f13]">{swap.reason}</div>
       )}
@@ -346,7 +409,7 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
           <div key={t.tableId} className="rounded-xl border border-gray-100 p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-extrabold text-[#231714]">{t.tableLabel}卓</span>
-              <span className="text-[10px] text-[#97999d]">{t.members.length}名</span>
+              <span className="text-[10px] text-[#3f4247]">{t.members.length}名</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {t.members.map((m, i) => {

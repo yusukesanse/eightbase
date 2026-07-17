@@ -165,7 +165,7 @@ export default function SeasonOverviewPage() {
 
   const inputClass =
     "w-full border border-[#231714]/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#231714]";
-  const labelClass = "block text-xs font-medium text-[#231714]/60 mb-1";
+  const labelClass = "block text-xs font-medium text-[#231714]/80 mb-1";
 
   /* ───────── ローディング・エラー ───────── */
 
@@ -201,7 +201,7 @@ export default function SeasonOverviewPage() {
 
             <div className="space-y-3">
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/85">
                   種目
                 </span>
                 <p className="text-sm font-semibold text-[#231714] mt-0.5">
@@ -210,7 +210,7 @@ export default function SeasonOverviewPage() {
               </div>
 
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/85">
                   シーズン名
                 </span>
                 <p className="text-sm font-semibold text-[#231714] mt-0.5">
@@ -219,7 +219,7 @@ export default function SeasonOverviewPage() {
               </div>
 
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/85">
                   期間
                 </span>
                 <p className="text-sm text-[#231714] mt-0.5">
@@ -228,7 +228,7 @@ export default function SeasonOverviewPage() {
               </div>
 
               <div>
-                <span className="text-xs font-medium text-[#231714]/50">
+                <span className="text-xs font-medium text-[#231714]/85">
                   ステータス
                 </span>
                 <div className="mt-1">
@@ -236,7 +236,7 @@ export default function SeasonOverviewPage() {
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
                       season.active
                         ? "bg-[#B0E401]/20 text-green-700"
-                        : "bg-gray-100 text-gray-500"
+                        : "bg-gray-100 text-gray-700"
                     }`}
                   >
                     {season.active ? "有効" : "無効"}
@@ -258,7 +258,7 @@ export default function SeasonOverviewPage() {
               onClick={toggleActive}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 season.active
-                  ? "border border-gray-200 text-[#231714]/60 hover:bg-gray-50"
+                  ? "border border-gray-200 text-[#231714]/80 hover:bg-gray-50"
                   : "bg-[#B0E401]/20 text-green-700 hover:bg-[#B0E401]/30"
               }`}
             >
@@ -284,28 +284,28 @@ export default function SeasonOverviewPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-xs font-medium text-[#231714]/50">
+            <span className="text-xs font-medium text-[#231714]/85">
               シーズンID
             </span>
-            <p className="text-[#231714]/70 mt-0.5 font-mono text-xs break-all">
+            <p className="text-[#231714]/85 mt-0.5 font-mono text-xs break-all">
               {season.seasonId}
             </p>
           </div>
           <div>
-            <span className="text-xs font-medium text-[#231714]/50">
+            <span className="text-xs font-medium text-[#231714]/85">
               作成日
             </span>
-            <p className="text-[#231714]/70 mt-0.5">
+            <p className="text-[#231714]/85 mt-0.5">
               {season.createdAt
                 ? new Date(season.createdAt).toLocaleString("ja-JP")
                 : "-"}
             </p>
           </div>
           <div>
-            <span className="text-xs font-medium text-[#231714]/50">
+            <span className="text-xs font-medium text-[#231714]/85">
               最終更新
             </span>
-            <p className="text-[#231714]/70 mt-0.5">
+            <p className="text-[#231714]/85 mt-0.5">
               {season.updatedAt
                 ? new Date(season.updatedAt).toLocaleString("ja-JP")
                 : "-"}
@@ -321,13 +321,13 @@ export default function SeasonOverviewPage() {
             <h3 className="text-base font-semibold text-[#231714] mb-2">
               削除の確認
             </h3>
-            <p className="text-sm text-[#231714]/60 mb-4">
+            <p className="text-sm text-[#231714]/80 mb-4">
               このシーズンを削除しますか？このシーズンに紐づくスコア・麻雀リーグ・CS
               などの関連データも<span className="font-semibold text-red-600">すべて削除</span>
               されます。この操作は取り消せません。
             </p>
             <div className="mb-5">
-              <p className="text-xs text-[#231714]/60 mb-2">
+              <p className="text-xs text-[#231714]/80 mb-2">
                 確認のため、下のボックスに{" "}
                 <code className="px-1.5 py-0.5 rounded bg-gray-100 text-red-600 font-semibold select-all">
                   {expectedConfirmText}

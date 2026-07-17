@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, getAllActiveLineUserIds } from "@/lib/firebaseAdmin";
+import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { broadcastContentPublished } from "@/lib/line";
+import { broadcastContentPublished, sanitizeAudience } from "@/lib/line";
 import { createCalendarEventISO, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { FieldValue } from "firebase-admin/firestore";
 import type { GameStatus } from "@/types";
@@ -121,11 +121,10 @@ export async function POST(req: NextRequest) {
 
     const docRef = await db.collection("games").add(data);
 
-    // 公開時は LINE 通知
+    // 公開時は LINE 通知（ゲーム管理UIは廃止のため配信対象は既定=全 role。ゲストも /games 閲覧可）
     if (data.published === true) {
       try {
-        const userIds = await getAllActiveLineUserIds();
-        await broadcastContentPublished(userIds, "game", title);
+        await broadcastContentPublished("game", title, sanitizeAudience(undefined, "game"));
       } catch (err) {
         console.error("[admin/games] broadcast failed:", err);
       }
@@ -176,12 +175,11 @@ export async function PUT(req: NextRequest) {
     const wasPublished = doc.data()?.published === true;
     await docRef.update({ ...fields, updatedAt: new Date().toISOString() });
 
-    // 下書き→公開への変更時に LINE 通知
+    // 下書き→公開への変更時に LINE 通知（配信対象は既定=全 role）
     if (!wasPublished && fields.published === true) {
       try {
         const title = fields.title || doc.data()?.title || "新しいゲーム";
-        const userIds = await getAllActiveLineUserIds();
-        await broadcastContentPublished(userIds, "game", title);
+        await broadcastContentPublished("game", title, sanitizeAudience(undefined, "game"));
       } catch (err) {
         console.error("[admin/games] broadcast failed:", err);
       }
