@@ -95,3 +95,60 @@ export interface DartsScoreDetails {
   /** 1位を取った種目数（タイブレーク用。クリケットはチーム1位で算入）。 */
   firstCount: number;
 }
+
+// ─── 参加・スケジュール・参加費（麻雀 entries を流用） ────────────────────────
+
+export type DartsPaymentStatus = "pending" | "paid" | "cancelRequested";
+
+/**
+ * リーグ戦 開催日への参加表明（麻雀 MahjongEntry を流用・参加費は DARTS_ENTRY_FEE）。
+ * staff は参加時点で paid（免除）。会員/ゲストは reserved → Square 決済で paid。
+ */
+export interface DartsEntry {
+  entryId: string;
+  seasonId: string;
+  eventDate: string; // YYYY-MM-DD
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  enteredAt: string;
+  status?: "reserved" | "paid" | "cancelRequested" | "refunded" | "cancelRejected";
+  paymentStatus?: DartsPaymentStatus;
+  paymentTransactionId?: string; // Square orderId
+  paymentAmount?: number; // = DARTS_ENTRY_FEE
+  paidAt?: string;
+  cancelRequestedAt?: string;
+  refundProcessedAt?: string;
+  refundProcessedBy?: string;
+  pendingExpiresAt?: string; // 決済リンクの TTL 失効
+  /** キャンセル/返金の理由。"forfeit"=中止（流会）による返金対象化。 */
+  cancelReason?: "forfeit";
+}
+
+/**
+ * ダーツの開催日（隔週木曜・管理画面で登録）。
+ * ★ このコレクションが「有効な開催日」の唯一の正。麻雀の暗黙「土曜判定」は流用しない。
+ * docId は決定的に `${seasonId}_${date}`。
+ */
+export interface DartsScheduleEntry {
+  scheduleId: string;
+  seasonId: string;
+  date: string; // YYYY-MM-DD（開催日）
+  startTime: string; // "HH:MM"（既定 18:00）
+  endTime: string; // "HH:MM"（既定 20:00）
+  createdAt: string;
+}
+
+/** 開催日の中止（流会）記録。開催日ごと1件（docId=eventDate）。 */
+export interface DartsCancelledDate {
+  seasonId: string;
+  eventDate: string; // YYYY-MM-DD（= docId）
+  reason: "insufficient" | "manual";
+  paidCount: number;
+  decidedAt: string;
+  decidedBy: string;
+}
+
+/** 開催時刻の既定。 */
+export const DARTS_DEFAULT_START_TIME = "18:00";
+export const DARTS_DEFAULT_END_TIME = "20:00";

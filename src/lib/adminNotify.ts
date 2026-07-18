@@ -15,6 +15,8 @@ export type AdminNotificationType =
   | "trailer_cancel" // トレーラー予約の取消（手動返金対応依頼）
   | "mahjong_refund" // 麻雀参加費の返金対応依頼（キャンセル/期限切れ後決済）
   | "mahjong_event_forfeit" // 麻雀リーグ 人数不足による自動中止（流会）＝支払い済み分の一括返金依頼
+  | "darts_refund" // ダーツ参加費の返金対応依頼（キャンセル/期限切れ後決済）
+  | "darts_event_forfeit" // ダーツリーグ 開催日の中止（流会）＝支払い済み分の一括返金依頼
   | "access_request"; // 利用者からの利用申請（承認待ち）
 
 export async function notifyAdmin(

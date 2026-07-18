@@ -44,6 +44,14 @@ export function mahjongPaymentRequired(role: unknown): boolean {
   return normalizeRole(role) !== "staff";
 }
 
+/**
+ * ゲーム全般（麻雀・ダーツ等）の参加費の支払いが必要な role か。
+ * staff は全ゲーム免除。`mahjongPaymentRequired` の種目非依存の別名。
+ */
+export function gamePaymentRequired(role: unknown): boolean {
+  return normalizeRole(role) !== "staff";
+}
+
 /** 表示ラベル。 */
 export const ROLE_LABELS: Record<UserRole, string> = {
   member: "会員",
