@@ -4,6 +4,7 @@ import { isProduction } from "@/lib/env";
 import { getDb } from "@/lib/firebaseAdmin";
 import { seedDemoParticipants, clearDemoParticipants } from "@/dev-only/demoSeed";
 import { seedDemoDartsParticipants } from "@/dev-only/dartsDemoSeed";
+import { seedDemoBilliardsParticipants } from "@/dev-only/billiardsDemoSeed";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,9 @@ export async function POST(req: NextRequest) {
     const summary =
       category === "darts"
         ? await seedDemoDartsParticipants(seasonId)
-        : await seedDemoParticipants(seasonId);
+        : category === "billiards"
+          ? await seedDemoBilliardsParticipants(seasonId)
+          : await seedDemoParticipants(seasonId);
     return NextResponse.json({ success: true, category: category ?? "mahjong", summary });
   } catch (error) {
     console.error("[admin/games/demo-data] POST error:", error);
