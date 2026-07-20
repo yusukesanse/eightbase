@@ -5,6 +5,7 @@ import MonthCalendar from "@/components/ui/MonthCalendar";
 import { isDevLoginEnabled } from "@/lib/env";
 import { startDartsEntryPayment, cancelDartsEntryPayment } from "@/lib/dartsPayment";
 import { DARTS_ENTRY_FEE, DARTS_MAX_ENTRIES_PER_DATE, type DartsPaymentStatus } from "@/types/darts";
+import { DartsDayStandings, type DartsDayStanding } from "@/components/darts/DartsDayStandings";
 import {
   DARTS_ACCENT,
   DARTS_CONFIRM,
@@ -43,6 +44,8 @@ export function DartsJoinTab({
   >([]);
   const [dateFull, setDateFull] = useState(false);
   const [dateCount, setDateCount] = useState(0);
+  // 過去の開催日を選んだときの当日成績（総合順位＋3種目内訳）。麻雀と同じく参加タブで閲覧。
+  const [dayStandings, setDayStandings] = useState<{ hasResults: boolean; standings: DartsDayStanding[] } | null>(null);
   const today = todayJst();
   const demo = isDevLoginEnabled();
 
@@ -67,6 +70,26 @@ export function DartsJoinTab({
       alive = false;
     };
   }, [selectedDate, enteredDates, paymentStatusByDate]);
+
+  // 過去の開催日の当日成績を取得（当日・未来は対象外）。
+  useEffect(() => {
+    if (!selectedDate || selectedDate >= today) {
+      setDayStandings(null);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/darts/standings/day?eventDate=${selectedDate}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setDayStandings({ hasResults: !!d.hasResults, standings: d.standings ?? [] });
+      })
+      .catch(() => {
+        if (alive) setDayStandings({ hasResults: false, standings: [] });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [selectedDate, today]);
 
   async function toggle(date: string, entered: boolean) {
     setBusy(date);
@@ -378,6 +401,17 @@ export function DartsJoinTab({
             </div>
           )}
         </div>
+      )}
+
+      {/* 当日成績（過去の開催日のみ）。当日・未来では出さない。 */}
+      {selectedDate && !cancelledDates.has(selectedDate) && selectedDate < today && dayStandings && (
+        dayStandings.hasResults ? (
+          <DartsDayStandings eventDate={selectedDate} standings={dayStandings.standings} />
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-6 text-center text-[12px] text-[#231714]/80">
+            この日の成績はまだありません。
+          </div>
+        )
       )}
 
       {cancelDate && (
