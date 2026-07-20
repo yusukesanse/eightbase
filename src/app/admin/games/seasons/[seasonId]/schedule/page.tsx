@@ -5,11 +5,13 @@ import { useParams } from "next/navigation";
 import type { Season } from "@/types";
 import MahjongScheduleCalendar from "@/components/admin/MahjongScheduleCalendar";
 import DartsScheduleAdmin from "@/components/admin/DartsScheduleAdmin";
+import BilliardsScheduleAdmin from "@/components/admin/BilliardsScheduleAdmin";
 
 /**
  * 日程タブ。種目で分岐する:
  * - 麻雀: 月別カレンダー起点（毎週土曜が開催日・クリックで休催トグル）。
  * - ダーツ: 開催日を明示登録（隔週木曜が既定）。
+ * - ビリヤード: 開催日を明示登録（第2/第4土曜が既定）。
  */
 export default function SeasonSchedulePage() {
   const { seasonId } = useParams<{ seasonId: string }>();
@@ -33,5 +35,5 @@ export default function SeasonSchedulePage() {
     );
   }
 
-  return category === "darts" ? <DartsScheduleAdmin /> : <MahjongScheduleCalendar />;
+  return category === "darts" ? <DartsScheduleAdmin /> : category === "billiards" ? <BilliardsScheduleAdmin /> : <MahjongScheduleCalendar />;
 }

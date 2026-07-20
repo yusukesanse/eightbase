@@ -8,6 +8,7 @@ import { GAME_CATEGORIES } from "@/types";
 import { isGamesOnlyRole } from "@/lib/roles";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
 import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
+import { BilliardsLeagueView } from "@/components/billiards/BilliardsLeagueView";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -32,7 +33,7 @@ export default function InfoPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URL(window.location.href).searchParams;
-    if (params.has("mjpay") || params.has("dartspay")) {
+    if (params.has("mjpay") || params.has("dartspay") || params.has("billiardspay")) {
       setActiveTab("games");
     }
   }, []);
@@ -443,6 +444,8 @@ function GamesTab() {
             <MahjongLeagueView />
           ) : gameCategory === "darts" ? (
             <DartsLeagueView />
+          ) : gameCategory === "billiards" ? (
+            <BilliardsLeagueView />
           ) : (
             <>
               {/* 期間切替 + 月ナビ */}
