@@ -256,7 +256,7 @@ function DartsRankingTab() {
                       <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalScore.toLocaleString()}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-[#c0392b]/70 transition-all" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-[#2f7d57]/70 transition-all" style={{ width: `${pct}%` }} />
                     </div>
                     <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/80">
                       <span>{user.playedCount}回参加</span>

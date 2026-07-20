@@ -123,7 +123,7 @@ export default function DartsScheduleAdmin() {
               className="w-20 rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
           </div>
-          <button onClick={addBulk} disabled={busy || !bulkStart} className="rounded-xl bg-[#c0392b] text-white text-sm font-bold px-4 py-2 disabled:opacity-40">
+          <button onClick={addBulk} disabled={busy || !bulkStart} className="rounded-xl bg-[#2f7d57] text-white text-sm font-bold px-4 py-2 disabled:opacity-40">
             一括登録
           </button>
         </div>
@@ -137,7 +137,7 @@ export default function DartsScheduleAdmin() {
             <label className="text-xs font-bold text-[#231714]/70">開催日</label>
             <DatePicker value={singleDate} onChange={setSingleDate} placeholder="開催日を選択" />
           </div>
-          <button onClick={addSingle} disabled={busy || !singleDate} className="rounded-xl bg-[#c0392b] text-white text-sm font-bold px-4 py-2 disabled:opacity-40">
+          <button onClick={addSingle} disabled={busy || !singleDate} className="rounded-xl bg-[#2f7d57] text-white text-sm font-bold px-4 py-2 disabled:opacity-40">
             追加
           </button>
         </div>
@@ -157,7 +157,7 @@ export default function DartsScheduleAdmin() {
                 <div>
                   <span className="text-sm font-bold text-[#231714]">
                     {s.date}（{wd(s.date)}）
-                    {wd(s.date) !== "木" && <span className="ml-1 text-[11px] font-bold text-[#c0392b]">木曜以外</span>}
+                    {wd(s.date) !== "木" && <span className="ml-1 text-[11px] font-bold text-[#b48f13]">木曜以外</span>}
                   </span>
                   <span className="ml-2 text-xs text-[#231714]/70">{s.startTime}〜{s.endTime}</span>
                 </div>

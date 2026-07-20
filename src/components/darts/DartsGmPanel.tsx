@@ -121,8 +121,8 @@ const DropZone = memo(function DropZone({
       onClick={() => onZoneClick(zone)}
       className={`rounded-2xl border border-dashed p-2.5 transition-colors ${isPool ? "min-h-[56px]" : "min-h-[64px]"} ${armed ? "cursor-pointer" : ""}`}
       style={{
-        borderColor: over ? "#d8533a" : lit ? DARTS_ACCENT : isPool ? "#e4e7e9" : "#e0c3bd",
-        background: lit ? `color-mix(in srgb, ${DARTS_ACCENT} 10%, #fff)` : isPool ? "#fff" : "#fdf6f5",
+        borderColor: over ? "#d8533a" : lit ? DARTS_ACCENT : isPool ? "#e4e7e9" : "#c9d6cf",
+        background: lit ? `color-mix(in srgb, ${DARTS_ACCENT} 10%, #fff)` : isPool ? "#fff" : "#f7faf8",
       }}
     >
       <div className="flex items-center justify-between mb-1.5">
@@ -600,7 +600,7 @@ function FinishPhase({ eventDate, onDone, setError }: { eventDate: string; onDon
       {!confirm ? (
         <button onClick={() => setConfirm(true)} className="w-full py-3 rounded-2xl text-sm font-black text-white" style={{ background: DARTS_ACCENT }}>本日の対局を終了する</button>
       ) : (
-        <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#e0c3bd", background: "#fdf6f5" }}>
+        <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#c9d6cf", background: "#f7faf8" }}>
           <p className="text-[11px] font-bold leading-relaxed" style={{ color: DARTS_ACCENT }}>本日終了で3種目の順位ポイントを合算し、順位を確定します。以降この日の申告はできません。</p>
           <div className="flex gap-2">
             <button onClick={() => setConfirm(false)} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}>やめる</button>

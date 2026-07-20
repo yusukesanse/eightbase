@@ -104,7 +104,7 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
                 </div>
 
                 {isCricket && myTeam && (
-                  <div className="rounded-xl bg-[#fdf6f5] px-3 py-2">
+                  <div className="rounded-xl bg-[#f7faf8] px-3 py-2">
                     <div className="text-[10px] font-extrabold text-[#3c4f54]">あなたのチーム</div>
                     <div className="text-[13px] font-bold text-[#1c1f21]">{myTeam.members.map((m) => m.displayName).join("・")}</div>
                   </div>

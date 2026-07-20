@@ -14,7 +14,8 @@ export {
   ChevronRight,
 } from "@/components/mahjong/leagueShared";
 
-// ダーツのアクセント（ダーツボード・レッド系。麻雀の緑と区別する）
-export const DARTS_ACCENT = "#c0392b";
-// 確定・支払いの色（CSメダル金系。参加中の赤と区別する・麻雀と共通）
+// ボタン/アクセントは**全ゲーム統一**（麻雀リーグと同じ緑）。種目でボタン色を変えると
+// 利用者が混乱するため、意図的に共通化している（麻雀 leagueShared.ACCENT と同値）。
+export const DARTS_ACCENT = "#2f7d57";
+// 確定・支払いの色（CSメダル金系・麻雀 leagueShared.CONFIRM と共通）。
 export const DARTS_CONFIRM = "#b48f13";
