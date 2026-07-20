@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import clsx from "clsx";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { completeDartsEntryPayment } from "@/lib/dartsPayment";
+import { DartsLeagueBoard } from "@/components/darts/DartsLeagueBoard";
 import { DartsJoinTab } from "@/components/darts/DartsJoinTab";
 import { DartsReportTab } from "@/components/darts/DartsReportTab";
 import { DartsCsView } from "@/components/darts/DartsCsView";
@@ -17,14 +17,6 @@ import type { DartsPaymentStatus, DartsScheduleEntry } from "@/types/darts";
  */
 
 type SubTab = "league" | "join" | "report" | "cs" | "rules";
-
-interface RankingUser {
-  rank: number;
-  displayName: string;
-  pictureUrl?: string;
-  totalScore: number;
-  playedCount: number;
-}
 
 export function DartsLeagueView() {
   const [subTab, setSubTab] = useState<SubTab>("league");
@@ -142,7 +134,7 @@ export function DartsLeagueView() {
           <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : subTab === "league" ? (
-        <DartsRankingTab />
+        <DartsLeagueBoard />
       ) : subTab === "join" ? (
         <DartsJoinTab
           enteredDates={enteredDates}
@@ -158,119 +150,6 @@ export function DartsLeagueView() {
         <DartsCsView />
       ) : (
         <DartsRulesTab />
-      )}
-    </div>
-  );
-}
-
-/* ───────── リーグ（通算ポイント順ランキング） ───────── */
-
-function DartsRankingTab() {
-  const [ranking, setRanking] = useState<RankingUser[]>([]);
-  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
-  const [yearMonth, setYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [loading, setLoading] = useState(false);
-
-  function shiftMonth(delta: number) {
-    const [y, m] = yearMonth.split("-").map(Number);
-    const d = new Date(y, m - 1 + delta, 1);
-    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ gameCategory: "darts", period, yearMonth });
-    fetch(`/api/games/ranking?${params}`, { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setRanking(d.ranking ?? []))
-      .catch(() => setRanking([]))
-      .finally(() => setLoading(false));
-  }, [period, yearMonth]);
-
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="flex gap-0.5 bg-[#231714]/[0.08] rounded-lg p-0.5">
-          {(["monthly", "annual"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={clsx(
-                "px-2.5 py-1 rounded-md text-[11px] transition-all",
-                period === p
-                  ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                  : "text-[#231714]/80 font-medium"
-              )}
-            >
-              {p === "monthly" ? "月間" : "年間"}
-            </button>
-          ))}
-        </div>
-        {period === "monthly" && (
-          <div className="flex items-center gap-1.5 ml-auto">
-            <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/80 hover:text-[#231714] rounded">
-              ←
-            </button>
-            <span className="text-xs font-medium text-[#231714] min-w-[70px] text-center">
-              {yearMonth.replace("-", "年") + "月"}
-            </span>
-            <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/80 hover:text-[#231714] rounded">
-              →
-            </button>
-          </div>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : ranking.length === 0 ? (
-        <div className="py-12 text-center text-sm text-[#231714]/70">まだランキングデータがありません</div>
-      ) : (
-        <div className="space-y-2">
-          {ranking.map((user) => {
-            const maxScore = ranking[0]?.totalScore || 1;
-            const pct = Math.max(4, Math.round((user.totalScore / maxScore) * 100));
-            return (
-              <div key={user.rank} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={clsx(
-                      "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                      user.rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                      user.rank === 2 ? "bg-gray-100 text-gray-700" :
-                      user.rank === 3 ? "bg-orange-100 text-orange-600" :
-                      "bg-gray-50 text-gray-700"
-                    )}
-                  >
-                    {user.rank}
-                  </span>
-                  {user.pictureUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={user.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-xs font-bold text-[#4f757e] shrink-0">
-                      {user.displayName.charAt(0)}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-[#231714] truncate">{user.displayName}</span>
-                      <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalScore.toLocaleString()}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-[#2f7d57]/70 transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/80">
-                      <span>{user.playedCount}回参加</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       )}
     </div>
   );
