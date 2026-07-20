@@ -29,6 +29,7 @@ interface Standing {
   firsts: number;
   tier: Tier;
   isMe: boolean;
+  trend: number[]; // 開催日順の累積pt推移（スパークライン）
 }
 interface Me { rank: number; tier: Tier; totalPt: number; games: number; firsts: number; gapToD1: number }
 interface StandingsResp {
@@ -187,11 +188,39 @@ function RankRow({ s, tierColor }: { s: Standing; tierColor: string }) {
         </div>
         <div className="text-[10.5px] text-[#97999d]">出場 {s.games}回 ・ 1位 {s.firsts}回</div>
       </div>
+      <Sparkline data={s.trend} color={tierColor} />
       <div className="flex flex-col items-end shrink-0">
         <span className="text-[16px] font-black text-[#1c1f21] tabular-nums">{s.totalPt}</span>
         <span className="text-[9.5px] font-bold text-[#97999d]">pt</span>
       </div>
     </div>
+  );
+}
+
+/** 累積ptの推移スパークライン（開催日順）。1点以下はプレースホルダ。 */
+function Sparkline({ data, color, w = 52, h = 22 }: { data: number[]; color: string; w?: number; h?: number }) {
+  if (!data || data.length < 2) {
+    return (
+      <svg width={w} height={h} className="shrink-0" aria-hidden>
+        <line x1={2} y1={h - 4} x2={w - 2} y2={h - 4} stroke="#e4e7e9" strokeWidth={1.5} strokeLinecap="round" />
+      </svg>
+    );
+  }
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  const pad = 3;
+  const pts = data.map((v, i) => {
+    const x = pad + (i * (w - pad * 2)) / (data.length - 1);
+    const y = h - pad - ((v - min) / span) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = pts[pts.length - 1].split(",");
+  return (
+    <svg width={w} height={h} className="shrink-0" aria-hidden>
+      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+      <circle cx={last[0]} cy={last[1]} r={2} fill={color} />
+    </svg>
   );
 }
 

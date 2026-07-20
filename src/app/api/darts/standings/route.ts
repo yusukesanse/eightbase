@@ -28,17 +28,30 @@ export async function GET(req: NextRequest) {
     const snap = await getDb().collection("scores").where("seasonId", "==", season.seasonId).get();
 
     // lineUserId ごとに通算pt・出場数・1位回数（その日の総合1位）を合算。
+    // series は開催日順の推移（スパークライン用）: {date, pt(その日のpt)}。
     const agg = new Map<string, { totalPt: number; games: number; firsts: number }>();
+    const series = new Map<string, { date: string; pt: number }[]>();
     for (const d of snap.docs) {
       const x = d.data();
       if (x.gameCategory !== "darts") continue;
       const uid = x.lineUserId as string;
+      const pt = Number(x.totalScore) || 0;
       const a = agg.get(uid) ?? { totalPt: 0, games: 0, firsts: 0 };
-      a.totalPt += Number(x.totalScore) || 0;
+      a.totalPt += pt;
       a.games += 1;
       if (x.details && Number(x.details.dayRank) === 1) a.firsts += 1;
       agg.set(uid, a);
+      const s = series.get(uid) ?? [];
+      s.push({ date: (x.playedAt as string) ?? (x.yearMonth as string) ?? "", pt });
+      series.set(uid, s);
     }
+
+    // 開催日昇順に累積ptの推移を作る（スパークライン）。
+    const trendOf = (uid: string): number[] => {
+      const s = [...(series.get(uid) ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+      let acc = 0;
+      return s.map((x) => (acc += x.pt));
+    };
 
     // プロフィール（displayName / pictureUrl）を users から一括取得。
     const uids = Array.from(agg.keys());
@@ -75,6 +88,7 @@ export async function GET(req: NextRequest) {
         firsts: s.firsts,
         tier: tierOf(rank),
         isMe: s.uid === userId,
+        trend: trendOf(s.uid), // 開催日順の累積pt推移（スパークライン用）
       };
     });
 
