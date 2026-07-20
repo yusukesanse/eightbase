@@ -24,14 +24,22 @@ export default function SeasonDetailLayout({
       .catch(() => {});
   }, [seasonId]);
 
-  const TABS = [
-    { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
-    { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
-    { href: `/admin/games/seasons/${seasonId}/mahjong`, label: "ランキング" },
-    { href: `/admin/games/seasons/${seasonId}/mahjong-cs`, label: "CS" },
-    { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
-    { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
-  ];
+  // 種目でタブを出し分ける。ランキング/CS/返金/監査は麻雀専用の管理UI（ダーツは未提供）。
+  const isDarts = season?.gameCategory === "darts";
+  const TABS = isDarts
+    ? [
+        { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
+        { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
+        { href: `/admin/games/seasons/${seasonId}/darts-cs`, label: "CS" },
+      ]
+    : [
+        { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
+        { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
+        { href: `/admin/games/seasons/${seasonId}/mahjong`, label: "ランキング" },
+        { href: `/admin/games/seasons/${seasonId}/mahjong-cs`, label: "CS" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
+      ];
 
   const isActive = (tab: (typeof TABS)[number]) =>
     tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);

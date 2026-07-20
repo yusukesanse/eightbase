@@ -15,26 +15,57 @@ import { SquareClient, SquareEnvironment } from "square";
  * - reservation … 施設予約（トレーラー等）。従来の SQUARE_* を使用。
  * - mahjong     … 麻雀リーグ参加費。SQUARE_MAHJONG_* を優先し、未設定時は SQUARE_* にフォールバック。
  */
-export type SquarePurpose = "reservation" | "mahjong";
+export type SquarePurpose = "reservation" | "mahjong" | "darts";
 
 // 用途ごとにクライアントをキャッシュ（トークン/環境が異なるため共有しない）。
 const _clients: Partial<Record<SquarePurpose, SquareClient>> = {};
 
-/** 用途に応じた Square 資格情報を解決する（mahjong は専用→共通の順にフォールバック）。 */
+/**
+ * 用途に応じた Square 資格情報を解決する。
+ * - mahjong … SQUARE_MAHJONG_* を優先し、無ければ共通 SQUARE_* にフォールバック。
+ * - darts   … SQUARE_DARTS_*   を優先し、無ければ共通 SQUARE_* にフォールバック（別会計にするなら darts を設定）。
+ * - reservation … 共通 SQUARE_*。
+ */
 function resolveSquareEnv(purpose: SquarePurpose): {
   token?: string;
   environment: SquareEnvironment;
   locationId?: string;
 } {
-  const pick = (mahjongVar: string | undefined, sharedVar: string | undefined) =>
-    purpose === "mahjong" ? mahjongVar ?? sharedVar : sharedVar;
+  const pick = (
+    mahjongVar: string | undefined,
+    dartsVar: string | undefined,
+    sharedVar: string | undefined
+  ) => {
+    if (purpose === "mahjong") return mahjongVar ?? sharedVar;
+    if (purpose === "darts") return dartsVar ?? sharedVar;
+    return sharedVar;
+  };
 
-  const token = pick(process.env.SQUARE_MAHJONG_ACCESS_TOKEN, process.env.SQUARE_ACCESS_TOKEN);
-  const envStr = pick(process.env.SQUARE_MAHJONG_ENVIRONMENT, process.env.SQUARE_ENVIRONMENT);
-  const locationId = pick(process.env.SQUARE_MAHJONG_LOCATION_ID, process.env.SQUARE_LOCATION_ID);
+  const token = pick(
+    process.env.SQUARE_MAHJONG_ACCESS_TOKEN,
+    process.env.SQUARE_DARTS_ACCESS_TOKEN,
+    process.env.SQUARE_ACCESS_TOKEN
+  );
+  const envStr = pick(
+    process.env.SQUARE_MAHJONG_ENVIRONMENT,
+    process.env.SQUARE_DARTS_ENVIRONMENT,
+    process.env.SQUARE_ENVIRONMENT
+  );
+  const locationId = pick(
+    process.env.SQUARE_MAHJONG_LOCATION_ID,
+    process.env.SQUARE_DARTS_LOCATION_ID,
+    process.env.SQUARE_LOCATION_ID
+  );
   const environment =
     envStr === "production" ? SquareEnvironment.Production : SquareEnvironment.Sandbox;
   return { token, environment, locationId };
+}
+
+/** 用途別の Square 環境変数名（エラーメッセージ用）。 */
+function squareEnvVarName(purpose: SquarePurpose, key: "ACCESS_TOKEN" | "LOCATION_ID"): string {
+  if (purpose === "mahjong") return `SQUARE_MAHJONG_${key}（未設定時は SQUARE_${key}）`;
+  if (purpose === "darts") return `SQUARE_DARTS_${key}（未設定時は SQUARE_${key}）`;
+  return `SQUARE_${key}`;
 }
 
 export function getSquareClient(purpose: SquarePurpose = "reservation"): SquareClient {
@@ -43,11 +74,7 @@ export function getSquareClient(purpose: SquarePurpose = "reservation"): SquareC
 
   const { token, environment } = resolveSquareEnv(purpose);
   if (!token) {
-    throw new Error(
-      purpose === "mahjong"
-        ? "SQUARE_MAHJONG_ACCESS_TOKEN（未設定時は SQUARE_ACCESS_TOKEN）が設定されていません"
-        : "SQUARE_ACCESS_TOKEN が設定されていません"
-    );
+    throw new Error(`${squareEnvVarName(purpose, "ACCESS_TOKEN")} が設定されていません`);
   }
 
   const client = new SquareClient({ token, environment });
@@ -58,11 +85,7 @@ export function getSquareClient(purpose: SquarePurpose = "reservation"): SquareC
 export function getSquareLocationId(purpose: SquarePurpose = "reservation"): string {
   const { locationId } = resolveSquareEnv(purpose);
   if (!locationId) {
-    throw new Error(
-      purpose === "mahjong"
-        ? "SQUARE_MAHJONG_LOCATION_ID（未設定時は SQUARE_LOCATION_ID）が設定されていません"
-        : "SQUARE_LOCATION_ID が設定されていません"
-    );
+    throw new Error(`${squareEnvVarName(purpose, "LOCATION_ID")} が設定されていません`);
   }
   return locationId;
 }

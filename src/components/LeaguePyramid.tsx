@@ -51,10 +51,10 @@ export function LeaguePyramid({
 
   return (
     <div className="space-y-5">
-      {/* 3D ピラミッド（アイボリー帯ヒーロー） */}
+      {/* 3D ピラミッド（黒帯ヒーロー・ダーツ LEAGUE BOARD と背景色を統一 #17191b） */}
       <div
         className="rounded-[18px] overflow-hidden"
-        style={{ background: "radial-gradient(120% 80% at 50% 12%, #fffdf7, #f4f1ea)" }}
+        style={{ background: "radial-gradient(120% 80% at 50% 12%, #202226, #17191b)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
         <LeaguePyramid3D standings={standings} currentUserId={currentUserId} height={280} />
       </div>
