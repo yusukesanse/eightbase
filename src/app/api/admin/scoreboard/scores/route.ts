@@ -187,6 +187,17 @@ function validateDetails(gameCategory: ScoreboardGameId, details: Record<string,
       return null;
     }
     case "darts": {
+      // 新スキーマ（Phase 3・当日3種目）: events[]/dayRank/firstCount。
+      if (Array.isArray(details.events)) {
+        for (const e of details.events as Array<Record<string, unknown>>) {
+          if (typeof e.kind !== "string") return "ダーツ: 各種目に kind が必要です";
+          if (typeof e.points !== "number") return "ダーツ: 各種目に points（数値）が必要です";
+        }
+        if (typeof details.dayRank !== "number") return "ダーツ: dayRank（数値）は必須です";
+        if (typeof details.firstCount !== "number") return "ダーツ: firstCount（数値）は必須です";
+        return null;
+      }
+      // 旧スキーマ（後方互換）: 単一 rank/points。
       if (typeof details.rank !== "number") return "ダーツ: rank（数値）は必須です";
       if (typeof details.points !== "number") return "ダーツ: points（数値）は必須です";
       return null;

@@ -7,6 +7,7 @@ import { isProduction } from "@/lib/env";
 import { isScheduledDartsDate, isDartsCancelledDate } from "@/lib/dartsSchedule";
 import { buildDartsEntryId, isValidDartsDate } from "@/lib/dartsEntryValidation";
 import { deriveStatus } from "@/lib/dartsEntryStatus";
+import { getDartsDayState, isDartsEntryClosed } from "@/lib/dartsDay";
 import { DARTS_MAX_ENTRIES_PER_DATE, type DartsEntry } from "@/types/darts";
 
 export const dynamic = "force-dynamic";
@@ -139,7 +140,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "この開催日は中止されました" }, { status: 409 });
     }
 
-    // TODO(Phase 3): GM「ゲーム開始」で受付締切（dartsDayState.entryClosedAt）を確認する。
+    // GM「ゲーム開始」で受付締切（dartsDayState.entryClosedAt）。以降は参加表明不可。
+    if (isDartsEntryClosed(await getDartsDayState(season.seasonId, eventDate))) {
+      return NextResponse.json({ error: "受付は締め切られました" }, { status: 409 });
+    }
 
     const db = getDb();
     const entryId = buildDartsEntryId(season.seasonId, eventDate, userId);

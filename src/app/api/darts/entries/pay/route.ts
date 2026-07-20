@@ -8,6 +8,7 @@ import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { isDartsCancelledDate } from "@/lib/dartsSchedule";
+import { getDartsDayState, isDartsEntryClosed } from "@/lib/dartsDay";
 import { buildDartsEntryId, isValidDartsDate } from "@/lib/dartsEntryValidation";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import { DARTS_ENTRY_FEE, type DartsEntry } from "@/types/darts";
@@ -91,7 +92,13 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    // TODO(Phase 3): GM「ゲーム開始」で締切（isEntryClosed(dartsDayState)）を確認する。
+    // GM「ゲーム開始」で受付締切（dartsDayState.entryClosedAt）。以降は支払い不可。
+    if (isDartsEntryClosed(await getDartsDayState(season.seasonId, eventDate))) {
+      return NextResponse.json(
+        { error: "ENTRY_CLOSED", message: "受付は締め切られました。" },
+        { status: 409 }
+      );
+    }
 
     const completePath = `/info?dartspay=${entryId}`;
     const redirectUrl = isDevLoginEnabled()

@@ -96,6 +96,57 @@ export interface DartsScoreDetails {
   firstCount: number;
 }
 
+// ─── 当日の GM 進行（dartsDayState・Phase 3） ─────────────────────────────────
+//
+// 麻雀は「半荘ローテーション」だが、ダーツは 3 種目を順に進める**直線状態機械**
+// （①ゼロワン → ②カウントアップ → ③クリケット）。チーム編成はクリケットのみ。
+// 状態は dartsDayState/{seasonId}_{eventDate} の単一 doc に集約し、GM/利用者で同一参照。
+
+/** 当日の参加者（開始時に確定＝支払い済み＋staff・enteredAt FIFO）。 */
+export interface DartsDayMember {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+}
+
+/** クリケットの GM 編成（2人1組・奇数は1人チーム可）。 */
+export interface DartsTeam {
+  teamId: string;
+  memberIds: string[];
+}
+
+export type DartsEventStatus = "pending" | "reporting" | "confirmed";
+
+/** 1種目の進行状態＋申告。 */
+export interface DartsEventState {
+  kind: DartsEventKind;
+  status: DartsEventStatus;
+  /**
+   * 申告値。個人種目（ゼロワン/カウントアップ）は lineUserId をキー、
+   * クリケットは teamId をキーにする。value=null は棄権（0pt・人数外）。
+   * 順位・ポイントは保存せず raw reports から都度算出する（GM 修正時の陳腐化を防ぐ）。
+   */
+  reports: Record<string, { value: number | null; reportedAt: string }>;
+}
+
+/**
+ * dartsDayState/{seasonId}_{eventDate}。当日の GM 進行の唯一の状態。
+ * entryClosedAt が打刻されたら参加表明・参加費の支払いは不可（受付締切）。
+ */
+export interface DartsDayState {
+  seasonId: string;
+  eventDate: string; // YYYY-MM-DD
+  participants: DartsDayMember[]; // 開始時に確定（paid+staff）
+  entryClosedAt?: string | null; // GM「ゲーム開始」= 受付締切
+  startedBy?: string | null;
+  zeroOneVariant?: DartsZeroOneVariant | null; // GM 選択（ゼロワン申告の前提）
+  cricketTeams?: DartsTeam[] | null; // GM 編成（クリケット申告の前提）
+  events: DartsEventState[]; // 常に DARTS_EVENT_ORDER 順の3件
+  finishedAt?: string | null;
+  finishedBy?: string | null;
+  updatedAt: string;
+}
+
 // ─── 参加・スケジュール・参加費（麻雀 entries を流用） ────────────────────────
 
 export type DartsPaymentStatus = "pending" | "paid" | "cancelRequested";
