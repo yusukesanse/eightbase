@@ -41,6 +41,13 @@ interface StandingsResp {
 export function DartsLeagueBoard() {
   const [data, setData] = useState<StandingsResp | null>(null);
   const [loading, setLoading] = useState(true);
+  // 盤面アニメーション（回転＋自分マーカーのフロート/パルス）。既定ON・reduced-motion はOFF。
+  const [animate, setAnimate] = useState(true);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setAnimate(false);
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -71,11 +78,25 @@ export function DartsLeagueBoard() {
     <div className="flex flex-col gap-[14px]">
       {/* Hero / LEAGUE BOARD */}
       <div
-        className="flex flex-col items-center gap-[10px] rounded-[22px] px-4 pt-[18px] pb-4 overflow-hidden"
+        className="relative flex flex-col items-center gap-[10px] rounded-[22px] px-4 pt-[18px] pb-4 overflow-hidden"
         style={{ background: "#17191b", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
+        {/* アニメーション on/off */}
+        <button
+          type="button"
+          onClick={() => setAnimate((v) => !v)}
+          aria-label={animate ? "アニメーションを止める" : "アニメーションを再生"}
+          className="absolute top-3 right-3 z-10 grid place-items-center rounded-full text-white/70 hover:text-white transition-colors"
+          style={{ width: 26, height: 26, background: "rgba(255,255,255,0.08)" }}
+        >
+          {animate ? (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+          ) : (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z" /></svg>
+          )}
+        </button>
         <div className="text-[10.5px] font-bold tracking-[0.22em]" style={{ color: GOLD }}>LEAGUE BOARD</div>
-        <DartBoard meTier={meStanding?.tier ?? null} meName={meStanding?.displayName} />
+        <DartBoard meTier={meStanding?.tier ?? null} meName={meStanding?.displayName} animate={animate} />
         <div className="flex gap-[18px] items-center pt-1 flex-wrap justify-center">
           <LegendItem tier="D1" count={counts.D1} you={meStanding?.tier === "D1"} />
           <LegendItem tier="D2" count={counts.D2} you={meStanding?.tier === "D2"} />
@@ -226,7 +247,7 @@ function Sparkline({ data, color, w = 52, h = 22 }: { data: number[]; color: str
 
 /* ───────── ダーツボード（同心リング＝D1/D2/D3）＋自分の位置 ───────── */
 
-function DartBoard({ meTier, meName }: { meTier: Tier | null; meName?: string }) {
+function DartBoard({ meTier, meName, animate }: { meTier: Tier | null; meName?: string; animate: boolean }) {
   const C = 132; // center
   // リング半径（外→内）: D3 gold / D2 cyan / D1 magenta。
   const rD3 = 108, rD2 = 75, rD1 = 46;
@@ -249,15 +270,17 @@ function DartBoard({ meTier, meName }: { meTier: Tier | null; meName?: string })
       <circle cx={C} cy={C} r={rD2} fill="none" stroke={TIER.D2.color} strokeWidth={wD2} opacity={0.92} />
       {/* D1 magenta disc */}
       <circle cx={C} cy={C} r={rD1} fill={TIER.D1.color} />
-      {/* セグメントのスポーク（ダーツボード風） */}
-      {spokes.map((a, i) => (
-        <line
-          key={i}
-          x1={C + 30 * Math.cos(a)} y1={C + 30 * Math.sin(a)}
-          x2={C + 124 * Math.cos(a)} y2={C + 124 * Math.sin(a)}
-          stroke="rgba(0,0,0,0.28)" strokeWidth={1}
-        />
-      ))}
+      {/* セグメントのスポーク（ダーツボード風）。回転する。 */}
+      <g className={animate ? "eb-dartspin" : undefined}>
+        {spokes.map((a, i) => (
+          <line
+            key={i}
+            x1={C + 30 * Math.cos(a)} y1={C + 30 * Math.sin(a)}
+            x2={C + 124 * Math.cos(a)} y2={C + 124 * Math.sin(a)}
+            stroke="rgba(0,0,0,0.28)" strokeWidth={1}
+          />
+        ))}
+      </g>
       {/* bull（中心） */}
       <circle cx={C} cy={C} r={16} fill="#141618" stroke="rgba(255,255,255,0.18)" />
       {/* tier ラベル */}
@@ -265,15 +288,20 @@ function DartBoard({ meTier, meName }: { meTier: Tier | null; meName?: string })
       <text x={C} y={C - rD2 + 4} textAnchor="middle" className="fill-white" style={{ font: "700 10px 'Noto Sans JP', sans-serif" }}>D2</text>
       <text x={C} y={C - rD3 + 4} textAnchor="middle" className="fill-white" style={{ font: "700 10px 'Noto Sans JP', sans-serif" }}>D3</text>
 
-      {/* 自分の位置（コネクタ＋アバター） */}
+      {/* 自分の位置（コネクタ＋アバター）。アバターはフロート＋パルスで強調。 */}
       {meTier && (
         <>
           <line x1={C} y1={C} x2={meX} y2={meY} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} />
           <circle cx={C} cy={C} r={3} fill="#fff" />
-          <circle cx={meX} cy={meY} r={16} fill={meColor} stroke="#fff" strokeWidth={2} />
-          <text x={meX} y={meY + 4.5} textAnchor="middle" className="fill-white" style={{ font: "900 13px 'Noto Sans JP', sans-serif" }}>
-            {meName?.charAt(0) ?? "あ"}
-          </text>
+          <g className={animate ? "eb-dartfloat" : undefined}>
+            {animate && (
+              <circle cx={meX} cy={meY} r={16} fill="none" stroke={meColor} strokeWidth={2} className="eb-dartpulse" />
+            )}
+            <circle cx={meX} cy={meY} r={16} fill={meColor} stroke="#fff" strokeWidth={2} />
+            <text x={meX} y={meY + 4.5} textAnchor="middle" className="fill-white" style={{ font: "900 13px 'Noto Sans JP', sans-serif" }}>
+              {meName?.charAt(0) ?? "あ"}
+            </text>
+          </g>
         </>
       )}
     </svg>

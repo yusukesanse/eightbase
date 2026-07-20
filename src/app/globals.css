@@ -61,3 +61,15 @@
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ダーツ LEAGUE BOARD のアニメーション（盤面回転・自分マーカーのフロート/パルス）。
+   麻雀の3D回転ピラミッドに対応する軽量な演出。SVG要素に付与する。 */
+@keyframes ebDartSpin { to { transform: rotate(360deg); } }
+@keyframes ebDartFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes ebDartPulse { 0% { transform: scale(1); opacity: 0.5; } 70% { transform: scale(2); opacity: 0; } 100% { transform: scale(2); opacity: 0; } }
+.eb-dartspin { animation: ebDartSpin 42s linear infinite; transform-box: view-box; transform-origin: center; }
+.eb-dartfloat { animation: ebDartFloat 3.2s ease-in-out infinite; }
+.eb-dartpulse { animation: ebDartPulse 2.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  .eb-dartspin, .eb-dartfloat, .eb-dartpulse { animation: none; }
+}
