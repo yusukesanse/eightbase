@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
  * POST /api/darts/entries/pay  Body: { eventDate }
  * ダーツ参加費（¥1,000）の決済リンク発行（麻雀 pay を流用・Square purpose="darts"）。
  * 戻り先は /info?dartspay=エントリーID → /api/darts/entries/complete が確定する。
- * 注: GM「ゲーム開始」による受付締切は Phase 3（dartsDayState）で追加する（TODO）。
+ * GM「ゲーム開始」後（dartsDayState.entryClosedAt）は支払い不可（下記ガード＋tx内で二重チェック）。
  */
 export async function POST(req: NextRequest) {
   try {
