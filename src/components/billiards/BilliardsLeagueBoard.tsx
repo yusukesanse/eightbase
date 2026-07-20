@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { GamePlayerHistorySheet } from "@/components/GamePlayerHistorySheet";
-import { LeagueBoardTarget } from "@/components/LeagueBoardTarget";
+import { BilliardsBoard } from "@/components/billiards/BilliardsBoard";
 import { BILLIARDS_ACCENT, BILLIARDS_TIER } from "@/components/billiards/billiardsShared";
 
 const TIER_INDEX: Record<Tier, 1 | 2 | 3> = { B1: 1, B2: 2, B3: 3 };
@@ -72,7 +72,7 @@ export function BilliardsLeagueBoard() {
         </button>
         <div className="text-[11px] font-extrabold tracking-[0.22em]" style={{ color: GOLD }}>LEAGUE BOARD</div>
         <div className="text-[11px] text-white/55 -mt-1">エイトボール 1対1 リーグ</div>
-        <LeagueBoardTarget tierPrefix="B" meTier={meStanding ? TIER_INDEX[meStanding.tier] : null} animate={animate} />
+        <BilliardsBoard meTier={meStanding ? TIER_INDEX[meStanding.tier] : null} animate={animate} />
         <div className="flex gap-[18px] items-center pt-1 flex-wrap justify-center">
           <Legend tier="B1" count={counts.B1} you={meStanding?.tier === "B1"} />
           <Legend tier="B2" count={counts.B2} you={meStanding?.tier === "B2"} />
