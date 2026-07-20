@@ -117,7 +117,7 @@ export function DartsLeagueView() {
           [
             { id: "league", label: "リーグ" },
             { id: "join", label: "参加" },
-            { id: "report", label: "卓確認/申告" },
+            { id: "report", label: "対戦/申告" },
             { id: "rules", label: "ルール/約款" },
           ] as { id: SubTab; label: string }[]
         ).map((t) => (
