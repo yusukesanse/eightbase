@@ -1,46 +1,47 @@
 "use client";
 
 /* Hallmark · component: league-board · genre: playful-sport · theme: EIGHTBASE billiards tokens
- * composition: break-shot (cue strikes cue-ball → rack scatters by tier)
+ * composition: break-shot v2 — radial expansion from break point (distance encodes tier)
  * states: default · tier B1 · tier B2 · tier B3 · unranked · animate on/off
  * palette: felt #2f7d57 / B1 #a2125a / B2 #1172a5 / B3 #b48f13 (CLAUDE.md tokens, honored)
- * pre-emit critique: P4 H4 E5 S5 R4 V5
+ * pre-emit critique: P4 H5 E5 S5 R5 V5
  */
 
 /**
- * ビリヤードリーグ LEAGUE BOARD の盤面（ブレイク構図）。
- * 左からキューがキューボールを撞き、右のラックがティア色（B1マゼンタ/B2ブルー/B3ゴールド）に
- * 散る躍動的なヒーロー。中央付近に 8 ボール。自分の所属ティアの球を浮かせ、白リング＋「あなた」。
+ * ビリヤードリーグ LEAGUE BOARD の盤面（ブレイク構図 v2）。
+ * 左からキューがキューボールを撞き、破裂点から球が放射状に広がる。
+ * 距離＝ティア（内=B1 / 中=B2 / 外=B3）＋色でティアを二重に表現。中央前縁に 8 ボール。
+ * 自分の所属ティアの球を浮かせ、白リング＋「あなた」（フラッグは左右自動で見切れ防止）。
  *
- * ダーツの的ボード（別物）とは無関係・ビリヤード専用。台紙/見出し/凡例は親側。
- * 触感（フェルトの艶・木レール・照準ダイヤ・球のハイライトと落ち影・ブレイクの軌跡）で作り込む。
+ * 触感（フェルトの艶・木レール・照準ダイヤ・球のハイライトと落ち影・放射トレイル・インパクト光）
+ * で作り込む。モーション言語は「放射トレイル」1本に統一。ダーツ側とは無関係・ビリヤード専用。
  */
 
 const TIER_COLOR: Record<1 | 2 | 3, string> = { 1: "#a2125a", 2: "#1172a5", 3: "#b48f13" };
 const R = 11;
-const BREAK_CX = 138; // 散りの中心（軌跡の起点）
-const BREAK_CY = 100;
+const BP_X = 100; // 破裂点（放射・トレイルの中心）
+const BP_Y = 106;
 
-interface Ball { key: string; x: number; y: number; tier?: 1 | 2 | 3; eight?: boolean; spread?: boolean }
+interface Ball { key: string; x: number; y: number; tier?: 1 | 2 | 3; eight?: boolean; trail?: boolean }
 
-// ブレイク後の散らばり（手で配置＝乱雑に見えないよう調整）。B1×4 / B2×4 / B3×2 ＋ 8ボール。
+/** 破裂点からの放射配置（距離＝ティア）。B1 内周×4 / B2 中周×4 / B3 外周×2 ＋ 8ボール。 */
+function polar(r: number, deg: number): [number, number] {
+  const a = (deg * Math.PI) / 180;
+  return [BP_X + r * Math.cos(a), BP_Y - r * Math.sin(a)];
+}
+function mk(key: string, r: number, deg: number, tier: 1 | 2 | 3): Ball {
+  const [x, y] = polar(r, deg);
+  return { key, x: +x.toFixed(1), y: +y.toFixed(1), tier, trail: true };
+}
 const BALLS: Ball[] = [
-  { key: "b1a", x: 150, y: 54, tier: 1, spread: true },
-  { key: "b1b", x: 179, y: 66, tier: 1, spread: true },
-  { key: "b1c", x: 131, y: 74, tier: 1 },
-  { key: "b1d", x: 162, y: 86, tier: 1 },
-  { key: "eight", x: 136, y: 102, eight: true },
-  { key: "b2a", x: 106, y: 106, tier: 2 },
-  { key: "b2b", x: 168, y: 110, tier: 2, spread: true },
-  { key: "b2c", x: 140, y: 126, tier: 2 },
-  { key: "b2d", x: 186, y: 122, tier: 2, spread: true },
-  { key: "b3a", x: 120, y: 142, tier: 3, spread: true },
-  { key: "b3b", x: 160, y: 144, tier: 3, spread: true },
+  mk("b1a", 32, 40, 1), mk("b1b", 32, 14, 1), mk("b1c", 32, -14, 1), mk("b1d", 32, -40, 1),
+  { key: "eight", x: 111, y: 105, eight: true },
+  mk("b2a", 54, 44, 2), mk("b2b", 54, 14, 2), mk("b2c", 54, -16, 2), mk("b2d", 54, -46, 2),
+  mk("b3a", 78, 28, 3), mk("b3b", 78, -26, 3),
 ];
 /** そのティアで「あなた」を重ねる代表球。 */
-const MARKER_KEY: Record<1 | 2 | 3, string> = { 1: "b1c", 2: "b2a", 3: "b3a" };
+const MARKER_KEY: Record<1 | 2 | 3, string> = { 1: "b1a", 2: "b2b", 3: "b3a" };
 
-/** レール照準点（ダイヤ）。 */
 const DIAMONDS: [number, number][] = [
   [72, 23], [104, 23], [136, 23], [168, 23],
   [72, 191], [104, 191], [136, 191], [168, 191],
@@ -79,14 +80,14 @@ function Ball3D({ b, r = R }: { b: Ball; r?: number }) {
   );
 }
 
-/** 破裂の軌跡（散る球の後ろに、中心へ向かう淡い尾）。 */
+/** 放射トレイル（破裂点に向かう淡い尾）。 */
 function Trail({ b }: { b: Ball }) {
-  const dx = BREAK_CX - b.x, dy = BREAK_CY - b.y;
+  const dx = BP_X - b.x, dy = BP_Y - b.y;
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len, uy = dy / len;
   const x1 = b.x + ux * (R + 1), y1 = b.y + uy * (R + 1);
   const x2 = b.x + ux * (R + 12), y2 = b.y + uy * (R + 12);
-  return <line x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)} stroke="#fff" strokeWidth={2.4} strokeLinecap="round" opacity={0.16} />;
+  return <line x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)} stroke="#fff" strokeWidth={2.4} strokeLinecap="round" opacity={0.17} />;
 }
 
 export function BilliardsBoard({
@@ -101,9 +102,13 @@ export function BilliardsBoard({
   const markerKey = meTier ? MARKER_KEY[meTier] : null;
   const marker = markerKey ? BALLS.find((b) => b.key === markerKey)! : null;
   const meColor = meTier ? TIER_COLOR[meTier] : "#1172a5";
-  const cue: Ball = { key: "cue", x: 52, y: 126 };
-  const tip = marker ? { x: marker.x + 21, y: marker.y - 23 } : null;
-  const flag = tip ? { x: tip.x + 16, y: tip.y } : null;
+  const cue: Ball = { key: "cue", x: 74, y: 110 };
+
+  // フラッグは右端で見切れないよう左右自動。
+  const flagLeft = marker ? marker.x > 135 : false;
+  const dir = flagLeft ? -1 : 1;
+  const tip = marker ? { x: marker.x + 21 * dir, y: marker.y - 23 } : null;
+  const flag = tip ? { x: tip.x + 16 * dir, y: tip.y } : null;
 
   return (
     <svg viewBox="0 0 240 210" className={className} role="img" aria-label="ビリヤード リーグボード（ブレイク）">
@@ -122,9 +127,13 @@ export function BilliardsBoard({
           <stop offset="70%" stopColor="#b98a52" />
           <stop offset="100%" stopColor="#d8b47a" />
         </linearGradient>
+        <radialGradient id="bb-impact" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fff" stopOpacity={0.5} />
+          <stop offset="100%" stopColor="#fff" stopOpacity={0} />
+        </radialGradient>
       </defs>
 
-      {/* レール（木枠＋内側ベベル） */}
+      {/* レール（木枠＋内側ベベル＋照準ダイヤ） */}
       <rect x={16} y={14} width={208} height={186} rx={22} fill="url(#bb-rail)" />
       <rect x={16} y={14} width={208} height={186} rx={22} fill="none" stroke="rgba(0,0,0,.35)" strokeWidth={1} />
       <rect x={19} y={17} width={202} height={180} rx={19} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={1} />
@@ -143,29 +152,22 @@ export function BilliardsBoard({
         </g>
       ))}
 
-      {/* ブレイクの軌跡（散る球の後ろ） */}
-      {BALLS.filter((b) => b.spread).map((b) => <Trail key={`t-${b.key}`} b={b} />)}
-      {/* 撞く軌跡（キューボール→ラック前縁の淡い狙い線） */}
-      <line x1={cue.x + R} y1={cue.y} x2={100} y2={108} stroke="#fff" strokeWidth={1.4} strokeDasharray="2 4" strokeLinecap="round" opacity={0.35} />
-      {/* キューボールの走り（左に短い残像） */}
-      <line x1={cue.x - R - 2} y1={cue.y} x2={cue.x - R - 13} y2={cue.y} stroke="#fff" strokeWidth={2.6} strokeLinecap="round" opacity={0.22} />
+      {/* インパクト光（破裂点） */}
+      <circle cx={BP_X + 6} cy={BP_Y} r={20} fill="url(#bb-impact)" />
+      {/* 放射トレイル */}
+      {BALLS.filter((b) => b.trail).map((b) => <Trail key={`t-${b.key}`} b={b} />)}
 
-      {/* キュースティック（撞く瞬間） */}
+      {/* キュースティック＋キューボール（撞く瞬間・残像） */}
+      <line x1={cue.x - R - 2} y1={cue.y + 1} x2={cue.x - R - 12} y2={cue.y + 2} stroke="#fff" strokeWidth={2.6} strokeLinecap="round" opacity={0.2} />
       <line x1={13} y1={185} x2={cue.x - R - 1} y2={cue.y + 1} stroke="url(#bb-cue)" strokeWidth={4.4} strokeLinecap="round" />
-      <line x1={34} y1={148} x2={cue.x - R - 1} y2={cue.y + 1} stroke="#e7c58a" strokeWidth={2} strokeLinecap="round" opacity={0.5} />
+      <line x1={34} y1={150} x2={cue.x - R - 1} y2={cue.y + 1} stroke="#e7c58a" strokeWidth={2} strokeLinecap="round" opacity={0.5} />
       <circle cx={cue.x - R - 1} cy={cue.y + 1} r={2.2} fill="#2f6fb0" />
-      {/* キューボール */}
       <Ball3D b={cue} />
 
       {/* ラックの球（自分の球以外・8ボール含む） */}
       {BALLS.map((b) => (b.key === markerKey ? null : <Ball3D key={b.key} b={b} />))}
 
-      {/* ティアラベル（散りの各色クラスタ外側・控えめ） */}
-      <text x={193} y={58} fill={TIER_COLOR[1]} style={{ font: "900 9.5px 'Noto Sans JP',sans-serif" }}>B1</text>
-      <text x={198} y={112} fill={TIER_COLOR[2]} style={{ font: "900 9.5px 'Noto Sans JP',sans-serif" }}>B2</text>
-      <text x={170} y={158} fill={TIER_COLOR[3]} style={{ font: "900 9.5px 'Noto Sans JP',sans-serif" }}>B3</text>
-
-      {/* 自分の位置（浮遊する球＋白リング＋引き出し線＋フラッグ） */}
+      {/* 自分の位置（浮遊する球＋白リング＋引き出し線＋フラッグ／左右自動） */}
       {marker && tip && flag && (
         <>
           <line x1={marker.x} y1={marker.y - R} x2={tip.x.toFixed(1)} y2={(tip.y + 8).toFixed(1)} stroke="#fff" strokeWidth={2} strokeLinecap="round" opacity={0.85} />
