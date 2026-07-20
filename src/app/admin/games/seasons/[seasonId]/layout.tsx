@@ -30,6 +30,7 @@ export default function SeasonDetailLayout({
     ? [
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
+        { href: `/admin/games/seasons/${seasonId}/darts-cs`, label: "CS" },
       ]
     : [
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },

@@ -6,6 +6,7 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { completeDartsEntryPayment } from "@/lib/dartsPayment";
 import { DartsJoinTab } from "@/components/darts/DartsJoinTab";
 import { DartsReportTab } from "@/components/darts/DartsReportTab";
+import { DartsCsView } from "@/components/darts/DartsCsView";
 import { DartsRulesTab } from "@/components/darts/DartsRulesTab";
 import type { DartsPaymentStatus, DartsScheduleEntry } from "@/types/darts";
 
@@ -15,7 +16,7 @@ import type { DartsPaymentStatus, DartsScheduleEntry } from "@/types/darts";
  * ※「卓確認/申告」（当日フロー・GMパネル）は次の実装増分で追加する。
  */
 
-type SubTab = "league" | "join" | "report" | "rules";
+type SubTab = "league" | "join" | "report" | "cs" | "rules";
 
 interface RankingUser {
   rank: number;
@@ -118,6 +119,7 @@ export function DartsLeagueView() {
             { id: "league", label: "リーグ" },
             { id: "join", label: "参加" },
             { id: "report", label: "対戦/申告" },
+            { id: "cs", label: "CS" },
             { id: "rules", label: "ルール/約款" },
           ] as { id: SubTab; label: string }[]
         ).map((t) => (
@@ -152,6 +154,8 @@ export function DartsLeagueView() {
         />
       ) : subTab === "report" ? (
         <DartsReportTab onChanged={() => loadCore(true)} />
+      ) : subTab === "cs" ? (
+        <DartsCsView />
       ) : (
         <DartsRulesTab />
       )}

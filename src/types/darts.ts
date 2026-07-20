@@ -147,6 +147,65 @@ export interface DartsDayState {
   updatedAt: string;
 }
 
+// ─── チャンピオンシップ（CS・§5。GMなし完全自動進行） ──────────────────────
+//
+// 麻雀CSのブラケット/表彰台UIを流用しつつ、進行は自己申告→自動確定→次ラウンド自動生成。
+// 種目=カウントアップ固定（数値のみ申告・順位は score 降順で派生）。リーグ上位4名は予選免除シード。
+// 決勝は 1位=金/2位=銀/3位=銅。組内で1位が同点なら追加スロー（tiebreakScore）で決着（§5.4）。
+
+export type DartsCsStatus = "setup" | "running" | "finished";
+export type DartsCsMatchStatus = "reporting" | "tiebreak" | "completed";
+export type DartsCsRoundType = "prelim" | "semi" | "final";
+
+/** CS参戦者（自己エントリー）。rank=シーズン順位（seed/組分け順・リーグ未参加は番兵）。 */
+export interface DartsCsEntrant {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  rank: number;
+  seed: boolean; // 上位4名（予選免除）
+}
+
+export interface DartsCsMatchPlayer {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  score: number | null; // カウントアップ合計（null=未申告）
+  rank: number | null; // 確定時に score 降順で付与（1=最上位）
+  tiebreakScore?: number | null; // 同点1位の追加スロー（§5.4）
+}
+
+export interface DartsCsMatch {
+  matchId: string;
+  label: string; // 予選A / 準決勝 / 決勝 等
+  players: DartsCsMatchPlayer[];
+  status: DartsCsMatchStatus;
+}
+
+export interface DartsCsRound {
+  type: DartsCsRoundType;
+  label: string;
+  matches: DartsCsMatch[];
+  /** 次ラウンドへ不戦で進む者（round1=上位4シード、以降=端数）。 */
+  byes?: DartsCsMatchPlayer[];
+}
+
+/** dartsCsEvents/{id}。シーズンに1つ。eventDate=締切日（到来で自動ブラケット生成）。 */
+export interface DartsCsEvent {
+  csEventId: string;
+  seasonId: string;
+  name: string;
+  eventDate: string; // YYYY-MM-DD（エントリー締切＝自動生成の起点）
+  status: DartsCsStatus;
+  entrants: DartsCsEntrant[];
+  rounds: DartsCsRound[];
+  championId?: string | null;
+  /** 決勝の金銀銅（lineUserId）。 */
+  podium?: { gold?: string | null; silver?: string | null; bronze?: string | null };
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── 参加・スケジュール・参加費（麻雀 entries を流用） ────────────────────────
 
 export type DartsPaymentStatus = "pending" | "paid" | "cancelRequested";
