@@ -7,6 +7,7 @@ import type { NufEvent, NewsItem, ScoreboardGameId } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import { isGamesOnlyRole } from "@/lib/roles";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
+import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -26,13 +27,12 @@ const EMPTY_NEWS: NewsItem[] = [];
 export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
-  // 麻雀参加費のSquare決済からの戻り（?mjpay=）は「ゲーム」タブを開く
-  //（MahjongLeagueView が ?mjpay を確定処理し「支払い完了」バナーを表示する）。
+  // 参加費のSquare決済からの戻り（?mjpay= / ?dartspay=）は「ゲーム」タブを開く
+  //（各 LeagueView が確定処理し「支払い完了」バナーを表示する）。
   useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      new URL(window.location.href).searchParams.has("mjpay")
-    ) {
+    if (typeof window === "undefined") return;
+    const params = new URL(window.location.href).searchParams;
+    if (params.has("mjpay") || params.has("dartspay")) {
       setActiveTab("games");
     }
   }, []);
@@ -441,6 +441,8 @@ function GamesTab() {
 
       {gameCategory === "mahjong" ? (
             <MahjongLeagueView />
+          ) : gameCategory === "darts" ? (
+            <DartsLeagueView />
           ) : (
             <>
               {/* 期間切替 + 月ナビ */}
