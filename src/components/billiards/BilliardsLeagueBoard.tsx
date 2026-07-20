@@ -4,19 +4,16 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { GamePlayerHistorySheet } from "@/components/GamePlayerHistorySheet";
-import { BilliardsBoard } from "@/components/billiards/BilliardsBoard";
+import { BilliardsTierBoard } from "@/components/billiards/BilliardsTierBoard";
 import { BILLIARDS_ACCENT, BILLIARDS_TIER } from "@/components/billiards/billiardsShared";
 
-const TIER_INDEX: Record<Tier, 1 | 2 | 3> = { B1: 1, B2: 2, B3: 3 };
-
 /**
- * ビリヤードリーグ LEAGUE BOARD（ダーツ DartsLeagueBoard の読み替え・tier B1/B2/B3）。
- * 黒ヒーロー＋8ボール（自分tierのパルス）＋凡例、ビューアーバンド、階層ランキング、フォーマット、脚注。
- * データは /api/billiards/standings。順位行タップで戦歴シート。スパークライン＝通算pt推移。
+ * ビリヤードリーグ LEAGUE BOARD。フェルト緑のティア横並び（B1/B2/B3を選手ボールで表示）を
+ * ヒーローに、ビューアーバンド、階層ランキング（通算pt＋スパークライン）、フォーマット、脚注。
+ * データは /api/billiards/standings。ボール/順位行タップで戦歴シート。
  */
 
 type Tier = "B1" | "B2" | "B3";
-const GOLD = "#e6bd52";
 
 interface Standing {
   rank: number;
@@ -36,11 +33,7 @@ interface Resp { standings: Standing[]; me: Me | null; counts: { B1: number; B2:
 export function BilliardsLeagueBoard() {
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(true);
-  const [animate, setAnimate] = useState(true);
   const [historyId, setHistoryId] = useState<string | null>(null);
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) setAnimate(false);
-  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -57,28 +50,12 @@ export function BilliardsLeagueBoard() {
 
   const standings = data?.standings ?? [];
   const me = data?.me ?? null;
-  const counts = data?.counts ?? { B1: 0, B2: 0, B3: 0 };
   const meStanding = standings.find((s) => s.isMe) ?? null;
 
   return (
     <div className="flex flex-col gap-[14px]">
-      {/* Hero（LEAGUE BOARD 的・ハンドオフ準拠の台紙） */}
-      <div
-        className="relative flex flex-col items-center gap-[8px] rounded-[22px] px-4 pt-[16px] pb-4 overflow-hidden"
-        style={{ background: "radial-gradient(120% 90% at 50% 26%, #2b3134, #17191b)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06), inset 0 0 60px rgba(0,0,0,.3)" }}
-      >
-        <button type="button" onClick={() => setAnimate((v) => !v)} aria-label={animate ? "アニメーションを止める" : "アニメーションを再生"} className="absolute top-3 right-3 z-10 grid place-items-center rounded-full text-white/70 hover:text-white transition-colors" style={{ width: 26, height: 26, background: "rgba(255,255,255,0.08)" }}>
-          {animate ? <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg> : <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z" /></svg>}
-        </button>
-        <div className="text-[11px] font-extrabold tracking-[0.22em]" style={{ color: GOLD }}>LEAGUE BOARD</div>
-        <div className="text-[11px] text-white/55 -mt-1">エイトボール 1対1 リーグ</div>
-        <BilliardsBoard meTier={meStanding ? TIER_INDEX[meStanding.tier] : null} animate={animate} />
-        <div className="flex gap-[18px] items-center pt-1 flex-wrap justify-center">
-          <Legend tier="B1" count={counts.B1} you={meStanding?.tier === "B1"} />
-          <Legend tier="B2" count={counts.B2} you={meStanding?.tier === "B2"} />
-          <Legend tier="B3" count={counts.B3} you={meStanding?.tier === "B3"} />
-        </div>
-      </div>
+      {/* Hero: フェルト緑のティア横並び（選手ボール） */}
+      <BilliardsTierBoard standings={standings} onSelect={setHistoryId} />
 
       {/* Viewer band */}
       {me && meStanding && (
@@ -135,16 +112,6 @@ export function BilliardsLeagueBoard() {
       <p className="px-0.5 text-[11px] text-[#97999d] leading-[1.6]">順位は各試合の獲得ptを通算。同ptの場合は勝利数 → 対戦数 → 名前順。</p>
 
       {historyId && <GamePlayerHistorySheet lineUserId={historyId} gameCategory="billiards" accent={BILLIARDS_ACCENT} onClose={() => setHistoryId(null)} />}
-    </div>
-  );
-}
-
-function Legend({ tier, count, you }: { tier: Tier; count: number; you: boolean }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="inline-block rotate-45 rounded-[2px]" style={{ width: 10, height: 10, background: BILLIARDS_TIER[tier].color, boxShadow: "0 0 0 1px rgba(255,255,255,.35)" }} />
-      <span className="text-[11px] font-bold text-white/95">{tier}</span>
-      <span className="text-[11px] text-white/60">{count}名{you && <span className="font-black" style={{ color: "#e8ce86" }}> ・ あなた</span>}</span>
     </div>
   );
 }
