@@ -558,7 +558,7 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
         <span className="text-[10px] font-bold text-[#3c4f54] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
       <div className="flex flex-col gap-1.5">
-        {day.cricketTeams.map((team, i) => {
+        {(day.cricketTeams ?? []).map((team, i) => {
           const val = teamValue.get(team.teamId);
           const reported = teamValue.has(team.teamId);
           return (

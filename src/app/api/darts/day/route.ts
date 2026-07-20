@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
           paidCount: roster.length,
           events: null,
           zeroOneVariant: null,
-          cricketTeams: null,
+          cricketTeams: [],
         },
         { headers: { "Cache-Control": "no-store" } }
       );

@@ -60,7 +60,7 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
 
   const events = day?.events ?? null;
   const activeEvent = events?.find((e) => e.status === "reporting") ?? null;
-  const myTeam = day?.cricketTeams.find((t) => t.isMine) ?? null;
+  const myTeam = day?.cricketTeams?.find((t) => t.isMine) ?? null;
 
   // 参加者としての当日カード（GM でも参加者なら申告できる）。
   const body = (() => {
