@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
       const p = profiles.get(s.uid);
       return {
         rank,
+        lineUserId: s.uid, // 戦歴を開くため（ログイン必須の公開競技データ）
         displayName: p?.displayName ?? "ユーザー",
         pictureUrl: p?.pictureUrl ?? "",
         totalPt: s.totalPt,

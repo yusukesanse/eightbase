@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import { GamePlayerHistorySheet } from "@/components/GamePlayerHistorySheet";
+import { DARTS_ACCENT } from "@/components/darts/dartsShared";
 
 /**
  * ダーツリーグ「LEAGUE BOARD」（Figma 案1b・node 62:49 準拠）。
@@ -22,6 +24,7 @@ const GOLD = "#e6bd52";
 
 interface Standing {
   rank: number;
+  lineUserId: string;
   displayName: string;
   pictureUrl?: string;
   totalPt: number;
@@ -43,6 +46,8 @@ export function DartsLeagueBoard() {
   const [loading, setLoading] = useState(true);
   // 盤面アニメーション（回転＋自分マーカーのフロート/パルス）。既定ON・reduced-motion はOFF。
   const [animate, setAnimate] = useState(true);
+  // タップした選手の戦歴（ボトムシート）。
+  const [historyId, setHistoryId] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setAnimate(false);
@@ -154,7 +159,7 @@ export function DartsLeagueBoard() {
                   <div className="flex-1 h-px bg-[#eceff1]" />
                 </div>
                 {rows.map((s) => (
-                  <RankRow key={s.rank} s={s} tierColor={TIER[tier].color} />
+                  <RankRow key={s.rank} s={s} tierColor={TIER[tier].color} onSelect={setHistoryId} />
                 ))}
               </div>
             );
@@ -173,6 +178,15 @@ export function DartsLeagueBoard() {
       <p className="px-0.5 text-[11px] text-[#97999d] leading-[1.6]">
         順位は各ゲームの着順ptを通算。同ptの場合は1位回数 → 出場数 → 名前順。
       </p>
+
+      {historyId && (
+        <GamePlayerHistorySheet
+          lineUserId={historyId}
+          gameCategory="darts"
+          accent={DARTS_ACCENT}
+          onClose={() => setHistoryId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -189,11 +203,13 @@ function LegendItem({ tier, count, you }: { tier: Tier; count: number; you: bool
   );
 }
 
-function RankRow({ s, tierColor }: { s: Standing; tierColor: string }) {
+function RankRow({ s, tierColor, onSelect }: { s: Standing; tierColor: string; onSelect: (id: string) => void }) {
   const topThree = s.rank <= 3;
   return (
-    <div
-      className="flex items-center gap-2.5 rounded-[14px] px-3 py-2.5"
+    <button
+      type="button"
+      onClick={() => onSelect(s.lineUserId)}
+      className="w-full text-left flex items-center gap-2.5 rounded-[14px] px-3 py-2.5 active:scale-[0.99] transition-transform"
       style={
         s.isMe
           ? { border: `1.5px solid ${tierColor}`, background: `color-mix(in srgb, ${tierColor} 8%, #fff)` }
@@ -214,7 +230,7 @@ function RankRow({ s, tierColor }: { s: Standing; tierColor: string }) {
         <span className="text-[16px] font-black text-[#1c1f21] tabular-nums">{s.totalPt}</span>
         <span className="text-[9.5px] font-bold text-[#97999d]">pt</span>
       </div>
-    </div>
+    </button>
   );
 }
 
