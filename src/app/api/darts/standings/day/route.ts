@@ -35,14 +35,17 @@ export async function GET(req: NextRequest) {
         lineUserId: x.lineUserId as string,
         totalPt: Number(x.totalScore) || 0,
         details: (x.details ?? {}) as DartsScoreDetails,
+        displayName: (x.displayName as string) || "",
+        pictureUrl: (x.pictureUrl as string) || "",
       };
     });
 
-    // プロフィール一括取得。
-    const uids = rows.map((r) => r.lineUserId);
+    // プロフィール: 埋め込み優先。無い分だけ users を join。
     const profiles = new Map<string, { displayName: string; pictureUrl?: string }>();
-    for (let i = 0; i < uids.length; i += 30) {
-      const batch = uids.slice(i, i + 30);
+    rows.forEach((r) => { if (r.displayName) profiles.set(r.lineUserId, { displayName: r.displayName, pictureUrl: r.pictureUrl }); });
+    const missing = rows.map((r) => r.lineUserId).filter((u) => !profiles.has(u));
+    for (let i = 0; i < missing.length; i += 30) {
+      const batch = missing.slice(i, i + 30);
       if (batch.length === 0) continue;
       const us = await getDb().collection("users").where("lineUserId", "in", batch).get();
       us.docs.forEach((doc) => {

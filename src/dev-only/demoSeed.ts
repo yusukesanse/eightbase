@@ -238,7 +238,12 @@ export async function seedDemoParticipants(seasonId: string): Promise<Record<str
  */
 export async function clearDemoParticipants(): Promise<Record<string, number>> {
   const db = getDb();
-  const collections = ["mahjongEntries", "mahjongTables", "mahjongSchedule", "mahjongCsEvents", "mahjongDayState"];
+  const collections = [
+    "mahjongEntries", "mahjongTables", "mahjongSchedule", "mahjongCsEvents", "mahjongDayState",
+    // ダーツのダミーも同じ demoDummy タグで一括削除。
+    "dartsEntries", "dartsSchedule", "dartsCsEvents", "dartsDayState", "dartsCancelledDates",
+    "scores", "games",
+  ];
   const result: Record<string, number> = {};
 
   for (const col of collections) {

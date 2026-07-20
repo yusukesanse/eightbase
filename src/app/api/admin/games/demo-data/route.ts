@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { isProduction } from "@/lib/env";
+import { getDb } from "@/lib/firebaseAdmin";
 import { seedDemoParticipants, clearDemoParticipants } from "@/dev-only/demoSeed";
+import { seedDemoDartsParticipants } from "@/dev-only/dartsDemoSeed";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +34,14 @@ export async function POST(req: NextRequest) {
     if (!seasonId || typeof seasonId !== "string") {
       return NextResponse.json({ error: "seasonId が必要です" }, { status: 400 });
     }
-    const summary = await seedDemoParticipants(seasonId);
-    return NextResponse.json({ success: true, summary });
+    // シーズンの種目で投入内容を分岐（darts ならダーツ用ダミー）。
+    const seasonDoc = await getDb().collection("seasons").doc(seasonId).get();
+    const category = seasonDoc.data()?.gameCategory;
+    const summary =
+      category === "darts"
+        ? await seedDemoDartsParticipants(seasonId)
+        : await seedDemoParticipants(seasonId);
+    return NextResponse.json({ success: true, category: category ?? "mahjong", summary });
   } catch (error) {
     console.error("[admin/games/demo-data] POST error:", error);
     return NextResponse.json({ error: "ダミー投入に失敗しました" }, { status: 500 });

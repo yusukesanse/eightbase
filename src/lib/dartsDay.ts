@@ -449,13 +449,18 @@ export async function finishDartsDay(
     );
 
     // 参加者ごとに scores を決定的 docId で upsert。
+    // displayName/pictureUrl を非正規化して持たせる（ランキングは users join に依存せず自己完結）。
+    const memberById = new Map(day.participants.map((p) => [p.lineUserId, p]));
     for (const s of scores) {
+      const m = memberById.get(s.lineUserId);
       tx.set(
         db.collection("scores").doc(`${gameId}-${s.lineUserId}`),
         {
           gameId,
           gameCategory: "darts",
           lineUserId: s.lineUserId,
+          displayName: m?.displayName ?? "",
+          pictureUrl: m?.pictureUrl ?? "",
           seasonId,
           yearMonth,
           totalScore: s.totalScore,

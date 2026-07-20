@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     // series は開催日順の推移（スパークライン用）: {date, pt(その日のpt)}。
     const agg = new Map<string, { totalPt: number; games: number; firsts: number }>();
     const series = new Map<string, { date: string; pt: number }[]>();
+    // score doc に埋め込まれた displayName/pictureUrl（非正規化）を拾う。無い分だけ users を join。
+    const embedded = new Map<string, { displayName: string; pictureUrl?: string }>();
     for (const d of snap.docs) {
       const x = d.data();
       if (x.gameCategory !== "darts") continue;
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest) {
       const s = series.get(uid) ?? [];
       s.push({ date: (x.playedAt as string) ?? (x.yearMonth as string) ?? "", pt });
       series.set(uid, s);
+      if (x.displayName && !embedded.has(uid)) embedded.set(uid, { displayName: x.displayName, pictureUrl: x.pictureUrl });
     }
 
     // 開催日昇順に累積ptの推移を作る（スパークライン）。
@@ -53,11 +56,12 @@ export async function GET(req: NextRequest) {
       return s.map((x) => (acc += x.pt));
     };
 
-    // プロフィール（displayName / pictureUrl）を users から一括取得。
+    // プロフィール: 埋め込み優先。無い分だけ users から一括取得。
     const uids = Array.from(agg.keys());
-    const profiles = new Map<string, { displayName: string; pictureUrl?: string }>();
-    for (let i = 0; i < uids.length; i += 30) {
-      const batch = uids.slice(i, i + 30);
+    const profiles = new Map<string, { displayName: string; pictureUrl?: string }>(embedded);
+    const missing = uids.filter((u) => !profiles.has(u));
+    for (let i = 0; i < missing.length; i += 30) {
+      const batch = missing.slice(i, i + 30);
       if (batch.length === 0) continue;
       const us = await getDb().collection("users").where("lineUserId", "in", batch).get();
       us.docs.forEach((doc) => {

@@ -22,13 +22,14 @@ export default function DemoDataPage() {
     fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => {
-        const mahjong: Season[] = (d.seasons ?? []).filter(
-          (s: Season) => s.gameCategory === "mahjong" || !s.gameCategory
+        // 麻雀・ダーツの当日フロー付きシーズンを対象にする（種目で投入内容が分岐）。
+        const list: Season[] = (d.seasons ?? []).filter(
+          (s: Season) => s.gameCategory === "mahjong" || s.gameCategory === "darts" || !s.gameCategory
         );
-        setSeasons(mahjong);
+        setSeasons(list);
         // 既定は開催中(active)→なければ先頭
-        const active = mahjong.find((s) => s.active);
-        setSeasonId(active?.seasonId ?? mahjong[0]?.seasonId ?? "");
+        const active = list.find((s) => s.active);
+        setSeasonId(active?.seasonId ?? list[0]?.seasonId ?? "");
       })
       .catch(() => setMsg({ ok: false, text: "シーズンの取得に失敗しました" }))
       .finally(() => setLoading(false));
@@ -110,7 +111,7 @@ export default function DemoDataPage() {
         <div className="mt-6 text-sm text-[#231714]/80">読み込み中...</div>
       ) : seasons.length === 0 ? (
         <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-[#231714]/85">
-          先に「シーズン」タブで麻雀シーズンを作成してください。
+          先に「シーズン」タブで麻雀またはダーツのシーズンを作成してください。
         </div>
       ) : (
         <div className="mt-5 space-y-5">
@@ -125,7 +126,7 @@ export default function DemoDataPage() {
             >
               {seasons.map((s) => (
                 <option key={s.seasonId} value={s.seasonId}>
-                  {s.name || s.seasonId}
+                  [{s.gameCategory === "darts" ? "ダーツ" : "麻雀"}] {s.name || s.seasonId}
                   {s.active ? "（開催中）" : ""}
                 </option>
               ))}
