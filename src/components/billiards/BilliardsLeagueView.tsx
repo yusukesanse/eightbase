@@ -6,6 +6,7 @@ import { completeBilliardsEntryPayment } from "@/lib/billiardsPayment";
 import { BilliardsLeagueBoard } from "@/components/billiards/BilliardsLeagueBoard";
 import { BilliardsJoinTab } from "@/components/billiards/BilliardsJoinTab";
 import { BilliardsMatchLogTab } from "@/components/billiards/BilliardsMatchLogTab";
+import { BilliardsCsView } from "@/components/billiards/BilliardsCsView";
 import { BilliardsRulesTab } from "@/components/billiards/BilliardsRulesTab";
 import { BILLIARDS_ACCENT } from "@/components/billiards/billiardsShared";
 import type { BilliardsPaymentStatus, BilliardsScheduleEntry } from "@/types/billiards";
@@ -15,7 +16,7 @@ import type { BilliardsPaymentStatus, BilliardsScheduleEntry } from "@/types/bil
  * タブ: リーグ / 参加 / 対戦記録 / ルール・約款。（CS は P5 で追加）
  */
 
-type SubTab = "league" | "join" | "match" | "rules";
+type SubTab = "league" | "join" | "match" | "cs" | "rules";
 
 export function BilliardsLeagueView() {
   const [subTab, setSubTab] = useState<SubTab>("league");
@@ -92,6 +93,7 @@ export function BilliardsLeagueView() {
           { id: "league", label: "リーグ" },
           { id: "join", label: "参加" },
           { id: "match", label: "対戦記録" },
+          { id: "cs", label: "CS" },
           { id: "rules", label: "ルール/約款" },
         ] as { id: SubTab; label: string }[]).map((t) => (
           <button
@@ -120,6 +122,8 @@ export function BilliardsLeagueView() {
         />
       ) : subTab === "match" ? (
         <BilliardsMatchLogTab onChanged={() => loadCore(true)} />
+      ) : subTab === "cs" ? (
+        <BilliardsCsView />
       ) : (
         <BilliardsRulesTab />
       )}

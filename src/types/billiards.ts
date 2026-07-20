@@ -154,6 +154,7 @@ export interface BilliardsCsMatchPlayer {
   displayName: string;
   pictureUrl?: string;
   won: boolean | null; // 勝者申告で確定（null=未確定）
+  rank?: number; // シード判定用のリーグ順位（内部・再シードで使用）
 }
 
 export interface BilliardsCsMatch {
