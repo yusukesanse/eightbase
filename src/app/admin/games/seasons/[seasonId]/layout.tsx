@@ -24,20 +24,26 @@ export default function SeasonDetailLayout({
       .catch(() => {});
   }, [seasonId]);
 
-  // 種目でタブを出し分ける。ランキング/返金/監査は麻雀専用の管理UI（ダーツ/ビリヤードは未提供）。
+  // 種目でタブを出し分ける。ランキング/返金/監査は全ゲーム共通（CSのみ種目別ルート）。
   const isDarts = season?.gameCategory === "darts";
   const isBilliards = season?.gameCategory === "billiards";
   const TABS = isDarts
     ? [
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
+        { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
         { href: `/admin/games/seasons/${seasonId}/darts-cs`, label: "CS" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ]
     : isBilliards
     ? [
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
+        { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
         { href: `/admin/games/seasons/${seasonId}/billiards-cs`, label: "CS" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ]
     : [
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },

@@ -3,6 +3,7 @@ import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { cancelBilliardsDay } from "@/lib/billiardsDay";
 import { isValidBilliardsDate } from "@/lib/billiardsEntryValidation";
+import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
     const result = await cancelBilliardsDay(season.seasonId, eventDate, userId);
     if (result.status === "finished") return NextResponse.json({ error: "本日は終了済みのため中止できません" }, { status: 409 });
     if (result.status === "already") return NextResponse.json({ success: true, already: true });
+    await writeAuditLog({ eventType: "day.cancelled", gameCategory: "billiards", actor: userId, target: { date: eventDate } });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[billiards/day/cancel] POST error:", error);

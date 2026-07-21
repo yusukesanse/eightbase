@@ -3,6 +3,7 @@ import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { startDartsDay } from "@/lib/dartsDay";
 import { isValidDartsDate } from "@/lib/dartsEntryValidation";
+import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
     const result = await startDartsDay(season.seasonId, eventDate, userId);
     if (!result.ok) {
       return NextResponse.json({ error: result.error, paidCount: result.paidCount }, { status: 400 });
+    }
+    if (!result.already) {
+      await writeAuditLog({ eventType: "day.started", gameCategory: "darts", actor: userId, target: { date: eventDate }, meta: { paidCount: result.paidCount } });
     }
     return NextResponse.json({ success: true, already: result.already, paidCount: result.paidCount });
   } catch (error) {

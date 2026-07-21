@@ -2,18 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+/**
+ * ゲーム参加費の返金対応（麻雀/ダーツ/ビリヤード共通）。全シーズン横断。
+ * キャンセル依頼(未対応)を Square で手動返金→「返金済」、応じない場合は「却下」。操作は監査ログに記録。
+ * エンドポイントは種目別（/api/admin/{gameCategory}/refunds・/refund）。
+ */
+
 interface RefundItem {
   entryId: string;
   eventDate: string;
   displayName: string;
   amount: number;
   state: "pending" | "refunded" | "rejected";
-  forfeit: boolean;          // 流会（人数不足の自動中止）由来か
-  orderId: string | null;    // Square 注文ID（手動返金で使う）
+  forfeit: boolean;
+  orderId: string | null;
   cancelRequestedAt: string | null;
   refundProcessedAt: string | null;
   refundProcessedBy: string | null;
 }
+
+type GameCategory = "mahjong" | "darts" | "billiards";
+const GAME_NAME: Record<GameCategory, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード" };
 
 const STATE_LABEL: Record<RefundItem["state"], { text: string; color: string; bg: string }> = {
   pending: { text: "未対応", color: "#a1502c", bg: "#fff4ec" },
@@ -21,7 +30,6 @@ const STATE_LABEL: Record<RefundItem["state"], { text: string; color: string; bg
   rejected: { text: "却下", color: "#5f6266", bg: "#f1f3f4" },
 };
 
-// ISO → "MM/DD HH:mm"（JST表示）。null は "-"。
 const fmt = (iso: string | null) => {
   if (!iso) return "-";
   const d = new Date(iso);
@@ -29,7 +37,7 @@ const fmt = (iso: string | null) => {
   return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-export default function MahjongRefundsPanel() {
+export default function GameRefundsPanel({ gameCategory }: { gameCategory: GameCategory }) {
   const [items, setItems] = useState<RefundItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingOnly, setPendingOnly] = useState(true);
@@ -38,21 +46,19 @@ export default function MahjongRefundsPanel() {
 
   const load = useCallback(
     () =>
-      fetch("/api/admin/mahjong/refunds", { credentials: "same-origin" })
+      fetch(`/api/admin/${gameCategory}/refunds`, { credentials: "same-origin" })
         .then((r) => r.json())
         .then((d) => setItems(d.items ?? []))
         .catch(() => {})
         .finally(() => setLoading(false)),
-    []
+    [gameCategory]
   );
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   async function act(entryId: string, action: "refund" | "reject") {
     if (busy) return;
     setBusy(entryId);
-    await fetch("/api/admin/mahjong/refund", {
+    await fetch(`/api/admin/${gameCategory}/refund`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
@@ -70,7 +76,7 @@ export default function MahjongRefundsPanel() {
 
   return (
     <div className="p-5 max-w-3xl">
-      <h1 className="text-lg font-bold text-[#231714] mb-1">麻雀 返金対応</h1>
+      <h1 className="text-lg font-bold text-[#231714] mb-1">{GAME_NAME[gameCategory]} 返金対応</h1>
       <p className="text-sm text-[#231714]/80 mb-4">
         キャンセル依頼（未対応）を Square で <b>1件ずつ手動返金</b>したら「返金済」に、応じない場合は「却下」にします。
         操作は監査ログに記録されます。未対応 <b>{pendingCount}</b> 件（うち流会 <b>{forfeitPendingCount}</b> 件）。
@@ -83,7 +89,7 @@ export default function MahjongRefundsPanel() {
         </label>
         <label className="inline-flex items-center gap-2 text-sm text-[#231714]/85">
           <input type="checkbox" checked={forfeitOnly} onChange={(e) => setForfeitOnly(e.target.checked)} />
-          流会（人数不足）のみ表示
+          流会（人数不足/中止）のみ表示
         </label>
       </div>
 

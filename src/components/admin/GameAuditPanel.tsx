@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AUDIT_EVENT_LABEL, auditEventLabel, auditStatusLabel } from "@/lib/auditLabels";
+
+/**
+ * ゲーム運用の監査ログ（麻雀/ダーツ/ビリヤード共通）。
+ * 種別は日本語ラベル＋補足説明で表示し、状態遷移も日本語化（可視性重視）。
+ */
 
 interface AuditLog {
   id: string;
@@ -13,19 +19,8 @@ interface AuditLog {
   createdAt: string;
 }
 
-const LABEL: Record<string, { text: string; color: string }> = {
-  "payment.cancelRequested": { text: "キャンセル依頼", color: "#a1502c" },
-  "refund.refunded": { text: "返金", color: "#2f7d57" },
-  "refund.rejected": { text: "却下", color: "#5f6266" },
-  "schedule.closed": { text: "休催化", color: "#c0563c" },
-  "schedule.reopened": { text: "休催解除", color: "#1172a5" },
-  "cs.generated": { text: "CS自動生成", color: "#1172a5" },
-  "cs.matchEdited": { text: "CS結果修正", color: "#a1502c" },
-  "cs.reset": { text: "CSリセット", color: "#c0563c" },
-  "table.completed": { text: "卓確定", color: "#40434a" },
-  "day.advanced": { text: "進行(抜け番)", color: "#1172a5" },
-  "day.reset": { text: "当日リセット", color: "#c0563c" },
-};
+type GameCategory = "mahjong" | "darts" | "billiards";
+const GAME_NAME: Record<GameCategory, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード" };
 
 const fmt = (iso: string) => {
   const d = new Date(iso);
@@ -34,31 +29,30 @@ const fmt = (iso: string) => {
 };
 
 const targetText = (t?: AuditLog["target"]) =>
-  [t?.date && `日:${t.date}`, t?.entryId && `entry:${t.entryId}`, t?.tableId && `卓:${t.tableId}`].filter(Boolean).join(" / ") || "-";
+  [t?.date && `開催日 ${t.date}`, t?.entryId && `参加ID ${t.entryId}`, t?.tableId && `卓 ${t.tableId}`].filter(Boolean).join(" / ") || "—";
 
-export default function MahjongAuditPanel() {
+export default function GameAuditPanel({ gameCategory }: { gameCategory: GameCategory }) {
   const [items, setItems] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
 
   const load = useCallback(
     () =>
-      fetch(`/api/admin/mahjong/audit-logs${filter ? `?eventType=${filter}` : ""}`, { credentials: "same-origin" })
+      fetch(`/api/admin/games/audit-logs?gameCategory=${gameCategory}${filter ? `&eventType=${filter}` : ""}`, { credentials: "same-origin" })
         .then((r) => r.json())
         .then((d) => setItems(d.items ?? []))
         .catch(() => {})
         .finally(() => setLoading(false)),
-    [filter]
+    [filter, gameCategory]
   );
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="p-5 max-w-4xl">
-      <h1 className="text-lg font-bold text-[#231714] mb-1">麻雀 監査ログ</h1>
+      <h1 className="text-lg font-bold text-[#231714] mb-1">{GAME_NAME[gameCategory]} 監査ログ</h1>
       <p className="text-sm text-[#231714]/80 mb-4">
-        返金・キャンセル・休催化・進行確定・卓確定の操作履歴（新しい順）。卓確定に <b>⚠️</b> は自己申告の異常検知フラグです。
+        返金・キャンセル・休催化・GM当日フロー（ゲーム開始／中止／本日終了 等）の操作履歴（新しい順）。
+        種別は日本語で表示します。
       </p>
 
       <div className="flex items-center gap-2 mb-3">
@@ -68,10 +62,8 @@ export default function MahjongAuditPanel() {
           className="text-sm border border-[#231714]/15 rounded-lg px-2 py-1.5 bg-white"
         >
           <option value="">すべての種別</option>
-          {Object.entries(LABEL).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.text}
-            </option>
+          {Object.entries(AUDIT_EVENT_LABEL).map(([k, v]) => (
+            <option key={k} value={k}>{v.text}</option>
           ))}
         </select>
         <span className="text-xs text-[#231714]/80">{items.length} 件</span>
@@ -89,27 +81,30 @@ export default function MahjongAuditPanel() {
             <thead>
               <tr className="text-left text-[11px] text-[#231714]/85 border-b border-[#231714]/10">
                 <th className="px-3 py-2">時刻</th>
-                <th className="px-3 py-2">種別</th>
+                <th className="px-3 py-2">操作（種別）</th>
                 <th className="px-3 py-2">実行者</th>
                 <th className="px-3 py-2">対象</th>
-                <th className="px-3 py-2">遷移</th>
+                <th className="px-3 py-2">状態の変化</th>
               </tr>
             </thead>
             <tbody>
               {items.map((it) => {
-                const l = LABEL[it.eventType] ?? { text: it.eventType, color: "#5f6266" };
+                const l = auditEventLabel(it.eventType);
                 const flagged = it.meta?.flagged === true;
                 return (
-                  <tr key={it.id} className="border-b border-[#231714]/5 last:border-0">
+                  <tr key={it.id} className="border-b border-[#231714]/5 last:border-0 align-top">
                     <td className="px-3 py-2 text-[11px] text-[#231714]/80 tabular-nums whitespace-nowrap">{fmt(it.createdAt)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <span className="text-[11px] font-black" style={{ color: l.color }}>{l.text}</span>
-                      {flagged && <span title={String(it.meta?.reason ?? "")}> ⚠️</span>}
+                    <td className="px-3 py-2 min-w-[180px]">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-black px-1.5 py-0.5 rounded" style={{ color: l.color, background: `color-mix(in srgb, ${l.color} 12%, #fff)` }}>{l.text}</span>
+                        {flagged && <span title={String(it.meta?.reason ?? "")}>⚠️</span>}
+                      </div>
+                      {l.desc && <div className="text-[10.5px] text-[#231714]/65 mt-0.5 leading-snug">{l.desc}</div>}
                     </td>
                     <td className="px-3 py-2 text-[11px] text-[#231714]/85 max-w-[160px] truncate">{it.actor}</td>
                     <td className="px-3 py-2 text-[11px] text-[#231714]/80">{targetText(it.target)}</td>
-                    <td className="px-3 py-2 text-[11px] text-[#231714]/80">
-                      {it.beforeStatus || it.afterStatus ? `${it.beforeStatus ?? "-"} → ${it.afterStatus ?? "-"}` : "-"}
+                    <td className="px-3 py-2 text-[11px] text-[#231714]/80 whitespace-nowrap">
+                      {it.beforeStatus || it.afterStatus ? `${auditStatusLabel(it.beforeStatus)} → ${auditStatusLabel(it.afterStatus)}` : "—"}
                     </td>
                   </tr>
                 );

@@ -5,6 +5,7 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { notifyAdmin } from "@/lib/adminNotify";
 import { canCancelMahjong, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import { canTransition, deriveStatus } from "@/lib/billiardsEntryStatus";
+import { writeAuditLog } from "@/lib/auditLog";
 import { isValidBilliardsDate, buildBilliardsEntryId } from "@/lib/billiardsEntryValidation";
 import type { BilliardsEntry } from "@/types/billiards";
 import dayjs from "dayjs";
@@ -56,6 +57,15 @@ export async function POST(req: NextRequest) {
       { status: "cancelRequested", paymentStatus: "cancelRequested", cancelRequestedAt: nowIso, updatedAt: nowIso },
       { merge: true }
     );
+
+    await writeAuditLog({
+      eventType: "payment.cancelRequested",
+      gameCategory: "billiards",
+      actor: userId,
+      target: { entryId, date: eventDate },
+      beforeStatus: from,
+      afterStatus: "cancelRequested",
+    });
 
     await notifyAdmin(
       "billiards_refund",

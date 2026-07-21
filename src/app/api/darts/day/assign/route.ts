@@ -3,6 +3,7 @@ import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { assignCricketTeams } from "@/lib/dartsDay";
 import { isValidDartsDate, isValidDocId } from "@/lib/dartsEntryValidation";
+import { writeAuditLog } from "@/lib/auditLog";
 import type { DartsTeam } from "@/types/darts";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
   try {
     const result = await assignCricketTeams(season.seasonId, eventDate, teams);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    await writeAuditLog({ eventType: "day.manual_assigned", gameCategory: "darts", actor: userId, target: { date: eventDate }, meta: { teams: teams.length } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[darts/day/assign] POST error:", error);

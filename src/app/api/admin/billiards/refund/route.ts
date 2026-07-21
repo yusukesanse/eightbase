@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { canTransition, deriveStatus, type DartsEntryStatus } from "@/lib/dartsEntryStatus";
+import { canTransition, deriveStatus, type BilliardsEntryStatus } from "@/lib/billiardsEntryStatus";
 import { writeAuditLog } from "@/lib/auditLog";
-import type { DartsEntry } from "@/types/darts";
+import type { BilliardsEntry } from "@/types/billiards";
 
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/admin/darts/refund  Body: { entryId, action: "refund" | "reject" }
+ * POST /api/admin/billiards/refund  Body: { entryId, action: "refund" | "reject" }
  * キャンセル依頼(cancelRequested)を処理する。返金=refunded / 却下=cancelRejected(参加継続)。
  */
 export async function POST(req: NextRequest) {
@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
-  const ref = db.collection("dartsEntries").doc(entryId);
+  const ref = db.collection("billiardsEntries").doc(entryId);
   const snap = await ref.get();
   if (!snap.exists) return NextResponse.json({ error: "エントリーが見つかりません" }, { status: 404 });
 
-  const from = deriveStatus(snap.data() as DartsEntry);
-  const to: DartsEntryStatus = action === "refund" ? "refunded" : "cancelRejected";
+  const from = deriveStatus(snap.data() as BilliardsEntry);
+  const to: BilliardsEntryStatus = action === "refund" ? "refunded" : "cancelRejected";
   if (!canTransition(from, to)) {
     return NextResponse.json({ error: `不正な状態遷移: ${from} → ${to}` }, { status: 409 });
   }
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   await writeAuditLog({
     eventType: action === "refund" ? "refund.refunded" : "refund.rejected",
-    gameCategory: "darts",
+    gameCategory: "billiards",
     actor: admin,
     target: { entryId },
     beforeStatus: from,

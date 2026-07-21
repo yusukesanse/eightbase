@@ -1,9 +1,14 @@
 /**
- * 麻雀運用の監査ログを mahjongAuditLogs に一元記録する。
- * 状態変更API（返金/キャンセル/休催化/進行確定）は必ずここへ書き込む。
+ * ゲーム運用の監査ログを mahjongAuditLogs に一元記録する（種目は gameCategory で判別）。
+ * 状態変更API（返金/キャンセル/休催化/進行確定/GM当日フロー）は必ずここへ書き込む。
  * 監査は本処理を止めない（書き込み失敗はログのみ）。
+ * ※ 歴史的経緯でコレクション名は mahjongAuditLogs。種目は doc の gameCategory で分ける
+ *   （未設定の旧データは麻雀として扱う）。
  */
 import { getDb } from "@/lib/firebaseAdmin";
+
+/** 監査対象の種目。未指定は麻雀（後方互換）。 */
+export type AuditGameCategory = "mahjong" | "darts" | "billiards";
 
 export type AuditEventType =
   | "payment.cancelRequested" // 支払い済みのキャンセル依頼（利用者）
@@ -25,6 +30,8 @@ export type AuditEventType =
 
 export interface AuditLogInput {
   eventType: AuditEventType;
+  /** 種目。未指定は麻雀（後方互換）。監査パネルの絞り込みに使う。 */
+  gameCategory?: AuditGameCategory;
   actor: string; // 実行者: 管理者メール / 利用者 lineUserId / "system"
   target: { date?: string; entryId?: string; tableId?: string };
   beforeStatus?: string | null;
@@ -38,6 +45,7 @@ export async function writeAuditLog(input: AuditLogInput): Promise<void> {
       .collection("mahjongAuditLogs")
       .add({
         eventType: input.eventType,
+        gameCategory: input.gameCategory ?? "mahjong",
         actor: input.actor,
         target: input.target ?? {},
         beforeStatus: input.beforeStatus ?? null,

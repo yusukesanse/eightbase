@@ -3,6 +3,7 @@ import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { startBilliardsDay } from "@/lib/billiardsDay";
 import { isValidBilliardsDate } from "@/lib/billiardsEntryValidation";
+import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest) {
   try {
     const result = await startBilliardsDay(season.seasonId, eventDate, userId);
     if (!result.ok) return NextResponse.json({ error: result.error, paidCount: result.paidCount }, { status: 400 });
+    if (!result.already) {
+      await writeAuditLog({ eventType: "day.started", gameCategory: "billiards", actor: userId, target: { date: eventDate }, meta: { paidCount: result.paidCount } });
+    }
     return NextResponse.json({ success: true, already: result.already, paidCount: result.paidCount });
   } catch (error) {
     console.error("[billiards/day/start] POST error:", error);

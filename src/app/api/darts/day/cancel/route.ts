@@ -3,6 +3,7 @@ import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { cancelDartsDay } from "@/lib/dartsDay";
 import { isValidDartsDate } from "@/lib/dartsEntryValidation";
+import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     if (result.status === "already") {
       return NextResponse.json({ success: true, already: true });
     }
+    await writeAuditLog({ eventType: "day.cancelled", gameCategory: "darts", actor: userId, target: { date: eventDate } });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("[darts/day/cancel] POST error:", error);

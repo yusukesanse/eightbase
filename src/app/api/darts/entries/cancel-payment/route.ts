@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
 
     await writeAuditLog({
       eventType: "payment.cancelRequested",
+      gameCategory: "darts",
       actor: userId,
       target: { entryId, date: eventDate },
       beforeStatus: from,
