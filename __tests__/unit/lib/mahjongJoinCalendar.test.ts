@@ -9,6 +9,8 @@ import {
   isMonthlyBlocked,
   isViewableDate,
   canJoinDate,
+  isMahjongEventDay,
+  isPastEventDate,
 } from "@/lib/mahjongJoinCalendar";
 
 // 2026-07 の土曜: 04, 11, 18, 25 / 平日例: 07-15(水)
@@ -24,6 +26,48 @@ const baseCtx = () => ({
   enteredDates: empty(),
   closedDates: empty(),
   cancelledDates: empty(),
+});
+
+// スケジュール駆動（管理者が任意日を登録）: 日曜開催などを想定。
+const SUN_FUTURE = "2026-07-19"; // 日曜
+const SUN_PAST = "2026-07-05"; // 過去の日曜
+
+describe("スケジュール駆動（scheduledDates 非空・曜日不問）", () => {
+  const schedCtx = (extra: Partial<ReturnType<typeof baseCtx>> = {}) => ({
+    ...baseCtx(),
+    scheduledDates: new Set([SUN_FUTURE, SUN_PAST, "2026-07-25"]),
+    ...extra,
+  });
+
+  test("isMahjongEventDay: スケジュールにある日のみ（日曜も可）", () => {
+    expect(isMahjongEventDay(SUN_FUTURE, schedCtx())).toBe(true);
+    expect(isMahjongEventDay(SAT_FUTURE, schedCtx())).toBe(false); // 土曜でも schedule 外は不可
+  });
+  test("isViewableDate/canJoinDate が日曜開催を許可", () => {
+    expect(isViewableDate(SUN_FUTURE, schedCtx())).toBe(true);
+    expect(canJoinDate(SUN_FUTURE, { ...schedCtx(), full: false })).toBe(true);
+    // schedule 外の土曜は不可
+    expect(isViewableDate(SAT_FUTURE, schedCtx())).toBe(false);
+    expect(canJoinDate(SAT_FUTURE, { ...schedCtx(), full: false })).toBe(false);
+  });
+  test("中止(cancelled)は不可・過去日は参加不可(閲覧のみ)", () => {
+    expect(canJoinDate(SUN_FUTURE, { ...schedCtx({ cancelledDates: new Set([SUN_FUTURE]) }), full: false })).toBe(false);
+    expect(isViewableDate(SUN_PAST, schedCtx())).toBe(true); // 過去でも閲覧可
+    expect(canJoinDate(SUN_PAST, { ...schedCtx(), full: false })).toBe(false); // 過去は参加不可
+  });
+  test("isPastEventDate: 過去の日曜開催も true", () => {
+    expect(isPastEventDate(SUN_PAST, schedCtx())).toBe(true);
+    expect(isPastEventDate(SUN_FUTURE, schedCtx())).toBe(false);
+  });
+});
+
+describe("未移行フォールバック（scheduledDates 空）＝従来の土曜", () => {
+  test("土曜のみ開催日・isPastEventDate は過去土曜のみ", () => {
+    expect(isMahjongEventDay(SAT_FUTURE, baseCtx())).toBe(true);
+    expect(isMahjongEventDay(SUN_FUTURE, baseCtx())).toBe(false);
+    expect(isPastEventDate(SAT_PAST, baseCtx())).toBe(true);
+    expect(isPastEventDate(SUN_PAST, baseCtx())).toBe(false);
+  });
 });
 
 describe("isSaturdayDate / isPastSaturday", () => {

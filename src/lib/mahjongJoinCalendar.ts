@@ -14,7 +14,7 @@ export function isSaturdayDate(dateStr: string): boolean {
   return new Date(`${dateStr}T12:00:00Z`).getUTCDay() === 6;
 }
 
-/** 終了した開催日（今日 JST より前の土曜）か。today は "YYYY-MM-DD"（JST）。 */
+/** 終了した開催日（今日 JST より前の土曜）か。today は "YYYY-MM-DD"（JST）。※旧・土曜前提。 */
 export function isPastSaturday(dateStr: string, today: string): boolean {
   return isSaturdayDate(dateStr) && dateStr < today;
 }
@@ -34,19 +34,35 @@ export interface JoinCalendarCtx {
   closedDates: Set<string>;
   /** 中止（流会）の日 */
   cancelledDates: Set<string>;
+  /** 管理者が登録した開催日（mahjongSchedule）。1件でもあればスケジュール駆動（曜日不問）。 */
+  scheduledDates?: Set<string>;
+}
+
+/**
+ * その日が「開催日」か（サーバーの resolveMahjongEventDate と同じ判定）。
+ * - スケジュール駆動（scheduledDates が非空）: その集合に含まれる日のみ（曜日不問＝日曜も可・休催は無視）。
+ * - 未移行（scheduledDates が空/未指定）: 毎週土曜 かつ 休催でない（従来どおり）。
+ */
+export function isMahjongEventDay(dateStr: string, ctx: JoinCalendarCtx): boolean {
+  const scheduled = ctx.scheduledDates;
+  if (scheduled && scheduled.size > 0) return scheduled.has(dateStr);
+  return isSaturdayDate(dateStr) && !ctx.closedDates.has(dateStr);
 }
 
 /**
  * カレンダーでタップ可か（＝参加者一覧・当日順位を閲覧できる）。
- * 参加日は曜日/過去に関わらず常に可。それ以外は「土曜」かつ「休催・中止でない」なら
- * 過去・未来を問わず閲覧可。土曜以外・休催・中止は不可。
+ * 参加日は常に可。それ以外は「開催日」かつ「中止でない」なら過去・未来を問わず閲覧可。
  */
 export function isViewableDate(dateStr: string, ctx: JoinCalendarCtx): boolean {
   if (ctx.enteredDates.has(dateStr)) return true;
-  if (!isSaturdayDate(dateStr)) return false;
-  if (ctx.closedDates.has(dateStr)) return false;
+  if (!isMahjongEventDay(dateStr, ctx)) return false;
   if (ctx.cancelledDates.has(dateStr)) return false;
   return true;
+}
+
+/** 終了した開催日か（開催日 かつ 今日より前）。スケジュール駆動なら日曜等の過去開催も判定できる。 */
+export function isPastEventDate(dateStr: string, ctx: JoinCalendarCtx): boolean {
+  return isMahjongEventDay(dateStr, ctx) && dateStr < ctx.today;
 }
 
 export interface JoinabilityCtx extends JoinCalendarCtx {
@@ -56,13 +72,12 @@ export interface JoinabilityCtx extends JoinCalendarCtx {
 
 /**
  * 「参加する」ボタンを出せるか。
- * 未来（または当日）の土曜・休催/中止でない・未参加・満員でない・当月別日参加なし。
+ * 未来（または当日）の開催日・中止でない・未参加・満員でない・当月別日参加なし。
  * 過去日は参加不可（閲覧専用）。
  */
 export function canJoinDate(dateStr: string, ctx: JoinabilityCtx): boolean {
-  if (!isSaturdayDate(dateStr)) return false;
+  if (!isMahjongEventDay(dateStr, ctx)) return false;
   if (dateStr < ctx.today) return false; // 過去は参加不可
-  if (ctx.closedDates.has(dateStr)) return false;
   if (ctx.cancelledDates.has(dateStr)) return false;
   if (ctx.enteredDates.has(dateStr)) return false;
   if (ctx.full) return false;

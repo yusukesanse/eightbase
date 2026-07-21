@@ -9,7 +9,7 @@ import MonthCalendar from "@/components/ui/MonthCalendar";
 import {
   isViewableDate,
   isMonthlyBlocked,
-  isPastSaturday,
+  isPastEventDate,
   canJoinDate,
 } from "@/lib/mahjongJoinCalendar";
 import { MahjongDayStandings, type DayStanding } from "@/components/mahjong/MahjongDayStandings";
@@ -28,6 +28,7 @@ export function JoinTab({
   enteredDates,
   closedDates,
   cancelledDates,
+  scheduledDates,
   paymentRequired,
   paymentStatusByDate,
   onChanged,
@@ -35,6 +36,7 @@ export function JoinTab({
   enteredDates: Set<string>;
   closedDates: Set<string>;
   cancelledDates: Set<string>;
+  scheduledDates?: Set<string>;
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
   onChanged: () => void;
@@ -116,7 +118,7 @@ export function JoinTab({
 
   // 当日順位: 終了した過去土曜を選んだときだけ取得（当日・未来は対象外）。
   useEffect(() => {
-    if (!selectedDate || !isPastSaturday(selectedDate, today)) {
+    if (!selectedDate || !isPastEventDate(selectedDate, { today, enteredDates, closedDates, cancelledDates, scheduledDates })) {
       setDayStandings(null);
       return;
     }
@@ -138,7 +140,7 @@ export function JoinTab({
     return () => {
       alive = false;
     };
-  }, [selectedDate, today]);
+  }, [selectedDate, today, closedDates, cancelledDates, enteredDates, scheduledDates]);
   // DEV-ONLY（develop 専用 / main へ入れない）: 支払い済み/返金対応中からリセットする導線を出す。
   const demo = isDevLoginEnabled();
 
@@ -203,7 +205,7 @@ export function JoinTab({
 
   const enteredArr = Array.from(effectiveEntered);
   // カレンダー判定は純関数 mahjongJoinCalendar に集約（過去土曜も閲覧可・参加は未来のみ）。
-  const calCtx = { today, enteredDates: effectiveEntered, closedDates, cancelledDates };
+  const calCtx = { today, enteredDates: effectiveEntered, closedDates, cancelledDates, scheduledDates };
 
   return (
     <div className="flex flex-col gap-3">
@@ -290,7 +292,7 @@ export function JoinTab({
           // 未参加日: この月に別日で参加確定済みなら新規参加不可（閲覧は可）。
           const monthlyBlocked = !entered && isMonthlyBlocked(selectedDate, effectiveEntered);
           // 終了した過去土曜は参加導線を出さない（閲覧・当日順位のみ）。参加可否は純関数で判定。
-          const isPast = isPastSaturday(selectedDate, today);
+          const isPast = isPastEventDate(selectedDate, calCtx);
           const canJoin = canJoinDate(selectedDate, { ...calCtx, full: dateFull });
           const { md, wd } = dateParts(selectedDate);
           // 人数不足で自動中止（流会）になった日は、参加/決済導線を出さず中止の案内にする。
@@ -425,7 +427,7 @@ export function JoinTab({
 
       {/* この日の参加者（支払い済み / 参加済み・未払い）。0名でも空状態を表示。
           終了した過去日は当日順位を出すので参加者一覧は隠す。 */}
-      {selectedDate && !cancelledDates.has(selectedDate) && !isPastSaturday(selectedDate, today) && (
+      {selectedDate && !cancelledDates.has(selectedDate) && !isPastEventDate(selectedDate, calCtx) && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
           <div className="text-[11px] font-extrabold text-[#3f4247] mb-2">
             この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
@@ -452,7 +454,7 @@ export function JoinTab({
       )}
 
       {/* 当日順位（終了した過去土曜のみ）。当日・未来では出さない。 */}
-      {selectedDate && isPastSaturday(selectedDate, today) && dayStandings && (
+      {selectedDate && isPastEventDate(selectedDate, calCtx) && dayStandings && (
         dayStandings.hasResults ? (
           <MahjongDayStandings
             eventDate={selectedDate}

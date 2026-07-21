@@ -51,12 +51,25 @@ export function MahjongLeagueView() {
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
   // 人数不足で自動中止（流会）になった開催日
   const [cancelledDates, setCancelledDates] = useState<Set<string>>(new Set());
+  // 管理者が登録した開催日（mahjongSchedule）。1件でもあればスケジュール駆動（曜日不問＝日曜も可）。
+  const [scheduledDates, setScheduledDates] = useState<Set<string>>(new Set());
 
-  // シーズン一覧＋休催日＋中止日（初回のみ）
+  // シーズン一覧＋休催日＋中止日＋開催日（初回のみ）
   useEffect(() => {
     fetch("/api/mahjong/seasons", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setSeasons(d.seasons ?? []))
+      .catch(() => {
+        /* noop */
+      });
+    fetch("/api/mahjong/schedule", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const s = (d.schedule ?? [])
+          .filter((x: { type?: string }) => !x.type || x.type === "league")
+          .map((x: { date: string }) => x.date);
+        setScheduledDates(new Set<string>(s));
+      })
       .catch(() => {
         /* noop */
       });
@@ -207,6 +220,7 @@ export function MahjongLeagueView() {
           enteredDates={enteredDates}
           closedDates={closedDates}
           cancelledDates={cancelledDates}
+          scheduledDates={scheduledDates}
           paymentRequired={paymentRequired}
           paymentStatusByDate={paymentStatusByDate}
           onChanged={() => loadCore(true)}
