@@ -11,7 +11,8 @@
     "lint": "next lint",
     "test": "TZ=UTC jest --forceExit",
     "test:verbose": "TZ=UTC jest --verbose --forceExit",
-    "test:coverage": "TZ=UTC jest --coverage --forceExit"
+    "test:coverage": "TZ=UTC jest --coverage --forceExit",
+    "test:emulator": "firebase emulators:exec --only firestore --project eightbase-emulator-test \"TZ=UTC jest --config jest.emulator.config.js --runInBand --forceExit\""
   },
   "dependencies": {
     "@line/liff": "^2.23.0",
@@ -47,6 +48,7 @@
     "autoprefixer": "^10",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
+    "firebase-tools": "^15.24.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "postcss": "^8",

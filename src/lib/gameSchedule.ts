@@ -82,6 +82,15 @@ export async function addGameScheduleDate(
 export type DeleteResult = "deleted" | "skipped" | "reAdded";
 
 /**
+ * テスト専用フック（本番挙動には影響しない）。統合テストで phase1 と phase2 の間に
+ * 「同日の再追加」を決定的に割り込ませ、reAdded 経路を再現するために使う。
+ * 未指定時は何もしない（既存呼び出しは完全に不変）。
+ */
+export interface DeleteScheduleTestHooks {
+  beforePhase2?: () => Promise<void> | void;
+}
+
+/**
  * 1開催日を安全に削除（単日・一括で共用）。**operationId 付き2フェーズ**で
  * 「削除↔参加表明↔再追加」を直列化する。
  * 1) ロックに `blocked:true, operationId=op` を書く（tx。以降 entry POST は tx 内でこれを読み参加不可）。
@@ -97,7 +106,8 @@ export async function deleteGameScheduleDate(
   db: FirebaseFirestore.Firestore,
   game: ScheduleGame,
   seasonId: string,
-  date: string
+  date: string,
+  testHooks?: DeleteScheduleTestHooks
 ): Promise<DeleteResult> {
   const col = GAME_SCHEDULE_CFG[game].col;
   const entryCol = `${game}Entries`;
@@ -127,6 +137,9 @@ export async function deleteGameScheduleDate(
     });
     return "skipped";
   }
+
+  // テスト専用: phase1 と phase2 の間に「再追加」等を割り込ませて reAdded 経路を再現する。
+  if (testHooks?.beforePhase2) await testHooks.beforePhase2();
 
   // Phase 2: 自分が依然ロックを保持している時だけ schedule を削除。再追加が割り込んでいたら中断。
   return db.runTransaction(async (tx) => {
