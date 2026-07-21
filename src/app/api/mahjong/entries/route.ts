@@ -11,6 +11,7 @@ import {
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
 import { listMahjongScheduleDates } from "@/lib/mahjongSchedule";
+import { isScheduleDateBlockedInTx } from "@/lib/gameSchedule";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
 
@@ -205,12 +206,9 @@ export async function POST(req: NextRequest) {
       await db.runTransaction(async (tx) => {
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
-        // スケジュール駆動なら、開催日削除（schedule doc 消去）との競合を tx 内で閉じる。
-        if (!entrySnap.exists && scheduleDriven) {
-          const schedSnap = await tx.get(
-            db.collection("mahjongSchedule").where("seasonId", "==", season.seasonId).where("date", "==", eventDate)
-          );
-          if (schedSnap.empty) throw new Error("NOT_SCHEDULED");
+        // 開催日削除（scheduleLocks の blocked）との競合を tx 内で閉じる＝ID指定の読み取りで競合検知。
+        if (!entrySnap.exists && (await isScheduleDateBlockedInTx(tx, db, "mahjong", season.seasonId, eventDate))) {
+          throw new Error("NOT_SCHEDULED");
         }
         // 新規参加のときだけ定員を判定（既存の自分の再表明は席を増やさない＝冪等）。
         // 開催日の予約数を等値2条件で数え、8名到達なら締切（トランザクション内なので競合時は自動リトライ）。

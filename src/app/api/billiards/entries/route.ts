@@ -5,7 +5,8 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { gamePaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
 import { isScheduledBilliardsDate, isBilliardsCancelledDate } from "@/lib/billiardsSchedule";
-import { buildBilliardsEntryId, buildBilliardsScheduleId, isValidBilliardsDate } from "@/lib/billiardsEntryValidation";
+import { buildBilliardsEntryId, isValidBilliardsDate } from "@/lib/billiardsEntryValidation";
+import { isScheduleDateBlockedInTx } from "@/lib/gameSchedule";
 import { deriveStatus } from "@/lib/billiardsEntryStatus";
 import { BILLIARDS_MAX_ENTRIES_PER_DATE, type BilliardsEntry } from "@/types/billiards";
 
@@ -136,8 +137,6 @@ export async function POST(req: NextRequest) {
     const ym = eventDate.slice(0, 7);
     const lockRef = db.collection("billiardsMonthlyLocks").doc(`${season.seasonId}_${userId}_${ym}`);
     const dayRef = db.collection("billiardsDayState").doc(`${season.seasonId}_${eventDate}`);
-    // 開催日の削除（schedule doc 消去）と直列化するため、schedule も tx 内で確認する。
-    const schedRef = db.collection("billiardsSchedule").doc(buildBilliardsScheduleId(season.seasonId, eventDate));
     try {
       await db.runTransaction(async (tx) => {
         const daySnap = await tx.get(dayRef);
@@ -145,8 +144,8 @@ export async function POST(req: NextRequest) {
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
         if (!entrySnap.exists) {
-          const schedSnap = await tx.get(schedRef);
-          if (!schedSnap.exists) throw new Error("NOT_SCHEDULED"); // 併走削除で開催日が消えた
+          // 開催日の削除（scheduleLocks の blocked）と直列化＝ID指定の読み取りで競合検知。
+          if (await isScheduleDateBlockedInTx(tx, db, "billiards", season.seasonId, eventDate)) throw new Error("NOT_SCHEDULED");
           const dateSnap = await tx.get(
             db.collection("billiardsEntries").where("seasonId", "==", season.seasonId).where("eventDate", "==", eventDate)
           );

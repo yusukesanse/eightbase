@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { generateRecurringDates } from "@/lib/scheduleRecurrence";
-import { GAME_SCHEDULE_CFG, buildGameScheduleId, deleteGameScheduleDate, type ScheduleGame } from "@/lib/gameSchedule";
+import { GAME_SCHEDULE_CFG, buildGameScheduleId, deleteGameScheduleDate, clearScheduleLock, scheduleLockRef, type ScheduleGame } from "@/lib/gameSchedule";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +94,10 @@ export async function POST(req: NextRequest) {
     }
     const dates = generateRecurringDates({ weekday, intervalWeeks, startDate: start, endDate: end });
     const batch = db.batch();
-    for (const date of dates) batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), makeDoc(date));
+    for (const date of dates) {
+      batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), makeDoc(date));
+      batch.delete(scheduleLockRef(db, game, seasonId, date)); // 削除トゥームストーンを解除（再追加で受付再開）
+    }
     await batch.commit();
     return NextResponse.json({ success: true, added: dates.length, dates });
   }
@@ -103,6 +106,7 @@ export async function POST(req: NextRequest) {
   const date: unknown = body?.date;
   if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
   await db.collection(cfg.col).doc(schedId(seasonId, date)).set(makeDoc(date));
+  await clearScheduleLock(db, game, seasonId, date); // 削除トゥームストーンを解除（再追加で受付再開）
   if (game === "mahjong") {
     // 土曜を開催に戻したときに旧「休催」doc が残っていると弾かれるため解除。
     await db.collection("mahjongClosedDates").doc(date).delete().catch(() => {});
@@ -131,14 +135,21 @@ export async function DELETE(req: NextRequest) {
     )
       .filter((dt) => all || (dt >= from! && dt <= to!))
       .sort();
+    // 日単位で安全削除を順次実行。途中失敗は failed に記録し、部分成功を可視化する（#9）。
     let deleted = 0;
     const skipped: string[] = [];
+    const failed: { date: string; error: string }[] = [];
     for (const dt of candidates) {
-      const r = await deleteGameScheduleDate(db, game, seasonId, dt);
-      if (r === "deleted") deleted += 1;
-      else skipped.push(dt);
+      try {
+        const r = await deleteGameScheduleDate(db, game, seasonId, dt);
+        if (r === "deleted") deleted += 1;
+        else skipped.push(dt);
+      } catch (e) {
+        failed.push({ date: dt, error: e instanceof Error ? e.message : String(e) });
+        console.error(`[admin/games/schedule] bulk delete failed for ${dt}:`, e);
+      }
     }
-    return NextResponse.json({ success: true, deleted, skipped });
+    return NextResponse.json({ success: failed.length === 0, deleted, skipped, failed });
   }
 
   // 単日削除（同じ安全関数を使用）。
