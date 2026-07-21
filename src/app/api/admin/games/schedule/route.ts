@@ -93,12 +93,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "期間（startDate/endDate）が必要です。シーズンの期間を設定してください。" }, { status: 400 });
     }
     const dates = generateRecurringDates({ weekday, intervalWeeks, startDate: start, endDate: end });
-    const batch = db.batch();
-    for (const date of dates) {
-      batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), makeDoc(date));
-      batch.delete(scheduleLockRef(db, game, seasonId, date)); // 削除トゥームストーンを解除（再追加で受付再開）
+    // 1日 = set(schedule)+delete(lock) の2書き込み。Firestore の batch 上限(500 write)を
+    // 超えないよう 200日単位（=400 write）で分割コミットする（長期間×毎週でも失敗させない）。
+    const CHUNK = 200;
+    for (let i = 0; i < dates.length; i += CHUNK) {
+      const batch = db.batch();
+      for (const date of dates.slice(i, i + CHUNK)) {
+        batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), makeDoc(date));
+        batch.delete(scheduleLockRef(db, game, seasonId, date)); // 削除トゥームストーンを解除（再追加で受付再開）
+      }
+      await batch.commit();
     }
-    await batch.commit();
     return NextResponse.json({ success: true, added: dates.length, dates });
   }
 
