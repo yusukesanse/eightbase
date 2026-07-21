@@ -202,13 +202,22 @@ export async function POST(req: NextRequest) {
     const allowByeSeats = season.mahjongAllowByeSeats === true;
     const ym = eventDate.slice(0, 7);
     const lockRef = db.collection("mahjongMonthlyLocks").doc(`${season.seasonId}_${userId}_${ym}`);
+    // 休催（中止＝流会）にされた開催日は参加不可。cancelDay の create と直列化するため tx 内で ID 読みする。
+    const cancelRef = db.collection("mahjongCancelledDates").doc(eventDate);
     try {
       await db.runTransaction(async (tx) => {
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
+        const cancelSnap = await tx.get(cancelRef);
         // 開催日削除（scheduleLocks の blocked）との競合を tx 内で閉じる＝ID指定の読み取りで競合検知。
         if (!entrySnap.exists && (await isScheduleDateBlockedInTx(tx, db, "mahjong", season.seasonId, eventDate))) {
           throw new Error("NOT_SCHEDULED");
+        }
+        // 休催（中止）日: 新規参加は不可。既存 entry がある場合は no-op で返す
+        // （cancelRequested 等の返金状態を再POSTで reserved/paid に巻き戻さない）。
+        if (cancelSnap.exists) {
+          if (entrySnap.exists) return; // 冪等・状態を壊さない
+          throw new Error("CANCELLED");
         }
         // 新規参加のときだけ定員を判定（既存の自分の再表明は席を増やさない＝冪等）。
         // 開催日の予約数を等値2条件で数え、8名到達なら締切（トランザクション内なので競合時は自動リトライ）。
@@ -238,6 +247,9 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       if (e instanceof Error && e.message === "NOT_SCHEDULED") {
         return NextResponse.json({ error: "開催日ではありません" }, { status: 400 });
+      }
+      if (e instanceof Error && e.message === "CANCELLED") {
+        return NextResponse.json({ error: "この開催日は休催（中止）になりました" }, { status: 409 });
       }
       if (e instanceof Error && e.message === "MONTHLY_LIMIT") {
         return NextResponse.json(
