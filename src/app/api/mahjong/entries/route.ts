@@ -7,9 +7,10 @@ import { mahjongPaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
 import {
   buildMahjongEntryId,
+  isSaturdayMahjongDate,
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
-import { isMahjongEventDate } from "@/lib/mahjongSchedule";
+import { listMahjongScheduleDates } from "@/lib/mahjongSchedule";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
 
@@ -153,7 +154,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 開催日はスケジュール（mahjongSchedule）が正。未移行シーズンは「毎週土曜 − 休催」にフォールバック。
-    if (!(await isMahjongEventDate(season.seasonId, eventDate))) {
+    // scheduleDriven は下の tx で「削除との競合」を閉じる再確認に使う。
+    const scheduleDates = await listMahjongScheduleDates(season.seasonId);
+    const scheduleDriven = scheduleDates.size > 0;
+    let isEvent = false;
+    if (scheduleDriven) {
+      isEvent = scheduleDates.has(eventDate);
+    } else if (isSaturdayMahjongDate(eventDate)) {
+      const closed = await getDb().collection("mahjongClosedDates").doc(eventDate).get();
+      isEvent = !closed.exists;
+    }
+    if (!isEvent) {
       return NextResponse.json({ error: "開催日ではありません" }, { status: 400 });
     }
 
@@ -194,6 +205,13 @@ export async function POST(req: NextRequest) {
       await db.runTransaction(async (tx) => {
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
+        // スケジュール駆動なら、開催日削除（schedule doc 消去）との競合を tx 内で閉じる。
+        if (!entrySnap.exists && scheduleDriven) {
+          const schedSnap = await tx.get(
+            db.collection("mahjongSchedule").where("seasonId", "==", season.seasonId).where("date", "==", eventDate)
+          );
+          if (schedSnap.empty) throw new Error("NOT_SCHEDULED");
+        }
         // 新規参加のときだけ定員を判定（既存の自分の再表明は席を増やさない＝冪等）。
         // 開催日の予約数を等値2条件で数え、8名到達なら締切（トランザクション内なので競合時は自動リトライ）。
         if (!entrySnap.exists && !allowByeSeats) {
@@ -220,6 +238,9 @@ export async function POST(req: NextRequest) {
         tx.set(ref, entry, { merge: true });
       });
     } catch (e) {
+      if (e instanceof Error && e.message === "NOT_SCHEDULED") {
+        return NextResponse.json({ error: "開催日ではありません" }, { status: 400 });
+      }
       if (e instanceof Error && e.message === "MONTHLY_LIMIT") {
         return NextResponse.json(
           { error: "参加は同じ月に1回までです（別の月をお選びください）", monthlyLimit: true },

@@ -5,7 +5,7 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { gamePaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
 import { isScheduledDartsDate, isDartsCancelledDate } from "@/lib/dartsSchedule";
-import { buildDartsEntryId, isValidDartsDate } from "@/lib/dartsEntryValidation";
+import { buildDartsEntryId, buildDartsScheduleId, isValidDartsDate } from "@/lib/dartsEntryValidation";
 import { deriveStatus } from "@/lib/dartsEntryStatus";
 import { getDartsDayState, isDartsEntryClosed } from "@/lib/dartsDay";
 import { DARTS_MAX_ENTRIES_PER_DATE, type DartsEntry } from "@/types/darts";
@@ -168,6 +168,8 @@ export async function POST(req: NextRequest) {
     //   （start は同じ dayRef・entriesQuery を tx 内で読むので悲観ロックで競合が直列化される）
     const dayRef = db.collection("dartsDayState").doc(`${season.seasonId}_${eventDate}`);
     const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
+    // 開催日の削除（schedule doc 消去）と直列化するため、schedule も tx 内で確認する。
+    const schedRef = db.collection("dartsSchedule").doc(buildDartsScheduleId(season.seasonId, eventDate));
     try {
       await db.runTransaction(async (tx) => {
         // 全ての読み取りを書き込みより前に行う（Firestore transaction の制約）。
@@ -175,6 +177,7 @@ export async function POST(req: NextRequest) {
         const daySnap = await tx.get(dayRef);
         const cancelSnap = await tx.get(cancelRef);
         const lockSnap = await tx.get(lockRef);
+        const schedSnap = await tx.get(schedRef);
 
         // 既存 entry がある＝冪等成功。paid/cancelRequested/refunded などを reserved へ戻さず、
         // enteredAt も上書きしない（再POSTで状態を壊さない）。
@@ -190,7 +193,8 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        // 新規のみ: 締切/中止・定員・月1回を確認してから作成。
+        // 新規のみ: 開催日(schedule)・締切/中止・定員・月1回を確認してから作成。
+        if (!schedSnap.exists) throw new Error("NOT_SCHEDULED"); // 併走削除で開催日が消えた
         if ((daySnap.data() as { entryClosedAt?: string | null } | undefined)?.entryClosedAt) {
           throw new Error("CLOSED");
         }
@@ -224,6 +228,9 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       if (e instanceof Error && e.message === "MISMATCH") {
         return NextResponse.json({ error: "参加表明の所有者が一致しません" }, { status: 409 });
+      }
+      if (e instanceof Error && e.message === "NOT_SCHEDULED") {
+        return NextResponse.json({ error: "開催日ではありません" }, { status: 400 });
       }
       if (e instanceof Error && e.message === "CLOSED") {
         return NextResponse.json({ error: "受付は締め切られました" }, { status: 409 });
