@@ -40,8 +40,11 @@ const DERIVE: Record<Game, (e: Record<string, unknown>) => string> = {
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const isRealDate = (v: unknown): v is string =>
-  typeof v === "string" && DATE_RE.test(v) && new Date(`${v}T00:00:00.000Z`).toISOString().slice(0, 10) === v;
+function isRealDate(v: unknown): v is string {
+  if (typeof v !== "string" || !DATE_RE.test(v)) return false;
+  const t = Date.parse(`${v}T00:00:00.000Z`); // 2026-13-40 等の不正日付は NaN（toISOString 例外を避ける）
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === v;
+}
 const toGame = (v: unknown): Game | null =>
   v === "mahjong" || v === "darts" || v === "billiards" ? v : null;
 
