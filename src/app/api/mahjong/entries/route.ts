@@ -7,9 +7,9 @@ import { mahjongPaymentRequired } from "@/lib/roles";
 import { isProduction } from "@/lib/env";
 import {
   buildMahjongEntryId,
-  isSaturdayMahjongDate,
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
+import { isMahjongEventDate } from "@/lib/mahjongSchedule";
 import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
 
@@ -144,21 +144,17 @@ export async function POST(req: NextRequest) {
     if (!isValidMahjongDate(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
-    if (!isSaturdayMahjongDate(eventDate)) {
-      return NextResponse.json({ error: "開催日は土曜日のみです" }, { status: 400 });
-    }
-    // 休催日（管理者が非活性化した土曜）は参加不可
-    const closed = await getDb().collection("mahjongClosedDates").doc(eventDate).get();
-    if (closed.exists) {
-      return NextResponse.json({ error: "この開催日は休催です" }, { status: 409 });
-    }
-
     const season = await getActiveSeason();
     if (!season) {
       return NextResponse.json(
         { error: "アクティブなシーズンがありません" },
         { status: 400 }
       );
+    }
+
+    // 開催日はスケジュール（mahjongSchedule）が正。未移行シーズンは「毎週土曜 − 休催」にフォールバック。
+    if (!(await isMahjongEventDate(season.seasonId, eventDate))) {
+      return NextResponse.json({ error: "開催日ではありません" }, { status: 400 });
     }
 
     // GM が「ゲーム開始」を押した開催日は受付終了（参加表明も締切）。

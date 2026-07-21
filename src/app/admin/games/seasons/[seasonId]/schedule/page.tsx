@@ -3,26 +3,23 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import type { Season } from "@/types";
-import MahjongScheduleCalendar from "@/components/admin/MahjongScheduleCalendar";
-import DartsScheduleAdmin from "@/components/admin/DartsScheduleAdmin";
-import BilliardsScheduleAdmin from "@/components/admin/BilliardsScheduleAdmin";
+import GameScheduleCalendar from "@/components/admin/GameScheduleCalendar";
 
 /**
- * 日程タブ。種目で分岐する:
- * - 麻雀: 月別カレンダー起点（毎週土曜が開催日・クリックで休催トグル）。
- * - ダーツ: 開催日を明示登録（隔週木曜が既定）。
- * - ビリヤード: 開催日を明示登録（第2/第4土曜が既定）。
+ * 日程タブ（全ゲーム共通）。カレンダーで開催日を追加/削除する（任意日に変更可）。
+ * 種目別の既定日（麻雀=毎週土曜 / ダーツ=隔週木曜 / ビリヤード=第2第4土曜）は一括投入できる。
  */
 export default function SeasonSchedulePage() {
   const { seasonId } = useParams<{ seasonId: string }>();
-  const [category, setCategory] = useState<string | null>(null);
+  const [category, setCategory] = useState<"mahjong" | "darts" | "billiards" | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => {
         const found = (d.seasons ?? []).find((s: Season) => s.seasonId === seasonId);
-        setCategory(found?.gameCategory ?? "mahjong");
+        const c = found?.gameCategory;
+        setCategory(c === "darts" || c === "billiards" ? c : "mahjong");
       })
       .catch(() => setCategory("mahjong"));
   }, [seasonId]);
@@ -35,5 +32,5 @@ export default function SeasonSchedulePage() {
     );
   }
 
-  return category === "darts" ? <DartsScheduleAdmin /> : category === "billiards" ? <BilliardsScheduleAdmin /> : <MahjongScheduleCalendar />;
+  return <GameScheduleCalendar gameCategory={category} />;
 }
