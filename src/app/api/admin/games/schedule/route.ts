@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { generateWeeklySaturdays } from "@/lib/mahjongSchedule";
-import { generateBiweeklyThursdays } from "@/lib/dartsEntryValidation";
-import { generateSecondFourthSaturdays } from "@/lib/billiardsEntryValidation";
+import { generateRecurringDates } from "@/lib/scheduleRecurrence";
 import { DARTS_DEFAULT_START_TIME, DARTS_DEFAULT_END_TIME } from "@/types/darts";
 import { BILLIARDS_DEFAULT_START_TIME, BILLIARDS_DEFAULT_END_TIME } from "@/types/billiards";
 
@@ -79,26 +77,27 @@ export async function POST(req: NextRequest) {
     ...(cfg.extra ?? {}),
   });
 
-  // 一括投入。
+  // 一括投入（繰り返し設定）: 曜日 × 間隔（毎週/2週/3週…）× 期間。
+  // 期間はシーズン開始日〜指定終了日（シーズン終了日でクランプ）。
   if (body?.bulk === true) {
-    let dates: string[] = [];
-    if (game === "mahjong") {
-      // シーズン期間の毎週土曜（startDate 指定があれば優先）。
-      const season = (await db.collection("seasons").doc(seasonId).get()).data() as { startDate?: string; endDate?: string } | undefined;
-      const start = isRealDate(body?.startDate) ? body.startDate : season?.startDate;
-      const end = season?.endDate;
-      if (!isRealDate(start) || !isRealDate(end)) {
-        return NextResponse.json({ error: "シーズンの期間（startDate/endDate）が必要です" }, { status: 400 });
-      }
-      dates = generateWeeklySaturdays(start, end);
-    } else {
-      const startDate = body?.startDate;
-      const count = Number(body?.count);
-      if (!isRealDate(startDate) || !Number.isInteger(count) || count < 1 || count > 60) {
-        return NextResponse.json({ error: "startDate / count が不正です" }, { status: 400 });
-      }
-      dates = game === "darts" ? generateBiweeklyThursdays(startDate, count) : generateSecondFourthSaturdays(startDate, count);
+    const season = (await db.collection("seasons").doc(seasonId).get()).data() as { startDate?: string; endDate?: string } | undefined;
+    const weekday = Number(body?.weekday);
+    const intervalWeeks = Number(body?.intervalWeeks);
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+      return NextResponse.json({ error: "weekday は 0（日）〜6（土）で指定してください" }, { status: 400 });
     }
+    if (!Number.isInteger(intervalWeeks) || intervalWeeks < 1 || intervalWeeks > 8) {
+      return NextResponse.json({ error: "intervalWeeks は 1〜8 で指定してください" }, { status: 400 });
+    }
+    // 開始日は指定 or シーズン開始日、終了日は指定 or シーズン終了日。シーズン範囲でクランプ。
+    let start = isRealDate(body?.startDate) ? body.startDate : season?.startDate;
+    let end = isRealDate(body?.endDate) ? body.endDate : season?.endDate;
+    if (isRealDate(season?.startDate) && isRealDate(start) && start < season!.startDate!) start = season!.startDate;
+    if (isRealDate(season?.endDate) && isRealDate(end) && end > season!.endDate!) end = season!.endDate;
+    if (!isRealDate(start) || !isRealDate(end)) {
+      return NextResponse.json({ error: "期間（startDate/endDate）が必要です。シーズンの期間を設定してください。" }, { status: 400 });
+    }
+    const dates = generateRecurringDates({ weekday, intervalWeeks, startDate: start, endDate: end });
     const batch = db.batch();
     for (const date of dates) batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), makeDoc(date));
     await batch.commit();
