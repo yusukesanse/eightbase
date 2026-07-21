@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { generateRecurringDates } from "@/lib/scheduleRecurrence";
-import { GAME_SCHEDULE_CFG, buildGameScheduleId, deleteGameScheduleDate, clearScheduleLock, scheduleLockRef, type ScheduleGame } from "@/lib/gameSchedule";
+import { GAME_SCHEDULE_CFG, buildGameScheduleId, deleteGameScheduleDate, addGameScheduleDate, scheduleLockRef, type ScheduleGame } from "@/lib/gameSchedule";
 
 export const dynamic = "force-dynamic";
 
@@ -102,13 +102,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, added: dates.length, dates });
   }
 
-  // 1件追加。
+  // 1件追加。schedule 作成とロック解除を原子化（addGameScheduleDate）。
   const date: unknown = body?.date;
   if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
-  await db.collection(cfg.col).doc(schedId(seasonId, date)).set(makeDoc(date));
-  await clearScheduleLock(db, game, seasonId, date); // 削除トゥームストーンを解除（再追加で受付再開）
+  await addGameScheduleDate(db, game, seasonId, date);
   if (game === "mahjong") {
-    // 土曜を開催に戻したときに旧「休催」doc が残っていると弾かれるため解除。
+    // 土曜を開催に戻したときに旧「休催」doc が残っていると弾かれるため解除（best-effort）。
     await db.collection("mahjongClosedDates").doc(date).delete().catch(() => {});
   }
   return NextResponse.json({ success: true, date }, { status: 201 });
@@ -135,21 +134,23 @@ export async function DELETE(req: NextRequest) {
     )
       .filter((dt) => all || (dt >= from! && dt <= to!))
       .sort();
-    // 日単位で安全削除を順次実行。途中失敗は failed に記録し、部分成功を可視化する（#9）。
+    // 日単位で安全削除を順次実行。途中失敗（ロック解除失敗等）は failed に記録して部分成功を可視化（#9）。
     let deleted = 0;
-    const skipped: string[] = [];
+    const skipped: string[] = []; // 参加者あり
+    const reAdded: string[] = []; // 削除中に再追加された（削除しない）
     const failed: { date: string; error: string }[] = [];
     for (const dt of candidates) {
       try {
         const r = await deleteGameScheduleDate(db, game, seasonId, dt);
         if (r === "deleted") deleted += 1;
+        else if (r === "reAdded") reAdded.push(dt);
         else skipped.push(dt);
       } catch (e) {
         failed.push({ date: dt, error: e instanceof Error ? e.message : String(e) });
         console.error(`[admin/games/schedule] bulk delete failed for ${dt}:`, e);
       }
     }
-    return NextResponse.json({ success: failed.length === 0, deleted, skipped, failed });
+    return NextResponse.json({ success: failed.length === 0, deleted, skipped, reAdded, failed });
   }
 
   // 単日削除（同じ安全関数を使用）。
@@ -157,5 +158,6 @@ export async function DELETE(req: NextRequest) {
   if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
   const r = await deleteGameScheduleDate(db, game, seasonId, date);
   if (r === "skipped") return NextResponse.json({ error: "参加者がいるため削除できません" }, { status: 409 });
-  return NextResponse.json({ success: true });
+  // reAdded: 削除処理中に同日が再追加された → 削除せず成功（開催日は存在）。
+  return NextResponse.json({ success: true, result: r });
 }

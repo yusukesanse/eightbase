@@ -1,15 +1,19 @@
 /**
  * 全ゲーム共通の日程（{game}Schedule）操作の集約。管理カレンダーAPIと利用者検証で共用する。
  *
- * ★開催日削除と参加表明の競合対策（空クエリの範囲ロックに依存しない設計）★
+ * ★開催日「削除↔参加表明↔再追加」の競合対策（空クエリの範囲ロックに依存しない設計）★
  * Firestore はトランザクションが「読んだドキュメントID」（存在しないIDも含む）への並行書き込みを
- * 競合として検出するが、**空クエリ結果に対する後続 insert（phantom）は直列化を保証しない**。
+ * 競合として検出するが、空クエリ結果に対する後続 insert（phantom）は直列化を保証しない。
  * そこで開催日ごとに **決定的なロックドキュメント** `scheduleLocks/{game}__{seasonId}__{date}` を用意し、
- * - entry POST はトランザクション内でこのロックを **ID指定で読む**（blocked なら参加不可）
- * - 削除は「2フェーズ」で行う（下記 deleteGameScheduleDate）
- * ことで、concrete-ID の読み書き競合だけで直列化する（クエリの範囲ロックに依存しない）。
+ *  - `blocked`: 削除中/削除済みで参加を止めるフラグ
+ *  - `operationId`: 削除操作の世代（generation）。削除の phase2 は「自分の operationId が依然ロックに
+ *    残っているか」を tx 内で確認してから schedule を消す。再追加はロックを削除するので、
+ *    途中で再追加されたら operationId が消え、phase2 は schedule を消さずに中断する。
+ * これにより **「schedule 削除 ⟹ blocked ロックが必ず残る」** 不変条件を保証し、
+ * 「schedule 無し・lock 無し」（孤児化可能）状態を作らない。
  */
 
+import { randomUUID } from "crypto";
 import { DARTS_DEFAULT_START_TIME, DARTS_DEFAULT_END_TIME } from "@/types/darts";
 import { BILLIARDS_DEFAULT_START_TIME, BILLIARDS_DEFAULT_END_TIME } from "@/types/billiards";
 
@@ -36,6 +40,8 @@ export const scheduleLockRef = (
   date: string
 ) => db.collection(SCHEDULE_LOCKS).doc(scheduleLockId(game, seasonId, date));
 
+interface ScheduleLock { blocked?: boolean; operationId?: string }
+
 /**
  * entry POST がトランザクション内で使う: この開催日が削除中/削除済みでブロックされているか。
  * ロックドキュメントを **ID指定で読む**ので、削除側の blocked 書き込みと確実に競合する。
@@ -48,47 +54,64 @@ export async function isScheduleDateBlockedInTx(
   date: string
 ): Promise<boolean> {
   const snap = await tx.get(scheduleLockRef(db, game, seasonId, date));
-  return snap.exists && (snap.data() as { blocked?: boolean }).blocked === true;
+  return snap.exists && (snap.data() as ScheduleLock).blocked === true;
 }
 
-/** 開催日を（再）追加したときにロックを解除する（削除済みトゥームストーンを消す）。 */
-export async function clearScheduleLock(
+/**
+ * 開催日を（再）追加する。schedule doc 作成と **ロック解除を1トランザクションで原子化**する
+ * （途中失敗で「schedule あり・lock 残存」の部分状態を作らない）。
+ * @returns 追加した date（成功時）
+ */
+export async function addGameScheduleDate(
   db: FirebaseFirestore.Firestore,
   game: ScheduleGame,
   seasonId: string,
   date: string
 ): Promise<void> {
-  await scheduleLockRef(db, game, seasonId, date).delete().catch(() => {});
+  const cfg = GAME_SCHEDULE_CFG[game];
+  const now = new Date().toISOString();
+  const schedRef = db.collection(cfg.col).doc(buildGameScheduleId(seasonId, date));
+  const lockRef = scheduleLockRef(db, game, seasonId, date);
+  await db.runTransaction(async (tx) => {
+    await tx.get(lockRef); // ロックを読み、削除操作(operationId書き込み)と競合させる
+    tx.set(schedRef, { scheduleId: buildGameScheduleId(seasonId, date), seasonId, date, startTime: cfg.start, endTime: cfg.end, createdAt: now, ...(cfg.extra ?? {}) });
+    tx.delete(lockRef); // 削除トゥームストーンを解除（再追加で受付再開）
+  });
 }
 
+export type DeleteResult = "deleted" | "skipped" | "reAdded";
+
 /**
- * 1開催日を安全に削除（単日・一括で共用）。**2フェーズ**で「削除↔参加表明」を直列化する。
- * 1) ロックに blocked:true を書く（以降 entry POST は tx 内でこれを読み参加不可）。
- * 2) 参加者を再確認（strongly-consistent なクエリ get）。
- *    - 参加者がいれば blocked を解除して "skipped"（保護・削除しない）。
- *    - いなければ schedule doc を全消しし、ロックは **トゥームストーン（blocked のまま）** で残す
- *      → 削除完了後に来た参加表明も（ロック読み取りで）弾ける。再追加時に clearScheduleLock で解除。
+ * 1開催日を安全に削除（単日・一括で共用）。**operationId 付き2フェーズ**で
+ * 「削除↔参加表明↔再追加」を直列化する。
+ * 1) ロックに `blocked:true, operationId=op` を書く（tx。以降 entry POST は tx 内でこれを読み参加不可）。
+ * 2) 参加者を再確認（strongly-consistent get）。
+ *    - 参加者がいれば **自分の op のときだけ** blocked を解除して "skipped"（保護）。
+ * 3) phase2（tx）: ロックを再読し **operationId が自分のものでなければ "reAdded"（削除しない）**。
+ *    自分のものなら schedule doc を全消しし、ロックは blocked トゥームストーン（operationId 保持）で残す。
  *
- * これにより「entryが先にcommit→削除がschedule削除」でも、
- * - entryが phase1 より前にcommit → 手順2の再確認で検知して skipped
- * - entryが phase1 より後にcommit → ロック(ID)読み取りが phase1 の書き込みと競合し abort→再試行→blockedで拒否
- * となり、**空クエリの範囲ロックに依存せず**孤児化を防ぐ。
+ * 保証: 「schedule 削除 ⟹ blocked ロックが残る」。再追加が割り込めば phase2 は schedule を消さない。
+ * ロック解除失敗は握り潰さず throw する（呼び出し側で失敗として可視化）。
  */
 export async function deleteGameScheduleDate(
   db: FirebaseFirestore.Firestore,
   game: ScheduleGame,
   seasonId: string,
   date: string
-): Promise<"deleted" | "skipped"> {
+): Promise<DeleteResult> {
   const col = GAME_SCHEDULE_CFG[game].col;
   const entryCol = `${game}Entries`;
   const lockRef = scheduleLockRef(db, game, seasonId, date);
+  const opId = randomUUID();
   const now = new Date().toISOString();
 
-  // Phase 1: 参加受付を止める（blocked)。以降の entry POST は tx 内のロック読み取りで弾かれる。
-  await lockRef.set({ game, seasonId, date, blocked: true, updatedAt: now }, { merge: true });
+  // Phase 1: 自分の operationId でロックを取得（blocked）。
+  await db.runTransaction(async (tx) => {
+    await tx.get(lockRef);
+    tx.set(lockRef, { game, seasonId, date, blocked: true, operationId: opId, updatedAt: now }, { merge: true });
+  });
 
-  // 参加者を再確認（phase1 commit 後なので新規は入れない＝この時点の集合が確定）。
+  // 参加者を再確認（phase1 commit 後。新規は blocked で入れない＝この時点の集合が確定）。
   const entrySnap = await db
     .collection(entryCol)
     .where("seasonId", "==", seasonId)
@@ -96,16 +119,26 @@ export async function deleteGameScheduleDate(
     .limit(1)
     .get();
   if (!entrySnap.empty) {
-    // 参加者あり＝保護。ロックを解除して受付を戻す。
-    await lockRef.delete().catch(() => {});
+    // 参加者あり＝保護。**自分の op のときだけ** ロックを解除（再追加や他opのロックを壊さない）。
+    // 解除失敗は throw（握り潰さない）。
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists && (snap.data() as ScheduleLock).operationId === opId) tx.delete(lockRef);
+    });
     return "skipped";
   }
 
-  // Phase 2: schedule doc を全消し（決定的ID＋旧auto-ID両方）。ロックはトゥームストーンで残す。
-  const schedSnap = await db.collection(col).where("seasonId", "==", seasonId).where("date", "==", date).get();
-  const batch = db.batch();
-  batch.delete(db.collection(col).doc(buildGameScheduleId(seasonId, date)));
-  for (const d of schedSnap.docs) batch.delete(d.ref);
-  await batch.commit();
-  return "deleted";
+  // Phase 2: 自分が依然ロックを保持している時だけ schedule を削除。再追加が割り込んでいたら中断。
+  return db.runTransaction(async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    if (!lockSnap.exists || (lockSnap.data() as ScheduleLock).operationId !== opId) {
+      return "reAdded"; // 再追加/他opがロックを置き換えた → schedule を消さない
+    }
+    const schedSnap = await tx.get(db.collection(col).where("seasonId", "==", seasonId).where("date", "==", date));
+    tx.delete(db.collection(col).doc(buildGameScheduleId(seasonId, date)));
+    for (const d of schedSnap.docs) tx.delete(d.ref);
+    // ロックは blocked トゥームストーンで残す（削除完了後の参加も弾く）。operationId は保持。
+    tx.set(lockRef, { game, seasonId, date, blocked: true, operationId: opId, deleted: true, updatedAt: now }, { merge: true });
+    return "deleted";
+  });
 }

@@ -41,25 +41,3 @@ export function generateRecurringDates(input: RecurrenceInput): string[] {
   }
   return out;
 }
-
-/**
- * 一括削除の対象を仕分ける（純関数）。参加者がいる日（entryDates）は保護してスキップする。
- * all=true で全期間、そうでなければ [from, to] の期間内のみを対象にする。
- */
-export function partitionScheduleForDelete(
-  scheduleDates: string[],
-  entryDates: Set<string> | string[],
-  opts: { all?: boolean; from?: string; to?: string }
-): { toDelete: string[]; skipped: string[] } {
-  const entrySet = entryDates instanceof Set ? entryDates : new Set(entryDates);
-  const toDelete: string[] = [];
-  const skipped: string[] = [];
-  for (const dt of scheduleDates) {
-    if (!opts.all) {
-      if (!opts.from || !opts.to || dt < opts.from || dt > opts.to) continue; // 期間外は対象外
-    }
-    if (entrySet.has(dt)) skipped.push(dt);
-    else toDelete.push(dt);
-  }
-  return { toDelete: toDelete.sort(), skipped: skipped.sort() };
-}
