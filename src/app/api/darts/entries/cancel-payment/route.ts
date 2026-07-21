@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { notifyAdmin } from "@/lib/adminNotify";
 import { canCancelMahjong, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import { canTransition, deriveStatus } from "@/lib/dartsEntryStatus";
 import { writeAuditLog } from "@/lib/auditLog";
@@ -48,6 +47,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    // 冪等: 既にキャンセル依頼済みなら成功で返す（二重通知しない）。
+    if (deriveStatus(entry) === "cancelRequested") {
+      return NextResponse.json({ success: true, already: true });
+    }
     if (entry.paymentStatus !== "paid") {
       return NextResponse.json(
         { error: "NOT_PAID", message: "お支払い済みの参加費のみキャンセルできます。" },
@@ -66,25 +69,54 @@ export async function POST(req: NextRequest) {
     }
 
     const nowIso = dayjs().toISOString();
-    await entryRef.set(
-      { status: "cancelRequested", paymentStatus: "cancelRequested", cancelRequestedAt: nowIso, updatedAt: nowIso },
-      { merge: true }
-    );
+    // entry 遷移と管理者通知（永続doc）を1トランザクションで原子化する（通知の取りこぼしを防ぐ）。
+    let didTransition = false;
+    try {
+      await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(entryRef);
+        if (!fresh.exists) throw new Error("NOT_FOUND");
+        const cur = fresh.data() as DartsEntry;
+        const st = deriveStatus(cur);
+        if (st === "cancelRequested") return; // 併走で先に依頼済み＝冪等
+        if (cur.paymentStatus !== "paid" || st !== "paid") throw new Error("NOT_PAID");
+        tx.update(entryRef, {
+          status: "cancelRequested",
+          paymentStatus: "cancelRequested",
+          cancelRequestedAt: nowIso,
+          updatedAt: nowIso,
+        });
+        tx.create(db.collection("adminNotifications").doc(), {
+          type: "darts_refund",
+          message: `参加費のキャンセル依頼がありました。Squareで返金対応をお願いします（${entry.displayName} / エントリー ${entryId} / 注文 ${entry.paymentTransactionId ?? "-"}）。`,
+          data: { entryId, orderId: entry.paymentTransactionId ?? null, lineUserId: userId, eventDate },
+          read: false,
+          createdAt: nowIso,
+        });
+        didTransition = true;
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "NOT_FOUND") return NextResponse.json({ error: "NOT_FOUND", message: "参加表明が見つかりません" }, { status: 404 });
+      if (m === "NOT_PAID") return NextResponse.json({ error: "NOT_PAID", message: "お支払い済みの参加費のみキャンセルできます。" }, { status: 400 });
+      throw e;
+    }
 
-    await writeAuditLog({
-      eventType: "payment.cancelRequested",
-      gameCategory: "darts",
-      actor: userId,
-      target: { entryId, date: eventDate },
-      beforeStatus: from,
-      afterStatus: "cancelRequested",
-    });
-
-    await notifyAdmin(
-      "darts_refund",
-      `参加費のキャンセル依頼がありました。Squareで返金対応をお願いします（${entry.displayName} / エントリー ${entryId} / 注文 ${entry.paymentTransactionId ?? "-"}）。`,
-      { entryId, orderId: entry.paymentTransactionId ?? null, lineUserId: userId, eventDate }
-    );
+    if (didTransition) {
+      // 監査ログは best-effort（失敗しても返金対象データ＝entry の cancelRequested は残る）。
+      // ここで throw させると tx 成功後に 500 を返してしまうため、必ず個別に握り潰す。
+      try {
+        await writeAuditLog({
+          eventType: "payment.cancelRequested",
+          gameCategory: "darts",
+          actor: userId,
+          target: { entryId, date: eventDate },
+          beforeStatus: from,
+          afterStatus: "cancelRequested",
+        });
+      } catch (e) {
+        console.error("[darts/entries/cancel-payment] audit log failed (best-effort):", e);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

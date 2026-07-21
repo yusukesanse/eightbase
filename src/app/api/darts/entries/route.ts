@@ -164,20 +164,45 @@ export async function POST(req: NextRequest) {
     // 月1回ロック＋定員8をトランザクションで原子確保（麻雀と同じ）。
     const ym = eventDate.slice(0, 7);
     const lockRef = db.collection("dartsMonthlyLocks").doc(`${season.seasonId}_${userId}_${ym}`);
+    // ★ ゲーム開始・開催中止と直列化するため、締切/中止を **トランザクション内でも** 確認する。
+    //   （start は同じ dayRef・entriesQuery を tx 内で読むので悲観ロックで競合が直列化される）
+    const dayRef = db.collection("dartsDayState").doc(`${season.seasonId}_${eventDate}`);
+    const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
     try {
       await db.runTransaction(async (tx) => {
-        const lockSnap = await tx.get(lockRef);
+        // 全ての読み取りを書き込みより前に行う（Firestore transaction の制約）。
         const entrySnap = await tx.get(ref);
-        if (!entrySnap.exists) {
-          const dateSnap = await tx.get(
-            db
-              .collection("dartsEntries")
-              .where("seasonId", "==", season.seasonId)
-              .where("eventDate", "==", eventDate)
-          );
-          if (dateSnap.size >= DARTS_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
+        const daySnap = await tx.get(dayRef);
+        const cancelSnap = await tx.get(cancelRef);
+        const lockSnap = await tx.get(lockRef);
+
+        // 既存 entry がある＝冪等成功。paid/cancelRequested/refunded などを reserved へ戻さず、
+        // enteredAt も上書きしない（再POSTで状態を壊さない）。
+        if (entrySnap.exists) {
+          const cur = entrySnap.data() as DartsEntry;
+          if (cur.lineUserId !== userId || cur.seasonId !== season.seasonId || cur.eventDate !== eventDate) {
+            throw new Error("MISMATCH");
+          }
+          // 月ロックが欠落しているときだけ、既存 entry と整合するロックを復元（既存ロックは触らない）。
+          if (!lockSnap.exists) {
+            tx.set(lockRef, { seasonId: season.seasonId, lineUserId: userId, ym, eventDate, updatedAt: new Date().toISOString() });
+          }
+          return;
         }
-        if (!entrySnap.exists && lockSnap.exists) {
+
+        // 新規のみ: 締切/中止・定員・月1回を確認してから作成。
+        if ((daySnap.data() as { entryClosedAt?: string | null } | undefined)?.entryClosedAt) {
+          throw new Error("CLOSED");
+        }
+        if (cancelSnap.exists) throw new Error("CANCELLED");
+        const dateSnap = await tx.get(
+          db
+            .collection("dartsEntries")
+            .where("seasonId", "==", season.seasonId)
+            .where("eventDate", "==", eventDate)
+        );
+        if (dateSnap.size >= DARTS_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
+        if (lockSnap.exists) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             const otherRef = db
@@ -194,9 +219,18 @@ export async function POST(req: NextRequest) {
           eventDate,
           updatedAt: new Date().toISOString(),
         });
-        tx.set(ref, entry, { merge: true });
+        tx.set(ref, entry);
       });
     } catch (e) {
+      if (e instanceof Error && e.message === "MISMATCH") {
+        return NextResponse.json({ error: "参加表明の所有者が一致しません" }, { status: 409 });
+      }
+      if (e instanceof Error && e.message === "CLOSED") {
+        return NextResponse.json({ error: "受付は締め切られました" }, { status: 409 });
+      }
+      if (e instanceof Error && e.message === "CANCELLED") {
+        return NextResponse.json({ error: "この開催日は中止されました" }, { status: 409 });
+      }
       if (e instanceof Error && e.message === "MONTHLY_LIMIT") {
         return NextResponse.json(
           { error: "参加は同じ月に1回までです（別の月をお選びください）", monthlyLimit: true },

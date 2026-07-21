@@ -75,33 +75,70 @@ export function rankByScore(players: DartsCsMatchPlayer[]): DartsCsMatchPlayer[]
 /**
  * 1試合の状態を評価する（申告反映後に呼ぶ）。
  * - 未申告あり: reporting（待機）
- * - 全員申告で1位が一意: completed（rank 付与済み）
- * - 1位が同点: 追加スロー未入力→tiebreak / 入力済みで決着→completed / なお同点→tiebreak
+ * - 表彰対象の順位（通常ラウンド=1位のみ / 決勝=金銀銅）が一意に決まる: completed
+ * - 表彰対象の順位に同点が残る: tiebreak（同点者の lineUserId を tiebreakIds で返す）
+ *
+ * podiumSize で「一意に決めるべき上位の数」を指定する（既定=1＝通過者のみ＝通常ラウンド）。
+ * 決勝は finalPodiumSize(人数) を渡し、金・銀・銅が一意に決まるまで completed にしない。
+ * 同点判定は (score, tiebreakScore) の複合キー。追加スローで score 同点を割る（§5.4）。
  */
-export function evaluateCsMatch(match: DartsCsMatch): {
+export function evaluateCsMatch(
+  match: DartsCsMatch,
+  opts: { podiumSize?: number } = {}
+): {
   status: "reporting" | "tiebreak" | "completed";
   players: DartsCsMatchPlayer[];
+  tiebreakIds: string[];
 } {
   const players = match.players;
   if (players.some((p) => p.score == null)) {
-    return { status: "reporting", players };
+    return { status: "reporting", players, tiebreakIds: [] };
   }
-  const topScore = Math.max(...players.map((p) => p.score as number));
-  const tiedTop = players.filter((p) => p.score === topScore);
+  const podiumSize = Math.max(1, opts.podiumSize ?? 1);
+  const ranked = rankByScore(players); // (score desc, tiebreak desc) で rank 付与
 
-  if (tiedTop.length === 1) {
-    return { status: "completed", players: rankByScore(players) };
+  // (score, tiebreak) が完全一致する組＝まだ割れていない同点。
+  const keyOf = (p: DartsCsMatchPlayer) => `${p.score}|${p.tiebreakScore ?? "n"}`;
+  const groups = new Map<string, DartsCsMatchPlayer[]>();
+  for (const p of ranked) {
+    const k = keyOf(p);
+    const arr = groups.get(k);
+    if (arr) arr.push(p);
+    else groups.set(k, [p]);
   }
-  // 1位同点 → 追加スロー（§5.4）
-  if (tiedTop.every((p) => p.tiebreakScore != null)) {
-    const maxTb = Math.max(...tiedTop.map((p) => p.tiebreakScore as number));
-    const tbWinners = tiedTop.filter((p) => p.tiebreakScore === maxTb);
-    if (tbWinners.length === 1) {
-      return { status: "completed", players: rankByScore(players) };
-    }
-    return { status: "tiebreak", players }; // なお同点＝再スロー
+
+  const tiebreakIds: string[] = [];
+  for (const g of Array.from(groups.values())) {
+    if (g.length < 2) continue;
+    const groupRank = Math.min(...g.map((p) => p.rank ?? Number.POSITIVE_INFINITY));
+    // 表彰対象の順位帯（1..podiumSize）に食い込む同点は解消が必要。
+    if (groupRank <= podiumSize) tiebreakIds.push(...g.map((p) => p.lineUserId));
   }
-  return { status: "tiebreak", players };
+
+  if (tiebreakIds.length === 0) return { status: "completed", players: ranked, tiebreakIds: [] };
+  return { status: "tiebreak", players: ranked, tiebreakIds };
+}
+
+/** 決勝で一意に決めるべき表彰順位数（金銀銅・人数で頭打ち）。 */
+export function finalPodiumSize(playerCount: number): number {
+  return Math.min(3, Math.max(1, playerCount));
+}
+
+/**
+ * 決勝の表彰台を確定済み players（rank 付与済み）から求める。find(rank===n) に頼らず順序で取る。
+ * 人数が少なく銅（3位）が出せない場合は null（仕様どおり許容）。
+ */
+export function resolveFinalPodium(players: DartsCsMatchPlayer[]): {
+  gold: string | null;
+  silver: string | null;
+  bronze: string | null;
+} {
+  const sorted = [...players].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+  return {
+    gold: sorted[0]?.lineUserId ?? null,
+    silver: sorted[1]?.lineUserId ?? null,
+    bronze: sorted.length >= 3 ? sorted[2]?.lineUserId ?? null : null,
+  };
 }
 
 /** 完了試合の1位（勝ち上がり）。 */

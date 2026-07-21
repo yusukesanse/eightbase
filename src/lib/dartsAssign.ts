@@ -6,6 +6,7 @@
  */
 
 import type { DartsTeam } from "@/types/darts";
+import { isSafeTeamId } from "@/lib/dartsEntryValidation";
 
 export type CricketAssignResult = { ok: true } | { ok: false; error: string };
 
@@ -28,7 +29,9 @@ export function validateCricketTeams(
   const placed = new Set<string>();
 
   for (const t of teams) {
-    if (!t.teamId || seenTeamIds.has(t.teamId)) {
+    // teamId は reports のマップキー（＝Firestoreフィールド名）になるため、
+    // プロトタイプ汚染・特殊プロパティ・危険な文字を弾く。
+    if (!isSafeTeamId(t.teamId) || seenTeamIds.has(t.teamId)) {
       return { ok: false, error: "チームIDが不正または重複しています" };
     }
     seenTeamIds.add(t.teamId);

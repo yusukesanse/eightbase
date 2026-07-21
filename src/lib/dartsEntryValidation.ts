@@ -8,14 +8,44 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DOC_ID_RE = /^[A-Za-z0-9_-]+$/;
 
-/** YYYY-MM-DD 形式の文字列か。 */
+/**
+ * YYYY-MM-DD 形式で、かつ**実在する日付**か（UTC基準・TZ非依存）。
+ * 正規表現だけだと 2026-99-99 / 2026-02-31 を許してしまうため、UTCでパースして
+ * 「再フォーマットが入力と一致する」ことまで確認する（ロールオーバー・NaN を弾く）。
+ */
 export function isValidDartsDate(value: unknown): value is string {
-  return typeof value === "string" && DATE_RE.test(value);
+  if (typeof value !== "string" || !DATE_RE.test(value)) return false;
+  const t = Date.parse(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(t)) return false;
+  // UTC で再フォーマットして入力と一致するか（2026-02-31→3/3 のような繰り上がりを検出）。
+  return new Date(t).toISOString().slice(0, 10) === value;
 }
 
 /** Firestore のドキュメントIDとして安全な文字列か。 */
 export function isValidDocId(value: unknown): value is string {
   return typeof value === "string" && DOC_ID_RE.test(value);
+}
+
+/**
+ * オブジェクト/Firestoreマップの**キーとして危険**な値か（プロトタイプ汚染・特殊プロパティ）。
+ * `reports[key] = …` のような外部由来キーの書き込み前に必ず弾く。
+ */
+export function isDangerousObjectKey(value: string): boolean {
+  return value === "__proto__" || value === "prototype" || value === "constructor";
+}
+
+/**
+ * teamId として安全か（reports のマップキー＝Firestoreフィールド名になる）。
+ * 英数・ハイフン・アンダースコアのみ／1〜128文字／危険キーでないこと。
+ */
+export function isSafeTeamId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 1 &&
+    value.length <= 128 &&
+    DOC_ID_RE.test(value) &&
+    !isDangerousObjectKey(value)
+  );
 }
 
 /** ダーツ エントリーIDの決定的フォーマット。 */

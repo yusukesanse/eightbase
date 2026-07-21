@@ -7,7 +7,85 @@
  * - 欠席・棄権は 0pt（§3.2）で、その種目の人数(n)には数えない。
  */
 
-import { DARTS_POINT_TABLE } from "@/types/darts";
+import { DARTS_POINT_TABLE, DARTS_EVENT_ORDER } from "@/types/darts";
+import { isSafeTeamId } from "@/lib/dartsEntryValidation";
+
+const isFiniteNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const isIntIn = (v: unknown, lo: number, hi: number): v is number =>
+  typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi;
+/** 順位ポイントの取りうる範囲（最大 8）。 */
+const POINTS_MAX = 8;
+
+/**
+ * 管理スコアAPIの darts details 検証（新スキーマ events[]/dayRank/firstCount と旧 rank/points）。
+ * totalScore を渡すと points 合計との整合も検証する。妥当なら null、エラー時はメッセージ。
+ *
+ * 新スキーマの保証:
+ *  - events は zeroOne / countUp / cricket が各1件（計3件・DARTS_EVENT_ORDER 順）
+ *  - points は有限で 0〜8 / value は null か 0以上の整数 / rank は null か 1〜8 の整数
+ *  - dayRank は 1〜8 / firstCount は 0〜3 の整数で、rank===1 の件数と一致
+ *  - teamId は cricket のみ許可し、値は isSafeTeamId を満たす
+ *  - totalScore（指定時）は points 合計と許容誤差内で一致
+ */
+export function validateDartsScoreDetails(details: Record<string, unknown>, totalScore?: number): string | null {
+  if ("events" in details && details.events !== undefined) {
+    const events = details.events;
+    if (!Array.isArray(events)) return "ダーツ: events は配列が必要です";
+    if (events.length !== DARTS_EVENT_ORDER.length) {
+      return `ダーツ: events は3種目（${DARTS_EVENT_ORDER.join(" / ")}）が必要です`;
+    }
+    const seen = new Set<string>();
+    let firstsFromRank = 0;
+    let pointsSum = 0;
+    for (const e of events as Array<Record<string, unknown>>) {
+      if (!e || typeof e !== "object") return "ダーツ: 各種目はオブジェクトです";
+      const kind = e.kind;
+      if (typeof kind !== "string" || !(DARTS_EVENT_ORDER as readonly string[]).includes(kind)) {
+        return `ダーツ: 不明な種目 kind です（${DARTS_EVENT_ORDER.join(" / ")} のみ）`;
+      }
+      if (seen.has(kind)) return `ダーツ: 種目 ${kind} が重複しています`;
+      seen.add(kind);
+      if (!isFiniteNum(e.points) || e.points < 0 || e.points > POINTS_MAX) {
+        return `ダーツ: ${kind} の points は 0〜${POINTS_MAX} の数値が必要です`;
+      }
+      pointsSum += e.points;
+      if (e.value !== null && e.value !== undefined && !isIntIn(e.value, 0, Number.MAX_SAFE_INTEGER)) {
+        return `ダーツ: ${kind} の value は null か0以上の整数です`;
+      }
+      if (e.rank !== null && e.rank !== undefined) {
+        if (!isIntIn(e.rank, 1, 8)) return `ダーツ: ${kind} の rank は null か1〜8の整数です`;
+        if (e.rank === 1) firstsFromRank += 1;
+      }
+      // teamId は cricket のみ許可。
+      if (e.teamId !== undefined && e.teamId !== null) {
+        if (kind !== "cricket") return "ダーツ: teamId は cricket のみ設定できます";
+        if (!isSafeTeamId(e.teamId)) return "ダーツ: cricket の teamId が不正です";
+      }
+    }
+    // 3種目が揃っているか（重複が無く3件なので、全kindが1件ずつ）。
+    for (const k of DARTS_EVENT_ORDER) if (!seen.has(k)) return `ダーツ: 種目 ${k} がありません`;
+
+    if (!isIntIn(details.dayRank, 1, 8)) return "ダーツ: dayRank は 1〜8 の整数です";
+    if (!isIntIn(details.firstCount, 0, 3)) return "ダーツ: firstCount は 0〜3 の整数です";
+    if (details.firstCount !== firstsFromRank) {
+      return `ダーツ: firstCount（${details.firstCount}）が rank===1 の件数（${firstsFromRank}）と一致しません`;
+    }
+    if (totalScore !== undefined && Math.abs(totalScore - pointsSum) > 0.01) {
+      return `ダーツ: totalScore（${totalScore}）が points 合計（${pointsSum}）と一致しません`;
+    }
+    return null;
+  }
+
+  // 旧スキーマ（後方互換）: 単一 rank/points。
+  if (!isIntIn(details.rank, 1, 8)) return "ダーツ: rank は 1〜8 の整数です";
+  if (!isFiniteNum(details.points) || details.points < 0 || details.points > POINTS_MAX) {
+    return `ダーツ: points は 0〜${POINTS_MAX} の数値です`;
+  }
+  if (totalScore !== undefined && Math.abs(totalScore - details.points) > 0.01) {
+    return `ダーツ: totalScore が points と一致しません`;
+  }
+  return null;
+}
 
 /** 人数 n・順位 rank(1始まり) の正規化ポイント。範囲外は端に丸める。 */
 export function rankPoint(n: number, rank: number): number {

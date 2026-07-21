@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { verifySquareOrderPayment } from "@/lib/square";
 import { notifyAdmin } from "@/lib/adminNotify";
+import { classifyDartsCompletion } from "@/lib/dartsDay";
 import { isValidDocId } from "@/lib/dartsEntryValidation";
 import { DARTS_ENTRY_FEE, type DartsEntry } from "@/types/darts";
 import dayjs from "dayjs";
@@ -104,14 +105,85 @@ export async function POST(req: NextRequest) {
 
     const nowIso = dayjs().toISOString();
     const orderRef = db.collection("squareOrders").doc(verified.orderId);
-    try {
-      await db.runTransaction(async (tx) => {
-        const fresh = await tx.get(entryRef);
-        if (!fresh.exists || fresh.data()?.paymentStatus === "paid") {
-          throw new Error("ALREADY_FINALIZED");
+    const dayRef = db.collection("dartsDayState").doc(`${entry.seasonId}_${entry.eventDate}`);
+    const cancelRef = db.collection("dartsCancelledDates").doc(entry.eventDate);
+
+    // 締切/中止後に決済が成立していたら通常 paid にせず「返金待ち」へ回す。
+    // 判定（締切&非確定参加者 / 中止）と order 消費・entry 更新・管理者通知を1トランザクションで原子化。
+    // 外部API（Square照合）は上で済ませ、tx 内では行わない。order doc の一意性で二重処理・二重通知を防ぐ。
+    let outcome = "paid" as "paid" | "refundPending";
+    let alreadyDone = false;
+    await db.runTransaction(async (tx) => {
+      // 読み取りは全て書き込みより前に行う。
+      const fresh = await tx.get(entryRef);
+      const orderDoc = await tx.get(orderRef);
+      const daySnap = await tx.get(dayRef);
+      const cancelSnap = await tx.get(cancelRef);
+
+      // この注文が既に消費済み＝過去の complete で処理済み。保存フラグから結果を再現（冪等）。
+      if (orderDoc.exists) {
+        outcome = orderDoc.data()?.refundPending ? "refundPending" : "paid";
+        alreadyDone = true;
+        return;
+      }
+      const cur = fresh.exists ? (fresh.data() as DartsEntry) : null;
+      // 既に paid なら冪等成功。
+      if (cur?.paymentStatus === "paid") { outcome = "paid"; alreadyDone = true; return; }
+
+      const day = daySnap.exists
+        ? (daySnap.data() as { entryClosedAt?: string | null; participants?: { lineUserId: string }[] })
+        : null;
+      const cancelled = cancelSnap.exists;
+      const closed = !!day?.entryClosedAt;
+      const isConfirmed = !!day?.participants?.some((p) => p.lineUserId === userId);
+      // 既にキャンセル依頼中でも、注文が未消費なら「決済が成立した事実」を必ず記録・通知する（取りこぼし防止）。
+      const alreadyRefundPending = cur?.paymentStatus === "cancelRequested";
+      const mustRefund =
+        alreadyRefundPending ||
+        classifyDartsCompletion({ cancelled, closed, isConfirmedParticipant: isConfirmed, entryExists: fresh.exists }) ===
+          "refundPending";
+
+      if (mustRefund) {
+        outcome = "refundPending";
+        const reason = alreadyRefundPending
+          ? (cur?.cancelReason ?? "closed_after_payment")
+          : cancelled ? "cancelled_after_payment" : "closed_after_payment";
+        tx.create(orderRef, {
+          entryId: rid,
+          paymentId: verified.paymentId,
+          lineUserId: userId,
+          refundPending: true,
+          reason,
+          createdAt: nowIso,
+        });
+        if (fresh.exists && alreadyRefundPending) {
+          // 既に cancelRequested: 状態・理由は保持し、決済成立の事実（orderId/paidAt）だけ残す。
+          tx.update(entryRef, {
+            paymentTransactionId: verified.orderId,
+            paidAt: nowIso,
+            updatedAt: nowIso,
+          });
+        } else if (fresh.exists) {
+          tx.update(entryRef, {
+            status: "cancelRequested",
+            paymentStatus: "cancelRequested",
+            cancelReason: "closed_after_payment",
+            paymentTransactionId: verified.orderId,
+            paidAt: nowIso, // 決済自体は成立している事実を残す
+            cancelRequestedAt: nowIso,
+            updatedAt: nowIso,
+          });
         }
-        const orderDoc = await tx.get(orderRef);
-        if (orderDoc.exists) throw new Error("PAYMENT_REUSED");
+        // 永続の返金依頼通知（entry が消えていても取りこぼさない）。
+        tx.create(db.collection("adminNotifications").doc(), {
+          type: "darts_refund",
+          message: `締切/中止後に決済が成立しました。返金対応をお願いします（エントリー ${rid} / 注文 ${verified.orderId}）。`,
+          data: { entryId: rid, orderId: verified.orderId, lineUserId: userId, reason },
+          read: false,
+          createdAt: nowIso,
+        });
+      } else {
+        outcome = "paid";
         tx.create(orderRef, {
           entryId: rid,
           paymentId: verified.paymentId,
@@ -125,22 +197,19 @@ export async function POST(req: NextRequest) {
           paymentTransactionId: verified.orderId,
           updatedAt: nowIso,
         });
-      });
-    } catch (e) {
-      const m = e instanceof Error ? e.message : "";
-      if (m === "PAYMENT_REUSED") {
-        return NextResponse.json(
-          { error: "PAYMENT_REUSED", message: "この決済はすでに使用されています。" },
-          { status: 409 }
-        );
       }
-      if (m === "ALREADY_FINALIZED") {
-        return NextResponse.json({ paid: true, entryId: rid, alreadyDone: true });
-      }
-      throw e;
-    }
+    });
 
-    return NextResponse.json({ paid: true, entryId: rid });
+    if (outcome === "refundPending") {
+      return NextResponse.json({
+        paid: true,
+        refundPending: true,
+        entryId: rid,
+        ...(alreadyDone ? { alreadyDone: true } : {}),
+        message: "決済は成立しましたが、受付締切／中止後のため返金対応になります（管理者に通知済み）。",
+      });
+    }
+    return NextResponse.json({ paid: true, entryId: rid, ...(alreadyDone ? { alreadyDone: true } : {}) });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[darts/entries/complete] POST error:", message, err);

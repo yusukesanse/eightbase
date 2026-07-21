@@ -125,16 +125,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // リンク生成後、orderId を entry へ保存する時点で締切/中止を **tx 内で再確認** する。
+    // すでに締切・中止なら保存せず URL も返さない（Square 側に未使用リンクが残ることは許容）。
     const expiresAt = dayjs().add(PENDING_TTL_MIN, "minute").toISOString();
-    await entryRef.set(
-      {
-        paymentStatus: "pending",
-        paymentAmount: DARTS_ENTRY_FEE,
-        paymentTransactionId: paymentLink.orderId,
-        pendingExpiresAt: expiresAt,
-      },
-      { merge: true }
-    );
+    const dayRef = db.collection("dartsDayState").doc(`${season.seasonId}_${eventDate}`);
+    const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
+    try {
+      await db.runTransaction(async (tx) => {
+        const daySnap = await tx.get(dayRef);
+        const cancelSnap = await tx.get(cancelRef);
+        const fresh = await tx.get(entryRef);
+        if ((daySnap.data() as { entryClosedAt?: string | null } | undefined)?.entryClosedAt) throw new Error("ENTRY_CLOSED");
+        if (cancelSnap.exists) throw new Error("CANCELLED_DATE");
+        if (!fresh.exists) throw new Error("NOT_ENTERED");
+        const cur = fresh.data() as DartsEntry;
+        if (cur.paymentStatus === "paid") throw new Error("ALREADY_PAID");
+        if (cur.paymentStatus === "cancelRequested") throw new Error("CANCEL_REQUESTED");
+        tx.set(
+          entryRef,
+          {
+            paymentStatus: "pending",
+            paymentAmount: DARTS_ENTRY_FEE,
+            paymentTransactionId: paymentLink.orderId,
+            pendingExpiresAt: expiresAt,
+          },
+          { merge: true }
+        );
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "ENTRY_CLOSED") return NextResponse.json({ error: "ENTRY_CLOSED", message: "受付は締め切られました。" }, { status: 409 });
+      if (m === "CANCELLED_DATE") return NextResponse.json({ error: "CANCELLED_DATE", message: "この開催日は中止されました。" }, { status: 409 });
+      if (m === "ALREADY_PAID") return NextResponse.json({ error: "ALREADY_PAID", message: "すでにお支払い済みです。", alreadyPaid: true }, { status: 409 });
+      if (m === "CANCEL_REQUESTED") return NextResponse.json({ error: "CANCEL_REQUESTED", message: "キャンセル依頼中のためお支払いできません。" }, { status: 409 });
+      if (m === "NOT_ENTERED") return NextResponse.json({ error: "NOT_ENTERED", message: "先に参加表明が必要です。" }, { status: 400 });
+      throw e;
+    }
 
     return NextResponse.json({ entryId, paymentUrl: paymentLink.url });
   } catch (err) {

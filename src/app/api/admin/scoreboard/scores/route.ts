@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import type { ScoreboardGameId } from "@/types";
+import { validateDartsScoreDetails } from "@/lib/dartsScore";
 
 export const dynamic = "force-dynamic";
 
 const VALID_GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
+
+/** 有限の数値か（NaN / Infinity / -Infinity を弾く）。 */
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
 
 /**
  * GET /api/admin/scoreboard/scores?gameId=xxx
@@ -79,15 +85,15 @@ export async function POST(req: NextRequest) {
     if (!seasonId || typeof seasonId !== "string") {
       return NextResponse.json({ error: "seasonId は必須です" }, { status: 400 });
     }
-    if (totalScore === undefined || typeof totalScore !== "number") {
-      return NextResponse.json({ error: "totalScore（数値）は必須です" }, { status: 400 });
+    if (!isFiniteNumber(totalScore)) {
+      return NextResponse.json({ error: "totalScore は有限の数値で指定してください" }, { status: 400 });
     }
     if (!details || typeof details !== "object") {
       return NextResponse.json({ error: "details は必須です" }, { status: 400 });
     }
 
-    // 種目別バリデーション
-    const detailError = validateDetails(gameCategory, details);
+    // 種目別バリデーション（darts は totalScore との整合も検証）
+    const detailError = validateDetails(gameCategory, details, totalScore);
     if (detailError) {
       return NextResponse.json({ error: detailError }, { status: 400 });
     }
@@ -158,7 +164,7 @@ export async function POST(req: NextRequest) {
 
 /* ───────── 種目別バリデーション ───────── */
 
-function validateDetails(gameCategory: ScoreboardGameId, details: Record<string, unknown>): string | null {
+function validateDetails(gameCategory: ScoreboardGameId, details: Record<string, unknown>, totalScore?: number): string | null {
   switch (gameCategory) {
     case "mahjong": {
       if (!Array.isArray(details.rounds)) return "麻雀: rounds（配列）は必須です";
@@ -186,22 +192,8 @@ function validateDetails(gameCategory: ScoreboardGameId, details: Record<string,
       }
       return null;
     }
-    case "darts": {
-      // 新スキーマ（Phase 3・当日3種目）: events[]/dayRank/firstCount。
-      if (Array.isArray(details.events)) {
-        for (const e of details.events as Array<Record<string, unknown>>) {
-          if (typeof e.kind !== "string") return "ダーツ: 各種目に kind が必要です";
-          if (typeof e.points !== "number") return "ダーツ: 各種目に points（数値）が必要です";
-        }
-        if (typeof details.dayRank !== "number") return "ダーツ: dayRank（数値）は必須です";
-        if (typeof details.firstCount !== "number") return "ダーツ: firstCount（数値）は必須です";
-        return null;
-      }
-      // 旧スキーマ（後方互換）: 単一 rank/points。
-      if (typeof details.rank !== "number") return "ダーツ: rank（数値）は必須です";
-      if (typeof details.points !== "number") return "ダーツ: points（数値）は必須です";
-      return null;
-    }
+    case "darts":
+      return validateDartsScoreDetails(details, totalScore);
     default:
       return "不明な種目です";
   }

@@ -16,10 +16,10 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { deriveStatus } from "@/lib/dartsEntryStatus";
-import { isScheduledDartsDate, isDartsCancelledDate } from "@/lib/dartsSchedule";
+import { isDangerousObjectKey } from "@/lib/dartsEntryValidation";
+import { isScheduledDartsDate } from "@/lib/dartsSchedule";
 import { validateCricketTeams } from "@/lib/dartsAssign";
 import { computeEventPoints, computeCricketPoints, rankDay } from "@/lib/dartsScore";
-import { notifyAdmin } from "@/lib/adminNotify";
 import {
   DARTS_EVENT_ORDER,
   DARTS_HIGHER_IS_BETTER,
@@ -52,6 +52,36 @@ export function isDartsEntryClosed(day: DartsDayState | null): boolean {
   return !!day?.entryClosedAt;
 }
 
+/**
+ * 決済成立時に「通常 paid」か「返金待ち」かを判定する純関数（complete API 用・テスト可能）。
+ * - 中止済み → 返金待ち
+ * - entry が消えている（中止で削除された）→ 返金待ち
+ * - 受付締切後で、開始時の確定参加者に含まれない（＝締切後に決済した人）→ 返金待ち
+ * - それ以外 → 通常 paid
+ */
+export function classifyDartsCompletion(args: {
+  cancelled: boolean;
+  closed: boolean;
+  isConfirmedParticipant: boolean;
+  entryExists: boolean;
+}): "paid" | "refundPending" {
+  if (args.cancelled) return "refundPending";
+  if (!args.entryExists) return "refundPending";
+  if (args.closed && !args.isConfirmedParticipant) return "refundPending";
+  return "paid";
+}
+
+/** エントリー doc 群から支払い済み参加者を FIFO（enteredAt 昇順）で抽出。 */
+function paidParticipantsFromDocs(
+  docs: FirebaseFirestore.QueryDocumentSnapshot[]
+): DartsDayMember[] {
+  return docs
+    .map((d) => ({ ...(d.data() as DartsEntry), entryId: d.id }))
+    .filter((e) => deriveStatus(e) === "paid")
+    .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
+    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+}
+
 /** 支払い済み参加者（staff は POST 時点で paid）。enteredAt 昇順 FIFO。 */
 export async function fetchDartsParticipants(
   seasonId: string,
@@ -62,11 +92,7 @@ export async function fetchDartsParticipants(
     .where("seasonId", "==", seasonId)
     .where("eventDate", "==", eventDate)
     .get();
-  return snap.docs
-    .map((d) => ({ ...(d.data() as DartsEntry), entryId: d.id }))
-    .filter((e) => deriveStatus(e) === "paid")
-    .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
-    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+  return paidParticipantsFromDocs(snap.docs);
 }
 
 /** DARTS_EVENT_ORDER 順の3種目を pending で初期化。 */
@@ -155,20 +181,35 @@ export async function startDartsDay(
 ): Promise<StartResult> {
   const db = getDb();
 
+  // スケジュール実在は管理登録の静的データ（レース対象外）なので tx 前に確認。
   if (!(await isScheduledDartsDate(seasonId, eventDate))) {
     return { ok: false, error: "開催日ではありません", paidCount: 0 };
   }
-  if (await isDartsCancelledDate(eventDate)) {
-    return { ok: false, error: "この開催日は中止されました", paidCount: 0 };
-  }
 
-  const participants = await fetchDartsParticipants(seasonId, eventDate);
   const dayRef = db.collection("dartsDayState").doc(dartsDayId(seasonId, eventDate));
+  const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
+  const entriesQuery = db
+    .collection("dartsEntries")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", eventDate);
 
+  // 参加者確定・締切打刻・中止判定を1トランザクションに閉じ、参加表明/中止と直列化する。
+  // （entries POST は同じ entriesQuery 範囲・dayRef を tx 内で読むため、悲観ロックで競合が直列化される）
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(dayRef);
+    const cancelSnap = await tx.get(cancelRef);
+    const entriesSnap = await tx.get(entriesQuery);
+
+    if (cancelSnap.exists) {
+      return { ok: false as const, error: "この開催日は中止されました", paidCount: 0 };
+    }
+
+    const participants = paidParticipantsFromDocs(entriesSnap.docs);
+
+    // 既に開始済みなら冪等成功（participants は開始時に確定した dayState を正とする）。
     if (snap.exists && (snap.data() as DartsDayState).entryClosedAt) {
-      return { ok: true as const, already: true, paidCount: participants.length };
+      const fixed = (snap.data() as DartsDayState).participants ?? participants;
+      return { ok: true as const, already: true, paidCount: fixed.length };
     }
     if (participants.length < DARTS_MIN_PARTICIPANTS) {
       return {
@@ -220,6 +261,11 @@ export async function setZeroOneVariant(
     if (zeroOne.status === "confirmed") {
       return { ok: false as const, status: 409, error: "ゼロワンは確定済みのため種別を変更できません" };
     }
+    // 種別が変わったら、前の元数で入れた途中申告は前提が崩れるので破棄する
+    // （例: 301で残り250を申告 → 101へ変更 → 250は不正なので消す）。
+    const prev = day.zeroOneVariant;
+    const changed = !prev || prev.start !== variant.start || prev.out !== variant.out;
+    if (changed) zeroOne.reports = {};
     zeroOne.status = "reporting";
     day.zeroOneVariant = variant;
     day.updatedAt = new Date().toISOString();
@@ -329,6 +375,10 @@ export async function reportDartsScore(
       key = targetId;
     }
 
+    // プロトタイプ汚染・特殊プロパティ防止（key は teamId or lineUserId）。
+    if (isDangerousObjectKey(key)) {
+      return { ok: false as const, status: 400, error: "申告キーが不正です" };
+    }
     const wasReporting = ev.status === "reporting";
     ev.reports[key] = { value, reportedAt: new Date().toISOString() };
 
@@ -497,26 +547,41 @@ export async function cancelDartsDay(
 ): Promise<DartsCancelResult> {
   const db = getDb();
   const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
-  if ((await cancelRef.get()).exists) return { status: "already" };
-
   const dayRef = db.collection("dartsDayState").doc(dartsDayId(seasonId, eventDate));
-  const daySnap = await dayRef.get();
-  if (daySnap.exists && (daySnap.data() as DartsDayState).finishedAt) {
-    return { status: "finished" };
-  }
-
-  const entrySnap = await db
+  const entriesQuery = db
     .collection("dartsEntries")
     .where("seasonId", "==", seasonId)
-    .where("eventDate", "==", eventDate)
-    .get();
-  const entries = entrySnap.docs.map((d) => ({ id: d.id, ...(d.data() as DartsEntry) }));
-  const seated = entries.filter((e) => deriveStatus(e) === "paid"); // 支払い済み（staff含む）
-  const reserved = entries.filter((e) => deriveStatus(e) === "reserved");
+    .where("eventDate", "==", eventDate);
+  const month = eventDate.slice(0, 7);
 
-  const nowIso = new Date().toISOString();
-  try {
-    await cancelRef.create({
+  // 中止確定・返金対象化・ロック解放・状態破棄・管理者通知（永続doc）を1トランザクションで原子的に。
+  // - finishedAt 検知を tx 内に置き「本日終了」との競合を防ぐ（batch では防げなかった）。
+  // - cancelRef 存在チェックも tx 内なので二重中止は冪等成功。
+  // - 通知（adminNotifications doc）も同 tx で作るので、中止と通知が「両方 or どちらも無し」＝返金対象を失わない。
+  // - 対象は当日エントリー(≤定員)のみなので tx の書き込み上限に収まる。外部API呼び出しは行わない。
+  return db.runTransaction(async (tx) => {
+    const cancelSnap = await tx.get(cancelRef);
+    if (cancelSnap.exists) return { status: "already" as const };
+
+    const daySnap = await tx.get(dayRef);
+    if (daySnap.exists && (daySnap.data() as DartsDayState).finishedAt) {
+      return { status: "finished" as const };
+    }
+
+    const entriesSnap = await tx.get(entriesQuery);
+    const entries = entriesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as DartsEntry) }));
+    const seated = entries.filter((e) => deriveStatus(e) === "paid"); // 支払い済み（staff含む）
+    const reserved = entries.filter((e) => deriveStatus(e) === "reserved");
+    const refundable = seated.filter((e) => !!e.paymentTransactionId); // staff は免除＝対象外
+    // 決済リンク発行済み（in-flight）の reserved は **削除しない**。
+    // orderId は entry にしか無く、削除すると後から成立した決済を complete が照合できず取りこぼすため、
+    // entry を残して complete 側で返金待ちに回す（cancelRef があるので paid にはならない）。
+    const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
+
+    const nowIso = new Date().toISOString();
+
+    // 書き込み（全ての読み取りの後）。
+    tx.create(cancelRef, {
       seasonId,
       eventDate,
       reason: "manual",
@@ -524,55 +589,45 @@ export async function cancelDartsDay(
       decidedAt: nowIso,
       decidedBy: gmUserId,
     });
-  } catch {
-    return { status: "already" };
-  }
-
-  const refundable = seated.filter((e) => !!e.paymentTransactionId); // staff は免除＝対象外
-  const month = eventDate.slice(0, 7);
-
-  const batch = db.batch();
-  for (const e of refundable) {
-    batch.set(
-      db.collection("dartsEntries").doc(e.id),
-      {
-        status: "cancelRequested",
-        paymentStatus: "cancelRequested",
-        cancelReason: "forfeit",
-        cancelRequestedAt: nowIso,
-        updatedAt: nowIso,
-      },
-      { merge: true }
-    );
-  }
-  for (const e of reserved) batch.delete(db.collection("dartsEntries").doc(e.id));
-  for (const e of [...seated, ...reserved]) {
-    batch.delete(db.collection("dartsMonthlyLocks").doc(`${seasonId}_${e.lineUserId}_${month}`));
-  }
-  if (daySnap.exists) batch.delete(dayRef); // 進行中の状態を破棄
-
-  try {
-    await batch.commit();
-  } catch (e) {
-    await cancelRef.delete().catch(() => {});
-    throw e;
-  }
-
-  await notifyAdmin(
-    "darts_event_forfeit",
-    `${eventDate} は中止（流会）。返金対象 ${refundable.length}名（Squareで手動返金）。`,
-    {
-      eventDate,
-      paidCount: seated.length,
-      refundCount: refundable.length,
-      refunds: refundable.map((e) => ({
-        entryId: e.id,
-        displayName: e.displayName,
-        amount: e.paymentAmount ?? DARTS_ENTRY_FEE,
-        orderId: e.paymentTransactionId ?? null,
-      })),
+    for (const e of refundable) {
+      tx.set(
+        db.collection("dartsEntries").doc(e.id),
+        {
+          status: "cancelRequested",
+          paymentStatus: "cancelRequested",
+          cancelReason: "forfeit",
+          cancelRequestedAt: nowIso,
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
     }
-  );
+    for (const e of reservedToDelete) tx.delete(db.collection("dartsEntries").doc(e.id));
+    // 月ロックは全員解放（in-flight reserved も枠を返す。決済成立時は complete が返金待ちにする）。
+    for (const e of [...seated, ...reserved]) {
+      tx.delete(db.collection("dartsMonthlyLocks").doc(`${seasonId}_${e.lineUserId}_${month}`));
+    }
+    if (daySnap.exists) tx.delete(dayRef); // 進行中の状態を破棄
 
-  return { status: "forfeited", paidCount: seated.length, refundCount: refundable.length };
+    // 管理者通知を永続doc として同 tx で作成（通知の取りこぼしを防ぐ）。
+    tx.create(db.collection("adminNotifications").doc(), {
+      type: "darts_event_forfeit",
+      message: `${eventDate} は中止（流会）。返金対象 ${refundable.length}名（Squareで手動返金）。`,
+      data: {
+        eventDate,
+        paidCount: seated.length,
+        refundCount: refundable.length,
+        refunds: refundable.map((e) => ({
+          entryId: e.id,
+          displayName: e.displayName,
+          amount: e.paymentAmount ?? DARTS_ENTRY_FEE,
+          orderId: e.paymentTransactionId ?? null,
+        })),
+      },
+      read: false,
+      createdAt: nowIso,
+    });
+
+    return { status: "forfeited" as const, paidCount: seated.length, refundCount: refundable.length };
+  });
 }
