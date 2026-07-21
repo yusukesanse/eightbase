@@ -38,6 +38,7 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   const [intervalWeeks, setIntervalWeeks] = useState<number>(gameCategory === "darts" ? 2 : 1);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(() => {
@@ -103,6 +104,26 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
       if (!res.ok) { setMsg({ ok: false, text: data.error ?? "一括投入に失敗しました" }); return; }
       const iv = INTERVALS.find((i) => i.v === intervalWeeks)?.label ?? `${intervalWeeks}週に1回`;
       setMsg({ ok: true, text: `${iv} ${WD[weekday]}曜を${data.added ?? 0}件投入しました` });
+      load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearAll() {
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch(`/api/admin/games/schedule?gameCategory=${gameCategory}&seasonId=${seasonId}&all=1`, {
+        method: "DELETE", credentials: "same-origin",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setMsg({ ok: false, text: data.error ?? "一括削除に失敗しました" }); return; }
+      const skipped: string[] = data.skipped ?? [];
+      setMsg({
+        ok: true,
+        text: `${data.deleted ?? 0}件を削除しました${skipped.length ? `（参加者ありの${skipped.length}件は残しました）` : ""}`,
+      });
+      setConfirmClear(false);
       load();
     } finally {
       setBusy(false);
@@ -177,7 +198,25 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
 
       {/* 登録済み一覧 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="text-sm font-bold text-[#231714] mb-2">登録済みの開催日（{sorted.length}件）</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-bold text-[#231714]">登録済みの開催日（{sorted.length}件）</div>
+          {sorted.length > 0 && !confirmClear && (
+            <button onClick={() => setConfirmClear(true)} disabled={busy} className="text-xs font-bold text-[#d8533a] hover:underline disabled:opacity-40">
+              すべて削除
+            </button>
+          )}
+        </div>
+        {confirmClear && (
+          <div className="mb-3 rounded-xl border p-3 flex flex-col gap-2" style={{ borderColor: "#e9b7ab", background: "#fdece8" }}>
+            <p className="text-[12px] font-bold text-[#c0563c] leading-relaxed">
+              このシーズンの開催日をすべて削除します（<b>参加者がいる日は残します</b>）。取り消せません。
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmClear(false)} disabled={busy} className="flex-1 py-2 rounded-lg text-[13px] font-bold bg-white disabled:opacity-40" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}>やめる</button>
+              <button onClick={clearAll} disabled={busy} className="flex-1 py-2 rounded-lg text-[13px] font-black text-white disabled:opacity-40" style={{ background: "#c0563c" }}>すべて削除する</button>
+            </div>
+          </div>
+        )}
         {sorted.length === 0 ? (
           <div className="py-6 text-center text-sm text-[#231714]/70">まだ開催日がありません。</div>
         ) : (

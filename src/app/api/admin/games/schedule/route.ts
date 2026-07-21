@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { generateRecurringDates } from "@/lib/scheduleRecurrence";
+import { generateRecurringDates, partitionScheduleForDelete } from "@/lib/scheduleRecurrence";
 import { DARTS_DEFAULT_START_TIME, DARTS_DEFAULT_END_TIME } from "@/types/darts";
 import { BILLIARDS_DEFAULT_START_TIME, BILLIARDS_DEFAULT_END_TIME } from "@/types/billiards";
 
@@ -117,15 +117,49 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const game = toGame(req.nextUrl.searchParams.get("gameCategory"));
-  const seasonId = req.nextUrl.searchParams.get("seasonId");
-  const date = req.nextUrl.searchParams.get("date");
-  if (!game || !seasonId || !isRealDate(date)) {
-    return NextResponse.json({ error: "gameCategory / seasonId / date が必要です" }, { status: 400 });
+  const sp = req.nextUrl.searchParams;
+  const game = toGame(sp.get("gameCategory"));
+  const seasonId = sp.get("seasonId");
+  if (!game || !seasonId) {
+    return NextResponse.json({ error: "gameCategory / seasonId が必要です" }, { status: 400 });
   }
   const db = getDb();
-  // 参加者がいる日は削除不可（返金対応が必要なため）。
   const entryCol = `${game}Entries`;
+
+  // 一括削除: ?all=1（全期間）または ?from=&to=（期間）。参加者がいる日は保護（スキップ）。
+  const all = sp.get("all") === "1";
+  const from = sp.get("from");
+  const to = sp.get("to");
+  if (all || (isRealDate(from) && isRealDate(to))) {
+    const [schedSnap, entrySnap] = await Promise.all([
+      db.collection(CFG[game].col).where("seasonId", "==", seasonId).get(),
+      db.collection(entryCol).where("seasonId", "==", seasonId).get(),
+    ]);
+    const withEntries = new Set(
+      entrySnap.docs.map((d) => (d.data() as { eventDate?: string }).eventDate).filter((x): x is string => !!x)
+    );
+    const scheduleDates = Array.from(
+      new Set(schedSnap.docs.map((d) => (d.data() as { date?: string }).date).filter((x): x is string => !!x))
+    );
+    const { toDelete, skipped } = partitionScheduleForDelete(scheduleDates, withEntries, {
+      all,
+      from: from ?? undefined,
+      to: to ?? undefined,
+    });
+    const deleteSet = new Set(toDelete);
+    const targets = schedSnap.docs.filter((d) => deleteSet.has((d.data() as { date?: string }).date ?? ""));
+    for (let i = 0; i < targets.length; i += 400) {
+      const batch = db.batch();
+      for (const d of targets.slice(i, i + 400)) batch.delete(d.ref);
+      await batch.commit();
+    }
+    return NextResponse.json({ success: true, deleted: toDelete.length, skipped });
+  }
+
+  // 単日削除。
+  const date = sp.get("date");
+  if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
+  // 参加者がいる日は削除不可（返金対応が必要なため）。
   const entrySnap = await db.collection(entryCol).where("seasonId", "==", seasonId).where("eventDate", "==", date).limit(1).get();
   if (!entrySnap.empty) return NextResponse.json({ error: "参加者がいるため削除できません" }, { status: 409 });
 

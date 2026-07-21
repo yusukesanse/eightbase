@@ -1,7 +1,7 @@
 /**
  * 単体テスト: 開催日の繰り返し生成（曜日×間隔×期間）。
  */
-import { generateRecurringDates } from "@/lib/scheduleRecurrence";
+import { generateRecurringDates, partitionScheduleForDelete } from "@/lib/scheduleRecurrence";
 
 describe("generateRecurringDates", () => {
   test("毎週土曜（weekday=6, interval=1）", () => {
@@ -25,5 +25,24 @@ describe("generateRecurringDates", () => {
     expect(generateRecurringDates({ weekday: 6, intervalWeeks: 0, startDate: "2026-07-01", endDate: "2026-07-31" })).toEqual([]);
     expect(generateRecurringDates({ weekday: 6, intervalWeeks: 1, startDate: "2026-08-01", endDate: "2026-07-01" })).toEqual([]);
     expect(generateRecurringDates({ weekday: 6, intervalWeeks: 1, startDate: "bad", endDate: "2026-07-31" })).toEqual([]);
+  });
+});
+
+describe("partitionScheduleForDelete（一括削除・参加者保護）", () => {
+  const sched = ["2026-07-04", "2026-07-11", "2026-07-18", "2026-07-25"];
+  test("全削除: 参加者ありの日はスキップ", () => {
+    const r = partitionScheduleForDelete(sched, new Set(["2026-07-11"]), { all: true });
+    expect(r.toDelete).toEqual(["2026-07-04", "2026-07-18", "2026-07-25"]);
+    expect(r.skipped).toEqual(["2026-07-11"]);
+  });
+  test("期間指定: 範囲内のみ対象（参加者は保護）", () => {
+    const r = partitionScheduleForDelete(sched, new Set(["2026-07-18"]), { from: "2026-07-10", to: "2026-07-20" });
+    expect(r.toDelete).toEqual(["2026-07-11"]);
+    expect(r.skipped).toEqual(["2026-07-18"]);
+  });
+  test("参加者なし全削除", () => {
+    const r = partitionScheduleForDelete(sched, new Set(), { all: true });
+    expect(r.toDelete).toEqual(sched);
+    expect(r.skipped).toEqual([]);
   });
 });
