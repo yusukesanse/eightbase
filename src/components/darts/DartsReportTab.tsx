@@ -139,8 +139,9 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {gmPanel}
+      {/* 参加者としての自分のスコア申告を先に出し、その下に GM パネル（名簿＋「全員のスコアを確定」）を置く。 */}
       {body}
+      {gmPanel}
       {reportKind && day && (
         <ReportModal
           kind={reportKind}
