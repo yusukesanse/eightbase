@@ -162,7 +162,7 @@ export function buildInitialDay(participants: RotPlayer[]): { tables: { label: s
  * 【2026-07-14】自動卓確定（GM 未設定シーズンの自動進行）は廃止した。
  * 全シーズンを GM 手動として扱うため、常に true を返す。これで startDay /
  * advanceDayIfRoundComplete の「非 manual（自動生成）」分岐は到達不能になる（分岐コードは残置）。
- * 廃止の背景・復活手順は docs/games/mahjong/麻雀リーグ-自動卓確定-廃止.md を参照。
+ * 廃止の背景・復活手順は docs/games/mahjong/麻雀リーグ.md（Part 5. 自動卓確定の廃止記録）を参照。
  *
  * 復活する場合は下の `return true;` を外し、コメントアウトした旧判定を有効化すること。
  */

@@ -36,6 +36,9 @@ yarn-error.log*
 HANDOFF.md
 docs/HANDOVER.md
 
+# local docs
+/docs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
