@@ -17,13 +17,23 @@ const GAME_LABELS: Record<ScoreboardGameId, string> = {
 
 const GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
 
+/**
+ * 当日GMフロー（GMが「ゲーム開始」で受付を締切→進行→流会を操作）を持つ種目。
+ * これらはGM未設定だと当日「ゲーム開始」で受付を締め切れず、対局を開始できない。
+ * ポーカーは閲覧のみで当日フローが無いため対象外。
+ */
+const GM_DAY_FLOW_GAMES: ScoreboardGameId[] = ["mahjong", "darts", "billiards"];
+function usesGameMaster(gameCategory: ScoreboardGameId): boolean {
+  return GM_DAY_FLOW_GAMES.includes(gameCategory);
+}
+
 const EMPTY_FORM = {
   name: "",
   gameCategory: "mahjong" as ScoreboardGameId,
   startDate: "",
   endDate: "",
   rankingMetric: "average" as "average" | "total",
-  gameMasterIds: [] as string[], // ゲームマスター（手動卓振り分け）。空=自動進行
+  gameMasterIds: [] as string[], // ゲームマスター（当日進行の担当）。空=GM未設定＝当日「ゲーム開始」で受付を締め切れず開始不可
   mahjongAllowByeSeats: false, // 抜け番許容。false=8名で締切 / true=8名以上の予約可
   rulesMarkdown: "", // ルール（Markdown）。利用者アプリの「ルール/約款」タブに表示
   termsMarkdown: "", // 約款（Markdown）
@@ -130,6 +140,15 @@ export default function SeasonsPage() {
   /* ───────── 保存 ───────── */
 
   async function handleSave() {
+    // GM当日フロー種目でアクティブなのにGM未設定なら警告（未設定だと当日開始不可）。
+    if (usesGameMaster(form.gameCategory) && form.gameMasterIds.length === 0 && editing?.active) {
+      const ok = confirm(
+        "このシーズンはアクティブですが、ゲームマスター（GM）が未設定です。\n" +
+          "このままだと当日「ゲーム開始」で受付を締め切れず、対局を開始できません。\n" +
+          "このまま保存しますか？"
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -173,6 +192,15 @@ export default function SeasonsPage() {
   /* ───────── active 切り替え ───────── */
 
   async function toggleActive(s: Season) {
+    // 有効化する際、GM当日フロー種目でGM未設定なら警告（GMがいないと当日開始不可）。
+    if (!s.active && usesGameMaster(s.gameCategory) && (s.gameMasterIds?.length ?? 0) === 0) {
+      const ok = confirm(
+        `「${s.name}」を有効化しますが、ゲームマスター（GM）が未設定です。\n` +
+          "GMがいないと当日「ゲーム開始」で受付を締め切れず、対局を開始できません。\n" +
+          "シーズン編集でGMを指定してから有効化することを推奨します。\n有効化しますか？"
+      );
+      if (!ok) return;
+    }
     try {
       const res = await fetch(`/api/admin/scoreboard/seasons/${s.seasonId}`, {
         method: "PUT",
@@ -440,13 +468,15 @@ export default function SeasonsPage() {
                 </div>
               )}
 
-              {/* 麻雀: ゲームマスター（手動卓振り分け） */}
-              {form.gameCategory === "mahjong" && (
+              {/* GM当日フロー種目（麻雀/ダーツ/ビリヤード）: ゲームマスター */}
+              {usesGameMaster(form.gameCategory) && (
                 <div>
-                  <label className={labelClass}>ゲームマスター（手動卓振り分け）</label>
+                  <label className={labelClass}>ゲームマスター（当日進行の担当）</label>
                   <p className="text-xs text-gray-700 mb-2">
-                    指定すると、そのシーズンは<b>GMが利用者アプリで手動で卓を組む</b>方式になります（自動の抜け番・交代はオフ）。
-                    未指定なら現行どおり自動進行。複数選択可。
+                    当日の進行担当。<b>GMが「ゲーム開始」を押した時刻が受付の締切</b>になり、以降の進行（
+                    {form.gameCategory === "mahjong" ? "卓の手動振り分け・" : ""}スコア確定・流会）もGMが操作します。
+                    <b className="text-red-600">アクティブなシーズンでは1名以上を必ず指定してください。</b>
+                    未指定だと受付を締め切れず、当日の対局を開始できません。複数選択可。
                   </p>
                   {form.gameMasterIds.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
