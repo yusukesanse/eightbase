@@ -95,10 +95,16 @@ export async function POST(req: NextRequest) {
     const round = day.round;
 
     // 現 round の既存卓（ロック判定＋不要ラベルの削除に使う）
-    const tblSnap = await tx.get(db.collection("mahjongTables").where("seasonId", "==", season.seasonId));
+    // seasonId+eventDate の等値2条件で当日分のみ取得（複合インデックス不要）。
+    const tblSnap = await tx.get(
+      db
+        .collection("mahjongTables")
+        .where("seasonId", "==", season.seasonId)
+        .where("eventDate", "==", eventDate)
+    );
     const existing = tblSnap.docs
       .map((d) => ({ id: d.id, ...(d.data() as MahjongTable) }))
-      .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round);
+      .filter((t) => (t.round ?? 1) === round);
     // 一度確定した半荘は組み直せない（申告の途中で卓が変わると成績が壊れる）。
     // 全員の申告が済んで次 round に進むと awaitingAssignment=true に戻り、再び振り分けられる。
     // ＝ awaitingAssignment=true の間だけ確定でき、その間の既存卓は残骸なので下で上書きする。

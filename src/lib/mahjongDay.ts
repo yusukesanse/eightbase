@@ -44,10 +44,16 @@ async function fetchPaidParticipants(
   eventDate: string
 ): Promise<RotPlayer[]> {
   const db = getDb();
-  const snap = await db.collection("mahjongEntries").where("seasonId", "==", seasonId).get();
+  // seasonId+eventDate の等値2条件で当日分のみ取得（複合インデックス不要）。
+  // seasonId のみで全件取得すると開催を重ねるほど読み取りが膨張する。
+  const snap = await db
+    .collection("mahjongEntries")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", eventDate)
+    .get();
   return snap.docs
     .map((d) => d.data() as MahjongEntry)
-    .filter((e) => e.eventDate === eventDate && e.paymentStatus === "paid")
+    .filter((e) => e.paymentStatus === "paid")
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
     .map((e) => ({
       lineUserId: e.lineUserId,
@@ -191,8 +197,13 @@ export async function startDay(seasonId: string, eventDate: string, demo = false
   if ((await db.collection("mahjongCancelledDates").doc(eventDate).get()).exists) return false;
 
   // 既にこの開催日の卓があれば（管理者が手組み等）自動生成しない。
-  const tblSnap = await db.collection("mahjongTables").where("seasonId", "==", seasonId).get();
-  if (tblSnap.docs.some((d) => (d.data() as MahjongTable).eventDate === eventDate)) return false;
+  // seasonId+eventDate の等値2条件で当日分のみ取得（複合インデックス不要）。
+  const tblSnap = await db
+    .collection("mahjongTables")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", eventDate)
+    .get();
+  if (!tblSnap.empty) return false;
 
   const participants = await fetchPaidParticipants(seasonId, eventDate);
   const now = new Date().toISOString();
@@ -265,12 +276,16 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
     const day = daySnap.data() as MahjongDayState & { demoDummy?: boolean };
     const round = day.round;
 
+    // seasonId+eventDate の等値2条件で当日分のみ取得（複合インデックス不要）。
     const qSnap = await tx.get(
-      db.collection("mahjongTables").where("seasonId", "==", seasonId)
+      db
+        .collection("mahjongTables")
+        .where("seasonId", "==", seasonId)
+        .where("eventDate", "==", eventDate)
     );
     const roundTables = qSnap.docs
       .map((d) => d.data() as MahjongTable)
-      .filter((t) => t.eventDate === eventDate && (t.round ?? 1) === round)
+      .filter((t) => (t.round ?? 1) === round)
       .sort((a, b) => (a.tableLabel ?? "").localeCompare(b.tableLabel ?? ""));
     if (roundTables.length === 0 || !roundTables.every((t) => t.status === "completed")) return null;
 
@@ -282,7 +297,7 @@ export async function advanceDayIfRoundComplete(seasonId: string, eventDate: str
       // computeNextRound が先に組んだ卓が残っており、これがあると GM が振り分けられない。
       for (const d of qSnap.docs) {
         const t = d.data() as MahjongTable;
-        if (t.eventDate === eventDate && (t.round ?? 1) === round + 1) tx.delete(d.ref);
+        if ((t.round ?? 1) === round + 1) tx.delete(d.ref);
       }
       // ⚠️ set で丸ごと置き換えると entryClosedAt / startedBy（＝GM が開始済みという事実）が消え、
       // 半荘が終わるたびに「ゲーム開始」からやり直しになる。既存フィールドを必ず引き継ぐこと。
