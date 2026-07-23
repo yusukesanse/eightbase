@@ -21,6 +21,7 @@ import {
   cancelDartsDay,
   setZeroOneVariant,
   reportDartsScore,
+  confirmDartsEvent,
 } from "@/lib/dartsDay";
 import type { DartsDayState } from "@/types/darts";
 
@@ -281,5 +282,65 @@ describe("reportDartsScore（状態機械・Issue 6）", () => {
     writeDay(day);
     const r = await reportDartsScore(SEASON, DATE, "a", "cricket", 100, { isGm: false });
     expect(r).toMatchObject({ ok: false, status: 400 });
+  });
+});
+
+describe("confirmDartsEvent（GM確定・自動確定は廃止）", () => {
+  const evOf = (k: string) => dayDoc()!.events.find((e) => e.kind === k)!;
+  async function startedZeroOne() {
+    ["a", "b", "c", "d"].forEach((u, i) => seedPaidEntry(u, i));
+    await startDartsDay(SEASON, DATE, "gm");
+    await setZeroOneVariant(SEASON, DATE, { start: 301, out: "double" });
+  }
+  const reportAllZeroOne = async () => {
+    for (const u of ["a", "b", "c", "d"]) {
+      await reportDartsScore(SEASON, DATE, u, "zeroOne", 100, { isGm: false });
+    }
+  };
+
+  test("全員申告してもGM確定までは reporting のまま（自動確定しない）", async () => {
+    await startedZeroOne();
+    await reportAllZeroOne();
+    expect(evOf("zeroOne").status).toBe("reporting");
+    expect(evOf("countUp").status).toBe("pending"); // 次種目もまだ受付していない
+  });
+
+  test("全員申告済みならGMが確定でき、次の種目が受付になる", async () => {
+    await startedZeroOne();
+    await reportAllZeroOne();
+    const r = await confirmDartsEvent(SEASON, DATE, "zeroOne");
+    expect(r.ok).toBe(true);
+    expect(evOf("zeroOne").status).toBe("confirmed");
+    expect(evOf("countUp").status).toBe("reporting");
+  });
+
+  test("未申告が残る間は確定できない（409）", async () => {
+    await startedZeroOne();
+    await reportDartsScore(SEASON, DATE, "a", "zeroOne", 100, { isGm: false });
+    const r = await confirmDartsEvent(SEASON, DATE, "zeroOne");
+    expect(r).toMatchObject({ ok: false, status: 409 });
+    expect(evOf("zeroOne").status).toBe("reporting");
+  });
+
+  test("pending（未受付）の種目は確定できない（409）", async () => {
+    await startedZeroOne();
+    const r = await confirmDartsEvent(SEASON, DATE, "countUp");
+    expect(r).toMatchObject({ ok: false, status: 409 });
+  });
+
+  test("確定済みは冪等（already）", async () => {
+    await startedZeroOne();
+    await reportAllZeroOne();
+    await confirmDartsEvent(SEASON, DATE, "zeroOne");
+    const r2 = await confirmDartsEvent(SEASON, DATE, "zeroOne");
+    expect(r2).toMatchObject({ ok: true, already: true });
+  });
+
+  test("終了後は確定できない（409）", async () => {
+    await startedZeroOne();
+    await reportAllZeroOne();
+    writeDay({ ...(dayDoc() as DartsDayState), finishedAt: "2026-07-16T12:00:00.000Z" });
+    const r = await confirmDartsEvent(SEASON, DATE, "zeroOne");
+    expect(r).toMatchObject({ ok: false, status: 409 });
   });
 });

@@ -91,7 +91,21 @@ export async function GET(req: NextRequest) {
         }));
       }
 
-      return { kind: ev.kind, status: ev.status, reportedCount, total: keyCount, myReported, results };
+      // GM は確定前でも各申告値を確認できる（＝全員のスコアを見てから「確定」する）。
+      // キーは個人種目=lineUserId / クリケット=teamId。参加者には出さない（他人の値は伏せる）。
+      const reportsByKey = isGm
+        ? Object.fromEntries(Object.entries(ev.reports).map(([k, v]) => [k, v.value]))
+        : undefined;
+
+      return {
+        kind: ev.kind,
+        status: ev.status,
+        reportedCount,
+        total: keyCount,
+        myReported,
+        results,
+        ...(isGm ? { reportsByKey } : {}),
+      };
     });
 
     const cricketTeams = (day.cricketTeams ?? []).map((t) => ({

@@ -7,7 +7,8 @@
  *
  * - GM「ゲーム開始」で dayState を作成＋受付締切（entryClosedAt）。参加者＝その時点の paid+staff で確定。
  * - ①はGMが種別選択（zeroOneVariant）→ 各自申告、②は各自申告、③はGMが編成 → チーム申告。
- * - 各種目は**全員（全チーム）の申告が揃えば自動確定**（麻雀方式）。GM は確定後も修正可。
+ * - 各種目は**参加者全員（全チーム）が自己申告 → GM が全員のスコアを確認し「確定」→ 次の種目へ**。
+ *   自動確定はしない（GM の confirmDartsEvent が唯一の確定・前進の入口）。GM は確定後も修正可。
  * - 「本日終了」で3種目の順位ポイントを合算し、参加者ごとに scores を書く（既存ランキングに乗る）。
  * - 順位・ポイントは保存せず reports から都度算出（GM 修正時の陳腐化を防ぐ）。
  *
@@ -323,7 +324,7 @@ export async function assignCricketTeams(
 /**
  * スコア申告。個人種目は本人（キー=lineUserId）、クリケットは当該チームのメンバー（キー=teamId）。
  * GM は targetUserId 指定で代理入力／確定後の修正が可能。
- * 全員（全チーム）の申告が揃えば自動確定し、次の種目を受付へ進める。
+ * 申告は**保存のみ**。確定（→次の種目へ）は GM の confirmDartsEvent に集約する（自動確定は廃止）。
  */
 export async function reportDartsScore(
   seasonId: string,
@@ -379,20 +380,51 @@ export async function reportDartsScore(
     if (isDangerousObjectKey(key)) {
       return { ok: false as const, status: 400, error: "申告キーが不正です" };
     }
-    const wasReporting = ev.status === "reporting";
+    // 申告は保存のみ。確定（status→confirmed・次の種目の受付開始）は GM の confirmDartsEvent に集約する。
     ev.reports[key] = { value, reportedAt: new Date().toISOString() };
+    day.updatedAt = new Date().toISOString();
+    tx.set(dayRef, day);
+    return { ok: true as const };
+  });
+}
 
-    // reporting → 全員揃えば自動確定し、次の種目へ。確定後の GM 修正では進行を戻さない。
-    if (wasReporting && isEventFullyReported(day, ev)) {
-      ev.status = "confirmed";
-      if (kind === "zeroOne") {
-        const countUp = findEvent(day, "countUp");
-        if (countUp && countUp.status === "pending") countUp.status = "reporting";
-      }
-      // countUp 確定 → クリケットは GM 編成待ち（pending のまま）。
-      // cricket 確定 → 「本日終了」で集計。
+// ─── GM: 種目の確定（全員申告済み → 確定 → 次の種目へ） ──────────────────────
+
+/**
+ * GM の「確定」。参加者全員（全チーム）が申告済みの種目を確定し、次の種目を受付へ進める。
+ * - 前提: 対象種目が reporting かつ全員申告済み。未申告が残る間は確定できない（409）。
+ * - ゼロワン確定 → カウントアップを受付（reporting）へ。カウントアップ確定 → クリケットは GM 編成待ち（pending）。
+ * - 冪等: すでに confirmed なら {ok:true, already:true}。終了済みは 409。
+ */
+export async function confirmDartsEvent(
+  seasonId: string,
+  eventDate: string,
+  kind: DartsEventKind
+): Promise<DayMutationResult> {
+  const db = getDb();
+  const dayRef = db.collection("dartsDayState").doc(dartsDayId(seasonId, eventDate));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(dayRef);
+    if (!snap.exists) return { ok: false as const, status: 400, error: "まだ開始していません" };
+    const day = snap.data() as DartsDayState;
+    if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了済みです" };
+
+    const ev = findEvent(day, kind);
+    if (!ev) return { ok: false as const, status: 400, error: "種目が不正です" };
+    if (ev.status === "confirmed") return { ok: true as const, already: true };
+    if (ev.status !== "reporting") {
+      return { ok: false as const, status: 409, error: "この種目はまだ受付していません" };
+    }
+    if (!isEventFullyReported(day, ev)) {
+      return { ok: false as const, status: 409, error: "全員の申告が揃っていません" };
     }
 
+    ev.status = "confirmed";
+    if (kind === "zeroOne") {
+      const countUp = findEvent(day, "countUp");
+      if (countUp && countUp.status === "pending") countUp.status = "reporting";
+    }
+    // countUp 確定 → クリケットは GM 編成待ち（pending のまま）。cricket 確定 →「本日終了」で集計。
     day.updatedAt = new Date().toISOString();
     tx.set(dayRef, day);
     return { ok: true as const };

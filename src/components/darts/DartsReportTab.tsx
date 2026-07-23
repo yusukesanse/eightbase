@@ -113,9 +113,16 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
                 {!canReport ? (
                   <InfoCard text={isCricket ? "あなたはこの種目のチームに含まれていません。" : "あなたは本日の参加者ではありません。"} />
                 ) : teamReported ? (
-                  <div className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-extrabold self-start" style={{ background: "#eef4dd", color: "#6f9023" }}>
-                    <CheckIcon color="#6f9023" size={14} />申告済み
-                    <button onClick={() => setReportKind(activeEvent.kind)} className="ml-2 text-[11px] font-bold text-[#231714]/70 underline underline-offset-2">修正</button>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-extrabold self-start" style={{ background: "#eef4dd", color: "#6f9023" }}>
+                      <CheckIcon color="#6f9023" size={14} />申告済み
+                      <button onClick={() => setReportKind(activeEvent.kind)} className="ml-2 text-[11px] font-bold text-[#231714]/70 underline underline-offset-2">修正</button>
+                    </div>
+                    <p className="text-[11px] text-[#231714]/70">
+                      {activeEvent.reportedCount >= activeEvent.total
+                        ? "全員の申告が揃いました。ゲームマスターの確定を待っています。"
+                        : "他の参加者の申告を待っています。全員そろうとゲームマスターが確定します。"}
+                    </p>
                   </div>
                 ) : (
                   <button onClick={() => setReportKind(activeEvent.kind)} className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5" style={{ background: DARTS_ACCENT }}>
@@ -222,7 +229,7 @@ function ReportModal({
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 pb-8 safe-area-pb" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-bold text-[#1c1f21]">{DARTS_EVENT_LABEL[kind]}の申告</h3>
-        <p className="text-[11px] text-[#231714]/85 mt-1 mb-5">全員そろうと自動で確定します。</p>
+        <p className="text-[11px] text-[#231714]/85 mt-1 mb-5">全員の申告後、ゲームマスターが確認して確定します。あとから修正もできます。</p>
 
         <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mb-2">{label}</label>
         <div className="flex items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${value ? DARTS_ACCENT : "#e4e7e9"}` }}>

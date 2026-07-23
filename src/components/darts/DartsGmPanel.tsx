@@ -32,6 +32,8 @@ interface EventStateDto {
   results:
     | { lineUserId?: string; displayName: string; isMe: boolean; value: number | null; rank: number | null; points: number; teamId?: string }[]
     | null;
+  /** GM 限定: 確定前でも各申告値を確認できる。個人種目=lineUserId / クリケット=teamId をキーに申告値。 */
+  reportsByKey?: Record<string, number | null>;
 }
 interface CricketTeamDto {
   teamId: string;
@@ -328,9 +330,11 @@ function VariantPhase({ eventDate, onDone, setError }: { eventDate: string; onDo
 function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: DayDto; ev: EventStateDto; eventDate: string; onDone: () => void; setError: (s: string | null) => void }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const reportedBy = new Map((ev.results ?? []).map((r) => [r.displayName, r]));
+  const [confirming, setConfirming] = useState(false);
+  const reported = ev.reportsByKey ?? {};
   const label = ev.kind === "zeroOne" ? "最終残り点数（少ないほど上位・0＝上がり）" : "合計点";
   const hint = day.zeroOneVariant && ev.kind === "zeroOne" ? `（${day.zeroOneVariant.start}／${OUT_LABEL[day.zeroOneVariant.out]}）` : "";
+  const allReported = ev.total > 0 && ev.reportedCount >= ev.total;
 
   const submit = async (uid: string) => {
     const raw = draft[uid];
@@ -341,6 +345,13 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
     else { setDraft((d) => ({ ...d, [uid]: "" })); await onDone(); }
     setBusy(null);
   };
+  const confirmEvent = async () => {
+    setConfirming(true); setError(null);
+    const r = await postDay("confirm", { eventDate, kind: ev.kind });
+    if (!r.ok) setError(r.error ?? "確定に失敗しました");
+    else await onDone();
+    setConfirming(false);
+  };
 
   return (
     <>
@@ -348,14 +359,14 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
         <span className="text-[11px] font-bold text-[#3c4f54]">{DARTS_EVENT_LABEL[ev.kind]}{hint}</span>
         <span className="text-[10px] font-bold text-[#3c4f54] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
-      <p className="text-[10.5px] text-[#231714]/80">各自がアプリで申告します。GM は代理入力・修正できます。{label}。全員そろうと自動で確定し、次に進みます。</p>
+      <p className="text-[10.5px] text-[#231714]/80">各自がアプリで申告します。GM も自分の分を申告し、代理入力・修正もできます。{label}。全員そろったら「確定」を押すと次に進みます。</p>
       <div className="flex flex-col gap-1.5">
         {day.participants.map((m) => {
-          const done = reportedBy.get(m.displayName);
+          const done = m.lineUserId in reported;
           return (
             <div key={m.lineUserId} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: done ? DARTS_ACCENT : "#e4e7e9", background: done ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff" }}>
               <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{m.displayName}</span>
-              {done && <span className="text-[11px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{done.value ?? "棄権"}</span>}
+              {done && <span className="text-[11px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[m.lineUserId] ?? "棄権"}</span>}
               <input
                 type="text" inputMode="numeric" placeholder={done ? "修正" : "入力"}
                 value={draft[m.lineUserId] ?? ""}
@@ -370,6 +381,9 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
           );
         })}
       </div>
+      <button onClick={confirmEvent} disabled={!allReported || confirming} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
+        {confirming ? "確定中…" : allReported ? "全員のスコアを確定して次へ" : `あと${ev.total - ev.reportedCount}名の申告待ち`}
+      </button>
     </>
   );
 }
@@ -535,9 +549,9 @@ function CricketAssignPhase({ day, eventDate, onDone, setError }: { day: DayDto;
 function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: DayDto; ev: EventStateDto; eventDate: string; onDone: () => void; setError: (s: string | null) => void }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  // results はメンバー単位。teamId ごとの申告値を拾う。
-  const teamValue = new Map<string, number | null>();
-  for (const r of ev.results ?? []) if (r.teamId) teamValue.set(r.teamId, r.value);
+  const [confirming, setConfirming] = useState(false);
+  const reported = ev.reportsByKey ?? {};
+  const allReported = ev.total > 0 && ev.reportedCount >= ev.total;
 
   const submit = async (team: CricketTeamDto) => {
     const raw = draft[team.teamId];
@@ -550,6 +564,13 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
     else { setDraft((d) => ({ ...d, [team.teamId]: "" })); await onDone(); }
     setBusy(null);
   };
+  const confirmEvent = async () => {
+    setConfirming(true); setError(null);
+    const r = await postDay("confirm", { eventDate, kind: "cricket" });
+    if (!r.ok) setError(r.error ?? "確定に失敗しました");
+    else await onDone();
+    setConfirming(false);
+  };
 
   return (
     <>
@@ -557,18 +578,18 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
         <span className="text-[11px] font-bold text-[#3c4f54]">クリケット（15R・チーム最終ポイント）</span>
         <span className="text-[10px] font-bold text-[#3c4f54] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
+      <p className="text-[10.5px] text-[#231714]/80">各チームが申告します。GM は代理入力・修正もできます。全チームそろったら「確定」を押すと本日終了へ進みます。</p>
       <div className="flex flex-col gap-1.5">
         {(day.cricketTeams ?? []).map((team, i) => {
-          const val = teamValue.get(team.teamId);
-          const reported = teamValue.has(team.teamId);
+          const isReported = team.teamId in reported;
           return (
-            <div key={team.teamId} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: reported ? DARTS_ACCENT : "#e4e7e9", background: reported ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff" }}>
+            <div key={team.teamId} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: isReported ? DARTS_ACCENT : "#e4e7e9", background: isReported ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff" }}>
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-extrabold text-[#3c4f54]">チーム{i + 1}</div>
                 <div className="text-[12.5px] font-bold text-[#1c1f21] truncate">{team.members.map((m) => m.displayName).join("・")}</div>
               </div>
-              {reported && <span className="text-[11px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{val ?? "棄権"}</span>}
-              <input type="text" inputMode="numeric" placeholder={reported ? "修正" : "入力"}
+              {isReported && <span className="text-[11px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[team.teamId] ?? "棄権"}</span>}
+              <input type="text" inputMode="numeric" placeholder={isReported ? "修正" : "入力"}
                 value={draft[team.teamId] ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, [team.teamId]: e.target.value.replace(/[^\d]/g, "") }))}
                 className="w-16 text-right border-b outline-none bg-transparent text-[14px] font-black tabular-nums text-[#1c1f21] py-0.5"
@@ -578,6 +599,9 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
           );
         })}
       </div>
+      <button onClick={confirmEvent} disabled={!allReported || confirming} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
+        {confirming ? "確定中…" : allReported ? "全チームのスコアを確定して次へ" : `あと${ev.total - ev.reportedCount}チームの申告待ち`}
+      </button>
     </>
   );
 }

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * POST /api/darts/day/report  Body: { eventDate, kind, value:number|null, targetUserId? }
  * 申告（自己申告 → アプリが順位算出・§2.6）。GM 限定にはしない（参加者本人が申告）。
  * 個人種目は本人、クリケットは当該チームのメンバー。GM は targetUserId 指定で代理／確定後の修正が可能。
- * 全員（全チーム）の申告が揃えば自動確定。
+ * 申告は保存のみ。全員そろった後、GM が /api/darts/day/confirm で確定して次の種目へ進める。
  */
 export async function POST(req: NextRequest) {
   const userId = await requireGameUser(req);
