@@ -9,6 +9,7 @@ import { isGamesOnlyRole } from "@/lib/roles";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
 import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
 import { BilliardsLeagueView } from "@/components/billiards/BilliardsLeagueView";
+import { PokerLeagueView } from "@/components/poker/PokerLeagueView";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -33,7 +34,7 @@ export default function InfoPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URL(window.location.href).searchParams;
-    if (params.has("mjpay") || params.has("dartspay") || params.has("billiardspay")) {
+    if (params.has("mjpay") || params.has("dartspay") || params.has("billiardspay") || params.has("pokerpay")) {
       setActiveTab("games");
     }
   }, []);
@@ -446,9 +447,11 @@ function GamesTab() {
             <DartsLeagueView />
           ) : gameCategory === "billiards" ? (
             <BilliardsLeagueView />
+          ) : gameCategory === "poker" ? (
+            <PokerLeagueView />
           ) : (
             <>
-              {/* 期間切替 + 月ナビ */}
+              {/* 期間切替 + 月ナビ（未使用のフォールバック。全種目とも専用ビューを持つ） */}
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex gap-0.5 bg-[#231714]/[0.08] rounded-lg p-0.5">
                   <button
