@@ -80,8 +80,12 @@ export function useStaleWhileRevalidate<T>(
 
   // fetcher は毎レンダリングで新しい関数になりがちなので ref で保持し、
   // 依存配列には key だけを入れて無限ループを避ける。
+  // ⚠️ 必ず layout effect で更新すること（下の「初回/キー変更」layout effect より先に走らせる）。
+  // 普通の useEffect にすると、キーが変わったレンダリングの初回取得が「前のレンダリングの
+  // 古いクロージャ」で実行される（例: 予約画面で日付選択直後に selectedDate=null のまま
+  // 空き取得 → 空配列が新キーのキャッシュに保存され、予約済み時間帯が空きに見える）。
   const fetcherRef = useRef(fetcher);
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     fetcherRef.current = fetcher;
   });
 

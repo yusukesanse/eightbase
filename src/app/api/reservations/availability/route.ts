@@ -31,6 +31,13 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     );
   }
+  // "null"/"undefined" 等の不正値で空の bookedSlots を返すとクライアントのキャッシュを汚すため明示拒否
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json(
+      { error: "date は YYYY-MM-DD 形式で指定してください" },
+      { status: 400 }
+    );
+  }
 
   const facility = await getFacilityById(facilityId);
   if (!facility) {

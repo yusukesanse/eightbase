@@ -24,6 +24,12 @@ export async function GET(req: NextRequest) {
   const facilityId = searchParams.get("facilityId");
   const weekStart  = searchParams.get("weekStart"); // YYYY-MM-DD (月曜)
 
+  if (facilityId && weekStart && !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return NextResponse.json(
+      { error: "weekStart は YYYY-MM-DD 形式で指定してください" },
+      { status: 400 }
+    );
+  }
   if (!facilityId || !weekStart) {
     return NextResponse.json(
       { error: "facilityId and weekStart are required" },
