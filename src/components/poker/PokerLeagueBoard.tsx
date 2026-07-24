@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
-import { POKER_ACCENT, fmtChips } from "@/components/poker/pokerShared";
+import { POKER_ACCENT, POKER_TIER_COLOR, fmtChips } from "@/components/poker/pokerShared";
+import { PokerChipRace } from "@/components/poker/PokerChipRace";
 import { type PokerTier } from "@/types/poker";
 
 /**
@@ -24,7 +25,7 @@ interface Standing {
 }
 interface Me { rank: number; tier: PokerTier; totalChips: number; days: number; firsts: number; gapToP1: number }
 
-const TIER_COLOR: Record<PokerTier, string> = { P1: "#a2125a", P2: "#1172a5", P3: "#b48f13" };
+const TIER_COLOR = POKER_TIER_COLOR;
 const TIER_LABEL: Record<PokerTier, string> = { P1: "P1（1〜4位）", P2: "P2（5〜8位）", P3: "P3（9位〜）" };
 
 function Sparkline({ points, color }: { points: number[]; color: string }) {
@@ -79,27 +80,8 @@ export function PokerLeagueBoard() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ヒーロー（黒・全ゲーム統一トーン） */}
-      <div className="rounded-2xl p-5 text-white" style={{ background: "#17191b" }}>
-        <div className="text-[11px] font-bold opacity-70">ポーカーリーグ{seasonName ? ` ・ ${seasonName}` : ""}</div>
-        <div className="text-[13px] font-bold mt-0.5 opacity-90">通算チップ合計で順位が決まります</div>
-        {me && (
-          <div className="mt-3 flex items-end gap-4">
-            <div>
-              <div className="text-[10px] opacity-70">あなたの順位</div>
-              <div className="text-[28px] font-black leading-none" style={{ color: TIER_COLOR[me.tier] }}>
-                {me.rank}
-                <span className="text-[13px] font-bold ml-1 opacity-80">位 / {me.tier}</span>
-              </div>
-            </div>
-            <div className="flex-1 text-right">
-              <div className="text-[10px] opacity-70">通算チップ</div>
-              <div className="text-[20px] font-black tabular-nums leading-none">{fmtChips(me.totalChips)}</div>
-              {me.gapToP1 > 0 && <div className="text-[10px] opacity-70 mt-1">P1まで {fmtChips(me.gapToP1)}</div>}
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ヒーロー: CHIP RACE（Figma hero-chip-race。通算チップの積み上げレース） */}
+      <PokerChipRace standings={standings} seasonName={seasonName} me={me} />
 
       {tiers.map((tier) => {
         const rows = standings.filter((s) => s.tier === tier);
