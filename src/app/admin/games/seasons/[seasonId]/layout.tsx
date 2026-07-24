@@ -27,7 +27,17 @@ export default function SeasonDetailLayout({
   // 種目でタブを出し分ける。ランキング/返金/監査は全ゲーム共通（CSのみ種目別ルート）。
   const isDarts = season?.gameCategory === "darts";
   const isBilliards = season?.gameCategory === "billiards";
-  const TABS = isDarts
+  const isPoker = season?.gameCategory === "poker";
+  const TABS = isPoker
+    ? [
+        // ポーカーは CS 未実装（後日）。概要/日程/ランキング/返金/監査。
+        { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
+        { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
+        { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
+      ]
+    : isDarts
     ? [
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },

@@ -16,9 +16,9 @@ import DatePicker from "@/components/ui/DatePicker";
  * 休催（中止）は {game}CancelledDates に記録され、以後の参加を止める（返金は Square で管理者が手動）。
  */
 
-type Game = "mahjong" | "darts" | "billiards";
-const GAME_NAME: Record<Game, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード" };
-const DEFAULT_WEEKDAY: Record<Game, number> = { mahjong: 6, darts: 4, billiards: 6 }; // 土/木/土
+type Game = "mahjong" | "darts" | "billiards" | "poker";
+const GAME_NAME: Record<Game, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード", poker: "ポーカー" };
+const DEFAULT_WEEKDAY: Record<Game, number> = { mahjong: 6, darts: 4, billiards: 6, poker: 6 }; // 土/木/土/土
 const ACCENT = "#2f7d57";
 const RED = "#d8533a";
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
@@ -48,7 +48,7 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // 繰り返し設定。
   const [weekday, setWeekday] = useState<number>(DEFAULT_WEEKDAY[gameCategory]);
-  const [intervalWeeks, setIntervalWeeks] = useState<number>(gameCategory === "darts" ? 2 : 1);
+  const [intervalWeeks, setIntervalWeeks] = useState<number>(gameCategory === "darts" || gameCategory === "poker" ? 2 : 1);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);

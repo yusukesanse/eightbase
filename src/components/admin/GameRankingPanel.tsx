@@ -20,8 +20,8 @@ interface Standing {
   tier: string; // D1/D2/D3 or B1/B2/B3
 }
 
-type GameCategory = "darts" | "billiards";
-const GAME_NAME: Record<GameCategory, string> = { darts: "ダーツ", billiards: "ビリヤード" };
+type GameCategory = "darts" | "billiards" | "poker";
+const GAME_NAME: Record<GameCategory, string> = { darts: "ダーツ", billiards: "ビリヤード", poker: "ポーカー" };
 const TIER_COLOR: Record<string, string> = { "1": "#a2125a", "2": "#1172a5", "3": "#b48f13" };
 const TIER_RANGE: Record<string, string> = { "1": "通算 1〜4位", "2": "通算 5〜8位", "3": "通算 9位以下" };
 

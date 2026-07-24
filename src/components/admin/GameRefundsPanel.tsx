@@ -21,8 +21,8 @@ interface RefundItem {
   refundProcessedBy: string | null;
 }
 
-type GameCategory = "mahjong" | "darts" | "billiards";
-const GAME_NAME: Record<GameCategory, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード" };
+type GameCategory = "mahjong" | "darts" | "billiards" | "poker";
+const GAME_NAME: Record<GameCategory, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード", poker: "ポーカー" };
 
 const STATE_LABEL: Record<RefundItem["state"], { text: string; color: string; bg: string }> = {
   pending: { text: "未対応", color: "#a1502c", bg: "#fff4ec" },

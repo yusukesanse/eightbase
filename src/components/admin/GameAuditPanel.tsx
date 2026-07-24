@@ -19,8 +19,8 @@ interface AuditLog {
   createdAt: string;
 }
 
-type GameCategory = "mahjong" | "darts" | "billiards";
-const GAME_NAME: Record<GameCategory, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード" };
+type GameCategory = "mahjong" | "darts" | "billiards" | "poker";
+const GAME_NAME: Record<GameCategory, string> = { mahjong: "麻雀", darts: "ダーツ", billiards: "ビリヤード", poker: "ポーカー" };
 
 const fmt = (iso: string) => {
   const d = new Date(iso);

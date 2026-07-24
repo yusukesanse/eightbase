@@ -11,7 +11,7 @@ import GameScheduleCalendar from "@/components/admin/GameScheduleCalendar";
  */
 export default function SeasonSchedulePage() {
   const { seasonId } = useParams<{ seasonId: string }>();
-  const [category, setCategory] = useState<"mahjong" | "darts" | "billiards" | null>(null);
+  const [category, setCategory] = useState<"mahjong" | "darts" | "billiards" | "poker" | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
@@ -19,7 +19,7 @@ export default function SeasonSchedulePage() {
       .then((d) => {
         const found = (d.seasons ?? []).find((s: Season) => s.seasonId === seasonId);
         const c = found?.gameCategory;
-        setCategory(c === "darts" || c === "billiards" ? c : "mahjong");
+        setCategory(c === "darts" || c === "billiards" || c === "poker" ? c : "mahjong");
       })
       .catch(() => setCategory("mahjong"));
   }, [seasonId]);
