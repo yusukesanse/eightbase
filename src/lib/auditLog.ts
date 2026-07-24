@@ -8,7 +8,7 @@
 import { getDb } from "@/lib/firebaseAdmin";
 
 /** 監査対象の種目。未指定は麻雀（後方互換）。 */
-export type AuditGameCategory = "mahjong" | "darts" | "billiards";
+export type AuditGameCategory = "mahjong" | "darts" | "billiards" | "poker";
 
 export type AuditEventType =
   | "payment.cancelRequested" // 支払い済みのキャンセル依頼（利用者）

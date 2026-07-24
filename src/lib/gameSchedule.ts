@@ -16,8 +16,9 @@
 import { randomUUID } from "crypto";
 import { DARTS_DEFAULT_START_TIME, DARTS_DEFAULT_END_TIME } from "@/types/darts";
 import { BILLIARDS_DEFAULT_START_TIME, BILLIARDS_DEFAULT_END_TIME } from "@/types/billiards";
+import { POKER_DEFAULT_START_TIME, POKER_DEFAULT_END_TIME } from "@/types/poker";
 
-export type ScheduleGame = "mahjong" | "darts" | "billiards";
+export type ScheduleGame = "mahjong" | "darts" | "billiards" | "poker";
 
 export const GAME_SCHEDULE_CFG: Record<
   ScheduleGame,
@@ -26,6 +27,7 @@ export const GAME_SCHEDULE_CFG: Record<
   mahjong: { col: "mahjongSchedule", start: "13:00", end: "18:00", extra: { type: "league" } },
   darts: { col: "dartsSchedule", start: DARTS_DEFAULT_START_TIME, end: DARTS_DEFAULT_END_TIME },
   billiards: { col: "billiardsSchedule", start: BILLIARDS_DEFAULT_START_TIME, end: BILLIARDS_DEFAULT_END_TIME },
+  poker: { col: "pokerSchedule", start: POKER_DEFAULT_START_TIME, end: POKER_DEFAULT_END_TIME },
 };
 
 export const buildGameScheduleId = (seasonId: string, date: string) => `${seasonId}_${date}`;

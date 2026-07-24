@@ -19,6 +19,8 @@ export type AdminNotificationType =
   | "darts_event_forfeit" // ダーツリーグ 開催日の中止（流会）＝支払い済み分の一括返金依頼
   | "billiards_refund" // ビリヤード参加費の返金対応依頼（キャンセル/期限切れ後決済）
   | "billiards_event_forfeit" // ビリヤードリーグ 開催日の中止（流会）＝支払い済み分の一括返金依頼
+  | "poker_refund" // ポーカー参加費の返金対応依頼（キャンセル/期限切れ後決済）
+  | "poker_event_forfeit" // ポーカーリーグ 開催日の中止（流会）＝支払い済み分の一括返金依頼
   | "access_request"; // 利用者からの利用申請（承認待ち）
 
 export async function notifyAdmin(
