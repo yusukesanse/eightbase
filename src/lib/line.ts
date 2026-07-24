@@ -29,8 +29,12 @@ async function pushMessage(userId: string, messages: object[]) {
  * マルチキャスト（最大500人同時送信）
  * 500人を超える場合は自動分割
  */
-async function multicastMessage(userIds: string[], messages: object[]) {
+async function multicastMessage(
+  userIds: string[],
+  messages: object[]
+): Promise<{ ok: boolean; failedBatches: number }> {
   const BATCH_SIZE = 500;
+  let failedBatches = 0;
   for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
     const batch = userIds.slice(i, i + BATCH_SIZE);
     const res = await fetch(`${LINE_API_BASE}/message/multicast`, {
@@ -45,8 +49,10 @@ async function multicastMessage(userIds: string[], messages: object[]) {
     if (!res.ok) {
       const error = await res.text();
       console.error(`LINE multicast failed (batch ${i / BATCH_SIZE + 1}):`, error);
+      failedBatches++;
     }
   }
+  return { ok: failedBatches === 0, failedBatches };
 }
 
 // ─── 予約完了通知 ──────────────────────────────────────────────────────────────
@@ -395,17 +401,85 @@ export async function broadcastContentPublished(
   contentType: ContentType,
   title: string,
   audience: UserRole[],
-) {
-  if (!audience || audience.length === 0) return;
+): Promise<{ recipientCount: number; ok: boolean }> {
+  if (!audience || audience.length === 0) return { recipientCount: 0, ok: true };
 
+  let recipientCount = 0;
+  let ok = true;
   const memberRoles = audience.filter((r) => r === "member" || r === "staff");
   if (memberRoles.length > 0) {
     const ids = await getActiveLineUserIdsByRoles(memberRoles);
-    if (ids.length > 0) await multicastMessage(ids, [contentFlex(contentType, title, false)]);
+    if (ids.length > 0) {
+      const r = await multicastMessage(ids, [contentFlex(contentType, title, false)]);
+      recipientCount += ids.length;
+      if (!r.ok) ok = false;
+    }
   }
   if (audience.includes("guest")) {
     const ids = await getActiveLineUserIdsByRoles(["guest"]);
-    if (ids.length > 0) await multicastMessage(ids, [contentFlex(contentType, title, true)]);
+    if (ids.length > 0) {
+      const r = await multicastMessage(ids, [contentFlex(contentType, title, true)]);
+      recipientCount += ids.length;
+      if (!r.ok) ok = false;
+    }
+  }
+  return { recipientCount, ok };
+}
+
+/**
+ * コンテンツ公開通知を「1 doc につき最大1回」だけ送る（news/event/game 共通）。
+ * - 既に `lineNotifiedAt` があれば送らない（下書き↔公開の往復・POSTとcronの二重発火・再保存での再送を防ぐ）。
+ * - 送信「済み」の主張(claim)を transaction で原子化し、同時発火でも二重送信しない。
+ * - 送信結果（件数/成否/エラー）を doc の `lineNotifyResult` に記録し、管理者が追跡できるようにする。
+ * - 送信に失敗したら claim を解除して**再試行可能**にする（次の公開遷移や再保存でやり直せる）。
+ */
+export async function notifyContentPublishedOnce(
+  db: FirebaseFirestore.Firestore,
+  collectionName: string,
+  docId: string,
+  contentType: ContentType,
+  title: string,
+  lineNotify: boolean,
+  audience: UserRole[],
+): Promise<{ sent: boolean; recipientCount: number; reason?: string }> {
+  if (!lineNotify || audience.length === 0) {
+    return { sent: false, recipientCount: 0, reason: "disabled" };
+  }
+  const ref = db.collection(collectionName).doc(docId);
+  const nowIso = new Date().toISOString();
+
+  // 「通知済み」を原子的に主張。既に主張済みなら送らない。
+  const claimed = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return false;
+    if (snap.data()?.lineNotifiedAt) return false;
+    tx.update(ref, { lineNotifiedAt: nowIso });
+    return true;
+  });
+  if (!claimed) return { sent: false, recipientCount: 0, reason: "already_notified" };
+
+  try {
+    const { recipientCount, ok } = await broadcastContentPublished(contentType, title, audience);
+    // ok=false は LINE 配信の一部バッチが失敗（一部は届いている）。二重送信を避けるため claim は維持し、
+    // 失敗を結果に残す（管理者が追跡し、必要なら手動で再送を判断できる）。
+    await ref.update({
+      lineNotifyResult: {
+        ok,
+        recipientCount,
+        audience,
+        at: nowIso,
+        ...(ok ? {} : { error: "LINE配信の一部が失敗しました（詳細はサーバーログ）" }),
+      },
+    });
+    return { sent: ok, recipientCount, ...(ok ? {} : { reason: "partial_failure" }) };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    // 送信前の例外（宛先取得失敗など・何も届いていない）: claim を戻して再試行可能にし、失敗を記録する。
+    await ref
+      .update({ lineNotifiedAt: null, lineNotifyResult: { ok: false, error, audience, at: nowIso } })
+      .catch(() => {});
+    console.error(`[notifyContentPublishedOnce] ${collectionName}/${docId} broadcast failed:`, error);
+    return { sent: false, recipientCount: 0, reason: "error" };
   }
 }
 

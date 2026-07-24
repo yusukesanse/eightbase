@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { broadcastContentPublished, sanitizeAudience } from "@/lib/line";
+import { notifyContentPublishedOnce, sanitizeAudience } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -91,12 +91,9 @@ export async function POST(req: NextRequest) {
 
     const docRef = await db.collection("news").add(data);
 
-    if (data.published === true && lineNotify && audience.length > 0) {
-      try {
-        await broadcastContentPublished("news", title, audience);
-      } catch (err) {
-        console.error("[admin/news] broadcast failed:", err);
-      }
+    // 公開状態で作成された時のみ通知（1 doc 最大1回・結果を doc に記録）。
+    if (data.published === true) {
+      await notifyContentPublishedOnce(db, "news", docRef.id, "news", title, lineNotify, audience);
     }
 
     return NextResponse.json({ success: true, newsId: docRef.id });
@@ -149,19 +146,14 @@ export async function PUT(req: NextRequest) {
     const wasPublished = doc.data()?.published === true;
     await docRef.update({ ...fields, updatedAt: new Date().toISOString() });
 
+    // 下書き→公開の遷移時のみ通知（編集保存では送らない）。1 doc 最大1回・結果を doc に記録。
     if (!wasPublished && fields.published === true) {
-      try {
-        const title = fields.title || doc.data()?.title || "新しいニュース";
-        const lineNotify = typeof body.lineNotify === "boolean" ? body.lineNotify : doc.data()?.lineNotify !== false;
-        const audience = Array.isArray(body.lineBroadcastAudience)
-          ? sanitizeAudience(body.lineBroadcastAudience, "news")
-          : sanitizeAudience(doc.data()?.lineBroadcastAudience, "news");
-        if (lineNotify && audience.length > 0) {
-          await broadcastContentPublished("news", title, audience);
-        }
-      } catch (err) {
-        console.error("[admin/news] broadcast failed:", err);
-      }
+      const title = (fields.title as string) || doc.data()?.title || "新しいニュース";
+      const lineNotify = typeof body.lineNotify === "boolean" ? body.lineNotify : doc.data()?.lineNotify !== false;
+      const audience = Array.isArray(body.lineBroadcastAudience)
+        ? sanitizeAudience(body.lineBroadcastAudience, "news")
+        : sanitizeAudience(doc.data()?.lineBroadcastAudience, "news");
+      await notifyContentPublishedOnce(db, "news", newsId, "news", title, lineNotify, audience);
     }
 
     return NextResponse.json({ success: true });
