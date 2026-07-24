@@ -11,7 +11,7 @@ import GameRankingPanel from "@/components/admin/GameRankingPanel";
  */
 export default function SeasonRankingPage() {
   const { seasonId } = useParams<{ seasonId: string }>();
-  const [category, setCategory] = useState<"darts" | "billiards" | null>(null);
+  const [category, setCategory] = useState<"darts" | "billiards" | "poker" | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function SeasonRankingPage() {
       .then((d) => {
         const found = (d.seasons ?? []).find((s: Season) => s.seasonId === seasonId);
         const c = found?.gameCategory;
-        if (c === "darts" || c === "billiards") setCategory(c);
+        if (c === "darts" || c === "billiards" || c === "poker") setCategory(c);
       })
       .catch(() => {})
       .finally(() => setReady(true));

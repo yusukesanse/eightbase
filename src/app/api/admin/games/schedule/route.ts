@@ -28,7 +28,7 @@ function isRealDate(v: unknown): v is string {
   return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === v;
 }
 function toGame(v: unknown): Game | null {
-  return v === "mahjong" || v === "darts" || v === "billiards" ? v : null;
+  return v === "mahjong" || v === "darts" || v === "billiards" || v === "poker" ? v : null;
 }
 
 export async function GET(req: NextRequest) {
