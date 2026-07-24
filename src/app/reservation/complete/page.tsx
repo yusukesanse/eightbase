@@ -119,15 +119,19 @@ function CompleteInner() {
                 <div className="text-[34px] font-black tabular-nums text-[#1c1f21] tracking-[0.15em] my-1">
                   {passcode}
                 </div>
-                <div className="text-[11px] text-[#231714]/85">
-                  予約時間中のみ有効です。終了後は無効になります。
+                <div className="text-[11px] text-[#231714]/85 space-y-0.5">
+                  <p>
+                    予約開始時刻になると、このコードでドアを解錠できます
+                    {reservation?.startTime ? `（${reservation.startTime}〜${reservation.endTime}のみ有効）` : "（予約時間中のみ有効）"}。
+                  </p>
+                  <p>コードは「マイ予約」からいつでも確認できます。</p>
                 </div>
               </div>
             ) : passcodePending ? (
               <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-center">
                 <p className="text-xs text-amber-700">
                   解錠コードは準備が整い次第、<b>管理者からご連絡</b>します。<br />
-                  お急ぎの場合は管理者へお問い合わせください。
+                  発行後は「マイ予約」にも表示されます。お急ぎの場合は管理者へお問い合わせください。
                 </p>
               </div>
             ) : null}
