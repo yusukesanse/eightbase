@@ -97,7 +97,7 @@ export function PokerGameTab({ onChanged }: { onChanged: () => void }) {
       </div>
     );
   }
-  if (!day) return <InfoCard text="読み込みに失敗しました。" />;
+  if (!day) return <InfoCard text={error ?? "読み込みに失敗しました。"} />;
   if (day.finished) return <InfoCard text="本日の対局はすべて終了しました。結果は「リーグ」タブに反映されます。" />;
 
   return (
