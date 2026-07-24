@@ -103,6 +103,34 @@ export async function getPendingLockedSlots(
 }
 
 /**
+ * 空き表示の「真実の源」: この施設・日の **ブロッキング中の全ロック**（confirmed ＋ 未失効 pending）を
+ * {start,end}[] で返す。confirmed も含める点が getPendingLockedSlots との違い。
+ *
+ * 空き状況APIはこれを正とする（＝Firestore の予約と表示が必ず一致する）。Google Calendar は
+ * ミラーであり、GCal を直接編集した手動予定の取り込みは Phase 2（webhook/sync）で扱う。
+ */
+export async function getBlockingLockedSlots(
+  db: FirebaseFirestore.Firestore,
+  facilityId: string,
+  date: string,
+  nowIso: string
+): Promise<{ start: string; end: string }[]> {
+  const snap = await db
+    .collection("reservationLocks")
+    .where("facilityId", "==", facilityId)
+    .where("date", "==", date)
+    .get();
+  const out: { start: string; end: string }[] = [];
+  for (const doc of snap.docs) {
+    const l = doc.data() as LockLike;
+    if (!l.startTime || !l.endTime) continue;
+    if (!isLockBlocking(l, nowIso)) continue; // cancelled / 失効pending は空き扱い
+    out.push({ start: l.startTime, end: l.endTime });
+  }
+  return out;
+}
+
+/**
  * transaction 内で「対象スロットが空いているか」を判定し、埋まっていれば throw "ALREADY_BOOKED"。
  * - facilityId+date の全ロックを読み、isLockBlocking かつ時間帯が overlap するものがあれば拒否。
  * - 完全一致キーのブロッキングロックも拒否（保険）。

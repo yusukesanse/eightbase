@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
-import { checkAvailability, getBookedSlots } from "@/lib/googleCalendar";
 import { requireMember } from "@/lib/auth";
 import {
   validateReservationSlot,
-  getPendingLockedSlots,
+  getBlockingLockedSlots,
   intervalsOverlap,
   timeToMin,
 } from "@/lib/reservations";
@@ -40,16 +39,15 @@ export async function GET(req: NextRequest) {
 
   const nowIso = dayjs().toISOString();
 
+  // 空きの真実の源は Firestore の reservationLocks（confirmed ＋ 未失効 pending）。
+  // これにより「空き表示 == 確定予約(Firestore)」が必ず一致する（Google Calendar は表示ミラー）。
+  const booked = await getBlockingLockedSlots(getDb(), facilityId, date, nowIso);
+
   // startTime/endTime が省略された場合は予約済みスロット一覧だけ返す（タイムスロット画面の初期ロード用）
   if (!startTime || !endTime) {
-    // Google Calendar（確定予約）＋ 決済前の仮押さえ（pending）を合算して返す。
-    const [calendarBooked, pendingBooked] = await Promise.all([
-      getBookedSlots(facility.calendarId, date),
-      getPendingLockedSlots(getDb(), facilityId, date, nowIso),
-    ]);
     // 空き状況は常に最新を返す（HTTPキャッシュ禁止）
     return NextResponse.json(
-      { bookedSlots: [...calendarBooked, ...pendingBooked] },
+      { bookedSlots: booked },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -63,27 +61,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(res, { headers: { "Cache-Control": "no-store" } });
   }
 
-  // Google Calendar（確定）＋ pending 仮押さえの両方で重複チェック
-  const pendingBooked = await getPendingLockedSlots(getDb(), facilityId, date, nowIso);
-  const overlapsPending = pendingBooked.some((p) =>
-    intervalsOverlap(timeToMin(startTime), timeToMin(endTime), timeToMin(p.start), timeToMin(p.end))
+  // 重複チェックも同じ Firestore ロック集合で行う（表示と判定が必ず一致）。最終判定は予約POSTの transaction。
+  const overlaps = booked.some((b) =>
+    intervalsOverlap(timeToMin(startTime), timeToMin(endTime), timeToMin(b.start), timeToMin(b.end))
   );
-  const calAvailable = await checkAvailability(
-    facility.calendarId,
-    date,
-    startTime,
-    endTime
-  );
-  const available = calAvailable && !overlapsPending;
-
-  const bookedSlots = available
-    ? undefined
-    : [...(await getBookedSlots(facility.calendarId, date)), ...pendingBooked];
+  const available = !overlaps;
 
   const res: AvailabilityResponse = {
     available,
     reason: available ? undefined : "ALREADY_BOOKED",
-    bookedSlots,
+    bookedSlots: available ? undefined : booked,
   };
 
   // この空き判定結果もキャッシュさせない（予約確定時にサーバーが再検証する前提は不変）

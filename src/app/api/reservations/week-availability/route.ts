@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
-import { getBookedSlots } from "@/lib/googleCalendar";
 import { requireMember } from "@/lib/auth";
-import { getPendingLockedSlots } from "@/lib/reservations";
+import { getBlockingLockedSlots } from "@/lib/reservations";
+import { dayOfWeek } from "@/lib/date";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -46,18 +46,15 @@ export async function GET(req: NextRequest) {
 
     await Promise.all(
       Array.from({ length: 7 }, (_, i) => {
-        const d = dayjs(weekStart).add(i, "day");
-        const date = d.format("YYYY-MM-DD");
-        if (!availableDays.includes(d.day())) {
+        const date = dayjs(weekStart).add(i, "day").format("YYYY-MM-DD");
+        // 曜日判定は UTC 正午基準（本番 TZ=UTC 対策・CLAUDE.md）。
+        if (!availableDays.includes(dayOfWeek(date))) {
           result[date] = [];
           return Promise.resolve();
         }
-        // Google Calendar（確定）＋ 決済前の仮押さえ（pending）を合算
-        return Promise.all([
-          getBookedSlots(facility.calendarId, date),
-          getPendingLockedSlots(db, facilityId, date, nowIso),
-        ]).then(([cal, pending]) => {
-          result[date] = [...cal, ...pending];
+        // 空きの源は Firestore の reservationLocks（confirmed ＋ 未失効 pending）に一本化。
+        return getBlockingLockedSlots(db, facilityId, date, nowIso).then((slots) => {
+          result[date] = slots;
         });
       })
     );
