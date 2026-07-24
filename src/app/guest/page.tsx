@@ -7,8 +7,8 @@ import { initLiff } from "@/lib/liff";
 import { isDevLoginEnabled } from "@/lib/env";
 import { clearAuthCache } from "@/components/AuthGuard";
 
-// ゲストのゲームハブは /info（ゲームタブ）。AuthGuard の GUEST_HOME と一致させる。
-const GUEST_HOME = "/info";
+// ゲストのゲームハブは /games。AuthGuard の GUEST_HOME と一致させる。
+const GUEST_HOME = "/games";
 
 function Spinner() {
   return <div className="w-9 h-9 border-2 border-[#2f7d57] border-t-transparent rounded-full animate-spin" />;

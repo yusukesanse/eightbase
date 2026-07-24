@@ -6,12 +6,12 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 
-/** ゲスト用の簡易ナビ（ゲーム機能のみ・全ゲームのハブ=/info ゲームタブ）。 */
+/** ゲスト用の簡易ナビ（ゲーム機能のみ・全ゲームのハブ=/games）。 */
 const GUEST_MENUS = [
   {
-    href: "/info",
+    href: "/games",
     label: "ゲーム",
-    match: ["/info", "/games"],
+    match: ["/games"],
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
         <rect x="4" y="2" width="14" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
@@ -35,7 +35,7 @@ const MENUS = [
   {
     href: "/info",
     label: "Info",
-    match: ["/info", "/events", "/news", "/games"],
+    match: ["/info", "/events", "/news", "/timeline"],
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
         <circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5"/>
@@ -55,12 +55,13 @@ const MENUS = [
     ),
   },
   {
-    href: "/timeline",
-    label: "掲示板",
+    href: "/games",
+    label: "ゲーム",
+    match: ["/games"],
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-        <path d="M3 4h16a1 1 0 011 1v10a1 1 0 01-1 1H6l-3 3V5a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-        <path d="M7 9h8M7 12h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <rect x="4" y="2" width="14" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8 6h6M8 9.5h6M8 13h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },

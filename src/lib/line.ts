@@ -344,12 +344,12 @@ export function defaultBroadcastAudience(contentType: ContentType): UserRole[] {
   return contentType === "game" ? ["member", "staff", "guest"] : ["member", "staff"];
 }
 
-/** ボタンの遷移先。ゲストは会員専用ルート(/news,/events)に入れないので /info に振る。 */
+/** ボタンの遷移先。ゲストは会員専用ルート(/news,/events,/info)に入れないので /games に振る。 */
 function contentLink(contentType: ContentType, forGuest: boolean): { uri: string; label: string } {
   const config = CONTENT_CONFIG[contentType];
-  // ゲームは全員 /games。ニュース/イベントのゲスト宛は導線が無いので /info（ゲームハブ）。
+  // ゲームは全員 /games。ニュース/イベントのゲスト宛は導線が無いので /games（ゲストが入れる唯一のハブ）。
   if (forGuest && contentType !== "game") {
-    return { uri: liffUrl("/info"), label: "アプリを開く" };
+    return { uri: liffUrl("/games"), label: "アプリを開く" };
   }
   return { uri: liffUrl(config.path), label: `${config.label}を見る` };
 }

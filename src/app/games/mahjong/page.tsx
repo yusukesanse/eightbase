@@ -6,7 +6,7 @@ import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
 /**
  * 麻雀リーグ画面（利用者・RichMenu 主導線）。
  * 実体は正典UIの MahjongLeagueView（リーグ/参加/卓確認・申告/CS を内包）を再利用する薄いラッパー。
- * ※ /info のゲームセクションと同じコンポーネントを使い、重複実装を排除。
+ * ※ /games ハブと同じコンポーネントを使い、重複実装を排除。
  */
 export default function MahjongLeaguePage() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function MahjongLeaguePage() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.push("/info");
+      router.push("/games");
     }
   }
 

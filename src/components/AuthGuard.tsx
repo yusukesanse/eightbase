@@ -34,13 +34,13 @@ function loginPath(): string {
   return isDevLoginEnabled() ? "/" : "/login";
 }
 
-/** ゲスト(role=guest)/エイト社員が閲覧できるのはゲーム機能のみ。会員専用ルートはブロック。 */
+/** ゲスト(role=guest)が閲覧できるのはゲーム機能のみ。会員専用ルート（/info・掲示板等）はブロック。 */
 function isGuestAllowedPath(pathname: string): boolean {
-  // 全ゲームのハブ=/info（ゲームタブのみ表示）と、麻雀等の /games/*。
-  return pathname.startsWith("/games") || pathname.startsWith("/info");
+  // E-1: ゲームは独立導線 /games に集約（/info は会員専用の イベント/ニュース/掲示板 になった）。
+  return pathname.startsWith("/games");
 }
-/** ゲストの初期到達先（Info のゲームタブ＝全ゲームのハブ）。 */
-const GUEST_HOME = "/info";
+/** ゲストの初期到達先（全ゲームのハブ=/games）。 */
+const GUEST_HOME = "/games";
 
 /**
  * セッション中の認証キャッシュ（ページ遷移ごとのAPIコール連打を防ぐための短期メモ）。
