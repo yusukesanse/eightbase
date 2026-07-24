@@ -17,6 +17,8 @@ interface NewsItem {
   scheduledAt?: string;
   lineNotify?: boolean;
   lineBroadcastAudience?: string[];
+  lineNotifiedAt?: string | null;
+  lineNotifyResult?: { ok: boolean; recipientCount?: number; error?: string; at?: string };
 }
 
 // 種別デフォルト配信対象（サーバー側 defaultBroadcastAudience と一致させる）。
@@ -245,6 +247,21 @@ export default function AdminNewsPage() {
     return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#231714]/80">下書き</span>;
   }
 
+  /** LINE 配信の結果バッジ（管理者が送信状況・失敗を追跡できるように）。 */
+  function lineBadge(item: NewsItem) {
+    const r = item.lineNotifyResult;
+    if (r?.ok) {
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#eef4dd] text-[#5f7d1e]">LINE送信済 {r.recipientCount ?? 0}件</span>;
+    }
+    if (r && !r.ok) {
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#fdece8] text-[#d8533a]" title={r.error ?? ""}>LINE配信失敗</span>;
+    }
+    if (item.published && item.lineNotify === false) {
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-[#231714]/60">LINE通知なし</span>;
+    }
+    return null;
+  }
+
   const N_TABS = [
     { key: "all" as const, label: "すべて", count: newsList.length },
     { key: "published" as const, label: "公開済み", count: newsList.filter(n => n.published).length },
@@ -337,7 +354,12 @@ export default function AdminNewsPage() {
                   <td className="px-6 py-3 text-[#231714]/80 whitespace-nowrap">
                     {item.publishedAt ? dayjs(item.publishedAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>
-                  <td className="px-6 py-3">{statusBadge(item)}</td>
+                  <td className="px-6 py-3">
+                    <div className="flex flex-col gap-1 items-start">
+                      {statusBadge(item)}
+                      {lineBadge(item)}
+                    </div>
+                  </td>
                   <td className="px-6 py-3 text-[#231714]/80 text-xs whitespace-nowrap">
                     {item.scheduledAt ? dayjs(item.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>

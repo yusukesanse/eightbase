@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
-import { broadcastContentPublished, sanitizeAudience } from "@/lib/line";
+import { notifyContentPublishedOnce, sanitizeAudience } from "@/lib/line";
 import type { UserRole } from "@/lib/roles";
 import { checkCronAuth } from "@/lib/cronAuth";
 
@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   let publishedCount = 0;
   const errors: string[] = [];
   const publishedItems: {
+    collection: string;
+    id: string;
     type: "event" | "game" | "news";
     title: string;
     lineNotify: boolean;
@@ -58,6 +60,8 @@ export async function GET(req: NextRequest) {
         const d = doc.data();
         batch.update(doc.ref, { published: true, scheduledAt: null });
         publishedItems.push({
+          collection: col.name,
+          id: doc.id,
           type: col.type,
           title: d.title || `新しい${col.type === "event" ? "イベント" : col.type === "news" ? "ニュース" : "ゲーム"}`,
           // 保存された配信設定に従う（未設定の旧 doc は種別デフォルト）。
@@ -74,21 +78,21 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // LINE 通知送信（各コンテンツの保存された配信対象 role・文面別に送る）
+  // LINE 通知送信（各コンテンツの保存された配信対象 role・文面別に送る）。
+  // notifyContentPublishedOnce が「1 doc 最大1回」＋結果記録を担う（cron 再実行や手動公開との二重送信を防ぐ）。
   if (publishedItems.length > 0) {
-    try {
-      let sent = 0;
-      for (const item of publishedItems) {
-        if (!item.lineNotify || item.audience.length === 0) continue;
-        await broadcastContentPublished(item.type, item.title, item.audience);
-        sent++;
+    let sent = 0;
+    for (const item of publishedItems) {
+      try {
+        const r = await notifyContentPublishedOnce(db, item.collection, item.id, item.type, item.title, item.lineNotify, item.audience);
+        if (r.sent) sent++;
+      } catch (e) {
+        const errMsg = `broadcast ${item.collection}/${item.id}: ${e instanceof Error ? e.message : String(e)}`;
+        errors.push(errMsg);
+        console.error(`[cron/publish] ${errMsg}`);
       }
-      console.log(`[cron/publish] broadcast sent for ${sent}/${publishedItems.length} items`);
-    } catch (e) {
-      const errMsg = `broadcast: ${e instanceof Error ? e.message : String(e)}`;
-      errors.push(errMsg);
-      console.error(`[cron/publish] ${errMsg}`);
     }
+    console.log(`[cron/publish] broadcast sent for ${sent}/${publishedItems.length} items`);
   }
 
   console.log(`[cron/publish] published ${publishedCount} items at ${now}${errors.length > 0 ? ` (errors: ${errors.length})` : ""}`);
