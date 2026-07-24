@@ -666,11 +666,13 @@ export default function CalendarsPage() {
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">決済額（円・税込）*</label>
                       <input
-                        type="number"
-                        min="1"
-                        step="100"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={form.paymentAmount}
-                        onChange={(e) => setForm({ ...form, paymentAmount: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, paymentAmount: e.target.value.replace(/[^0-9]/g, "") })
+                        }
                         placeholder="22000"
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
                       />
