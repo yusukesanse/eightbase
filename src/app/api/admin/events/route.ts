@@ -199,7 +199,17 @@ export async function DELETE(req: NextRequest) {
     }
 
     const db = getDb();
-    await db.collection("events").doc(eventId).delete();
+    const eventRef = db.collection("events").doc(eventId);
+    // サブコレクション（comments / goods）は Firestore が自動削除しないので明示的に消す（孤児防止）。
+    for (const sub of ["comments", "goods"]) {
+      const subSnap = await eventRef.collection(sub).get();
+      for (let i = 0; i < subSnap.docs.length; i += 400) {
+        const batch = db.batch();
+        for (const d of subSnap.docs.slice(i, i + 400)) batch.delete(d.ref);
+        await batch.commit();
+      }
+    }
+    await eventRef.delete();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[admin/events] DELETE error:", error);
