@@ -244,6 +244,8 @@ export async function clearDemoParticipants(): Promise<Record<string, number>> {
     "dartsEntries", "dartsSchedule", "dartsCsEvents", "dartsDayState", "dartsCancelledDates",
     // ビリヤードのダミーも同じ demoDummy タグで一括削除。
     "billiardsEntries", "billiardsSchedule", "billiardsCsEvents", "billiardsDayState", "billiardsCancelledDates",
+    // ポーカーのダミーも同じ demoDummy タグで一括削除（CS は未実装）。
+    "pokerEntries", "pokerSchedule", "pokerDayState", "pokerCancelledDates",
     "scores", "games",
   ];
   const result: Record<string, number> = {};

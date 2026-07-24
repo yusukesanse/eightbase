@@ -22,9 +22,14 @@ export default function DemoDataPage() {
     fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => {
-        // 麻雀・ダーツ・ビリヤードの当日フロー付きシーズンを対象にする（種目で投入内容が分岐）。
+        // 麻雀・ダーツ・ビリヤード・ポーカーの当日フロー付きシーズンを対象にする（種目で投入内容が分岐）。
         const list: Season[] = (d.seasons ?? []).filter(
-          (s: Season) => s.gameCategory === "mahjong" || s.gameCategory === "darts" || s.gameCategory === "billiards" || !s.gameCategory
+          (s: Season) =>
+            s.gameCategory === "mahjong" ||
+            s.gameCategory === "darts" ||
+            s.gameCategory === "billiards" ||
+            s.gameCategory === "poker" ||
+            !s.gameCategory
         );
         setSeasons(list);
         // 既定は開催中(active)→なければ先頭
@@ -126,7 +131,7 @@ export default function DemoDataPage() {
             >
               {seasons.map((s) => (
                 <option key={s.seasonId} value={s.seasonId}>
-                  [{s.gameCategory === "darts" ? "ダーツ" : s.gameCategory === "billiards" ? "ビリヤード" : "麻雀"}] {s.name || s.seasonId}
+                  [{s.gameCategory === "darts" ? "ダーツ" : s.gameCategory === "billiards" ? "ビリヤード" : s.gameCategory === "poker" ? "ポーカー" : "麻雀"}] {s.name || s.seasonId}
                   {s.active ? "（開催中）" : ""}
                 </option>
               ))}
