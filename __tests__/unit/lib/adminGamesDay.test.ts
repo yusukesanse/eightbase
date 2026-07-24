@@ -10,6 +10,7 @@ jest.mock("@/lib/auditLog", () => ({ writeAuditLog: jest.fn().mockResolvedValue(
 jest.mock("@/lib/mahjongForfeit", () => ({ cancelDay: jest.fn() }));
 jest.mock("@/lib/dartsDay", () => ({ cancelDartsDay: jest.fn() }));
 jest.mock("@/lib/billiardsDay", () => ({ cancelBilliardsDay: jest.fn() }));
+jest.mock("@/lib/pokerDay", () => ({ cancelPokerDay: jest.fn() }));
 
 import { NextRequest } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
@@ -99,7 +100,7 @@ describe("POST /api/admin/games/day（休催化 dispatch）", () => {
   });
 
   test("不正な入力は 400（cancel は呼ばれない）", async () => {
-    expect((await POST(postReq({ gameCategory: "poker", seasonId: "s1", eventDate: "2026-07-16" }))).status).toBe(400);
+    expect((await POST(postReq({ gameCategory: "chess", seasonId: "s1", eventDate: "2026-07-16" }))).status).toBe(400);
     expect((await POST(postReq({ gameCategory: "darts", seasonId: "", eventDate: "2026-07-16" }))).status).toBe(400);
     expect((await POST(postReq({ gameCategory: "darts", seasonId: "s1", eventDate: "2026-13-40" }))).status).toBe(400);
     expect(cancelDartsDay).not.toHaveBeenCalled();

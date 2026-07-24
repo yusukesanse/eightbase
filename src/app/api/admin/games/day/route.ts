@@ -5,9 +5,11 @@ import { writeAuditLog } from "@/lib/auditLog";
 import { cancelDay } from "@/lib/mahjongForfeit";
 import { cancelDartsDay } from "@/lib/dartsDay";
 import { cancelBilliardsDay } from "@/lib/billiardsDay";
+import { cancelPokerDay } from "@/lib/pokerDay";
 import { deriveStatus as deriveMahjong } from "@/lib/mahjongEntryStatus";
 import { deriveStatus as deriveDarts } from "@/lib/dartsEntryStatus";
 import { deriveStatus as deriveBilliards } from "@/lib/billiardsEntryStatus";
+import { deriveStatus as derivePoker } from "@/lib/pokerEntryStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -21,22 +23,25 @@ export const dynamic = "force-dynamic";
  * 返金は Square で管理者が手動（ここでは対象化と通知のみ、金銭移動はしない）。
  */
 
-type Game = "mahjong" | "darts" | "billiards";
+type Game = "mahjong" | "darts" | "billiards" | "poker";
 const ENTRY_COL: Record<Game, string> = {
   mahjong: "mahjongEntries",
   darts: "dartsEntries",
   billiards: "billiardsEntries",
+  poker: "pokerEntries",
 };
 const CANCELLED_COL: Record<Game, string> = {
   mahjong: "mahjongCancelledDates",
   darts: "dartsCancelledDates",
   billiards: "billiardsCancelledDates",
+  poker: "pokerCancelledDates",
 };
-// deriveStatus は3ゲームで同型（entry→"paid"|"reserved"|"cancelRequested"|"refunded"）。
+// deriveStatus は4ゲームで同型（entry→"paid"|"reserved"|"cancelRequested"|"refunded"）。
 const DERIVE: Record<Game, (e: Record<string, unknown>) => string> = {
   mahjong: (e) => deriveMahjong(e as never),
   darts: (e) => deriveDarts(e as never),
   billiards: (e) => deriveBilliards(e as never),
+  poker: (e) => derivePoker(e as never),
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -46,7 +51,7 @@ function isRealDate(v: unknown): v is string {
   return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === v;
 }
 const toGame = (v: unknown): Game | null =>
-  v === "mahjong" || v === "darts" || v === "billiards" ? v : null;
+  v === "mahjong" || v === "darts" || v === "billiards" || v === "poker" ? v : null;
 
 /** 指定日の参加者と休催状態を返す。list=1 のときはこのシーズンの休催日一覧を返す。 */
 export async function GET(req: NextRequest) {
@@ -117,7 +122,9 @@ export async function POST(req: NextRequest) {
         ? await cancelDay(seasonId, eventDate, decidedBy)
         : game === "darts"
           ? await cancelDartsDay(seasonId, eventDate, decidedBy)
-          : await cancelBilliardsDay(seasonId, eventDate, decidedBy);
+          : game === "billiards"
+            ? await cancelBilliardsDay(seasonId, eventDate, decidedBy)
+            : await cancelPokerDay(seasonId, eventDate, decidedBy);
 
     // 中止できない状態（進行中/終了済み/既に休催）は 409 で理由を返す。
     if (result.status === "started") {
