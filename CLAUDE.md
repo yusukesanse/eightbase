@@ -159,6 +159,13 @@ Vercel のサーバーは UTC で動く。`new Date("2026-07-11T00:00:00+09:00")
 - 予約POSTは Firestore transaction 内で `facilityId+date` の `reservationLocks` を読み、`intervalsOverlap()` で**時間帯の重なりを判定して拒否**（完全一致キーだけに依存しない）。Google Calendar `checkAvailability` は補助。
 - 空き状況の鮮度はクライアント側 `avail:*`（30秒・「更新中」表示）。最終判定はサーバー。
 
+#### 予約↔Google Calendar 同期（SoT = Firestore）
+- **真実の源は Firestore（`reservations` + `reservationLocks`）**。Google Calendar は表示・運用用のミラー。
+- **空き状況API（`availability`/`week-availability`）は `getBlockingLockedSlots()`（confirmed ＋ 未失効pending の全ロック）を正とする** → 空き表示は必ず Firestore の予約と一致する。GCal は読まない。
+- 予約作成は confirmed ロックを、管理キャンセル(DELETE)はロック削除を行う。**管理の日時変更(PATCH)は transaction で「空き再検証（自分の旧ロックは除外）→ 旧ロック削除＋新ロック作成 → 予約更新」を原子化し、その後 GCal を `updateCalendarEvent()`（無ければ `createCalendarEvent`）で追随**。GCal 更新失敗時は Firestore を旧状態へ巻き戻す（不整合を残さない）。
+- GCal 書き込みは作成・更新とも `+09:00`/`Asia/Tokyo`（`googleCalendar.ts`）。
+- **GCal を人が直接編集した手動予定の取り込み（双方向同期・webhook/syncToken/cron）は Phase 2（未実装）**。現状の空き表示は手動GCal予定を反映しない。
+
 ### 決済（現状すべて無効）
 - `/api/payments`・`/api/payments/config` は先頭で `501 PAYMENT_DISABLED` を返す。
 - 予約APIは `paymentId` を受け付けず、`requirePayment=true` 施設はオンライン予約不可。
