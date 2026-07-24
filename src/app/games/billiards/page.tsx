@@ -5,7 +5,7 @@ import { BilliardsLeagueView } from "@/components/billiards/BilliardsLeagueView"
 
 /**
  * ビリヤードリーグ画面（利用者・RichMenu / ディープリンク主導線）。
- * 実体は正典UIの BilliardsLeagueView を再利用する薄いラッパー（/info のゲームセクションと同じ）。
+ * 実体は正典UIの BilliardsLeagueView を再利用する薄いラッパー（/games ハブと同じ）。
  */
 export default function BilliardsLeaguePage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function BilliardsLeaguePage() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.push("/info");
+      router.push("/games");
     }
   }
 

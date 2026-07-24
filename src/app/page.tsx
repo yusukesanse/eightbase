@@ -25,7 +25,7 @@ function devFixedRole(): "member" | "guest" {
 
 function roleHome(role: string, profileComplete: boolean): string {
   return isGamesOnlyRole(role)
-    ? "/info"
+    ? "/games"
     : profileComplete
       ? "/reservation"
       : "/setup-profile";

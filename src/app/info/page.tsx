@@ -3,22 +3,18 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
-import type { NufEvent, NewsItem, ScoreboardGameId } from "@/types";
-import { GAME_CATEGORIES } from "@/types";
-import { isGamesOnlyRole } from "@/lib/roles";
-import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
-import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
-import { BilliardsLeagueView } from "@/components/billiards/BilliardsLeagueView";
-import { PokerLeagueView } from "@/components/poker/PokerLeagueView";
+import type { NufEvent, NewsItem } from "@/types";
+import { TimelineBoard } from "@/components/TimelineBoard";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
 
+// E-1: ゲームはボトムバーの独立導線 /games へ移設。Info は イベント / ニュース / 掲示板。
 const TABS = [
   { id: "events", label: "イベント" },
-  { id: "games", label: "ゲーム" },
   { id: "news", label: "ニュース" },
+  { id: "timeline", label: "掲示板" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -29,30 +25,17 @@ const EMPTY_NEWS: NewsItem[] = [];
 export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
-  // 参加費のSquare決済からの戻り（?mjpay= / ?dartspay=）は「ゲーム」タブを開く
-  //（各 LeagueView が確定処理し「支払い完了」バナーを表示する）。
+  // 参加費のSquare決済の戻り（?mjpay= 等）はゲームハブ /games へ転送する
+  //（ゲームは E-1 で /games に移設。GamesHub が対象ゲームを選び LeagueView が確定処理する）。
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URL(window.location.href).searchParams;
     if (params.has("mjpay") || params.has("dartspay") || params.has("billiardspay") || params.has("pokerpay")) {
-      setActiveTab("games");
+      router.replace(`/games${window.location.search}`);
     }
-  }, []);
+  }, [router]);
 
-  // ゲスト/エイト社員はゲーム機能のみ → 「ゲーム」タブだけ表示し既定にする。
-  const [gamesOnly, setGamesOnly] = useState(false);
-  useEffect(() => {
-    fetch("/api/auth/check", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.authorized && isGamesOnlyRole(d.role)) {
-          setGamesOnly(true);
-          setActiveTab("games");
-        }
-      })
-      .catch(() => {});
-  }, []);
-  const visibleTabs = gamesOnly ? TABS.filter((t) => t.id === "games") : TABS;
+  const visibleTabs = TABS;
 
   // 前回表示を即出し→裏で再取得（数分キャッシュ）。
   // events/news の各ページとキーを共有するのでページ間遷移でも再利用される。
@@ -113,10 +96,10 @@ export default function InfoPage() {
           {activeTab === "events" && (
             <EventsTab events={events} router={router} />
           )}
-          {activeTab === "games" && <GamesTab />}
           {activeTab === "news" && (
             <NewsTab news={news} router={router} />
           )}
+          {activeTab === "timeline" && <TimelineBoard embedded />}
         </div>
       )}
     </div>
@@ -382,169 +365,6 @@ function EventsTab({
   );
 }
 
-
-/* ═══════════════════════════════════════════
-   ゲームタブ
-   ═══════════════════════════════════════════ */
-
-interface RankingUser {
-  rank: number;
-  displayName: string;
-  pictureUrl?: string;
-  totalScore: number;
-  playedCount: number;
-}
-
-function GamesTab() {
-  const [gameCategory, setGameCategory] = useState<ScoreboardGameId>("mahjong");
-
-  // 麻雀以外のランキング
-  const [ranking, setRanking] = useState<RankingUser[]>([]);
-  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
-  const [yearMonth, setYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [rankingLoading, setRankingLoading] = useState(false);
-
-  function shiftMonth(delta: number) {
-    const [y, m] = yearMonth.split("-").map(Number);
-    const d = new Date(y, m - 1 + delta, 1);
-    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-
-  useEffect(() => {
-    if (gameCategory === "mahjong") return;
-    setRankingLoading(true);
-    const params = new URLSearchParams({ gameCategory, period, yearMonth });
-    fetch(`/api/games/ranking?${params}`, { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setRanking(d.ranking ?? []))
-      .catch(() => setRanking([]))
-      .finally(() => setRankingLoading(false));
-  }, [gameCategory, period, yearMonth]);
-
-  return (
-    <div>
-      {/* ゲーム選択（選択中は白ピル＋アクセント文字＋太字＋リングで明示） */}
-      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1 overflow-x-auto">
-        {GAME_CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setGameCategory(cat.id as ScoreboardGameId)}
-            className={clsx(
-              "flex-1 px-2.5 py-2 rounded-lg text-xs whitespace-nowrap transition-all",
-              gameCategory === cat.id
-                ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                : "text-[#231714]/80 font-medium"
-            )}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {gameCategory === "mahjong" ? (
-            <MahjongLeagueView />
-          ) : gameCategory === "darts" ? (
-            <DartsLeagueView />
-          ) : gameCategory === "billiards" ? (
-            <BilliardsLeagueView />
-          ) : gameCategory === "poker" ? (
-            <PokerLeagueView />
-          ) : (
-            <>
-              {/* 期間切替 + 月ナビ（未使用のフォールバック。全種目とも専用ビューを持つ） */}
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex gap-0.5 bg-[#231714]/[0.08] rounded-lg p-0.5">
-                  <button
-                    onClick={() => setPeriod("monthly")}
-                    className={clsx(
-                      "px-2.5 py-1 rounded-md text-[11px] transition-all",
-                      period === "monthly"
-                        ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                        : "text-[#231714]/80 font-medium"
-                    )}
-                  >
-                    月間
-                  </button>
-                  <button
-                    onClick={() => setPeriod("annual")}
-                    className={clsx(
-                      "px-2.5 py-1 rounded-md text-[11px] transition-all",
-                      period === "annual"
-                        ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                        : "text-[#231714]/80 font-medium"
-                    )}
-                  >
-                    年間
-                  </button>
-                </div>
-                {period === "monthly" && (
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button onClick={() => shiftMonth(-1)} className="px-1.5 py-0.5 text-xs text-[#231714]/80 hover:text-[#231714] rounded">
-                      ←
-                    </button>
-                    <span className="text-xs font-medium text-[#231714] min-w-[70px] text-center">
-                      {yearMonth.replace("-", "年") + "月"}
-                    </span>
-                    <button onClick={() => shiftMonth(1)} className="px-1.5 py-0.5 text-xs text-[#231714]/80 hover:text-[#231714] rounded">
-                      →
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {rankingLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : ranking.length === 0 ? (
-                <EmptyState message="まだランキングデータがありません" />
-              ) : (
-                <div className="space-y-2">
-                  {ranking.map((user) => {
-                    const maxScore = ranking[0]?.totalScore || 1;
-                    const pct = Math.round((user.totalScore / maxScore) * 100);
-                    return (
-                      <div key={user.rank} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <span className={clsx(
-                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                            user.rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                            user.rank === 2 ? "bg-gray-100 text-gray-700" :
-                            user.rank === 3 ? "bg-orange-100 text-orange-600" :
-                            "bg-gray-50 text-gray-700"
-                          )}>
-                            {user.rank}
-                          </span>
-                          {user.pictureUrl ? (
-                            <img src={user.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-[#A5C1C8]/20 flex items-center justify-center text-xs font-bold text-[#4f757e] shrink-0">
-                              {user.displayName.charAt(0)}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-[#231714] truncate">{user.displayName}</span>
-                              <span className="text-sm font-bold text-[#231714] shrink-0">{user.totalScore.toLocaleString()}</span>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                              <div className="h-full rounded-full bg-[#A5C1C8] transition-all" style={{ width: `${pct}%` }} />
-                            </div>
-                            <div className="flex gap-3 mt-1 text-[10px] text-[#231714]/80">
-                              <span>{user.playedCount}回参加</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════
    ニュースタブ
