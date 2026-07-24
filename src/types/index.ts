@@ -42,14 +42,27 @@ export interface Facility {
   requireTerms?: boolean;  // true=予約前に利用規約への同意が必要
   termsContent?: string;   // 利用規約の本文（改行対応）
   // ── 課金設定 ──
-  requirePayment?: boolean;  // true=予約時にSquare決済が必要（旧仕様・現状オンライン不可）
-  hourlyRate?: number;       // 時間単価（円/時間）
-  // ── 決済（予約ごとに動的Square決済リンクを生成／任意の施設で再利用可） ──
-  paymentAmount?: number;    // 決済額（円・税込）。設定で「決済する」化＋Square API照合の金額チェックに使用
+  // requirePayment=true かつ paymentAmount>0 で「決済する」フロー（予約ごとに動的Square決済リンク）。
+  // requirePayment=true で paymentAmount 未設定は旧仕様データ（オンライン予約不可のまま）。
+  requirePayment?: boolean;
+  hourlyRate?: number;       // 廃止（旧・時間単価）。後方互換のため型のみ残置。管理UIからは設定不可
+  paymentAmount?: number;    // 決済額（円・税込）。Square API照合の金額チェックにも使用
   // ── 解錠（SwitchBot時限パスコード・能力フィールド） ──
   switchBotDeviceId?: string; // キーパッド/ロックのデバイスID。あれば予約ごとに時限パスコードを発行
   createdAt?: string;  // ISO8601
   updatedAt?: string;  // ISO8601
+}
+
+/**
+ * 施設ごとのSquare設定の「状態」（管理画面表示用）。
+ * アクセストークン/ロケーションIDの実値は facilitySecrets コレクション（サーバー専用・暗号化）にのみ
+ * 保存され、APIレスポンスには絶対に含めない。表示はロケーションID下4桁まで。
+ */
+export interface FacilitySquareStatus {
+  configured: boolean;                      // アクセストークン＋ロケーションIDが登録済みか
+  environment?: "production" | "sandbox";   // Square環境
+  locationIdLast4?: string;                 // ロケーションID下4桁（識別用・非機密）
+  updatedAt?: string;                       // ISO8601
 }
 
 // ─── 予約 ────────────────────────────────────────────────────────────────────

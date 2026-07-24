@@ -17,11 +17,15 @@ export interface FacilityForm {
   // 利用規約
   requireTerms: boolean;
   termsContent: string;
-  // 課金設定
+  // 決済（requirePayment=ON で決済額＋Square認証情報を設定）
   requirePayment: boolean;
-  hourlyRate: string;        // 円/時間（空文字=未設定）
-  // トレーラー等: 決済額（設定で「決済する」ボタン化）/ SwitchBot解錠
-  paymentAmount: string;     // 円・税込（空文字=未設定）
+  paymentAmount: string;       // 円・税込（空文字=未設定）
+  // Square認証情報（超機密）: 空文字=変更しない。送信後はサーバー側で暗号化保存され、再表示されない
+  squareAccessToken: string;
+  squareLocationId: string;
+  squareEnvironment: "production" | "sandbox";
+  clearSquareCredentials: boolean; // true=登録済みのSquare認証情報を削除
+  // 解錠（SwitchBot）
   switchBotDeviceId: string; // 空文字=未設定（あれば解錠パスコード発行）
 }
 
@@ -41,7 +45,10 @@ export const EMPTY_FORM: FacilityForm = {
   requireTerms: false,
   termsContent: "",
   requirePayment: false,
-  hourlyRate: "",
   paymentAmount: "",
+  squareAccessToken: "",
+  squareLocationId: "",
+  squareEnvironment: "production",
+  clearSquareCredentials: false,
   switchBotDeviceId: "",
 };

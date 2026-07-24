@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
   try {
 
     const facilities = await getFacilities();
-    // calendarId はクライアントに不要なので除外
-    const safe = facilities.map(({ calendarId: _cid, ...rest }) => rest);
+    // calendarId / switchBotDeviceId はクライアントに不要なので除外（内部設定を晒さない）
+    const safe = facilities.map(({ calendarId: _cid, switchBotDeviceId: _sb, ...rest }) => rest);
     // HTTP層ではキャッシュさせず、鮮度管理はクライアントの軽量キャッシュ側で行う。
     return NextResponse.json(
       { facilities: safe },

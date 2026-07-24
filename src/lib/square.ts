@@ -102,6 +102,28 @@ export function getSquareLocationId(purpose: SquarePurpose = "reservation"): str
   return locationId;
 }
 
+/**
+ * 施設ごとの Square 認証情報オーバーライド（facilitySecrets 由来）。
+ * 指定時は環境変数の SQUARE_* を使わずこの値でクライアント/店舗を解決する。
+ * ※値は機密。ログ・エラーメッセージに含めないこと。
+ */
+export interface SquareCredentialsOverride {
+  accessToken: string;
+  locationId: string;
+  environment?: "production" | "sandbox";
+}
+
+// オーバーライドはキャッシュしない（施設ごとに異なり、決済系操作は低頻度のため都度生成で十分）。
+function clientFromOverride(credentials: SquareCredentialsOverride): SquareClient {
+  return new SquareClient({
+    token: credentials.accessToken,
+    environment:
+      credentials.environment === "sandbox"
+        ? SquareEnvironment.Sandbox
+        : SquareEnvironment.Production,
+  });
+}
+
 /** Square SDK エラーから人間可読な詳細を取り出す（非本番のデバッグ表示用）。 */
 export function squareErrorDetail(e: unknown): string {
   if (e && typeof e === "object") {
@@ -115,9 +137,10 @@ export function squareErrorDetail(e: unknown): string {
 
 export async function getSquarePayment(
   paymentId: string,
-  purpose: SquarePurpose = "reservation"
+  purpose: SquarePurpose = "reservation",
+  credentials?: SquareCredentialsOverride
 ) {
-  const client = getSquareClient(purpose);
+  const client = credentials ? clientFromOverride(credentials) : getSquareClient(purpose);
   const response = await client.payments.get({ paymentId });
   return response.payment;
 }
@@ -162,12 +185,14 @@ export async function verifySquareOrderPayment({
   orderId,
   expectedAmount,
   purpose = "reservation",
+  credentials,
 }: {
   orderId: string;
   expectedAmount: number;
   purpose?: SquarePurpose;
+  credentials?: SquareCredentialsOverride;
 }): Promise<{ orderId: string; paymentId: string }> {
-  const client = getSquareClient(purpose);
+  const client = credentials ? clientFromOverride(credentials) : getSquareClient(purpose);
   const orderRes = await client.orders.get({ orderId });
   const order = orderRes.order;
   if (!order) {
@@ -177,7 +202,7 @@ export async function verifySquareOrderPayment({
   if (!paymentId) {
     throw new Error("注文に決済が紐づいていません");
   }
-  const payment = await getSquarePayment(paymentId, purpose);
+  const payment = await getSquarePayment(paymentId, purpose, credentials);
   assertSquarePaymentValid(payment, expectedAmount);
   return { orderId, paymentId };
 }
@@ -197,20 +222,22 @@ export async function createReservationPaymentLink({
   name,
   redirectUrl,
   purpose = "reservation",
+  credentials,
 }: {
   amount: number;
   name: string;
   redirectUrl: string;
   purpose?: SquarePurpose;
+  credentials?: SquareCredentialsOverride;
 }): Promise<{ url: string; orderId: string }> {
-  const client = getSquareClient(purpose);
+  const client = credentials ? clientFromOverride(credentials) : getSquareClient(purpose);
   const { randomUUID } = await import("crypto");
   const res = await client.checkout.paymentLinks.create({
     idempotencyKey: randomUUID(),
     quickPay: {
       name,
       priceMoney: { amount: BigInt(amount), currency: "JPY" },
-      locationId: getSquareLocationId(purpose),
+      locationId: credentials ? credentials.locationId : getSquareLocationId(purpose),
     },
     checkoutOptions: { redirectUrl },
   });
