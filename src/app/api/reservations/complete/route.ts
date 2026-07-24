@@ -5,6 +5,7 @@ import { requireMemberProfileComplete } from "@/lib/auth";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationConfirmed, sendTrailerPasscodeNotice } from "@/lib/line";
 import { verifySquareOrderPayment } from "@/lib/square";
+import { getFacilitySquareCredentials } from "@/lib/facilitySecrets";
 import { generatePasscode, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
 import { reservationEpochMs, buildReservationSlotKey } from "@/lib/reservations";
 import { notifyAdmin } from "@/lib/adminNotify";
@@ -86,10 +87,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 決済リンク生成時と同じ施設のSquare認証情報で照合する（未登録なら環境変数にフォールバック）
+    const squareCredentials = (await getFacilitySquareCredentials(facility.id)) ?? undefined;
+
     // 仮押さえ失効: ただし決済が成立していれば、黙って課金せず管理者へ返金依頼を通知する。
     if (reservation.pendingExpiresAt && reservation.pendingExpiresAt <= dayjs().toISOString()) {
       try {
-        await verifySquareOrderPayment({ orderId, expectedAmount });
+        await verifySquareOrderPayment({ orderId, expectedAmount, credentials: squareCredentials });
         // orderId を一度だけ記録し、初回のみ通知（リトライで返金通知が重複しないように）。
         let firstTime = false;
         const expiredOrderRef = db.collection("squareOrders").doc(orderId);
@@ -125,7 +129,7 @@ export async function POST(req: NextRequest) {
     // ── Square 取引照合 ──
     let verified: { orderId: string; paymentId: string };
     try {
-      verified = await verifySquareOrderPayment({ orderId, expectedAmount });
+      verified = await verifySquareOrderPayment({ orderId, expectedAmount, credentials: squareCredentials });
     } catch (e) {
       return NextResponse.json(
         {

@@ -7,6 +7,14 @@ import {
   deleteFacility,
   migrateFallbackToFirestore,
 } from "@/lib/facilities";
+import {
+  saveFacilitySquareSecrets,
+  clearFacilitySquareSecrets,
+  getFacilitySquareStatusMap,
+  isSecretsKeyConfigured,
+  SECRETS_KEY_MISSING_MESSAGE,
+  type SquareEnvironmentName,
+} from "@/lib/facilitySecrets";
 import type { FacilityType } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +24,15 @@ const VALIDATION_RULES = {
   calendarId: { type: "string" as const, minLength: 1, maxLength: 300 },
   type: { type: "string" as const },
   capacity: { type: "number" as const, min: 1, max: 1000 },
-  // ── トレーラー等: 決済額 / 解錠デバイス ──
+  // ── 決済 / 解錠 ──
   paymentAmount: { type: "number" as const, min: 0, max: 10000000 },
   switchBotDeviceId: { type: "string" as const, maxLength: 100 },
+  // Square認証情報（facilitySecrets へ暗号化保存。facilities ドキュメントには入れない）
+  squareAccessToken: { type: "string" as const, maxLength: 300 },
+  squareLocationId: { type: "string" as const, maxLength: 100 },
 };
 
+// ⚠️ squareAccessToken / squareLocationId をここに追加しないこと（facilities ドキュメントに漏れる）。
 const ALLOWED_UPDATE_FIELDS = [
   "name", "type", "capacity", "calendarId", "active", "order",
   "openTime", "closeTime", "availableDays",
@@ -29,6 +41,63 @@ const ALLOWED_UPDATE_FIELDS = [
   "requirePayment", "hourlyRate",
   "paymentAmount", "switchBotDeviceId",
 ];
+
+/** Square認証情報の入力（clear=登録削除）。値はログに出さないこと。 */
+type SquareSecretsInput =
+  | { clear: true }
+  | { clear?: false; accessToken?: string; locationId?: string; environment?: SquareEnvironmentName }
+  | null;
+
+/**
+ * リクエストボディから Square 認証情報の更新指示を取り出す。
+ * 空文字は「変更しない」。token/locationId を保存する場合は FACILITY_SECRETS_KEY が必須。
+ */
+function extractSquareSecretsInput(
+  body: Record<string, unknown>
+): { input: SquareSecretsInput; error?: string } {
+  const environment = body.squareEnvironment;
+  if (environment !== undefined && environment !== "production" && environment !== "sandbox") {
+    return { input: null, error: "squareEnvironment は production / sandbox のいずれかで指定してください" };
+  }
+  if (body.clearSquareCredentials === true) {
+    return { input: { clear: true } };
+  }
+  const accessToken =
+    typeof body.squareAccessToken === "string" ? body.squareAccessToken.trim() : "";
+  const locationId =
+    typeof body.squareLocationId === "string" ? body.squareLocationId.trim() : "";
+  if (!accessToken && !locationId && environment === undefined) {
+    return { input: null };
+  }
+  if ((accessToken || locationId) && !isSecretsKeyConfigured()) {
+    return { input: null, error: SECRETS_KEY_MISSING_MESSAGE };
+  }
+  return {
+    input: {
+      accessToken: accessToken || undefined,
+      locationId: locationId || undefined,
+      environment: environment as SquareEnvironmentName | undefined,
+    },
+  };
+}
+
+/** requirePayment=true なのに決済額が無い保存を弾く（チェックの意味を保証する）。 */
+function validatePaymentFields(body: Record<string, unknown>): string | null {
+  if (body.requirePayment === true && !(Number(body.paymentAmount) > 0)) {
+    return "Square決済を必須にする場合は決済額（1円以上）を入力してください";
+  }
+  return null;
+}
+
+/** 施設保存後に Square 認証情報の更新指示を適用する。 */
+async function applySquareSecrets(facilityId: string, input: SquareSecretsInput): Promise<void> {
+  if (!input) return;
+  if (input.clear) {
+    await clearFacilitySquareSecrets(facilityId);
+    return;
+  }
+  await saveFacilitySquareSecrets(facilityId, input);
+}
 
 const TIME_REGEX = /^\d{2}:\d{2}$/;
 
@@ -79,7 +148,15 @@ export async function GET(req: NextRequest) {
   }
 
   const facilities = await getAllFacilities();
-  return NextResponse.json({ facilities });
+  // Square設定の「状態」だけを付与（トークン等の実値は返さない）
+  const squareStatusMap = await getFacilitySquareStatusMap(facilities.map((f) => f.id));
+  return NextResponse.json({
+    facilities: facilities.map((f) => ({
+      ...f,
+      square: squareStatusMap[f.id] ?? { configured: false },
+    })),
+    squareKeyConfigured: isSecretsKeyConfigured(),
+  });
 }
 
 /**
@@ -120,6 +197,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: scheduleError }, { status: 400 });
   }
 
+  const paymentError = validatePaymentFields(body);
+  if (paymentError) {
+    return NextResponse.json({ error: paymentError }, { status: 400 });
+  }
+
+  const { input: squareSecretsInput, error: squareSecretsError } = extractSquareSecretsInput(body);
+  if (squareSecretsError) {
+    return NextResponse.json({ error: squareSecretsError }, { status: 400 });
+  }
+
   try {
     const facility = await createFacility({
       name,
@@ -142,6 +229,7 @@ export async function POST(req: NextRequest) {
       paymentAmount: body.paymentAmount ? Number(body.paymentAmount) : undefined,
       switchBotDeviceId: body.switchBotDeviceId || undefined,
     });
+    await applySquareSecrets(facility.id, squareSecretsInput);
     return NextResponse.json({ facility }, { status: 201 });
   } catch (error) {
     console.error("[admin/facilities] POST error:", error);
@@ -184,6 +272,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: scheduleError }, { status: 400 });
   }
 
+  const paymentError = validatePaymentFields(body);
+  if (paymentError) {
+    return NextResponse.json({ error: paymentError }, { status: 400 });
+  }
+
+  const { input: squareSecretsInput, error: squareSecretsError } = extractSquareSecretsInput(body);
+  if (squareSecretsError) {
+    return NextResponse.json({ error: squareSecretsError }, { status: 400 });
+  }
+
   const updateData = pickAllowedFields(body, ALLOWED_UPDATE_FIELDS);
   if (updateData.capacity) {
     updateData.capacity = Number(updateData.capacity);
@@ -200,6 +298,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     await updateFacility(id, updateData);
+    await applySquareSecrets(id, squareSecretsInput);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[admin/facilities] PUT error:", error);
@@ -225,5 +324,9 @@ export async function DELETE(req: NextRequest) {
   }
 
   await deleteFacility(id);
+  // 施設に紐づくSquare認証情報も残さない
+  await clearFacilitySquareSecrets(id).catch((e) =>
+    console.error("[admin/facilities] secrets cleanup failed:", e instanceof Error ? e.message : "error")
+  );
   return NextResponse.json({ success: true });
 }

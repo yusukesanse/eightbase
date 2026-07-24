@@ -1,15 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Facility, FacilityType } from "@/types";
+import type { Facility, FacilitySquareStatus, FacilityType } from "@/types";
 import TimePicker from "@/components/ui/TimePicker";
 import { type FacilityForm, DAY_LABELS, EMPTY_FORM } from "./facilityForm";
 import { TermsEditor } from "./TermsEditor";
 
+/** 管理APIの施設（Square設定の状態つき。トークン等の実値はAPIが返さない） */
+type AdminFacility = Facility & { square?: FacilitySquareStatus };
+
 /* ───────── メインコンポーネント ───────── */
 
 export default function CalendarsPage() {
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [facilities, setFacilities] = useState<AdminFacility[]>([]);
+  // FACILITY_SECRETS_KEY がサーバーに設定済みか（未設定だとSquare認証情報を保存できない）
+  const [squareKeyConfigured, setSquareKeyConfigured] = useState(true);
+  // 編集中施設のSquare設定状態（表示用）
+  const [editingSquare, setEditingSquare] = useState<FacilitySquareStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -40,8 +47,10 @@ export default function CalendarsPage() {
         const res2 = await fetch("/api/admin/facilities", { credentials: "same-origin" });
         const data2 = await res2.json();
         setFacilities(data2.facilities ?? []);
+        setSquareKeyConfigured(data2.squareKeyConfigured ?? true);
       } else {
         setFacilities(data.facilities ?? []);
+        setSquareKeyConfigured(data.squareKeyConfigured ?? true);
       }
     } catch {
       setError("施設情報の取得に失敗しました");
@@ -60,11 +69,13 @@ export default function CalendarsPage() {
   function openAddModal() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setEditingSquare(null);
     setShowModal(true);
   }
 
-  function openEditModal(facility: Facility) {
+  function openEditModal(facility: AdminFacility) {
     setEditingId(facility.id);
+    setEditingSquare(facility.square ?? { configured: false });
     setForm({
       name: facility.name,
       calendarId: facility.calendarId,
@@ -78,9 +89,13 @@ export default function CalendarsPage() {
       prepTime: facility.prepTime ? String(facility.prepTime) : "",
       requireTerms: facility.requireTerms ?? false,
       termsContent: facility.termsContent ?? "",
-      requirePayment: facility.requirePayment ?? false,
-      hourlyRate: facility.hourlyRate ? String(facility.hourlyRate) : "",
+      // 旧データ（決済額のみ設定・チェック無し）もチェックONとして表示する
+      requirePayment: (facility.requirePayment ?? false) || (facility.paymentAmount ?? 0) > 0,
       paymentAmount: facility.paymentAmount ? String(facility.paymentAmount) : "",
+      squareAccessToken: "",
+      squareLocationId: "",
+      squareEnvironment: facility.square?.environment ?? "production",
+      clearSquareCredentials: false,
       switchBotDeviceId: facility.switchBotDeviceId ?? "",
     });
     setShowModal(true);
@@ -90,6 +105,7 @@ export default function CalendarsPage() {
     setShowModal(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setEditingSquare(null);
   }
 
   /* ───────── 保存（作成 / 更新） ───────── */
@@ -104,6 +120,19 @@ export default function CalendarsPage() {
       setError("利用終了時刻は開始時刻より後に設定してください");
       return;
     }
+    const squareToken = form.squareAccessToken.trim();
+    const squareLocation = form.squareLocationId.trim();
+    if (form.requirePayment) {
+      if (!(Number(form.paymentAmount) > 0)) {
+        setError("決済額（1円以上）を入力してください");
+        return;
+      }
+      // 未登録の施設は認証情報が片方だけだと決済できないため両方必須にする
+      if (!editingSquare?.configured && (!!squareToken !== !!squareLocation)) {
+        setError("Squareアクセストークンとロケーション IDは両方入力してください");
+        return;
+      }
+    }
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -117,10 +146,14 @@ export default function CalendarsPage() {
         prepTime: form.prepTime ? Number(form.prepTime) : undefined,
         // termsContent は requireTerms=false なら送らない
         termsContent: form.requireTerms ? form.termsContent : undefined,
-        // hourlyRate は requirePayment=false なら送らない
-        hourlyRate: form.requirePayment && form.hourlyRate ? Number(form.hourlyRate) : undefined,
-        // トレーラー等: 決済額 / 解錠デバイス（空は "" で送って解除可能に）
-        paymentAmount: form.paymentAmount ? Number(form.paymentAmount) : undefined,
+        // 決済OFF保存時は決済額を0にして「決済する」フローを無効化（チェック＝決済の有効/無効）
+        paymentAmount:
+          form.requirePayment && form.paymentAmount ? Number(form.paymentAmount) : 0,
+        // Square認証情報（超機密）: 空は「変更しない」扱いで送らない
+        squareAccessToken: squareToken || undefined,
+        squareLocationId: squareLocation || undefined,
+        squareEnvironment: form.squareEnvironment,
+        clearSquareCredentials: form.clearSquareCredentials || undefined,
         switchBotDeviceId: form.switchBotDeviceId.trim(),
       };
 
@@ -328,10 +361,16 @@ export default function CalendarsPage() {
                         📋 利用規約あり
                       </p>
                     )}
-                    {f.requirePayment && (
+                    {(f.requirePayment || (f.paymentAmount ?? 0) > 0) && (
                       <p className="text-xs text-[#231714]/80 mt-0.5">
-                        💳 決済あり（{f.hourlyRate?.toLocaleString() ?? "—"}円/時間）
+                        💳 Square決済 {f.paymentAmount ? `¥${f.paymentAmount.toLocaleString()}` : "（決済額未設定）"}
+                        {f.square?.configured
+                          ? `／認証情報 設定済み${f.square.environment === "sandbox" ? "（サンドボックス）" : ""}`
+                          : "／認証情報 未設定（共通設定を使用）"}
                       </p>
+                    )}
+                    {f.switchBotDeviceId && (
+                      <p className="text-xs text-[#231714]/80 mt-0.5">🔑 SwitchBot解錠あり</p>
                     )}
                     <p className="text-xs text-[#231714]/80 mt-0.5 font-mono break-all">
                       📅 {f.calendarId}
@@ -606,7 +645,7 @@ export default function CalendarsPage() {
                 )}
               </div>
 
-              {/* ── 課金設定 ── */}
+              {/* ── Square決済 ── */}
               <div className="border-t border-gray-100 pt-4">
                 <label className="flex items-center gap-3 cursor-pointer mb-3">
                   <input
@@ -617,54 +656,119 @@ export default function CalendarsPage() {
                   />
                   <span className="text-sm text-gray-700">予約時にSquare決済を必須にする</span>
                 </label>
+                {!form.requirePayment && (
+                  <p className="text-[10px] text-gray-700">
+                    ONにすると「予約する」が「決済する」に変わり、決済完了後に予約が確定します。
+                  </p>
+                )}
                 {form.requirePayment && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">時間単価（円/時間）</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="100"
-                      value={form.hourlyRate}
-                      onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
-                      placeholder="1000"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
-                    />
-                    <p className="text-[10px] text-gray-700 mt-1">利用時間×単価が予約時に課金されます</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">決済額（円・税込）*</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="100"
+                        value={form.paymentAmount}
+                        onChange={(e) => setForm({ ...form, paymentAmount: e.target.value })}
+                        placeholder="22000"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                      />
+                      <p className="text-[10px] text-gray-700 mt-1">
+                        予約ごとにこの金額のSquare決済リンクを生成し、決済完了後に予約が確定します。
+                      </p>
+                    </div>
+
+                    {/* Square認証情報（超機密・保存後は再表示されない） */}
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-3">
+                      <p className="text-xs font-medium text-gray-700">
+                        Square認証情報{" "}
+                        {editingSquare?.configured ? (
+                          <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[10px]">
+                            設定済み{editingSquare.locationIdLast4 ? `（ロケーションID 下4桁 …${editingSquare.locationIdLast4}）` : ""}
+                          </span>
+                        ) : (
+                          <span className="ml-1 inline-block px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 text-[10px]">
+                            未設定
+                          </span>
+                        )}
+                      </p>
+                      {!squareKeyConfigured && (
+                        <p className="text-[10px] text-red-600">
+                          サーバーの FACILITY_SECRETS_KEY が未設定のため保存できません。環境変数を設定してください。
+                        </p>
+                      )}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">アクセストークン</label>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          spellCheck={false}
+                          value={form.squareAccessToken}
+                          onChange={(e) => setForm({ ...form, squareAccessToken: e.target.value })}
+                          placeholder={editingSquare?.configured ? "設定済み（変更する場合のみ入力）" : "EAAA…"}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">ロケーションID</label>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          spellCheck={false}
+                          value={form.squareLocationId}
+                          onChange={(e) => setForm({ ...form, squareLocationId: e.target.value })}
+                          placeholder={editingSquare?.configured ? "設定済み（変更する場合のみ入力）" : "L…"}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">環境</label>
+                        <select
+                          value={form.squareEnvironment}
+                          onChange={(e) =>
+                            setForm({ ...form, squareEnvironment: e.target.value as "production" | "sandbox" })
+                          }
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                        >
+                          <option value="production">本番</option>
+                          <option value="sandbox">サンドボックス（テスト）</option>
+                        </select>
+                      </div>
+                      <p className="text-[10px] text-gray-700">
+                        入力値は暗号化して保存され、保存後に再表示されることはありません。
+                        {!editingSquare?.configured && "未設定の場合はサーバーの共通Square設定（環境変数）を使用します。"}
+                      </p>
+                      {editingSquare?.configured && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={form.clearSquareCredentials}
+                            onChange={(e) => setForm({ ...form, clearSquareCredentials: e.target.checked })}
+                            className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-400"
+                          />
+                          <span className="text-xs text-red-600">登録済みのSquare認証情報を削除する</span>
+                        </label>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* ── 決済・解錠（トレーラー等） ── */}
-              <div className="border-t border-gray-100 pt-4 space-y-3">
-                <p className="text-sm font-medium text-gray-700">決済・解錠（トレーラー等）</p>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">決済額（円・税込）</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    value={form.paymentAmount}
-                    onChange={(e) => setForm({ ...form, paymentAmount: e.target.value })}
-                    placeholder="22000"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
-                  />
-                  <p className="text-[10px] text-gray-700 mt-1">
-                    設定すると「予約する」が「決済する」に変わり、予約ごとにSquare決済リンクを生成します（0/未設定なら通常予約）。
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">SwitchBot デバイスID</label>
-                  <input
-                    type="text"
-                    value={form.switchBotDeviceId}
-                    onChange={(e) => setForm({ ...form, switchBotDeviceId: e.target.value })}
-                    placeholder="例: ABCDEF123456"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
-                  />
-                  <p className="text-[10px] text-gray-700 mt-1">
-                    設定すると予約ごとに、予約時間だけ有効な解錠パスコードを発行します（管理者の永続パスは別管理）。
-                  </p>
-                </div>
+              {/* ── 解錠（SwitchBot） ── */}
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">解錠（SwitchBot）</p>
+                <label className="block text-xs font-medium text-gray-700 mb-1">SwitchBot デバイスID</label>
+                <input
+                  type="text"
+                  value={form.switchBotDeviceId}
+                  onChange={(e) => setForm({ ...form, switchBotDeviceId: e.target.value })}
+                  placeholder="例: ABCDEF123456"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
+                />
+                <p className="text-[10px] text-gray-700 mt-1">
+                  設定すると予約ごとに、予約時間だけ有効な解錠パスコードを発行します（管理者の永続パスは別管理）。
+                </p>
               </div>
 
               {/* ボタン */}

@@ -8,6 +8,7 @@ import {
   buildReservationSlotKey,
 } from "@/lib/reservations";
 import { createReservationPaymentLink } from "@/lib/square";
+import { getFacilitySquareCredentials } from "@/lib/facilitySecrets";
 import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled } from "@/lib/env";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
@@ -89,10 +90,13 @@ export async function POST(req: NextRequest) {
       : liffUrl(completePath);
     let paymentLink: { url: string; orderId: string };
     try {
+      // 施設ごとのSquare認証情報（未登録なら環境変数 SQUARE_* にフォールバック）
+      const squareCredentials = (await getFacilitySquareCredentials(facility.id)) ?? undefined;
       paymentLink = await createReservationPaymentLink({
         amount: facility.paymentAmount,
         name: facility.name,
         redirectUrl,
+        credentials: squareCredentials,
       });
     } catch (e) {
       console.error("[reservations/pending] payment link failed:", e);
