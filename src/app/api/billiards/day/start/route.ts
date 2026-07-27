@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
+import { getScheduleStartTime, isPastEntryDeadline } from "@/lib/entryDeadline";
 import { getActiveSeason } from "@/lib/mahjong";
 import { isDayGm, DAY_GM_REQUIRED_MESSAGE } from "@/lib/dayGameMaster";
 import { startBilliardsDay } from "@/lib/billiardsDay";
@@ -18,6 +19,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   if (!isValidBilliardsDate(eventDate)) return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+
+  // 受付締切（開催日の開始時刻）を過ぎてから開始できる。
+  // 「締切までに参加表明した人＝参加者」を確定させてから進行を始めるため。
+  const startTime = await getScheduleStartTime("billiards", season.seasonId, eventDate);
+  if (!isPastEntryDeadline(eventDate, startTime)) {
+    return NextResponse.json(
+      { error: `開始時刻（${startTime}）を過ぎてから開始できます。それまでは参加受付中です。` },
+      { status: 409 }
+    );
+  }
 
   if (!(await isDayGm("billiards", season.seasonId, eventDate, userId))) {
     return NextResponse.json({ error: DAY_GM_REQUIRED_MESSAGE }, { status: 403 });

@@ -8,7 +8,7 @@ import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { isPokerCancelledDate } from "@/lib/pokerSchedule";
-import { getPokerDayState, isPokerEntryClosed } from "@/lib/pokerDay";
+import { getPokerDayState } from "@/lib/pokerDay";
 import { buildPokerEntryId, isValidPokerDate } from "@/lib/pokerEntryValidation";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import { POKER_ENTRY_FEE, type PokerEntry } from "@/types/poker";
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
  * POST /api/poker/entries/pay  Body: { eventDate }
  * ポーカー参加費（¥1,000）の決済リンク発行（ダーツ/ビリヤード pay を流用・Square purpose="poker"）。
  * 戻り先は /info?pokerpay=エントリーID → /api/poker/entries/complete が確定する。
- * 最初の試合の「ゲーム開始」後（pokerDayState.entryClosedAt）は支払い不可（ガード＋tx内で二重チェック）。
+ * 受付締切（開催日の開始時刻）後も参加者は支払える（当日その場で支払う）。本日終了後は不可。
  */
 export async function POST(req: NextRequest) {
   try {
@@ -64,8 +64,13 @@ export async function POST(req: NextRequest) {
     if (eventDate < todayJst()) {
       return NextResponse.json({ error: "PAST_EVENT", message: "終了した開催日です。" }, { status: 400 });
     }
-    if (isPokerEntryClosed(await getPokerDayState(season.seasonId, eventDate))) {
-      return NextResponse.json({ error: "ENTRY_CLOSED", message: "受付は締め切られました。" }, { status: 409 });
+    // 受付締切（開始時刻）後も**参加者として確定済みの人は支払える**（当日その場で支払う運用）。
+    // 締め切るのは新規の参加表明だけ。ここは「本日終了後は支払い不可」だけを見る。
+    if ((await getPokerDayState(season.seasonId, eventDate))?.finishedAt) {
+      return NextResponse.json(
+        { error: "DAY_FINISHED", message: "この開催日は終了しています。" },
+        { status: 409 }
+      );
     }
 
     const completePath = `/info?pokerpay=${entryId}`;
@@ -97,7 +102,7 @@ export async function POST(req: NextRequest) {
       await db.runTransaction(async (tx) => {
         const [freshEntry, daySnap] = await Promise.all([tx.get(entryRef), tx.get(dayRef)]);
         if (!freshEntry.exists) throw new Error("ENTRY_REMOVED");
-        if (daySnap.data()?.entryClosedAt) throw new Error("ENTRY_CLOSED");
+        if (daySnap.data()?.finishedAt) throw new Error("DAY_FINISHED");
         const freshStatus = freshEntry.data()?.paymentStatus;
         if (freshStatus === "paid" || freshStatus === "cancelRequested") throw new Error("ENTRY_STATE_CHANGED");
         tx.set(

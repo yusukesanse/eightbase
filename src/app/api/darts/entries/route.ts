@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isEntryClosedByTime, ENTRY_DEADLINE_PASSED_MESSAGE } from "@/lib/entryDeadline";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
@@ -140,7 +141,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "この開催日は中止されました" }, { status: 409 });
     }
 
-    // GM「ゲーム開始」で受付締切（dartsDayState.entryClosedAt）。以降は参加表明不可。
+    // 受付締切＝**開催日の開始時刻**（`src/lib/entryDeadline.ts`）。以降は新規の参加表明不可。
+    // GMが手動で締めた場合（entryClosedAt）も引き続き締切として扱う。
+    if (await isEntryClosedByTime("darts", season.seasonId, eventDate)) {
+      return NextResponse.json({ error: ENTRY_DEADLINE_PASSED_MESSAGE }, { status: 409 });
+    }
     if (isDartsEntryClosed(await getDartsDayState(season.seasonId, eventDate))) {
       return NextResponse.json({ error: "受付は締め切られました" }, { status: 409 });
     }

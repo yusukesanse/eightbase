@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
+import { getScheduleStartTime, isPastEntryDeadline } from "@/lib/entryDeadline";
 import { getActiveSeason } from "@/lib/mahjong";
 import {
   getDartsDayState,
@@ -31,6 +32,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const day = await getDartsDayState(season.seasonId, eventDate);
+    // 受付締切は「開催日の開始時刻」（GM操作ではない）。UIの出し分けに使う。
+    const startTime = await getScheduleStartTime("darts", season.seasonId, eventDate);
+    const entryClosed = isPastEntryDeadline(eventDate, startTime);
     // 当日GM（シーズン固定GMではない）。未設定なら誰もGMではない。
     const isGm = !!day?.gmUserId && day.gmUserId === userId;
     const gameMasterName = day?.gmDisplayName ?? null;
@@ -44,6 +48,8 @@ export async function GET(req: NextRequest) {
           finished: false,
           isGameMaster: isGm,
           gameMasterName,
+          startTime,
+          entryClosed,
           participants: isGm
             ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId }))
             : [],
@@ -127,6 +133,8 @@ export async function GET(req: NextRequest) {
         finished: !!day.finishedAt,
         isGameMaster: isGm,
         gameMasterName,
+        startTime,
+        entryClosed,
         participants,
         paidCount: day.participants.length,
         events,

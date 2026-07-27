@@ -48,7 +48,7 @@ export async function getDartsDayState(
   return snap.exists ? (snap.data() as DartsDayState) : null;
 }
 
-/** この開催日の受付（参加表明・支払い）が締め切られているか＝GM が「ゲーム開始」を押したか。 */
+/** GMが手動で締めたか（entryClosedAt）。**通常の受付締切は開始時刻**＝`src/lib/entryDeadline.ts`。 */
 export function isDartsEntryClosed(day: DartsDayState | null): boolean {
   return !!day?.entryClosedAt;
 }
@@ -72,18 +72,23 @@ export function classifyDartsCompletion(args: {
   return "paid";
 }
 
-/** エントリー doc 群から支払い済み参加者を FIFO（enteredAt 昇順）で抽出。 */
+/**
+ * エントリー doc 群から**その日の参加者**を FIFO（enteredAt 昇順）で抽出。
+ * 受付締切は開始時刻（`src/lib/entryDeadline.ts`）なので、**未払い(reserved)も参加者に含む**
+ * （締切までに参加意思を示した人が参加者。未払いはその場で支払ってもらう運用）。
+ * ※ 流会時の返金対象は別途 `deriveStatus === "paid"` で絞っているのでここは影響しない。
+ */
 function paidParticipantsFromDocs(
   docs: FirebaseFirestore.QueryDocumentSnapshot[]
 ): DartsDayMember[] {
   return docs
     .map((d) => ({ ...(d.data() as DartsEntry), entryId: d.id }))
-    .filter((e) => deriveStatus(e) === "paid")
+    .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
     .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
 }
 
-/** 支払い済み参加者（staff は POST 時点で paid）。enteredAt 昇順 FIFO。 */
+/** その日の参加者（未払い含む）。enteredAt 昇順 FIFO。 */
 export async function fetchDartsParticipants(
   seasonId: string,
   eventDate: string
@@ -215,7 +220,7 @@ export async function startDartsDay(
     if (participants.length < DARTS_MIN_PARTICIPANTS) {
       return {
         ok: false as const,
-        error: `支払い済みが${DARTS_MIN_PARTICIPANTS}名以上必要です`,
+        error: `参加者が${DARTS_MIN_PARTICIPANTS}名以上必要です`,
         paidCount: participants.length,
       };
     }
@@ -284,7 +289,7 @@ export async function claimDartsGm(
     const roster = prev?.entryClosedAt ? prev.participants : paidParticipantsFromDocs(entriesSnap.docs);
     const me = roster.find((p) => p.lineUserId === userId);
     if (!me) {
-      return { ok: false as const, status: 403, error: "参加者（支払い済み）のみゲームマスターになれます" };
+      return { ok: false as const, status: 403, error: "この開催日の参加者のみゲームマスターになれます" };
     }
 
     const now = new Date().toISOString();

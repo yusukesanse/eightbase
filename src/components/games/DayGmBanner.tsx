@@ -7,7 +7,7 @@ import { useState } from "react";
  * GMは**シーズン固定ではなく開催日ごとに決める**ので、当日タブの先頭で
  * 「まだ誰もGMをやっていない」ことと「GMをやる」導線を必ず見せる。
  * 担当が帰ってしまうと進行が詰むため**交代も可**（確認ダイアログを挟む）。
- * サーバー側の資格判定（支払い済み参加者のみ）は POST /api/{game}/day/gm が行う。
+ * サーバー側の資格判定（その日の参加者のみ）は POST /api/{game}/day/gm が行う。
  */
 export function DayGmBanner({
   game,
@@ -15,6 +15,8 @@ export function DayGmBanner({
   isGameMaster,
   gameMasterName,
   finished,
+  entryClosed,
+  startTime,
   onChanged,
 }: {
   game: "darts" | "billiards";
@@ -22,12 +24,31 @@ export function DayGmBanner({
   isGameMaster: boolean;
   gameMasterName: string | null;
   finished: boolean;
+  /** 受付が締め切られたか（＝開催日の開始時刻を過ぎたか）。 */
+  entryClosed?: boolean;
+  /** 開催日の開始時刻（HH:MM・JST）。締切前の案内に出す。 */
+  startTime?: string | null;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (finished) return null;
+
+  // 締切前はGMを決めない（参加者が確定していないため）。開始時刻＝受付締切であることだけ伝える。
+  if (entryClosed === false) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+        <div className="text-[13px] font-extrabold text-[#231714]">
+          参加受付中{startTime ? `（${startTime} に締切）` : ""}
+        </div>
+        <div className="text-[11px] text-[#3c4f54] mt-0.5">
+          締切までに参加表明した人がこの日の参加者になります（未払いの方はその場でお支払いいただけます）。
+          締切後に参加者の中からゲームマスターを決めます。
+        </div>
+      </div>
+    );
+  }
 
   const claim = async (takeover: boolean) => {
     if (takeover && !confirm(`現在のゲームマスターは${gameMasterName}さんです。あなたが交代しますか？`)) return;

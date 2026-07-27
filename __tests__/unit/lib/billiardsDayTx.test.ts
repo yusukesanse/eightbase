@@ -178,12 +178,14 @@ describe("startBilliardsDay", () => {
     expect(dayDoc()).toBeUndefined();
   });
 
-  test("reserved（未払い）は participants に含めない", async () => {
+  // 仕様変更（2026-07-27）: 受付締切は開催日の開始時刻になり、**締切までに参加表明した人**が参加者。
+  // 未払いでも参加者に含め、当日その場で支払ってもらう運用（src/lib/entryDeadline.ts）。
+  test("reserved（未払い）も participants に含める", async () => {
     seedPaidEntry("a", 0);
     seedPaidEntry("b", 1);
     seedReservedEntry("c", 0);
     await startBilliardsDay(SEASON, DATE, "gm");
-    expect(dayDoc()?.participants.map((p) => p.lineUserId).sort()).toEqual(["a", "b"]);
+    expect(dayDoc()?.participants.map((p) => p.lineUserId).sort()).toEqual(["a", "b", "c"]);
   });
 
   test("二重開始は冪等成功", async () => {

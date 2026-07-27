@@ -21,6 +21,8 @@ interface DayDto {
   finished: boolean;
   isGameMaster: boolean;
   gameMasterName: string | null;
+  entryClosed: boolean;
+  startTime: string | null;
   participants: DayMember[];
   paidCount: number;
   matches: DayMatch[];
@@ -58,6 +60,8 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
         isGameMaster={day.isGameMaster}
         gameMasterName={day.gameMasterName}
         finished={day.finished}
+        entryClosed={day.entryClosed}
+        startTime={day.startTime}
         onChanged={refresh}
       />
       {day.isGameMaster && <GmPanel day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
