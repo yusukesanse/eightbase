@@ -2,41 +2,51 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import type { MahjongStanding, MahjongLeagueTier } from "@/types";
 
 /**
- * 3D 麻雀リーグ・ピラミッド（TILES 案・確定版）
+ * 3D リーグ・ピラミッド（TILES 案・確定版）
  * --------------------------------------------------------------------------
- * - Three.js で角錐をスタック：M1(頂点) → M2 → M3(土台)。前面＋遠近＋陰影で立体表現。
+ * - Three.js で角錐をスタック：1段目(頂点) → 2段目 → 3段目(土台)。前面＋遠近＋陰影で立体表現。
  * - 自分のアバター（本番は LINE プロフィール画像）を所属リーグに「あなた」フラッグ付きで浮遊表示。
- * - M1/M2/M3 ラベルは Canvas スプライトではなく **左カラムの固定 HTML オーバーレイ**
+ * - リーグラベルは Canvas スプライトではなく **左カラムの固定 HTML オーバーレイ**
  *   （ゴールド箔風セリフ体）。回転しても動かない＝アバターと重ならない。
  * - 既定はゆっくり連続回転。mode で 旋回 / ゆらぎ / 停止 を切替。
  * - WebGL 非対応・prefers-reduced-motion を考慮。アンマウント時に GPU リソースを破棄。
+ *
+ * **種目非依存**: 麻雀 M1/M2/M3・ダーツ D1/D2/D3・ビリヤード B1/B2/B3・ポーカー P1/P2/P3 で
+ * 同一の見た目を共有する。違いは `tierKeys` のラベルだけ（順位帯 1〜4/5〜8/9〜 は全種目共通）。
  */
 
-// DS リーグ色（順位リストやバッジと一致させる）
-const TIER_HEX: Record<MahjongLeagueTier, number> = {
-  M1: 0xa2125a, // magenta
-  M2: 0x1172a5, // blue
-  M3: 0xb48f13, // gold
-};
-const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
-const tierOf = (rank: number): MahjongLeagueTier => (rank <= 4 ? "M1" : rank <= 8 ? "M2" : "M3");
+/** ピラミッド描画に必要な最小限の順位データ（種目の指標には依存しない）。 */
+export interface PyramidStanding {
+  rank: number;
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+}
+
+/** リーグ3階層のラベル（上位→下位）。例: ["M1","M2","M3"] / ["D1","D2","D3"] */
+export type TierKeys = readonly [string, string, string];
+
+// DS リーグ色（順位リストやバッジと一致させる）。段位置で固定＝種目が変わっても色は同じ。
+const TIER_HEX = [0xa2125a /* magenta */, 0x1172a5 /* blue */, 0xb48f13 /* gold */] as const;
+const cssColor = (i: number) => `#${TIER_HEX[i].toString(16).padStart(6, "0")}`;
+/** 通算順位 → 段index。1〜4=0（頂点） / 5〜8=1 / 9位〜=2（土台）。全種目共通。 */
+const tierIndexOf = (rank: number): number => (rank <= 4 ? 0 : rank <= 8 ? 1 : 2);
 
 type SpinMode = "spin" | "sway" | "off";
 
-// 左ラベルのキッカー
-const KICKER: Record<MahjongLeagueTier, string> = { M1: "PREMIER", M2: "CHALLENGER", M3: "CONTENDER" };
+// 左ラベルのキッカー（段位置で固定）
+const KICKER = ["PREMIER", "CHALLENGER", "CONTENDER"] as const;
 // 各リーグの画面上での縦位置（0–1, canvas 高さ基準）。カメラ固定なので定数で十分。
-const LABEL_TOP: Record<MahjongLeagueTier, number> = { M1: 0.07, M2: 0.37, M3: 0.645 };
+const LABEL_TOP = [0.07, 0.37, 0.645] as const;
 const GOLD = "linear-gradient(180deg,#f9ead0,#e6bd52 42%,#c9962a 70%,#a9781a)";
 
 // 各段の幾何（CylinderGeometry: radialSegments=4 で四角錐台）
 const TIERS = [
-  { t: "M1" as const, rb: 1.05, rt: 0.16, y: 3.05, front: 1.0 },
-  { t: "M2" as const, rb: 1.85, rt: 1.05, y: 1.85, front: 1.7 },
-  { t: "M3" as const, rb: 2.65, rt: 1.85, y: 0.62, front: 2.45 },
+  { rb: 1.05, rt: 0.16, y: 3.05, front: 1.0 },
+  { rb: 1.85, rt: 1.05, y: 1.85, front: 1.7 },
+  { rb: 2.65, rt: 1.85, y: 0.62, front: 2.45 },
 ];
 
 // 円形アバター生成（四角背景なし・周囲透明）
@@ -80,22 +90,28 @@ export function LeaguePyramid3D({
   currentUserId,
   height = 280,
   mode = "spin",
+  tierKeys = ["M1", "M2", "M3"],
+  label = "リーグの3Dピラミッド",
 }: {
-  standings: MahjongStanding[];
+  standings: PyramidStanding[];
   currentUserId?: string;
   height?: number;
   /** "spin" 旋回（既定）/ "sway" ゆらぎ / "off" 停止。reduced-motion は内部で停止に倒す。 */
   mode?: SpinMode;
+  /** 3階層のラベル（上位→下位）。種目ごとに M/D/B/P を渡す。 */
+  tierKeys?: TierKeys;
+  /** スクリーンリーダー向けの説明。 */
+  label?: string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const modeRef = useRef<SpinMode>(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
 
   // --- 左固定ラベル用の集計（描画とは独立に毎レンダー算出）---
-  const counts: Record<MahjongLeagueTier, number> = { M1: 0, M2: 0, M3: 0 };
-  standings.forEach((s) => { counts[tierOf(s.rank)] += 1; });
+  const counts = [0, 0, 0];
+  standings.forEach((s) => { counts[tierIndexOf(s.rank)] += 1; });
   const me = currentUserId ? standings.find((s) => s.lineUserId === currentUserId) : undefined;
-  const meTier = me ? tierOf(me.rank) : null;
+  const meTier = me ? tierIndexOf(me.rank) : null;
 
   useEffect(() => {
     const THREEok = typeof window !== "undefined";
@@ -126,9 +142,9 @@ export function LeaguePyramid3D({
 
     const grp = new THREE.Group();
     const disposables: { dispose: () => void }[] = [];
-    TIERS.forEach((tier) => {
+    TIERS.forEach((tier, i) => {
       const g = new THREE.CylinderGeometry(tier.rt, tier.rb, 1.2, 4, 1);
-      const hex = TIER_HEX[tier.t];
+      const hex = TIER_HEX[i];
       const m = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.5, metalness: 0.18, flatShading: true, emissive: hex, emissiveIntensity: 0.14 });
       const mesh = new THREE.Mesh(g, m);
       mesh.rotation.y = Math.PI / 4; mesh.position.y = tier.y;
@@ -140,9 +156,9 @@ export function LeaguePyramid3D({
     // 自分のアバター（常に正面・所属リーグ前面に浮遊）
     let avatarSprite: THREE.Sprite | null = null;
     const meGrp = new THREE.Group();
-    if (me && meTier) {
-      const def = TIERS.find((x) => x.t === meTier)!;
-      const ring = "#" + TIER_HEX[meTier].toString(16).padStart(6, "0");
+    if (me && meTier !== null) {
+      const def = TIERS[meTier];
+      const ring = cssColor(meTier);
       const avCanvas = document.createElement("canvas"); avCanvas.width = 160; avCanvas.height = 160;
       const avCtx = avCanvas.getContext("2d")!;
       drawInitial(avCtx, me.displayName, ring);
@@ -205,22 +221,22 @@ export function LeaguePyramid3D({
 
   return (
     <div style={{ position: "relative", width: "100%", height }}>
-      <div ref={hostRef} style={{ position: "absolute", inset: 0 }} aria-label="麻雀リーグの3Dピラミッド" />
+      <div ref={hostRef} style={{ position: "absolute", inset: 0 }} aria-label={label} />
       {/* 左固定ラベル（ゴールド箔風セリフ体） */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        {TIER_ORDER.map((t) => {
-          const col = `var(--eb-league-${t.toLowerCase()})`;
-          const meHere = meTier === t;
+        {tierKeys.map((t, i) => {
+          const col = cssColor(i);
+          const meHere = meTier === i;
           return (
-            <div key={t} style={{ position: "absolute", left: 12, top: `${LABEL_TOP[t] * 100}%`, display: "flex", alignItems: "center", gap: 10 }}>
+            <div key={t} style={{ position: "absolute", left: 12, top: `${LABEL_TOP[i] * 100}%`, display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ width: 14, height: 14, borderRadius: 3, transform: "rotate(45deg)", background: `linear-gradient(135deg, rgba(255,255,255,.85), ${col})`, boxShadow: `inset 0 0 0 1px rgba(255,255,255,.4), 0 0 0 1px ${col}, 0 0 ${meHere ? 14 : 5}px ${meHere ? col : "rgba(0,0,0,.12)"}` }} />
               <div style={{ lineHeight: 1.05 }}>
-                <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 9.5, fontWeight: 600, letterSpacing: ".22em", background: GOLD, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>{KICKER[t]}</div>
+                <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 9.5, fontWeight: 600, letterSpacing: ".22em", background: GOLD, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>{KICKER[i]}</div>
                 <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 33, fontWeight: 900, letterSpacing: "-.01em", marginTop: 1,
                   background: `linear-gradient(168deg, #ffffff 8%, ${col} 62%, color-mix(in srgb, ${col} 60%, #5a0f33) 100%)`,
                   WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent",
                   filter: `drop-shadow(0 1px 0 rgba(255,255,255,.6)) drop-shadow(0 2px 3px rgba(40,20,10,.28)) drop-shadow(0 0 ${meHere ? 11 : 0}px ${col})` }}>{t}</div>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: meHere ? col : "var(--text-tertiary)", marginTop: 3 }}>{counts[t]}名{meHere ? " ・ あなた" : ""}</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: meHere ? col : "var(--text-tertiary)", marginTop: 3 }}>{counts[i]}名{meHere ? " ・ あなた" : ""}</div>
               </div>
             </div>
           );
@@ -230,4 +246,4 @@ export function LeaguePyramid3D({
   );
 }
 
-export { TIER_ORDER };
+export { TIER_HEX, cssColor, tierIndexOf };
