@@ -201,7 +201,7 @@ function ReadyPhase({ game, eventDate, onDone, setError }: { game: CurrentGame; 
         <>
           <p className="text-[11.5px] text-[#231714]/80 leading-relaxed">
             あなたがディーラーです。準備ができたら「ゲーム開始」を押してください（30分タイマーが始まります）。
-            最初の試合ではこの操作で受付が締め切られます。
+            受付は開催日の開始時刻で締め切られます。
           </p>
           <button onClick={start} disabled={busy} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: POKER_ACCENT }}>
             {busy ? "開始中…" : "ゲーム開始（30分）"}

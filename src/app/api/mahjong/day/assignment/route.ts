@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { todayJst } from "@/lib/date";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
 import { startDay, buildInitialDay } from "@/lib/mahjongDay";
@@ -10,8 +11,6 @@ import type { MahjongDayState, MahjongEntry, MahjongTable } from "@/types";
 export const dynamic = "force-dynamic";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const todayJst = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
-
 /**
  * GET /api/mahjong/day/assignment?eventDate=YYYY-MM-DD
  * GM（ゲームマスター）専用: 当日の支払い済みプール・現 round・下書き（既存 or FIFO 提案）・
