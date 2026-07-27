@@ -120,14 +120,22 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
   - Squareにて決済完了→リダイレクトURLで予約完了画面へ遷移。
 - 金額は2万円
 
-### トレーラー / SwitchBot の状況（2026-07-07時点）
+### トレーラー / SwitchBot の状況（2026-07-27時点・deviceId 取得済み）
 - 現地の Hub Mini・ロックは**取付・クラウド接続済み**（アプリからの遠隔施解錠OK）。
-- ⚠️ **ブロッカー: SwitchBot OpenAPI `GET /v1.1/devices` が空（0件）**。認証は成功(statusCode 100)・トークンは所有アカウント一致・アプリは遠隔操作可、にもかかわらず deviceList が空。ログアウト/再ログイン・トークン再取得でも改善せず。→ **アカウント登録リージョン(データセンター)と OpenAPI エンドポイントの不一致**が濃厚。
-- **担当（SwitchBotサポート/社内）からの連絡待ち**。依頼内容: 「OpenAPI で deviceList が空。アカウントのDCを OpenAPI 対応リージョンへ移行してほしい」。
-- 切り分けCLI: `node scripts/switchbot-devices.mjs`（`.env.local` の SWITCHBOT_TOKEN/SECRET を使用。`createkey/deletekey` で実機テストも可）。
-- **暫定運用は実装済み**（下記「SwitchBot未連携時の暫定運用」）。連絡後の再開タスク:
-  - deviceId が取得できたら、管理画面のトレーラー施設に `switchBotDeviceId` を登録するだけで自動発行が有効化（アプリ側コード変更不要）。
-  - 実機で「予約→決済→時限パスコード発行→解錠→時間外無効→取消で失効→再発行」を通しテスト。
+- ✅ **ブロッカー解消**。`GET /v1.1/devices` が空だった原因は~~リージョン不一致~~ではなく、**トークン発行者がホームの「参加メンバー」でデバイス所有者（ホームオーナー）が別アカウント**だったこと（OpenAPI はオーナーのデバイスしか返さない）。所有者からトークン/シークレットを受領して解決。
+  - ⚠️ 現状は**所有者個人アカウントのトークンに依存**している。恒久運用ではホーム所有権を会社管理アカウントへ移譲するのが望ましい。
+- **取得済み deviceId**（`node scripts/switchbot-devices.mjs`）:
+  - `C1F07F213D14` … Smart Lock「ロック」← **施設の `switchBotDeviceId` に登録するのはこれ**
+  - `CED6749F1F5A` … Keypad「キーパッド」（ロックに紐づく入力端末。登録先ではない）
+  - `EE9A3CCCA686` … Hub Mini「エイトトレーラーハブ」（上2台の hub）
+  - `createKey`/`deleteKey` は SwitchBot OpenAPI では**スマートロックのコマンド**（`src/lib/switchbot.ts`）。パスコードはロックが管理する。
+- 切り分けCLI: `node scripts/switchbot-devices.mjs`（`.env.local` の SWITCHBOT_TOKEN/SECRET を使用。`createkey <id>` / `deletekey <id> <keyId>` で実機テストも可。**実機に本物の時限パスコードを書き込む**。permanent には触れない）。
+- **残: 実機テスト（2026-07-28 予定）** — 段取りは **demo で通しテスト → OKなら本番**:
+  1. demo（Vercel `eightbase-demo`）に `SWITCHBOT_TOKEN`/`SWITCHBOT_SECRET` を設定
+  2. demo 管理画面の施設編集 → SwitchBotデバイスID に `C1F07F213D14` を登録（**アプリ側コード変更不要**）
+  3. CLI で単体確認 → 「予約→決済→時限パスコード発行→解錠→時間外無効→取消で失効→再発行」を通しテスト
+  4. demo OK後、本番（Vercel `eightbase`・Production スコープ）に `SWITCHBOT_*` を設定＋本番施設に deviceId 登録。**本番は実課金・実機解錠**になる点に注意
+- 未連携のままでも予約は確定する（下記「SwitchBot未連携時の暫定運用」）。
 
 ### SwitchBot未連携時の暫定運用（実装済み・2026-07-07）
 - `reservations/complete`: 要解錠施設（`paymentAmount>0`＝トレーラー）は SwitchBot 未連携(`switchBotDeviceId`未設定)/発行失敗でも**予約は確定**。
