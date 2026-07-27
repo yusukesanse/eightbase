@@ -21,3 +21,17 @@ export function sanitizeGameMasterIds(input: unknown): string[] {
   }
   return Array.from(seen);
 }
+
+/** HH:MM（24時間表記）か。日程の開始/終了時刻の検証に使う。 */
+export function isValidHhMm(input: unknown): input is string {
+  return typeof input === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(input);
+}
+
+/**
+ * 開催の既定時刻を正規化する。空文字/未指定は undefined（＝コード既定値へフォールバック）。
+ * @returns 正規化後の値 / 形式不正なら null
+ */
+export function sanitizeScheduleTime(input: unknown): string | undefined | null {
+  if (input === null || input === undefined || input === "") return undefined;
+  return isValidHhMm(input) ? input : null;
+}

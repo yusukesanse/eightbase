@@ -45,7 +45,7 @@ function makeDb() {
       return this;
     },
     get: async () => ({
-      docs: [...col(c).entries()].map(([id, data]) => ({ id, data: () => data })),
+      docs: Array.from(col(c).entries()).map(([id, data]) => ({ id, data: () => data })),
     }),
   });
   return {

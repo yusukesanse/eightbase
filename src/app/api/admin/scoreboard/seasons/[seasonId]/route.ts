@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
-import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
+import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, sanitizeScheduleTime, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -128,6 +128,16 @@ export async function PUT(
     // mahjongAllowByeSeats（抜け番許容。true=8名以上の予約可 / false=8名で締切）。
     if (body.mahjongAllowByeSeats !== undefined) {
       updates.mahjongAllowByeSeats = body.mahjongAllowByeSeats === true;
+    }
+
+    // 開催の既定時刻。"" で消す（＝コード既定値に戻す）。
+    for (const key of ["defaultStartTime", "defaultEndTime"] as const) {
+      if (body[key] === undefined) continue;
+      const v = sanitizeScheduleTime(body[key]);
+      if (v === null) {
+        return NextResponse.json({ error: "開始/終了時刻は HH:MM 形式で入力してください" }, { status: 400 });
+      }
+      updates[key] = v ?? null;
     }
 
     // ルール・約款（Markdown）。"" で消せる。

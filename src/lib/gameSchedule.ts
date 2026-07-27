@@ -68,7 +68,9 @@ export async function addGameScheduleDate(
   db: FirebaseFirestore.Firestore,
   game: ScheduleGame,
   seasonId: string,
-  date: string
+  date: string,
+  /** 開催時刻。省略時は種目のコード既定値（呼び出し側でシーズンの既定時刻を渡す）。 */
+  times?: { startTime?: string; endTime?: string }
 ): Promise<void> {
   const cfg = GAME_SCHEDULE_CFG[game];
   const now = new Date().toISOString();
@@ -76,7 +78,7 @@ export async function addGameScheduleDate(
   const lockRef = scheduleLockRef(db, game, seasonId, date);
   await db.runTransaction(async (tx) => {
     await tx.get(lockRef); // ロックを読み、削除操作(operationId書き込み)と競合させる
-    tx.set(schedRef, { scheduleId: buildGameScheduleId(seasonId, date), seasonId, date, startTime: cfg.start, endTime: cfg.end, createdAt: now, ...(cfg.extra ?? {}) });
+    tx.set(schedRef, { scheduleId: buildGameScheduleId(seasonId, date), seasonId, date, startTime: times?.startTime || cfg.start, endTime: times?.endTime || cfg.end, createdAt: now, ...(cfg.extra ?? {}) });
     tx.delete(lockRef); // 削除トゥームストーンを解除（再追加で受付再開）
   });
 }
