@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isEntryClosedByTime, ENTRY_DEADLINE_PASSED_MESSAGE } from "@/lib/entryDeadline";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
@@ -117,6 +118,11 @@ export async function POST(req: NextRequest) {
     }
     if (await isBilliardsCancelledDate(eventDate)) {
       return NextResponse.json({ error: "この開催日は中止されました" }, { status: 409 });
+    }
+
+    // 受付締切＝**開催日の開始時刻**（`src/lib/entryDeadline.ts`）。以降は新規の参加表明不可。
+    if (await isEntryClosedByTime("billiards", season.seasonId, eventDate)) {
+      return NextResponse.json({ error: ENTRY_DEADLINE_PASSED_MESSAGE }, { status: 409 });
     }
 
     const db = getDb();

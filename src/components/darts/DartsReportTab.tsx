@@ -26,6 +26,8 @@ interface DayDto {
   finished: boolean;
   isGameMaster: boolean;
   gameMasterName: string | null;
+  entryClosed: boolean;
+  startTime: string | null;
   participants: { displayName: string; pictureUrl?: string; isMe: boolean }[];
   events: EventStateDto[] | null;
   zeroOneVariant: { start: number; out: DartsZeroOneOut } | null;
@@ -148,6 +150,8 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
         isGameMaster={!!day?.isGameMaster}
         gameMasterName={day?.gameMasterName ?? null}
         finished={!!day?.finished}
+        entryClosed={day?.entryClosed}
+        startTime={day?.startTime ?? null}
         onChanged={() => { load(); onChanged(); }}
       />
       {/* 参加者としての自分のスコア申告を先に出し、その下に GM パネル（名簿＋「全員のスコアを確定」）を置く。 */}

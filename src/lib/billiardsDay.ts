@@ -37,12 +37,12 @@ export async function getBilliardsDayState(
   return snap.exists ? (snap.data() as BilliardsDayState) : null;
 }
 
-/** この開催日の受付（参加表明・支払い）が締め切られているか＝GM が「ゲーム開始」を押したか。 */
+/** GMが手動で締めたか（entryClosedAt）。**通常の受付締切は開始時刻**＝`src/lib/entryDeadline.ts`。 */
 export function isBilliardsEntryClosed(day: BilliardsDayState | null): boolean {
   return !!day?.entryClosedAt;
 }
 
-/** 支払い済み参加者（staff は POST 時点で paid）。enteredAt 昇順 FIFO。 */
+/** その日の参加者（未払い含む。締切＝開始時刻までに参加表明した人）。enteredAt 昇順 FIFO。 */
 export async function fetchBilliardsParticipants(
   seasonId: string,
   eventDate: string
@@ -54,7 +54,7 @@ export async function fetchBilliardsParticipants(
     .get();
   return snap.docs
     .map((d) => ({ ...(d.data() as BilliardsEntry), entryId: d.id }))
-    .filter((e) => deriveStatus(e) === "paid")
+    .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
     .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
 }
@@ -96,7 +96,7 @@ export async function startBilliardsDay(
     const [snap, cancelSnap, entrySnap] = await Promise.all([tx.get(dayRef), tx.get(cancelRef), tx.get(entriesQuery)]);
     const participants = entrySnap.docs
       .map((d) => ({ ...(d.data() as BilliardsEntry), entryId: d.id }))
-      .filter((e) => deriveStatus(e) === "paid")
+      .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
       .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
       .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
     if (snap.exists && (snap.data() as BilliardsDayState).entryClosedAt) {
@@ -104,7 +104,7 @@ export async function startBilliardsDay(
     }
     if (cancelSnap.exists) return { ok: false as const, error: "この開催日は中止されました", paidCount: participants.length };
     if (participants.length < BILLIARDS_MIN_PARTICIPANTS) {
-      return { ok: false as const, error: `支払い済みが${BILLIARDS_MIN_PARTICIPANTS}名以上必要です`, paidCount: participants.length };
+      return { ok: false as const, error: `参加者が${BILLIARDS_MIN_PARTICIPANTS}名以上必要です`, paidCount: participants.length };
     }
     const now = new Date().toISOString();
     // ⚠️ tx.set は全上書き。当日GM（gmUserId/gmDisplayName）は必ず引き継ぐ。
@@ -164,12 +164,12 @@ export async function claimBilliardsGm(
 
     const paid = entrySnap.docs
       .map((d) => ({ ...(d.data() as BilliardsEntry), entryId: d.id }))
-      .filter((e) => deriveStatus(e) === "paid")
+      .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
       .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
     const roster = prev?.entryClosedAt ? prev.participants : paid;
     const me = roster.find((p) => p.lineUserId === userId);
     if (!me) {
-      return { ok: false as const, status: 403, error: "参加者（支払い済み）のみゲームマスターになれます" };
+      return { ok: false as const, status: 403, error: "この開催日の参加者のみゲームマスターになれます" };
     }
 
     const now = new Date().toISOString();

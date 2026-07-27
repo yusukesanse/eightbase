@@ -56,7 +56,7 @@ function paidParticipantsFromDocs(
 ): PokerDayMember[] {
   return docs
     .map((d) => ({ ...(d.data() as PokerEntry), entryId: d.id }))
-    .filter((e) => deriveStatus(e) === "paid")
+    .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
     .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
 }

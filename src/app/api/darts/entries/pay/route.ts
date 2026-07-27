@@ -8,7 +8,7 @@ import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { isDartsCancelledDate } from "@/lib/dartsSchedule";
-import { getDartsDayState, isDartsEntryClosed } from "@/lib/dartsDay";
+import { getDartsDayState } from "@/lib/dartsDay";
 import { buildDartsEntryId, isValidDartsDate } from "@/lib/dartsEntryValidation";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
 import { DARTS_ENTRY_FEE, type DartsEntry } from "@/types/darts";
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
  * POST /api/darts/entries/pay  Body: { eventDate }
  * ダーツ参加費（¥1,000）の決済リンク発行（麻雀 pay を流用・Square purpose="darts"）。
  * 戻り先は /info?dartspay=エントリーID → /api/darts/entries/complete が確定する。
- * GM「ゲーム開始」後（dartsDayState.entryClosedAt）は支払い不可（下記ガード＋tx内で二重チェック）。
+ * 受付締切（開催日の開始時刻）後も参加者は支払える（当日その場で支払う）。本日終了後は不可。
  */
 export async function POST(req: NextRequest) {
   try {
@@ -92,10 +92,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    // GM「ゲーム開始」で受付締切（dartsDayState.entryClosedAt）。以降は支払い不可。
-    if (isDartsEntryClosed(await getDartsDayState(season.seasonId, eventDate))) {
+    // 受付締切（開始時刻）後も**参加者として確定済みの人は支払える**（当日その場で支払う運用）。
+    // 締め切るのは新規の参加表明だけ。ここは「本日終了後は支払い不可」だけを見る。
+    if ((await getDartsDayState(season.seasonId, eventDate))?.finishedAt) {
       return NextResponse.json(
-        { error: "ENTRY_CLOSED", message: "受付は締め切られました。" },
+        { error: "DAY_FINISHED", message: "この開催日は終了しています。" },
         { status: 409 }
       );
     }
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
         const daySnap = await tx.get(dayRef);
         const cancelSnap = await tx.get(cancelRef);
         const fresh = await tx.get(entryRef);
-        if ((daySnap.data() as { entryClosedAt?: string | null } | undefined)?.entryClosedAt) throw new Error("ENTRY_CLOSED");
+        if ((daySnap.data() as { finishedAt?: string | null } | undefined)?.finishedAt) throw new Error("DAY_FINISHED");
         if (cancelSnap.exists) throw new Error("CANCELLED_DATE");
         if (!fresh.exists) throw new Error("NOT_ENTERED");
         const cur = fresh.data() as DartsEntry;

@@ -3,7 +3,7 @@
  *
  * ダーツ・ビリヤードの GM は **シーズン固定（Season.gameMasterIds）ではなく開催日ごと** に
  * 参加者が「GMをやる」で決める（`src/lib/dayGameMaster.ts`）。ここで守るべき不変条件:
- *  - 支払い済み参加者しかGMになれない（未払い・非参加は403）
+ *  - その日の参加者しかGMになれない（参加表明していない人は403。未払いは参加者に含む）
  *  - 交代できる（担当が帰ると当日フローが詰むため）
  *  - **`start*Day()` の `tx.set` は全上書きなので、GMを引き継がないと開始した瞬間にGM不在になる**
  *    ＝ 以降の進行が全部403になる。この回帰をここで止める（麻雀の entryClosedAt 消失と同型の罠）。
@@ -108,12 +108,14 @@ describe("claimDartsGm（当日GMの自己選出）", () => {
     expect(dartsDay()?.entryClosedAt).toBeNull();
   });
 
-  test("未払い（reserved）はGMになれない", async () => {
+  // 受付締切は開始時刻。締切までに参加表明していれば未払いでも参加者＝GMになれる
+  // （その場で支払ってもらう運用）。資格が無いのは「参加表明していない人」だけ。
+  test("未払い（reserved）でも参加表明していればGMになれる", async () => {
     seedDartsPaid(["a"]);
     seedEntry("dartsEntries", "z", 5, "reserved");
     const r = await claimDartsGm(SEASON, DATE, "z");
-    expect(r).toMatchObject({ ok: false, status: 403 });
-    expect(dartsDay()).toBeUndefined();
+    expect(r).toEqual({ ok: true });
+    expect(dartsDay()?.gmUserId).toBe("z");
   });
 
   test("参加表明していない人はGMになれない", async () => {
