@@ -37,11 +37,6 @@ export async function getBilliardsDayState(
   return snap.exists ? (snap.data() as BilliardsDayState) : null;
 }
 
-/** GMが手動で締めたか（entryClosedAt）。**通常の受付締切は開始時刻**＝`src/lib/entryDeadline.ts`。 */
-export function isBilliardsEntryClosed(day: BilliardsDayState | null): boolean {
-  return !!day?.entryClosedAt;
-}
-
 /** その日の参加者（未払い含む。締切＝開始時刻までに参加表明した人）。enteredAt 昇順 FIFO。 */
 export async function fetchBilliardsParticipants(
   seasonId: string,
@@ -459,8 +454,11 @@ export async function cancelBilliardsDay(
       { merge: true }
     );
   }
-  for (const e of reserved) batch.delete(db.collection("billiardsEntries").doc(e.id));
-  for (const e of [...seated, ...reserved]) {
+  // 決済リンク発行済み（in-flight）の reserved は **削除しない**。orderId は entry にしか無く、
+  // 削除すると後から成立した決済を complete が照合できず取りこぼす（ダーツ/ポーカーと同方針）。
+  const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
+  for (const e of reservedToDelete) batch.delete(db.collection("billiardsEntries").doc(e.id));
+  for (const e of [...seated, ...reservedToDelete]) {
     batch.delete(db.collection("billiardsMonthlyLocks").doc(`${seasonId}_${e.lineUserId}_${month}`));
   }
   if (daySnap.exists) batch.delete(dayRef);

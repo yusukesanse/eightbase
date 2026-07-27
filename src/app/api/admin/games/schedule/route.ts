@@ -116,11 +116,27 @@ export async function POST(req: NextRequest) {
     const dates = generateRecurringDates({ weekday, intervalWeeks, startDate: start, endDate: end });
     // 1日 = set(schedule)+delete(lock) の2書き込み。Firestore の batch 上限(500 write)を
     // 超えないよう 200日単位（=400 write）で分割コミットする（長期間×毎週でも失敗させない）。
+    // 既存日の「日付ごとに変更した時刻」（timeOverridden）は巻き戻さない。
+    // 一括投入は「開催日を作る」操作であって、設定済みの時刻を上書きする操作ではない。
+    const existingSnap = await db.collection(cfg.col).where("seasonId", "==", seasonId).get();
+    const overridden = new Set<string>(
+      existingSnap.docs
+        .map((d) => d.data() as { date?: string; timeOverridden?: boolean })
+        .filter((x) => x.timeOverridden === true && x.date)
+        .map((x) => x.date as string)
+    );
     const CHUNK = 200;
     for (let i = 0; i < dates.length; i += CHUNK) {
       const batch = db.batch();
       for (const date of dates.slice(i, i + CHUNK)) {
-        batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), makeDoc(date));
+        const doc = makeDoc(date);
+        if (overridden.has(date)) {
+          // 個別変更済みの日は時刻を触らない（他フィールドだけ揃える）。
+          const { startTime: _s, endTime: _e, ...rest } = doc;
+          batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), rest, { merge: true });
+        } else {
+          batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), doc, { merge: true });
+        }
         batch.delete(scheduleLockRef(db, game, seasonId, date)); // 削除トゥームストーンを解除（再追加で受付再開）
       }
       await batch.commit();

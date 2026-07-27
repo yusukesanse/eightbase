@@ -13,7 +13,6 @@
 
 import type { Facility } from "@/types";
 import { dayOfWeek, timeToMin, todayJst } from "./date";
-export { timeToMin }; // 後方互換: 一部APIが @/lib/reservations から import している
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;

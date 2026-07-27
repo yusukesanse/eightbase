@@ -87,7 +87,8 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
           (() => {
             const isCricket = activeEvent.kind === "cricket";
             // 自分がこの種目の申告者か（個人=参加者全員 / クリケット=自チームがある人）。
-            const amParticipant = day.participants.some((p) => p.isMe);
+            // 未払いは進行に参加しないので申告もできない（押すと403になる）。
+            const amParticipant = day.participants.some((p) => p.isMe && p.paid !== false);
             const canReport = isCricket ? !!myTeam : amParticipant;
             const mine = activeEvent.results?.find((r) => r.isMe) ?? null;
             const teamReported =

@@ -22,7 +22,12 @@ interface DayMemberGm {
   displayName: string;
   pictureUrl?: string;
   isMe: boolean;
+  /** 参加費を支払い済みか。未払いは名簿に出るが進行（申告・チーム編成）には参加しない。 */
+  paid: boolean;
 }
+
+/** 進行に参加する人（＝支払い済み）。サーバーの母数と一致させる。 */
+const playing = (day: { participants: DayMemberGm[] }) => day.participants.filter((m) => m.paid !== false);
 interface EventStateDto {
   kind: DartsEventKind;
   status: "pending" | "reporting" | "confirmed";
@@ -361,7 +366,7 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
       </div>
       <p className="text-[10.5px] text-[#231714]/80">各自がアプリで申告します。GM も自分の分を申告し、代理入力・修正もできます。{label}。全員そろったら「確定」を押すと次に進みます。</p>
       <div className="flex flex-col gap-1.5">
-        {day.participants.map((m) => {
+        {playing(day).map((m) => {
           const done = m.lineUserId in reported;
           return (
             <div key={m.lineUserId} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: done ? DARTS_ACCENT : "#e4e7e9", background: done ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff" }}>
@@ -391,7 +396,8 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
 /* ───────── ③クリケット チーム編成（ドラッグ&ドロップ） ───────── */
 
 function CricketAssignPhase({ day, eventDate, onDone, setError }: { day: DayDto; eventDate: string; onDone: () => void; setError: (s: string | null) => void }) {
-  const participants = day.participants;
+  // クリケットの編成対象は**支払い済みのみ**（サーバーの validateCricketTeams と母数を揃える）。
+  const participants = playing(day);
   const n = participants.length;
   const teamCount = Math.ceil(n / 2);
   const zones = ["pool", ...Array.from({ length: teamCount }, (_, i) => `t${i}`)];

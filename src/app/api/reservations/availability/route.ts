@@ -6,8 +6,8 @@ import {
   validateReservationSlot,
   getBlockingLockedSlots,
   intervalsOverlap,
-  timeToMin,
 } from "@/lib/reservations";
+import { timeToMin } from "@/lib/date";
 import type { AvailabilityResponse } from "@/types";
 import dayjs from "dayjs";
 

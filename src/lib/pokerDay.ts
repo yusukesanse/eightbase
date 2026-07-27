@@ -45,10 +45,6 @@ export async function getPokerDayState(
   return snap.exists ? (snap.data() as PokerDayState) : null;
 }
 
-/** この開催日の受付（参加表明・支払い）が締め切られているか＝最初の試合が「ゲーム開始」されたか。 */
-export function isPokerEntryClosed(day: PokerDayState | null): boolean {
-  return !!day?.entryClosedAt;
-}
 
 /** エントリー doc 群から支払い済み参加者を FIFO（enteredAt 昇順）で抽出。 */
 function paidParticipantsFromDocs(

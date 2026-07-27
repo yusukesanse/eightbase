@@ -246,7 +246,8 @@ Vercel のサーバーは UTC で動く。`new Date("2026-07-11T00:00:00+09:00")
 - 詳細パネルで全項目表示（基本情報＝会社名/職種/業種、別途「プロフィール・スキル」節＝キャッチコピー/スキル/自己紹介/会社URL/SNS/LINE連絡先）。
 
 ### games API
-- `/api/games/ranking`・`/api/games/cs`・`/api/games/rules` はログイン必須（未ログイン取得不可）。ランキングのシーズンは `gameCategory` 対応。応答から不要な `lineUserId` は除去。
+- `/api/games/rules` はログイン必須（未ログイン取得不可）。
+- 汎用の `/api/games/ranking`・`/api/games/cs` は**廃止**（全種目が専用の `standings`/`cs` API と専用ビューを持つため、呼び出し元がゼロだった）。
 
 ### 詳細ページ
 - `news`/`events`/`games` は個別GET（`/api/news/[id]` `/api/events/[eventId]` `/api/games/[gameId]`）で取得し、一覧の `limit` に依存しない。
