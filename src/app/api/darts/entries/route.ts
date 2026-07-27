@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 /**
  * ダーツリーグ 参加表明 API（麻雀 entries を流用）。
  * 開催日の実在は `dartsSchedule`（管理登録＝隔週木曜）で確認する。定員8名・月1回・staff免除。
- * GM「ゲーム開始」後（dartsDayState.entryClosedAt）は受付を締め切る（下記ガード＋tx内で二重チェック）。
+ * 受付締切は**開催日の開始時刻**（entryDeadline）。GMが手動で締めた場合（entryClosedAt）も締切扱い。
  */
 
 /** 月ロックを解放（そのロックが当該開催日を指しているときのみ）。 */

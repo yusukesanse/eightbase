@@ -46,7 +46,7 @@ export async function getPokerDayState(
 }
 
 
-/** エントリー doc 群から支払い済み参加者を FIFO（enteredAt 昇順）で抽出。 */
+/** エントリー doc 群からその日の参加者（**未払いも含む**・paid フラグ付き）を FIFO で抽出。 */
 function paidParticipantsFromDocs(
   docs: FirebaseFirestore.QueryDocumentSnapshot[]
 ): PokerDayMember[] {
@@ -57,7 +57,7 @@ function paidParticipantsFromDocs(
     .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl, paid: deriveStatus(e) === "paid" }));
 }
 
-/** 支払い済み参加者（staff は POST 時点で paid）。enteredAt 昇順 FIFO。 */
+/** その日の参加者（未払い含む）。enteredAt 昇順 FIFO。 */
 export async function fetchPokerParticipants(
   seasonId: string,
   eventDate: string

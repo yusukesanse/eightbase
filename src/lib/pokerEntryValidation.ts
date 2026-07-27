@@ -7,8 +7,16 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DOC_ID_RE = /^[A-Za-z0-9_-]+$/;
 
+/**
+ * YYYY-MM-DD 形式で、かつ**実在する日付**か（UTC基準・TZ非依存）。
+ * 正規表現だけだと 2026-99-99 / 2026-02-31 を許してしまうため、UTCでパースして
+ * 「再フォーマットが入力と一致する」ことまで確認する（ロールオーバー・NaN を弾く）。
+ */
 export function isValidPokerDate(value: unknown): value is string {
-  return typeof value === "string" && DATE_RE.test(value);
+  if (typeof value !== "string" || !DATE_RE.test(value)) return false;
+  const t = Date.parse(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(t)) return false;
+  return new Date(t).toISOString().slice(0, 10) === value;
 }
 
 export function isValidDocId(value: unknown): value is string {

@@ -89,7 +89,7 @@ export function DayGmBanner({
           <div className="text-[11px] text-[#3c4f54] mt-0.5">
             {gameMasterName
               ? "進行担当が不在の場合は交代できます。"
-              : "誰かがゲームマスターになると受付を締め切って開始できます。"}
+              : "受付は開始時刻で締め切られています。ゲームマスターが決まると進行を開始できます。"}
           </div>
         </div>
         <button

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
+import { todayJst } from "@/lib/date";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
 import { getActiveSeason, toPublicMahjongTable, isManualAssignmentSeason, isGameMaster } from "@/lib/mahjong";
@@ -17,8 +18,6 @@ export const dynamic = "force-dynamic";
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const jstToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
-
 export async function GET(req: NextRequest) {
   // 認証とアクティブシーズン取得は独立＝並列化。
   const [userId, season] = await Promise.all([requireGameUser(req), getActiveSeason()]);
@@ -31,7 +30,7 @@ export async function GET(req: NextRequest) {
   if (!season) return NextResponse.json({ round: 1, waiting: [], lastSwap: null, tables: [] });
 
   // 開催日を迎えていれば自動で卓組み（参加者4名以上・冪等。管理者操作不要）。
-  if (eventDate <= jstToday()) {
+  if (eventDate <= todayJst()) {
     await startDay(season.seasonId, eventDate).catch(() => {});
   }
 

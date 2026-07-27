@@ -79,14 +79,44 @@ export async function POST(req: NextRequest) {
     const nowIso = dayjs().toISOString();
     const orderRef = db.collection("squareOrders").doc(verified.orderId);
     const dayRef = db.collection("pokerDayState").doc(`${entry.seasonId}_${entry.eventDate}`);
+    const cancelRef = db.collection("pokerCancelledDates").doc(entry.eventDate);
+    let refundPending = false;
     try {
       await db.runTransaction(async (tx) => {
+        refundPending = false; // tx は再試行されうるので毎回リセットする
         const fresh = await tx.get(entryRef);
         if (!fresh.exists || fresh.data()?.paymentStatus === "paid") throw new Error("ALREADY_FINALIZED");
         const orderDoc = await tx.get(orderRef);
         if (orderDoc.exists) throw new Error("PAYMENT_REUSED");
         // 読み取りは書き込みより前に行う（当日名簿の paid 反映に使う）。
         const daySnap = await tx.get(dayRef);
+        const cancelSnap = await tx.get(cancelRef);
+        // 中止（流会）後に決済が成立していたら paid にせず**返金待ち**に回す。
+        // ここを見ないと入金だけ残って返金依頼が飛ばない（ダーツと同方針）。
+        if (cancelSnap.exists) {
+          tx.create(orderRef, {
+            entryId: rid,
+            paymentId: verified.paymentId,
+            lineUserId: userId,
+            refundPending: true,
+            reason: "cancelled_after_payment",
+            createdAt: nowIso,
+          });
+          tx.set(
+            entryRef,
+            { status: "cancelRequested", paymentStatus: "cancelRequested", cancelReason: "forfeit", paymentTransactionId: verified.orderId, paidAt: nowIso, updatedAt: nowIso },
+            { merge: true }
+          );
+          tx.create(db.collection("adminNotifications").doc(), {
+            type: "poker_refund",
+            message: `中止（流会）後に決済が成立しました。返金対応をお願いします（エントリー ${rid} / 注文 ${verified.orderId}）。`,
+            data: { entryId: rid, orderId: verified.orderId, lineUserId: userId, reason: "cancelled_after_payment" },
+            read: false,
+            createdAt: nowIso,
+          });
+          refundPending = true;
+          return;
+        }
         tx.create(orderRef, { entryId: rid, paymentId: verified.paymentId, lineUserId: userId, createdAt: nowIso });
         tx.update(entryRef, {
           status: "paid",
@@ -112,6 +142,15 @@ export async function POST(req: NextRequest) {
       if (m === "PAYMENT_REUSED") return NextResponse.json({ error: "PAYMENT_REUSED", message: "この決済はすでに使用されています。" }, { status: 409 });
       if (m === "ALREADY_FINALIZED") return NextResponse.json({ paid: true, entryId: rid, alreadyDone: true });
       throw e;
+    }
+
+    if (refundPending) {
+      return NextResponse.json({
+        paid: true,
+        refundPending: true,
+        entryId: rid,
+        message: "決済は成立しましたが、この開催日は中止のため返金対応になります（管理者に通知済み）。",
+      });
     }
 
     return NextResponse.json({ paid: true, entryId: rid });
