@@ -58,7 +58,7 @@ function paidParticipantsFromDocs(
     .map((d) => ({ ...(d.data() as PokerEntry), entryId: d.id }))
     .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
-    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl, paid: deriveStatus(e) === "paid" }));
 }
 
 /** 支払い済み参加者（staff は POST 時点で paid）。enteredAt 昇順 FIFO。 */
@@ -112,12 +112,13 @@ export async function assignPokerDealer(
 
     if (!snap.exists) {
       // 受付前: 現在の支払い済みからディーラー資格を確認。participants は開始時に確定する。
-      const paid = paidParticipantsFromDocs(entriesSnap.docs);
-      if (!paid.some((p) => p.lineUserId === dealerId)) {
-        return { ok: false as const, status: 403, error: "参加者（支払い済み）のみディーラーになれます" };
+      const roster = paidParticipantsFromDocs(entriesSnap.docs);
+      if (!roster.some((p) => p.lineUserId === dealerId && p.paid)) {
+        return { ok: false as const, status: 403, error: "参加費のお支払い後にディーラーになれます" };
       }
-      if (paid.length < POKER_MIN_PARTICIPANTS) {
-        return { ok: false as const, status: 409, error: `参加者が${POKER_MIN_PARTICIPANTS}名以上必要です` };
+      const paidCount = roster.filter((p) => p.paid).length;
+      if (paidCount < POKER_MIN_PARTICIPANTS) {
+        return { ok: false as const, status: 409, error: `支払い済みが${POKER_MIN_PARTICIPANTS}名以上必要です（未払いの方はその場でお支払いください）` };
       }
       const day: PokerDayState = {
         seasonId,
@@ -137,10 +138,11 @@ export async function assignPokerDealer(
     if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了しています" };
 
     // ディーラー資格: 受付後は確定参加者、受付前は支払い済み。
+    // ディーラーは**支払い済みの参加者**のみ（未払いは進行に参加しない）。
     const eligible = day.entryClosedAt
-      ? day.participants.some((p) => p.lineUserId === dealerId)
-      : paidParticipantsFromDocs(entriesSnap.docs).some((p) => p.lineUserId === dealerId);
-    if (!eligible) return { ok: false as const, status: 403, error: "参加者のみディーラーになれます" };
+      ? playingPokerParticipants(day).some((p) => p.lineUserId === dealerId)
+      : paidParticipantsFromDocs(entriesSnap.docs).some((p) => p.lineUserId === dealerId && p.paid);
+    if (!eligible) return { ok: false as const, status: 403, error: "支払い済みの参加者のみディーラーになれます" };
 
     const last = currentGame(day);
     if (last && (last.status === "playing" || last.status === "reporting")) {
@@ -191,10 +193,11 @@ export async function startPokerGame(
     if (!day.entryClosedAt) {
       const entriesSnap = await tx.get(entriesQuery);
       const participants = paidParticipantsFromDocs(entriesSnap.docs);
-      if (participants.length < POKER_MIN_PARTICIPANTS) {
-        return { ok: false as const, status: 409, error: `参加者が${POKER_MIN_PARTICIPANTS}名以上必要です` };
+      // 進行できるのは支払い済みだけなので、開始可否も支払い済みの人数で判定する。
+      if (participants.filter((p) => p.paid).length < POKER_MIN_PARTICIPANTS) {
+        return { ok: false as const, status: 409, error: `支払い済みが${POKER_MIN_PARTICIPANTS}名以上必要です（未払いの方はその場でお支払いください）` };
       }
-      if (!participants.some((p) => p.lineUserId === game.dealerId)) {
+      if (!participants.some((p) => p.lineUserId === game.dealerId && p.paid)) {
         return { ok: false as const, status: 409, error: "ディーラーが参加者に含まれていません" };
       }
       day.participants = participants;
@@ -242,8 +245,18 @@ export async function endPokerGame(
 // ─── ④チップ申告（プレイヤー本人／ディーラー代理） ───────────────────────────
 
 /** その試合のプレイヤー（＝参加者からディーラーを除いた全員）。 */
+/**
+ * **進行に参加する人**＝支払い済みの参加者。未払いは名簿に出るがチップ申告・集計の母数には入らない
+ * （その場で支払えば参加できる）。旧データは支払い済み扱い。
+ */
+export function playingPokerParticipants(day: PokerDayState): PokerDayMember[] {
+  return day.participants.filter((p) => p.paid !== false);
+}
+
 function playersOfGame(day: PokerDayState, game: PokerGameState): string[] {
-  return day.participants.map((p) => p.lineUserId).filter((id) => id !== game.dealerId);
+  return playingPokerParticipants(day)
+    .map((p) => p.lineUserId)
+    .filter((id) => id !== game.dealerId);
 }
 
 export async function reportPokerChips(
@@ -305,7 +318,7 @@ export function computePokerDayScores(day: PokerDayState): {
     }));
   const perPlayer = computePokerDay(
     confirmed,
-    day.participants.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName }))
+    playingPokerParticipants(day).map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName }))
   ).filter((p) => p.gamesPlayed > 0);
 
   const nameById = new Map(day.participants.map((p) => [p.lineUserId, p.displayName]));

@@ -197,6 +197,17 @@ export async function POST(req: NextRequest) {
           paymentTransactionId: verified.orderId,
           updatedAt: nowIso,
         });
+        // 当日名簿にも支払い済みを反映（未払いは名簿に出るが進行に参加できないため、
+        // 支払った瞬間に参加できるようにする）。開始前は participants が空なので何も起きない。
+        if (daySnap.exists) {
+          const members = ((daySnap.data() as { participants?: { lineUserId: string; paid?: boolean }[] }).participants ?? []);
+          if (members.some((m) => m.lineUserId === userId && m.paid === false)) {
+            tx.update(dayRef, {
+              participants: members.map((m) => (m.lineUserId === userId ? { ...m, paid: true } : m)),
+              updatedAt: nowIso,
+            });
+          }
+        }
       }
     });
 

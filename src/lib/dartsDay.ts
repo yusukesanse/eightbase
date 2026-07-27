@@ -85,7 +85,12 @@ function paidParticipantsFromDocs(
     .map((d) => ({ ...(d.data() as DartsEntry), entryId: d.id }))
     .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
-    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+    .map((e) => ({
+      lineUserId: e.lineUserId,
+      displayName: e.displayName,
+      pictureUrl: e.pictureUrl,
+      paid: deriveStatus(e) === "paid",
+    }));
 }
 
 /** その日の参加者（未払い含む）。enteredAt 昇順 FIFO。 */
@@ -99,6 +104,15 @@ export async function fetchDartsParticipants(
     .where("eventDate", "==", eventDate)
     .get();
   return paidParticipantsFromDocs(snap.docs);
+}
+
+/**
+ * **進行に参加する人**＝支払い済みの参加者。未払いは名簿に出るが申告・順位計算の母数には入らない
+ * （当日その場で支払えば true になり参加できる。払わない/来ない人はGMが参加剥奪する）。
+ * 旧データ（paid フラグ無し）は支払い済み扱い。
+ */
+export function playingDartsParticipants(day: DartsDayState): DartsDayMember[] {
+  return day.participants.filter((p) => p.paid !== false);
 }
 
 /** DARTS_EVENT_ORDER 順の3種目を pending で初期化。 */
@@ -142,12 +156,13 @@ export function computeDartsEventResults(
     }));
   }
 
-  const inputs = day.participants.map((p) => ({
+  const playing = playingDartsParticipants(day);
+  const inputs = playing.map((p) => ({
     id: p.lineUserId,
     value: ev.reports[p.lineUserId]?.value ?? null,
   }));
   const pts = computeEventPoints(inputs, DARTS_HIGHER_IS_BETTER[ev.kind]);
-  return day.participants.map((p) => {
+  return playing.map((p) => {
     const r = pts.find((x) => x.id === p.lineUserId);
     return {
       lineUserId: p.lineUserId,
@@ -165,8 +180,9 @@ function isEventFullyReported(day: DartsDayState, ev: DartsEventState): boolean 
     if (teams.length === 0) return false;
     return teams.every((t) => ev.reports[t.teamId] !== undefined);
   }
-  if (day.participants.length === 0) return false;
-  return day.participants.every((p) => ev.reports[p.lineUserId] !== undefined);
+  const playing = playingDartsParticipants(day);
+  if (playing.length === 0) return false;
+  return playing.every((p) => ev.reports[p.lineUserId] !== undefined);
 }
 
 // ─── GM: ゲーム開始（＝受付締切・参加者確定） ────────────────────────────────
@@ -217,11 +233,13 @@ export async function startDartsDay(
       const fixed = (snap.data() as DartsDayState).participants ?? participants;
       return { ok: true as const, already: true, paidCount: fixed.length };
     }
-    if (participants.length < DARTS_MIN_PARTICIPANTS) {
+    // 進行できるのは支払い済みだけなので、開始可否も支払い済みの人数で判定する。
+    const paidCount = participants.filter((p) => p.paid).length;
+    if (paidCount < DARTS_MIN_PARTICIPANTS) {
       return {
         ok: false as const,
-        error: `参加者が${DARTS_MIN_PARTICIPANTS}名以上必要です`,
-        paidCount: participants.length,
+        error: `支払い済みが${DARTS_MIN_PARTICIPANTS}名以上必要です（未払いの方はその場でお支払いください）`,
+        paidCount,
       };
     }
     const now = new Date().toISOString();
@@ -291,6 +309,10 @@ export async function claimDartsGm(
     if (!me) {
       return { ok: false as const, status: 403, error: "この開催日の参加者のみゲームマスターになれます" };
     }
+    // GMは**支払い済みの人**から決める（未払いは進行に参加しないため）。
+    if (me.paid === false) {
+      return { ok: false as const, status: 403, error: "参加費のお支払い後にゲームマスターになれます" };
+    }
 
     const now = new Date().toISOString();
     if (prev) {
@@ -314,6 +336,50 @@ export async function claimDartsGm(
       };
       tx.set(dayRef, day);
     }
+    return { ok: true as const };
+  });
+}
+
+/**
+ * GM が参加者を外す（参加剥奪）。来ない人・支払わない人で進行が止まるのを防ぐ。
+ * - **確定済みの種目が1つでもあると外せない**。順位ptは参加者全体の相対順位で毎回再計算されるため、
+ *   後から人数を変えると確定済み種目の**他の人のptまで動いてしまう**（＝成績が壊れる）。
+ * - 外した人の申告値と、所属していたクリケットのチームからも取り除く。
+ * - 参加費を支払っていた場合の返金は運用（管理画面の返金対応）で行う。ここでは entry を触らない。
+ */
+export async function removeDartsParticipant(
+  seasonId: string,
+  eventDate: string,
+  targetId: string
+): Promise<DayMutationResult> {
+  const db = getDb();
+  const dayRef = db.collection("dartsDayState").doc(dartsDayId(seasonId, eventDate));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(dayRef);
+    if (!snap.exists) return { ok: false as const, status: 400, error: "まだ開始していません" };
+    const day = snap.data() as DartsDayState;
+    if (!day.entryClosedAt) return { ok: false as const, status: 400, error: "ゲーム開始後に操作してください" };
+    if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了済みです" };
+    if (day.events.some((e) => e.status === "confirmed")) {
+      return {
+        ok: false as const,
+        status: 409,
+        error: "確定済みの種目があるため外せません（他の参加者の順位ptが変わってしまうため）",
+      };
+    }
+    if (!day.participants.some((p) => p.lineUserId === targetId)) {
+      return { ok: false as const, status: 400, error: "参加者ではありません" };
+    }
+
+    day.participants = day.participants.filter((p) => p.lineUserId !== targetId);
+    for (const ev of day.events) delete ev.reports[targetId];
+    if (day.cricketTeams) {
+      day.cricketTeams = day.cricketTeams
+        .map((t) => ({ ...t, memberIds: t.memberIds.filter((id) => id !== targetId) }))
+        .filter((t) => t.memberIds.length > 0);
+    }
+    day.updatedAt = new Date().toISOString();
+    tx.set(dayRef, day);
     return { ok: true as const };
   });
 }
@@ -385,7 +451,7 @@ export async function assignCricketTeams(
       .map((t) => ({ teamId: t.teamId, memberIds: t.memberIds.filter(Boolean) }))
       .filter((t) => t.memberIds.length > 0);
     const check = validateCricketTeams(
-      day.participants.map((p) => p.lineUserId),
+      playingDartsParticipants(day).map((p) => p.lineUserId),
       cleaned
     );
     if (!check.ok) return { ok: false as const, status: 400, error: check.error };
@@ -450,8 +516,13 @@ export async function reportDartsScore(
       if (!opts.isGm && opts.targetUserId && opts.targetUserId !== actorId) {
         return { ok: false as const, status: 403, error: "他の人の代理申告はできません" };
       }
-      if (!day.participants.some((p) => p.lineUserId === targetId)) {
+      const target = day.participants.find((p) => p.lineUserId === targetId);
+      if (!target) {
         return { ok: false as const, status: 403, error: "参加者ではありません" };
+      }
+      // 未払いの人は名簿に出るが進行には参加しない（支払えば申告できる）。
+      if (target.paid === false) {
+        return { ok: false as const, status: 403, error: "参加費のお支払い後に申告できます" };
       }
       key = targetId;
     }
@@ -531,7 +602,7 @@ export function computeDartsDayScores(day: DartsDayState): {
     byEvent.set(ev.kind, m);
   }
 
-  const perPlayer = day.participants.map((p) => {
+  const perPlayer = playingDartsParticipants(day).map((p) => {
     const events: DartsEventResult[] = DARTS_EVENT_ORDER.map((kind) => {
       const r = byEvent.get(kind)?.get(p.lineUserId);
       return {

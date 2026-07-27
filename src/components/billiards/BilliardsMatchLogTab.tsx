@@ -5,6 +5,7 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { Avatar } from "@/components/ui/LineContact";
 import { BILLIARDS_ACCENT, todayJst } from "@/components/billiards/billiardsShared";
 import { DayGmBanner } from "@/components/games/DayGmBanner";
+import { DayRosterPanel } from "@/components/games/DayRosterPanel";
 import { BILLIARDS_MAX_LOSER_BALLS, BILLIARDS_MIN_PARTICIPANTS } from "@/types/billiards";
 
 /**
@@ -13,7 +14,7 @@ import { BILLIARDS_MAX_LOSER_BALLS, BILLIARDS_MIN_PARTICIPANTS } from "@/types/b
  * 参加者: ライブの当日順位と試合ログを閲覧。
  */
 
-interface DayMember { lineUserId?: string; displayName: string; pictureUrl?: string; isMe: boolean }
+interface DayMember { lineUserId?: string; displayName: string; pictureUrl?: string; isMe: boolean; paid: boolean }
 interface DayMatch { matchId: string; winnerId?: string; loserId?: string; winnerName: string; loserName: string; loserBalls: number; winnerIsMe: boolean; loserIsMe: boolean }
 interface DayStanding { displayName: string; points: number; wins: number; losses: number; dayRank: number; isMe: boolean }
 interface DayDto {
@@ -64,6 +65,16 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
         startTime={day.startTime}
         onChanged={refresh}
       />
+      {day.started && (
+        <DayRosterPanel
+          game="billiards"
+          eventDate={eventDate}
+          members={day.participants}
+          isGameMaster={day.isGameMaster}
+          finished={day.finished}
+          onChanged={refresh}
+        />
+      )}
       {day.isGameMaster && <GmPanel day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
 
       {!day.started ? (

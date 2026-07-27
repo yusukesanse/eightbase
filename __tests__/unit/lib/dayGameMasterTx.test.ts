@@ -3,7 +3,7 @@
  *
  * ダーツ・ビリヤードの GM は **シーズン固定（Season.gameMasterIds）ではなく開催日ごと** に
  * 参加者が「GMをやる」で決める（`src/lib/dayGameMaster.ts`）。ここで守るべき不変条件:
- *  - その日の参加者しかGMになれない（参加表明していない人は403。未払いは参加者に含む）
+ *  - **支払い済みの参加者**しかGMになれない（未払い・参加表明なしは403）
  *  - 交代できる（担当が帰ると当日フローが詰むため）
  *  - **`start*Day()` の `tx.set` は全上書きなので、GMを引き継がないと開始した瞬間にGM不在になる**
  *    ＝ 以降の進行が全部403になる。この回帰をここで止める（麻雀の entryClosedAt 消失と同型の罠）。
@@ -21,7 +21,7 @@ jest.mock("@/lib/billiardsSchedule", () => ({
 }));
 
 import { getDb } from "@/lib/firebaseAdmin";
-import { claimDartsGm, startDartsDay } from "@/lib/dartsDay";
+import { claimDartsGm, startDartsDay, removeDartsParticipant } from "@/lib/dartsDay";
 import { claimBilliardsGm, startBilliardsDay } from "@/lib/billiardsDay";
 import type { DartsDayState } from "@/types/darts";
 import type { BilliardsDayState } from "@/types/billiards";
@@ -94,6 +94,8 @@ function seedEntry(collection: string, uid: string, i: number, status: "paid" | 
 }
 const dartsDay = () => db.__store.get("dartsDayState")?.get(`${SEASON}_${DATE}`) as DartsDayState | undefined;
 const billiardsDay = () => db.__store.get("billiardsDayState")?.get(`${SEASON}_${DATE}`) as BilliardsDayState | undefined;
+const writeDartsDay = (d: DartsDayState) =>
+  db.__store.get("dartsDayState")!.set(`${SEASON}_${DATE}`, d as unknown as Record<string, unknown>);
 const seedDartsPaid = (uids: string[]) => uids.forEach((u, i) => seedEntry("dartsEntries", u, i, "paid"));
 const seedBilliardsPaid = (uids: string[]) => uids.forEach((u, i) => seedEntry("billiardsEntries", u, i, "paid"));
 
@@ -108,14 +110,14 @@ describe("claimDartsGm（当日GMの自己選出）", () => {
     expect(dartsDay()?.entryClosedAt).toBeNull();
   });
 
-  // 受付締切は開始時刻。締切までに参加表明していれば未払いでも参加者＝GMになれる
-  // （その場で支払ってもらう運用）。資格が無いのは「参加表明していない人」だけ。
-  test("未払い（reserved）でも参加表明していればGMになれる", async () => {
+  // 未払いの人は名簿には出る（参加者）が進行には参加しないので、**GMにはなれない**。
+  // 当日その場で支払えばGMになれる（支払い完了で participants[].paid が true になる）。
+  test("未払い（reserved）はGMになれない", async () => {
     seedDartsPaid(["a"]);
     seedEntry("dartsEntries", "z", 5, "reserved");
     const r = await claimDartsGm(SEASON, DATE, "z");
-    expect(r).toEqual({ ok: true });
-    expect(dartsDay()?.gmUserId).toBe("z");
+    expect(r).toMatchObject({ ok: false, status: 403 });
+    expect(dartsDay()).toBeUndefined();
   });
 
   test("参加表明していない人はGMになれない", async () => {
@@ -191,5 +193,67 @@ describe("ビリヤードも同じ（claim / 引き継ぎ）", () => {
   test("非参加者はGMになれない", async () => {
     seedBilliardsPaid(["a", "b"]);
     expect(await claimBilliardsGm(SEASON, DATE, "stranger")).toMatchObject({ ok: false, status: 403 });
+  });
+});
+
+/* ───────── 未払いの扱い・参加剥奪 ───────── */
+
+describe("未払いは名簿に出るが進行には参加しない", () => {
+  test("開始時の participants に未払いも入るが paid=false で区別される", async () => {
+    seedDartsPaid(["a", "b", "c", "d"]);
+    seedEntry("dartsEntries", "z", 6, "reserved");
+    await claimDartsGm(SEASON, DATE, "a");
+    const r = await startDartsDay(SEASON, DATE, "a");
+    expect(r).toMatchObject({ ok: true });
+    const members = dartsDay()!.participants;
+    expect(members.map((p) => p.lineUserId).sort()).toEqual(["a", "b", "c", "d", "z"]);
+    expect(members.find((p) => p.lineUserId === "z")?.paid).toBe(false);
+    expect(members.find((p) => p.lineUserId === "a")?.paid).toBe(true);
+  });
+
+  test("支払い済みが最少人数に満たなければ開始できない（未払いは数えない）", async () => {
+    seedDartsPaid(["a", "b", "c"]);
+    seedEntry("dartsEntries", "z", 6, "reserved");
+    await claimDartsGm(SEASON, DATE, "a");
+    const r = await startDartsDay(SEASON, DATE, "a");
+    expect(r).toMatchObject({ ok: false, paidCount: 3 });
+  });
+});
+
+describe("removeDartsParticipant（GMの参加剥奪）", () => {
+  const startWith = async (paid: string[], unpaid: string[] = []) => {
+    seedDartsPaid(paid);
+    unpaid.forEach((u, i) => seedEntry("dartsEntries", u, 6 + i, "reserved"));
+    await claimDartsGm(SEASON, DATE, paid[0]);
+    await startDartsDay(SEASON, DATE, paid[0]);
+  };
+
+  test("未払いの人を外せる", async () => {
+    await startWith(["a", "b", "c", "d"], ["z"]);
+    expect(await removeDartsParticipant(SEASON, DATE, "z")).toEqual({ ok: true });
+    expect(dartsDay()!.participants.map((p) => p.lineUserId)).not.toContain("z");
+  });
+
+  test("外した人の申告値も消える", async () => {
+    await startWith(["a", "b", "c", "d"]);
+    const day = dartsDay()!;
+    day.events[0].reports = { d: { value: 10, reportedAt: "2026-07-18T10:00:00.000Z" } };
+    writeDartsDay(day);
+    expect(await removeDartsParticipant(SEASON, DATE, "d")).toEqual({ ok: true });
+    expect(dartsDay()!.events[0].reports.d).toBeUndefined();
+  });
+
+  test("確定済みの種目があると外せない（他の人の順位ptが動くため）", async () => {
+    await startWith(["a", "b", "c", "d"]);
+    const day = dartsDay()!;
+    day.events[0].status = "confirmed";
+    writeDartsDay(day);
+    expect(await removeDartsParticipant(SEASON, DATE, "d")).toMatchObject({ ok: false, status: 409 });
+    expect(dartsDay()!.participants.map((p) => p.lineUserId)).toContain("d");
+  });
+
+  test("参加者でない人は外せない", async () => {
+    await startWith(["a", "b", "c", "d"]);
+    expect(await removeDartsParticipant(SEASON, DATE, "stranger")).toMatchObject({ ok: false, status: 400 });
   });
 });

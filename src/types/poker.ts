@@ -47,6 +47,12 @@ export interface PokerDayMember {
   lineUserId: string;
   displayName: string;
   pictureUrl?: string;
+  /**
+   * 参加費を支払い済みか。**未払い(false)の人は名簿に出るが進行には参加しない**
+   * （申告・順位計算の母数から外れる）。当日その場で支払うと true になり参加できる。
+   * 旧データ（フラグ無し）は支払い済みとみなす（`paid !== false` で判定すること）。
+   */
+  paid?: boolean;
 }
 
 /**
