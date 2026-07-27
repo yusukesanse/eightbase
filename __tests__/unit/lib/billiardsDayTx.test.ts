@@ -381,7 +381,9 @@ describe("cancelBilliardsDay", () => {
     expect(dayDoc()).toBeUndefined();
     // 中止doc・通知
     expect(db.__store.get("billiardsCancelledDates")!.has(DATE)).toBe(true);
-    expect((notifyAdmin as jest.Mock).mock.calls[0][0]).toBe("billiards_event_forfeit");
+    // 通知は tx 内で作る永続doc（ダーツ/ポーカーと同方式。分割コミットで取りこぼさない）
+    const notifs = Array.from((db.__store.get("adminNotifications") ?? new Map()).values());
+    expect(notifs.some((n) => (n as { type?: string }).type === "billiards_event_forfeit")).toBe(true);
   });
 
   test("注文IDのない支払い済みは返金対象に数えない", async () => {

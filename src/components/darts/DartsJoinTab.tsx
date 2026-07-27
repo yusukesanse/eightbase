@@ -149,7 +149,7 @@ export function DartsJoinTab({
         隔週木曜が開催日です。カレンダーの開催日から参加日を選んでください（参加は1か月に1回）。
         {paymentRequired &&
           `　「参加する」で参加枠を確保し、参加費 ¥${DARTS_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${DARTS_MAX_ENTRIES_PER_DATE}名）。`}
-        　キャンセルは開催7日前まで。
+        　参加費のキャンセルは開催7日前まで。<b>開始時刻を過ぎると参加表明・取消はできません。</b>
       </p>
       {payMsg && (
         <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>
@@ -220,6 +220,10 @@ export function DartsJoinTab({
           const needsPay = entered && paymentRequired;
           const unpaidNotice = needsPay && payStatus !== "paid" && payStatus !== "cancelRequested";
           const isPast = selectedDate < today;
+          // 受付締切（開催日の開始時刻）を過ぎたか。締切後は参加表明も取消もできない
+          // （「締切までに表明した人＝参加者」なので抜けられると名簿が崩れる。サーバーも409で拒否）。
+          const st = scheduleTimes?.[selectedDate]?.startTime;
+          const closed = isPast || (!!st && Date.now() >= Date.parse(`${selectedDate}T${st}:00+09:00`));
           const { md, wd } = dateParts(selectedDate);
 
           if (cancelledDates.has(selectedDate)) {
@@ -318,7 +322,7 @@ export function DartsJoinTab({
                         </button>
                       )}
                     </div>
-                  ) : needsPay ? null : entered ? (
+                  ) : needsPay ? null : entered && !closed ? (
                     <button
                       onClick={() => toggle(selectedDate, true)}
                       className="shrink-0 text-[11px] font-bold text-[#231714]/80 underline underline-offset-2 whitespace-nowrap"
@@ -329,7 +333,7 @@ export function DartsJoinTab({
                     <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/80">
                       満員
                     </span>
-                  ) : !isPast ? (
+                  ) : !closed ? (
                     <button
                       onClick={() => toggle(selectedDate, false)}
                       disabled={busy === selectedDate}
