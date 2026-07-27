@@ -78,12 +78,15 @@ export async function POST(req: NextRequest) {
 
     const nowIso = dayjs().toISOString();
     const orderRef = db.collection("squareOrders").doc(verified.orderId);
+    const dayRef = db.collection("pokerDayState").doc(`${entry.seasonId}_${entry.eventDate}`);
     try {
       await db.runTransaction(async (tx) => {
         const fresh = await tx.get(entryRef);
         if (!fresh.exists || fresh.data()?.paymentStatus === "paid") throw new Error("ALREADY_FINALIZED");
         const orderDoc = await tx.get(orderRef);
         if (orderDoc.exists) throw new Error("PAYMENT_REUSED");
+        // 読み取りは書き込みより前に行う（当日名簿の paid 反映に使う）。
+        const daySnap = await tx.get(dayRef);
         tx.create(orderRef, { entryId: rid, paymentId: verified.paymentId, lineUserId: userId, createdAt: nowIso });
         tx.update(entryRef, {
           status: "paid",
@@ -92,6 +95,17 @@ export async function POST(req: NextRequest) {
           paymentTransactionId: verified.orderId,
           updatedAt: nowIso,
         });
+        // 当日名簿にも支払い済みを反映（未払いは名簿に出るが進行に参加できないため、
+        // 支払った瞬間に参加できるようにする）。開始前は participants が空なので何も起きない。
+        if (daySnap.exists) {
+          const members = ((daySnap.data() as { participants?: { lineUserId: string; paid?: boolean }[] }).participants ?? []);
+          if (members.some((m) => m.lineUserId === userId && m.paid === false)) {
+            tx.update(dayRef, {
+              participants: members.map((m) => (m.lineUserId === userId ? { ...m, paid: true } : m)),
+              updatedAt: nowIso,
+            });
+          }
+        }
       });
     } catch (e) {
       const m = e instanceof Error ? e.message : "";

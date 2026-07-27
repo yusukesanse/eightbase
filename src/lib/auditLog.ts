@@ -21,6 +21,7 @@ export type AuditEventType =
   | "cs.reset" // CSブラケットの管理者リセット
   | "table.completed" // 卓の集計確定（利用者申告が揃った）
   | "day.advanced" // 抜け番で次半荘へ進行（システム）
+  | "day.participant_removed" // 当日GMが参加者を外した（未払い/不参加）
   | "day.gm_claimed" // 当日GMの自己選出「GMをやる」（ダーツ/ビリヤード。交代もこれ）
   | "day.started" // GM の「ゲーム開始」＝受付締切（参加表明・支払いを締める）
   | "day.cancelled" // GM による開催日の中止（流会）。支払い済みは返金対象へ
@@ -34,7 +35,7 @@ export interface AuditLogInput {
   /** 種目。未指定は麻雀（後方互換）。監査パネルの絞り込みに使う。 */
   gameCategory?: AuditGameCategory;
   actor: string; // 実行者: 管理者メール / 利用者 lineUserId / "system"
-  target: { date?: string; entryId?: string; tableId?: string };
+  target: { date?: string; entryId?: string; tableId?: string; lineUserId?: string };
   beforeStatus?: string | null;
   afterStatus?: string | null;
   meta?: Record<string, unknown>;

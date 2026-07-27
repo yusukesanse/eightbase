@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
           startTime,
           entryClosed,
           participants: isGm
-            ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId }))
+            ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId, paid: p.paid !== false }))
             : [],
           paidCount: roster.length,
           events: null,
@@ -70,6 +70,8 @@ export async function GET(req: NextRequest) {
       displayName: p.displayName,
       pictureUrl: p.pictureUrl ?? "",
       isMe: p.lineUserId === userId,
+      // 未払いは名簿に出るが進行には参加しない。誰が未払いかは全員に見せる（GMが対面で督促する運用）。
+      paid: p.paid !== false,
     }));
 
     const events = day.events.map((ev: DartsEventState) => {

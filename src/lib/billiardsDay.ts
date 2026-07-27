@@ -56,7 +56,15 @@ export async function fetchBilliardsParticipants(
     .map((d) => ({ ...(d.data() as BilliardsEntry), entryId: d.id }))
     .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
     .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
-    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+    .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl, paid: deriveStatus(e) === "paid" }));
+}
+
+/**
+ * **進行に参加する人**＝支払い済みの参加者。未払いは名簿に出るが試合記録・順位の母数には入らない
+ * （その場で支払えば参加できる。払わない/来ない人はGMが参加剥奪する）。旧データは支払い済み扱い。
+ */
+export function playingBilliardsParticipants(day: BilliardsDayState): BilliardsDayMember[] {
+  return day.participants.filter((p) => p.paid !== false);
 }
 
 let matchSeq = 0;
@@ -98,13 +106,15 @@ export async function startBilliardsDay(
       .map((d) => ({ ...(d.data() as BilliardsEntry), entryId: d.id }))
       .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
       .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
-      .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+      .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl, paid: deriveStatus(e) === "paid" }));
     if (snap.exists && (snap.data() as BilliardsDayState).entryClosedAt) {
       return { ok: true as const, already: true, paidCount: participants.length };
     }
     if (cancelSnap.exists) return { ok: false as const, error: "この開催日は中止されました", paidCount: participants.length };
-    if (participants.length < BILLIARDS_MIN_PARTICIPANTS) {
-      return { ok: false as const, error: `参加者が${BILLIARDS_MIN_PARTICIPANTS}名以上必要です`, paidCount: participants.length };
+    // 進行できるのは支払い済みだけなので、開始可否も支払い済みの人数で判定する。
+    const paidCount = participants.filter((p) => p.paid).length;
+    if (paidCount < BILLIARDS_MIN_PARTICIPANTS) {
+      return { ok: false as const, error: `支払い済みが${BILLIARDS_MIN_PARTICIPANTS}名以上必要です（未払いの方はその場でお支払いください）`, paidCount };
     }
     const now = new Date().toISOString();
     // ⚠️ tx.set は全上書き。当日GM（gmUserId/gmDisplayName）は必ず引き継ぐ。
@@ -165,11 +175,15 @@ export async function claimBilliardsGm(
     const paid = entrySnap.docs
       .map((d) => ({ ...(d.data() as BilliardsEntry), entryId: d.id }))
       .filter((e) => { const st = deriveStatus(e); return st === "paid" || st === "reserved"; })
-      .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl }));
+      .map((e) => ({ lineUserId: e.lineUserId, displayName: e.displayName, pictureUrl: e.pictureUrl, paid: deriveStatus(e) === "paid" }));
     const roster = prev?.entryClosedAt ? prev.participants : paid;
     const me = roster.find((p) => p.lineUserId === userId);
     if (!me) {
       return { ok: false as const, status: 403, error: "この開催日の参加者のみゲームマスターになれます" };
+    }
+    // GMは**支払い済みの人**から決める（未払いは進行に参加しないため）。
+    if (me.paid === false) {
+      return { ok: false as const, status: 403, error: "参加費のお支払い後にゲームマスターになれます" };
     }
 
     const now = new Date().toISOString();
@@ -195,6 +209,37 @@ export async function claimBilliardsGm(
   });
 }
 
+/**
+ * GM が参加者を外す（参加剥奪）。来ない人・支払わない人を名簿から取り除く。
+ * **記録済みの試合がある人は外せない**（その試合の結果が宙に浮くため。先に試合ログを削除する）。
+ * 返金は運用（管理画面）で行い、ここでは entry を触らない。
+ */
+export async function removeBilliardsParticipant(
+  seasonId: string,
+  eventDate: string,
+  targetId: string
+): Promise<DayMutationResult> {
+  const db = getDb();
+  const dayRef = db.collection("billiardsDayState").doc(billiardsDayId(seasonId, eventDate));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(dayRef);
+    if (!snap.exists) return { ok: false as const, status: 400, error: "まだ開始していません" };
+    const day = snap.data() as BilliardsDayState;
+    if (!day.entryClosedAt) return { ok: false as const, status: 400, error: "ゲーム開始後に操作してください" };
+    if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了済みです" };
+    if (!day.participants.some((p) => p.lineUserId === targetId)) {
+      return { ok: false as const, status: 400, error: "参加者ではありません" };
+    }
+    if ((day.matches ?? []).some((m) => m.winnerId === targetId || m.loserId === targetId)) {
+      return { ok: false as const, status: 409, error: "記録済みの試合があるため外せません（先に試合を削除してください）" };
+    }
+    day.participants = day.participants.filter((p) => p.lineUserId !== targetId);
+    day.updatedAt = new Date().toISOString();
+    tx.set(dayRef, day);
+    return { ok: true as const };
+  });
+}
+
 // ─── GM: 試合ログの追加・削除 ────────────────────────────────────────────────
 
 export type DayMutationResult = { ok: true } | { ok: false; status: number; error: string };
@@ -216,9 +261,9 @@ export async function logBilliardsMatch(
     if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了済みです" };
 
     if (input.winnerId === input.loserId) return { ok: false as const, status: 400, error: "勝者と敗者が同じです" };
-    const ids = new Set(day.participants.map((p) => p.lineUserId));
+    const ids = new Set(playingBilliardsParticipants(day).map((p) => p.lineUserId));
     if (!ids.has(input.winnerId) || !ids.has(input.loserId)) {
-      return { ok: false as const, status: 400, error: "参加者以外は記録できません" };
+      return { ok: false as const, status: 400, error: "参加者（支払い済み）以外は記録できません" };
     }
     if (!Number.isInteger(input.loserBalls) || input.loserBalls < 0 || input.loserBalls > BILLIARDS_MAX_LOSER_BALLS) {
       return { ok: false as const, status: 400, error: `敗者の玉数は0〜${BILLIARDS_MAX_LOSER_BALLS}で入力してください` };
@@ -277,10 +322,11 @@ export function computeBilliardsDayScores(day: BilliardsDayState): {
   totalScore: number;
   details: BilliardsScoreDetails;
 }[] {
-  const nameById = new Map(day.participants.map((p) => [p.lineUserId, p]));
+  const playing = playingBilliardsParticipants(day);
+  const nameById = new Map(playing.map((p) => [p.lineUserId, p]));
   const perPlayer = computeBilliardsDay(
     (day.matches ?? []).map((m) => ({ winnerId: m.winnerId, loserId: m.loserId, loserBalls: m.loserBalls })),
-    day.participants.map((p) => p.lineUserId)
+    playing.map((p) => p.lineUserId)
   );
   const ranks = new Map(
     rankBilliards(

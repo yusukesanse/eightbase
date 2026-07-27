@@ -5,6 +5,7 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { DARTS_ACCENT, todayJst, CheckIcon } from "@/components/darts/dartsShared";
 import { DartsGmPanel } from "@/components/darts/DartsGmPanel";
 import { DayGmBanner } from "@/components/games/DayGmBanner";
+import { DayRosterPanel } from "@/components/games/DayRosterPanel";
 import { DARTS_EVENT_ORDER, DARTS_EVENT_LABEL, type DartsEventKind, type DartsZeroOneOut } from "@/types/darts";
 
 /**
@@ -28,7 +29,7 @@ interface DayDto {
   gameMasterName: string | null;
   entryClosed: boolean;
   startTime: string | null;
-  participants: { displayName: string; pictureUrl?: string; isMe: boolean }[];
+  participants: { lineUserId?: string; displayName: string; pictureUrl?: string; isMe: boolean; paid: boolean }[];
   events: EventStateDto[] | null;
   zeroOneVariant: { start: number; out: DartsZeroOneOut } | null;
   cricketTeams: { teamId: string; members: { displayName: string; isMe: boolean }[]; isMine: boolean }[];
@@ -154,6 +155,17 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
         startTime={day?.startTime ?? null}
         onChanged={() => { load(); onChanged(); }}
       />
+      {/* 参加者名簿（未払い表示・GMは参加剥奪）。締切後だけ意味があるので開始後に出す。 */}
+      {day?.started && (
+        <DayRosterPanel
+          game="darts"
+          eventDate={eventDate}
+          members={day.participants}
+          isGameMaster={day.isGameMaster}
+          finished={day.finished}
+          onChanged={() => { load(); onChanged(); }}
+        />
+      )}
       {/* 参加者としての自分のスコア申告を先に出し、その下に GM パネル（名簿＋「全員のスコアを確定」）を置く。 */}
       {body}
       {gmPanel}
