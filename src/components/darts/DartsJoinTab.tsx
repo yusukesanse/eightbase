@@ -23,6 +23,7 @@ import {
 export function DartsJoinTab({
   enteredDates,
   scheduleDates,
+  scheduleTimes,
   cancelledDates,
   paymentRequired,
   paymentStatusByDate,
@@ -30,6 +31,8 @@ export function DartsJoinTab({
 }: {
   enteredDates: Set<string>;
   scheduleDates: Set<string>;
+  /** 日付ごとの開催時刻（管理画面の設定）。未指定の日は時刻を出さない。 */
+  scheduleTimes?: Record<string, { startTime?: string; endTime?: string }>;
   cancelledDates: Set<string>;
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, DartsPaymentStatus | null>;
@@ -143,7 +146,7 @@ export function DartsJoinTab({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/85 leading-relaxed px-0.5">
-        隔週木曜が開催日です（18:00〜20:00）。カレンダーの開催日から参加日を選んでください（参加は1か月に1回）。
+        隔週木曜が開催日です。カレンダーの開催日から参加日を選んでください（参加は1か月に1回）。
         {paymentRequired &&
           `　「参加する」で参加枠を確保し、参加費 ¥${DARTS_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${DARTS_MAX_ENTRIES_PER_DATE}名）。`}
         　キャンセルは開催7日前まで。
@@ -252,7 +255,15 @@ export function DartsJoinTab({
                     <div className="text-[11px] text-[#231714]/80 mt-0.5">{wd}</div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14.5px] font-extrabold text-[#231714] truncate">リーグ戦（木曜 18:00〜）</div>
+                    <div className="text-[14.5px] font-extrabold text-[#231714] truncate">
+                      リーグ戦
+                      {selectedDate && scheduleTimes?.[selectedDate]?.startTime && (
+                        <span className="ml-1.5 text-[12px] font-bold text-[#231714]/80 tabular-nums">
+                          {scheduleTimes[selectedDate].startTime}
+                          {scheduleTimes[selectedDate].endTime ? `〜${scheduleTimes[selectedDate].endTime}` : "〜"}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[12px] text-[#231714]/85 mt-0.5 truncate">
                       {!entered
                         ? isPast
