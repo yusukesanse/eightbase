@@ -370,10 +370,12 @@ export function DartsJoinTab({
                 <div className="rounded-2xl border px-4 py-3 space-y-2" style={{ background: "#fff9ec", borderColor: "#f0d9a8" }}>
                   <div className="text-[13px] font-extrabold text-[#b48f13]">参加確定（未払い）</div>
                   <p className="text-[12.5px] font-bold text-[#8a6a12] leading-relaxed">
-                    参加枠を確保しました。当日プレイするには参加費（¥{DARTS_ENTRY_FEE.toLocaleString()}）のお支払いが必要です。開催日までにお支払いください。
+                    参加枠を確保しました。当日プレイするには参加費（¥{DARTS_ENTRY_FEE.toLocaleString()}）のお支払いが必要です。
                   </p>
-                  <p className="text-[12px] text-[#8a6a12]/90 leading-relaxed">
-                    未払いのまま当日を迎えると、参加者に含まれません（GMの「ゲーム開始」で締め切られます）。
+                  <p className="text-[12px] font-bold text-[#8a6a12] leading-relaxed">
+                    <b>参加費は開催日の開始時刻{selectedDate && scheduleTimes?.[selectedDate]?.startTime ? `（${scheduleTimes[selectedDate].startTime}）` : ""}までにお支払いください。</b>
+                    この種目はゲームマスターを事前に決めないため、<b>開始時刻で受付が自動的に締め切られます</b>。
+                    未払いのままだと当日の進行に参加できません（当日その場でお支払いいただければ参加できます）。
                   </p>
                 </div>
               )}
