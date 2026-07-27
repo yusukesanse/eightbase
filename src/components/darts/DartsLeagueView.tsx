@@ -26,6 +26,8 @@ export function DartsLeagueView() {
   const [paymentRequired, setPaymentRequired] = useState(false);
   const [paymentStatusByDate, setPaymentStatusByDate] = useState<Record<string, DartsPaymentStatus | null>>({});
   const [scheduleDates, setScheduleDates] = useState<Set<string>>(new Set());
+  // 開催時刻は管理画面の設定（日程docの startTime/endTime）を表示に使う。ハードコードしない。
+  const [scheduleTimes, setScheduleTimes] = useState<Record<string, { startTime?: string; endTime?: string }>>({});
   const [loading, setLoading] = useState(true);
   const [payBanner, setPayBanner] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -33,7 +35,11 @@ export function DartsLeagueView() {
   useEffect(() => {
     fetch("/api/darts/schedule", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setScheduleDates(new Set<string>((d.schedule ?? []).map((s: DartsScheduleEntry) => s.date))))
+      .then((d) => {
+        const list: DartsScheduleEntry[] = d.schedule ?? [];
+        setScheduleDates(new Set<string>(list.map((s) => s.date)));
+        setScheduleTimes(Object.fromEntries(list.map((s) => [s.date, { startTime: s.startTime, endTime: s.endTime }])));
+      })
       .catch(() => {});
   }, []);
 
@@ -139,6 +145,7 @@ export function DartsLeagueView() {
         <DartsJoinTab
           enteredDates={enteredDates}
           scheduleDates={scheduleDates}
+          scheduleTimes={scheduleTimes}
           cancelledDates={new Set()}
           paymentRequired={paymentRequired}
           paymentStatusByDate={paymentStatusByDate}

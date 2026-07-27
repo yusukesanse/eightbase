@@ -3,6 +3,8 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
 import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, sanitizeScheduleTime, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
+import { applySeasonDefaultTimes, type ScheduleGame } from "@/lib/gameSchedule";
+import { todayJst } from "@/lib/date";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -162,9 +164,32 @@ export async function PUT(
     clearActiveSeasonCache();
 
     const updated = await docRef.get();
+    const updatedData = updated.data() as { gameCategory?: string } | undefined;
+
+    // 既定時刻を変えたら、**個別変更していない今後の開催日**にも書き写す。
+    // 開催時刻の正は日程doc（受付締切の判定がそこだけを読むため）なので、
+    // ここで反映しないと「設定したのに利用者アプリの時刻が変わらない」ことになる。
+    let appliedDates = 0;
+    if (updates.defaultStartTime !== undefined || updates.defaultEndTime !== undefined) {
+      const game = updatedData?.gameCategory as ScheduleGame | undefined;
+      if (game) {
+        appliedDates = await applySeasonDefaultTimes(
+          getDb(),
+          game,
+          seasonId,
+          {
+            startTime: (updates.defaultStartTime as string | null) ?? undefined,
+            endTime: (updates.defaultEndTime as string | null) ?? undefined,
+          },
+          todayJst()
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       season: { seasonId: updated.id, ...updated.data() },
+      ...(appliedDates > 0 ? { appliedDates } : {}),
     });
   } catch (error) {
     console.error("[admin/scoreboard/seasons/[id]] PUT error:", error);

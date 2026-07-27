@@ -32,6 +32,49 @@ export const GAME_SCHEDULE_CFG: Record<
 
 export const buildGameScheduleId = (seasonId: string, date: string) => `${seasonId}_${date}`;
 
+/**
+ * シーズンの「開催の既定時刻」を、**個別変更していない今後の開催日**へ書き写す。
+ *
+ * 開催時刻は日程doc（`{game}Schedule.startTime/endTime`）を唯一の正にしている
+ * （受付締切の判定 `entryDeadline` が毎回シーズンを読まずに済むため）。その代わり、
+ * 既定を変えたときにここで書き写さないと「設定したのに反映されない」状態になる。
+ *
+ * - `timeOverridden: true`（日付ごとに個別変更した日）は**上書きしない**。
+ * - 過去日は履歴なので触らない。
+ */
+export async function applySeasonDefaultTimes(
+  db: FirebaseFirestore.Firestore,
+  game: ScheduleGame,
+  seasonId: string,
+  times: { startTime?: string; endTime?: string },
+  todayJst: string
+): Promise<number> {
+  if (!times.startTime && !times.endTime) return 0;
+  const snap = await db.collection(GAME_SCHEDULE_CFG[game].col).where("seasonId", "==", seasonId).get();
+  const targets = snap.docs.filter((d) => {
+    const x = d.data() as { date?: string; timeOverridden?: boolean };
+    return !!x.date && x.date >= todayJst && x.timeOverridden !== true;
+  });
+  const now = new Date().toISOString();
+  const CHUNK = 400;
+  for (let i = 0; i < targets.length; i += CHUNK) {
+    const batch = db.batch();
+    for (const d of targets.slice(i, i + CHUNK)) {
+      batch.set(
+        d.ref,
+        {
+          ...(times.startTime ? { startTime: times.startTime } : {}),
+          ...(times.endTime ? { endTime: times.endTime } : {}),
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+    }
+    await batch.commit();
+  }
+  return targets.length;
+}
+
 const SCHEDULE_LOCKS = "scheduleLocks";
 export const scheduleLockId = (game: ScheduleGame, seasonId: string, date: string) =>
   `${game}__${seasonId}__${date}`;

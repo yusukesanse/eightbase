@@ -45,15 +45,16 @@ export async function GET(req: NextRequest) {
     | undefined;
   const set = new Set<string>();
   // 日付ごとの時刻（既定値と違う日をUIで出し分けるため date -> {startTime,endTime} で返す）。
-  const times: Record<string, { startTime: string; endTime: string }> = {};
+  const times: Record<string, { startTime: string; endTime: string; overridden: boolean }> = {};
   for (const d of snap.docs) {
-    const x = d.data() as { date?: string; type?: string; startTime?: string; endTime?: string };
+    const x = d.data() as { date?: string; type?: string; startTime?: string; endTime?: string; timeOverridden?: boolean };
     if (x.type && x.type !== "league") continue;
     if (!x.date) continue;
     set.add(x.date);
     times[x.date] = {
       startTime: x.startTime || season?.defaultStartTime || CFG[game].start,
       endTime: x.endTime || season?.defaultEndTime || CFG[game].end,
+      overridden: x.timeOverridden === true,
     };
   }
   return NextResponse.json({
@@ -230,6 +231,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "終了時刻は開始時刻より後にしてください" }, { status: 400 });
   }
 
-  await ref.set({ ...updates, updatedAt: new Date().toISOString() }, { merge: true });
+  // 個別変更した日として印を付ける（シーズン既定を変えても上書きされないようにする）。
+  // resetToDefault=true なら印を外し、以後は既定の変更に追随する。
+  const resetToDefault = body?.resetToDefault === true;
+  await ref.set(
+    { ...updates, timeOverridden: !resetToDefault, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
   return NextResponse.json({ success: true, date, startTime: nextStart, endTime: nextEnd });
 }

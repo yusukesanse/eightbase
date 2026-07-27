@@ -10,10 +10,12 @@ import { BILLIARDS_ACCENT, BILLIARDS_CONFIRM, dateParts, formatJpDate, todayJst,
 
 /** ビリヤード 参加タブ（ダーツ流用）。第2/第4土曜のみ選択可。参加費 ¥1,500・定員8名・月1回。 */
 export function BilliardsJoinTab({
-  enteredDates, scheduleDates, cancelledDates, paymentRequired, paymentStatusByDate, onChanged,
+  enteredDates, scheduleDates, scheduleTimes, cancelledDates, paymentRequired, paymentStatusByDate, onChanged,
 }: {
   enteredDates: Set<string>;
   scheduleDates: Set<string>;
+  /** 日付ごとの開催時刻（管理画面の設定）。未指定の日は時刻を出さない。 */
+  scheduleTimes?: Record<string, { startTime?: string; endTime?: string }>;
   cancelledDates: Set<string>;
   paymentRequired: boolean;
   paymentStatusByDate: Record<string, BilliardsPaymentStatus | null>;
@@ -80,7 +82,7 @@ export function BilliardsJoinTab({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/85 leading-relaxed px-0.5">
-        第2・第4土曜が開催日です（13:00〜18:00）。カレンダーの開催日から参加日を選んでください（参加は1か月に1回）。
+        第2・第4土曜が開催日です。カレンダーの開催日から参加日を選んでください（参加は1か月に1回）。
         {paymentRequired && `　「参加する」で参加枠を確保し、参加費 ¥${BILLIARDS_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${BILLIARDS_MAX_ENTRIES_PER_DATE}名）。`}
         　キャンセルは開催7日前まで。
       </p>
@@ -134,7 +136,15 @@ export function BilliardsJoinTab({
                 <div className="flex items-center gap-3">
                   <div className="w-[50px] text-center shrink-0"><div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div><div className="text-[11px] text-[#231714]/80 mt-0.5">{wd}</div></div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14.5px] font-extrabold text-[#231714] truncate">リーグ戦（土曜 13:00〜）</div>
+                    <div className="text-[14.5px] font-extrabold text-[#231714] truncate">
+                      リーグ戦
+                      {selectedDate && scheduleTimes?.[selectedDate]?.startTime && (
+                        <span className="ml-1.5 text-[12px] font-bold text-[#231714]/80 tabular-nums">
+                          {scheduleTimes[selectedDate].startTime}
+                          {scheduleTimes[selectedDate].endTime ? `〜${scheduleTimes[selectedDate].endTime}` : "〜"}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[12px] text-[#231714]/85 mt-0.5 truncate">
                       {!entered ? (isPast ? "この開催日は終了しました" : dateFull ? "満員です" : "この日に参加できます") : !paymentRequired ? "参加確定" : payStatus === "paid" ? "支払い済み" : payStatus === "cancelRequested" ? "返金対応中" : "参加確定（未払い）"}
                     </div>
