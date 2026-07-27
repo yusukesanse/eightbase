@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { generateRecurringDates } from "@/lib/scheduleRecurrence";
 import { GAME_SCHEDULE_CFG, buildGameScheduleId, deleteGameScheduleDate, addGameScheduleDate, scheduleLockRef, type ScheduleGame } from "@/lib/gameSchedule";
+import { isValidHhMm } from "@/lib/scoreboardSeason";
 
 export const dynamic = "force-dynamic";
 
@@ -37,17 +38,30 @@ export async function GET(req: NextRequest) {
   const seasonId = req.nextUrl.searchParams.get("seasonId");
   if (!game || !seasonId) return NextResponse.json({ error: "gameCategory と seasonId が必要です" }, { status: 400 });
 
-  const snap = await getDb().collection(CFG[game].col).where("seasonId", "==", seasonId).get();
+  const db = getDb();
+  const snap = await db.collection(CFG[game].col).where("seasonId", "==", seasonId).get();
+  const season = (await db.collection("seasons").doc(seasonId).get()).data() as
+    | { defaultStartTime?: string; defaultEndTime?: string }
+    | undefined;
   const set = new Set<string>();
+  // 日付ごとの時刻（既定値と違う日をUIで出し分けるため date -> {startTime,endTime} で返す）。
+  const times: Record<string, { startTime: string; endTime: string }> = {};
   for (const d of snap.docs) {
-    const x = d.data() as { date?: string; type?: string };
+    const x = d.data() as { date?: string; type?: string; startTime?: string; endTime?: string };
     if (x.type && x.type !== "league") continue;
-    if (x.date) set.add(x.date);
+    if (!x.date) continue;
+    set.add(x.date);
+    times[x.date] = {
+      startTime: x.startTime || season?.defaultStartTime || CFG[game].start,
+      endTime: x.endTime || season?.defaultEndTime || CFG[game].end,
+    };
   }
   return NextResponse.json({
     dates: Array.from(set).sort(),
-    startTime: CFG[game].start,
-    endTime: CFG[game].end,
+    times,
+    // シーズンの既定時刻（未設定なら種目のコード既定値）
+    startTime: season?.defaultStartTime || CFG[game].start,
+    endTime: season?.defaultEndTime || CFG[game].end,
   });
 }
 
@@ -62,12 +76,18 @@ export async function POST(req: NextRequest) {
   const db = getDb();
   const cfg = CFG[game];
   const now = new Date().toISOString();
+  // 開催時刻はシーズンの既定値を優先（未設定は種目のコード既定値）。
+  const seasonDoc = (await db.collection("seasons").doc(seasonId).get()).data() as
+    | { defaultStartTime?: string; defaultEndTime?: string }
+    | undefined;
+  const defStart = seasonDoc?.defaultStartTime || cfg.start;
+  const defEnd = seasonDoc?.defaultEndTime || cfg.end;
   const makeDoc = (date: string) => ({
     scheduleId: schedId(seasonId, date),
     seasonId,
     date,
-    startTime: cfg.start,
-    endTime: cfg.end,
+    startTime: defStart,
+    endTime: defEnd,
     createdAt: now,
     ...(cfg.extra ?? {}),
   });
@@ -110,7 +130,7 @@ export async function POST(req: NextRequest) {
   // 1件追加。schedule 作成とロック解除を原子化（addGameScheduleDate）。
   const date: unknown = body?.date;
   if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
-  await addGameScheduleDate(db, game, seasonId, date);
+  await addGameScheduleDate(db, game, seasonId, date, { startTime: defStart, endTime: defEnd });
   if (game === "mahjong") {
     // 土曜を開催に戻したときに旧「休催」doc が残っていると弾かれるため解除（best-effort）。
     await db.collection("mahjongClosedDates").doc(date).delete().catch(() => {});
@@ -165,4 +185,51 @@ export async function DELETE(req: NextRequest) {
   if (r === "skipped") return NextResponse.json({ error: "参加者がいるため削除できません" }, { status: 409 });
   // reAdded: 削除処理中に同日が再追加された → 削除せず成功（開催日は存在）。
   return NextResponse.json({ success: true, result: r });
+}
+
+/**
+ * PATCH { gameCategory, seasonId, date, startTime?, endTime? }
+ * 開催日ごとの時刻を上書きする（イレギュラー対応）。
+ * 既定値はシーズン編集の「開催の既定時刻」。ここでの変更はその日だけに効く。
+ */
+export async function PATCH(req: NextRequest) {
+  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const body = await req.json().catch(() => null);
+  const game = toGame(body?.gameCategory);
+  const seasonId: unknown = body?.seasonId;
+  const date: unknown = body?.date;
+  if (!game || typeof seasonId !== "string" || !seasonId) {
+    return NextResponse.json({ error: "gameCategory と seasonId が必要です" }, { status: 400 });
+  }
+  if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
+
+  const updates: Record<string, string> = {};
+  for (const key of ["startTime", "endTime"] as const) {
+    if (body?.[key] === undefined) continue;
+    if (!isValidHhMm(body[key])) {
+      return NextResponse.json({ error: "時刻は HH:MM 形式で入力してください" }, { status: 400 });
+    }
+    updates[key] = body[key];
+  }
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "startTime か endTime を指定してください" }, { status: 400 });
+  }
+  if (updates.startTime && updates.endTime && updates.startTime >= updates.endTime) {
+    return NextResponse.json({ error: "終了時刻は開始時刻より後にしてください" }, { status: 400 });
+  }
+
+  const db = getDb();
+  const ref = db.collection(CFG[game].col).doc(schedId(seasonId, date));
+  const snap = await ref.get();
+  if (!snap.exists) return NextResponse.json({ error: "開催日が見つかりません" }, { status: 404 });
+  // 片方だけ変更された場合も前後関係を検証する（保存済みの値と突き合わせ）。
+  const cur = snap.data() as { startTime?: string; endTime?: string };
+  const nextStart = updates.startTime ?? cur.startTime;
+  const nextEnd = updates.endTime ?? cur.endTime;
+  if (nextStart && nextEnd && nextStart >= nextEnd) {
+    return NextResponse.json({ error: "終了時刻は開始時刻より後にしてください" }, { status: 400 });
+  }
+
+  await ref.set({ ...updates, updatedAt: new Date().toISOString() }, { merge: true });
+  return NextResponse.json({ success: true, date, startTime: nextStart, endTime: nextEnd });
 }

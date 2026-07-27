@@ -199,6 +199,13 @@ export interface Season {
    */
   mahjongAllowByeSeats?: boolean;
   /**
+   * 開催の既定時刻（HH:MM・JST）。日程を追加するときの初期値になる。
+   * シーズンは種目別なので実質「種目ごとの既定時刻」。個別の開催日は日程側で上書きできる。
+   * 未設定は GAME_SCHEDULE_CFG のコード既定値にフォールバック。
+   */
+  defaultStartTime?: string;
+  defaultEndTime?: string;
+  /**
    * ルール・約款（Markdown）。シーズンは種目別なので、これで「種目ごと × シーズンごと」を満たす。
    * 利用者アプリの「ルール/約款」タブに表示する（閲覧のみ。同意フローは持たない）。
    */

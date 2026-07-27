@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { clearActiveSeasonCache } from "@/lib/mahjong";
-import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
+import { sanitizeGameMasterIds, sanitizeSeasonMarkdown, sanitizeScheduleTime, SEASON_MARKDOWN_MAX } from "@/lib/scoreboardSeason";
 import type { ScoreboardGameId } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -98,6 +98,13 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const now = new Date().toISOString();
 
+    // 開催の既定時刻（日程追加時の初期値）。空=コード既定値にフォールバック。
+    const defStart = sanitizeScheduleTime(body.defaultStartTime);
+    const defEnd = sanitizeScheduleTime(body.defaultEndTime);
+    if (defStart === null || defEnd === null) {
+      return NextResponse.json({ error: "開始/終了時刻は HH:MM 形式で入力してください" }, { status: 400 });
+    }
+
     const data = {
       name: name.trim(),
       gameCategory,
@@ -111,6 +118,9 @@ export async function POST(req: NextRequest) {
       gameMasterIds: sanitizeGameMasterIds(body.gameMasterIds),
       // 麻雀: 抜け番許容（true=8名以上の予約可 / 既定false=8名で締切）。
       mahjongAllowByeSeats: body.mahjongAllowByeSeats === true,
+      // 開催の既定時刻（未指定はフィールドごと省略＝コード既定値を使う）。
+      ...(defStart ? { defaultStartTime: defStart } : {}),
+      ...(defEnd ? { defaultEndTime: defEnd } : {}),
       // ルール・約款（Markdown）。未指定は空。
       rulesMarkdown: rules,
       termsMarkdown: terms,

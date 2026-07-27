@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import TimePicker from "@/components/ui/TimePicker";
 import type { Season } from "@/types";
 import MonthCalendar from "@/components/ui/MonthCalendar";
 import DatePicker from "@/components/ui/DatePicker";
@@ -42,6 +43,11 @@ const STATUS_LABEL: Record<string, { text: string; color: string; bg: string }> 
 export default function GameScheduleCalendar({ gameCategory }: { gameCategory: Game }) {
   const { seasonId } = useParams<{ seasonId: string }>();
   const [dates, setDates] = useState<Set<string>>(new Set());
+  // 日付ごとの開催時刻と、シーズンの既定時刻（イレギュラー日の判別に使う）。
+  const [times, setTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
+  const [defaultTimes, setDefaultTimes] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [timeDraft, setTimeDraft] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [timeSaving, setTimeSaving] = useState(false);
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -67,6 +73,8 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
     ])
       .then(([sched, closed]) => {
         setDates(new Set<string>(sched.dates ?? []));
+        setTimes(sched.times ?? {});
+        setDefaultTimes(sched.startTime ? { startTime: sched.startTime, endTime: sched.endTime } : null);
         setClosedDates(new Set<string>(closed.closedDates ?? []));
       })
       .catch(() => {})
@@ -85,6 +93,36 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
       })
       .catch(() => {});
   }, [seasonId]);
+
+  // 選択日の時刻をドラフトに読み込む（保存するまで反映しない）。
+  useEffect(() => {
+    if (!selected) { setTimeDraft(null); return; }
+    const t = times[selected] ?? defaultTimes;
+    setTimeDraft(t ? { ...t } : null);
+  }, [selected, times, defaultTimes]);
+
+  /** その開催日だけ時刻を上書きする（イレギュラー対応）。 */
+  async function saveTimes(date: string) {
+    if (!timeDraft) return;
+    setTimeSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/games/schedule", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ gameCategory, seasonId, date, ...timeDraft }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "時刻の変更に失敗しました");
+      setTimes((prev) => ({ ...prev, [date]: { startTime: data.startTime, endTime: data.endTime } }));
+      setMsg({ ok: true, text: `${date} の時刻を ${data.startTime}〜${data.endTime} に変更しました` });
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "時刻の変更に失敗しました" });
+    } finally {
+      setTimeSaving(false);
+    }
+  }
 
   // 選択日が開催日ならその日の参加者・休催状態を取得。
   const fetchDay = useCallback((date: string) => {
@@ -282,9 +320,53 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
                 </>
               )}
 
-              {/* 開催日: 参加者 ＋ 休催/削除 */}
+              {/* 開催日: 時刻 ＋ 参加者 ＋ 休催/削除 */}
               {selScheduled && (
                 <>
+                  {/* 開催時刻（この日だけの上書き）。既定値はシーズン編集の「開催の既定時刻」。 */}
+                  <div className="rounded-xl border border-gray-100 p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="text-xs font-bold text-[#231714]/70">開催時刻</div>
+                      {defaultTimes && timeDraft &&
+                        (timeDraft.startTime !== defaultTimes.startTime || timeDraft.endTime !== defaultTimes.endTime) && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#fff6e5", color: "#a1702c" }}>
+                            既定と異なる
+                          </span>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <TimePicker
+                        value={timeDraft?.startTime ?? ""}
+                        onChange={(v) => setTimeDraft((d) => ({ startTime: v, endTime: d?.endTime ?? "" }))}
+                        placeholder="開始時刻"
+                      />
+                      <TimePicker
+                        value={timeDraft?.endTime ?? ""}
+                        onChange={(v) => setTimeDraft((d) => ({ startTime: d?.startTime ?? "", endTime: v }))}
+                        placeholder="終了時刻"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => saveTimes(selected)}
+                        disabled={timeSaving || !timeDraft?.startTime || !timeDraft?.endTime}
+                        className="rounded-lg text-white text-xs font-bold px-3 py-1.5 disabled:opacity-40"
+                        style={{ background: ACCENT }}
+                      >
+                        {timeSaving ? "保存中…" : "この日の時刻を保存"}
+                      </button>
+                      {defaultTimes && (
+                        <button
+                          onClick={() => setTimeDraft({ ...defaultTimes })}
+                          disabled={timeSaving}
+                          className="rounded-lg text-xs font-bold px-3 py-1.5 border border-gray-200 text-[#231714]/70 disabled:opacity-40"
+                        >
+                          既定に戻す（{defaultTimes.startTime}〜{defaultTimes.endTime}）
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <div className="text-xs font-bold text-[#231714]/70 mb-1.5">
                       参加者{dayInfo ? `（${dayInfo.counts.total}名 / 支払い済み ${dayInfo.counts.paid}名）` : ""}
