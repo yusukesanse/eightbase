@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { isDayGm, DAY_GM_REQUIRED_MESSAGE } from "@/lib/dayGameMaster";
 import { startBilliardsDay } from "@/lib/billiardsDay";
 import { isValidBilliardsDate } from "@/lib/billiardsEntryValidation";
 import { writeAuditLog } from "@/lib/auditLog";
@@ -13,11 +14,14 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   const season = await getActiveSeason("billiards");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   if (!isValidBilliardsDate(eventDate)) return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+
+  if (!(await isDayGm("billiards", season.seasonId, eventDate, userId))) {
+    return NextResponse.json({ error: DAY_GM_REQUIRED_MESSAGE }, { status: 403 });
+  }
 
   try {
     const result = await startBilliardsDay(season.seasonId, eventDate, userId);
