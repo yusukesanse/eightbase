@@ -155,7 +155,8 @@ export async function POST(req: NextRequest) {
       });
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
-      if (m === "ENTRY_CLOSED") return NextResponse.json({ error: "ENTRY_CLOSED", message: "受付は締め切られました。" }, { status: 409 });
+      // 受付締切は開始時刻ベースになったので ENTRY_CLOSED は投げられない。締切後も参加者は支払える。
+      if (m === "DAY_FINISHED") return NextResponse.json({ error: "DAY_FINISHED", message: "この開催日は終了しています。" }, { status: 409 });
       if (m === "CANCELLED_DATE") return NextResponse.json({ error: "CANCELLED_DATE", message: "この開催日は中止されました。" }, { status: 409 });
       if (m === "ALREADY_PAID") return NextResponse.json({ error: "ALREADY_PAID", message: "すでにお支払い済みです。", alreadyPaid: true }, { status: 409 });
       if (m === "CANCEL_REQUESTED") return NextResponse.json({ error: "CANCEL_REQUESTED", message: "キャンセル依頼中のためお支払いできません。" }, { status: 409 });

@@ -6,6 +6,7 @@ import {
   getDartsDayState,
   fetchDartsParticipants,
   computeDartsEventResults,
+  playingDartsParticipants,
 } from "@/lib/dartsDay";
 import { isValidDartsDate } from "@/lib/dartsEntryValidation";
 import type { DartsDayMember, DartsEventState } from "@/types/darts";
@@ -53,7 +54,9 @@ export async function GET(req: NextRequest) {
           participants: isGm
             ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId, paid: p.paid !== false }))
             : [],
-          paidCount: roster.length,
+          // 進行に参加できるのは支払い済みのみ。UIの人数表示・開始ガードはこれを見る。
+          paidCount: roster.filter((p) => p.paid !== false).length,
+          entryCount: roster.length,
           events: null,
           zeroOneVariant: null,
           cricketTeams: [],
@@ -62,6 +65,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const playing = playingDartsParticipants(day);
     const nameOf = new Map<string, DartsDayMember>(day.participants.map((p) => [p.lineUserId, p]));
     const teamOfUser = (uid: string) => (day.cricketTeams ?? []).find((t) => t.memberIds.includes(uid));
 
@@ -75,10 +79,11 @@ export async function GET(req: NextRequest) {
     }));
 
     const events = day.events.map((ev: DartsEventState) => {
+      // 申告が揃ったかの母数は**支払い済みの参加者**（サーバーの確定判定と一致させる）。
       const keyCount =
         ev.kind === "cricket"
           ? (day.cricketTeams ?? []).length
-          : day.participants.length;
+          : playing.length;
       const reportedCount = Object.keys(ev.reports).length;
       const myReported =
         ev.kind === "cricket"
@@ -138,7 +143,8 @@ export async function GET(req: NextRequest) {
         startTime,
         entryClosed,
         participants,
-        paidCount: day.participants.length,
+        paidCount: playing.length,
+        entryCount: day.participants.length,
         events,
         zeroOneVariant: day.zeroOneVariant ?? null,
         cricketTeams,

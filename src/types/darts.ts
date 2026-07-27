@@ -35,12 +35,6 @@ export const DARTS_MAX_ENTRIES_PER_DATE = 8;
 /** 開催成立に必要な最少人数（支払い済み）。 */
 export const DARTS_MIN_PARTICIPANTS = 4;
 
-/** カウントアップのラウンド数。 */
-export const DARTS_COUNTUP_ROUNDS = 8;
-
-/** クリケットのラウンド数（多人数クリケット・ポイント制）。 */
-export const DARTS_CRICKET_ROUNDS = 15;
-
 /**
  * 人数別 正規化配点表（0.5刻み・確定）。§3。
  * 「1位=8 / 最下位=1」を両端に固定し、その間を人数で等間隔に配分（少人数の日の得点インフレを防ぐ）。

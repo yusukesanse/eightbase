@@ -237,14 +237,14 @@ function GmPanel({ day, eventDate, onDone, setError }: { day: DayDto; eventDate:
                 <span className="text-[10px] font-extrabold text-[#3c4f54]">勝者</span>
                 <select value={winnerId} onChange={(e) => setWinnerId(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-2 text-[13px]">
                   <option value="">選択</option>
-                  {day.participants.map((m) => <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>)}
+                  {day.participants.filter((m) => m.paid !== false).map((m) => <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>)}
                 </select>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-extrabold text-[#3c4f54]">敗者</span>
                 <select value={loserId} onChange={(e) => setLoserId(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-2 text-[13px]">
                   <option value="">選択</option>
-                  {day.participants.filter((m) => m.lineUserId !== winnerId).map((m) => <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>)}
+                  {day.participants.filter((m) => m.paid !== false && m.lineUserId !== winnerId).map((m) => <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>)}
                 </select>
               </label>
             </div>

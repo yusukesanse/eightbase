@@ -6,8 +6,8 @@ import {
   buildReservationSlotKey,
   intervalsOverlap,
   isLockBlocking,
-  timeToMin,
 } from "@/lib/reservations";
+import { timeToMin } from "@/lib/date";
 import { deletePasscode } from "@/lib/switchbot";
 import { getFacilityById } from "@/lib/facilities";
 

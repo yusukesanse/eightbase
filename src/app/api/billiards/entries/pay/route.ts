@@ -113,7 +113,8 @@ export async function POST(req: NextRequest) {
       });
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
-      if (code === "ENTRY_CLOSED") return NextResponse.json({ error: "ENTRY_CLOSED", message: "受付は締め切られました。" }, { status: 409 });
+      // 受付締切は開始時刻ベースになったので ENTRY_CLOSED は投げられない。締切後も参加者は支払える。
+      if (code === "DAY_FINISHED") return NextResponse.json({ error: "DAY_FINISHED", message: "この開催日は終了しています。" }, { status: 409 });
       if (code === "ENTRY_REMOVED" || code === "ENTRY_STATE_CHANGED") {
         return NextResponse.json({ error: "ENTRY_STATE_CHANGED", message: "参加表明の状態が変更されました。" }, { status: 409 });
       }

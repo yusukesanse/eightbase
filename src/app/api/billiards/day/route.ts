@@ -44,7 +44,9 @@ export async function GET(req: NextRequest) {
           participants: isGm
             ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId, paid: p.paid !== false }))
             : [],
-          paidCount: roster.length,
+          // 進行に参加できるのは支払い済みのみ。UIの人数表示・開始ガードはこれを見る。
+          paidCount: roster.filter((p) => p.paid !== false).length,
+          entryCount: roster.length,
           matches: [],
           standings: [],
         },
@@ -93,7 +95,8 @@ export async function GET(req: NextRequest) {
         startTime,
         entryClosed,
         participants,
-        paidCount: day.participants.length,
+        paidCount: day.participants.filter((p) => p.paid !== false).length,
+        entryCount: day.participants.length,
         matches,
         standings,
       },
