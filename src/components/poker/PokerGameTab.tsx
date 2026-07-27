@@ -39,9 +39,11 @@ interface DayDto {
   phase: "dealerSelect" | "ready" | "playing" | "reporting" | "finished";
   eventDate: string;
   minParticipants: number;
-  paidCount: number;
+  paidCount: number; // 支払い済み（＝進行に参加できる人数）
+  entryCount: number; // 名簿の人数（未払い含む）
+  iAmPaid: boolean;
   iAmParticipant: boolean;
-  participants: { displayName: string; pictureUrl?: string; isMe: boolean }[];
+  participants: { displayName: string; pictureUrl?: string; isMe: boolean; paid: boolean }[];
   gamesPlayed: number;
   currentGame: CurrentGame | null;
 }
@@ -153,26 +155,31 @@ function DealerSelect({ day, eventDate, onDone, setError }: { day: DayDto; event
       </div>
       <p className="text-[11.5px] text-[#231714]/80 leading-relaxed">
         ディーラーは進行役です（プレイには参加しません）。誰か1人が「ディーラーをやる」を押してください。
-        {day.gamesPlayed === 0 && "　最初のディーラーが「ゲーム開始」を押すと受付が締め切られます。"}
+        {day.gamesPlayed === 0 && "　受付は開催日の開始時刻で締め切られ、その後に最初の試合を始められます。"}
       </p>
       <div className="rounded-xl bg-[#f7faf8] px-3 py-2">
-        <div className="text-[10.5px] font-extrabold text-[#3c4f54] mb-1">参加者（{day.paidCount}名）</div>
+        <div className="text-[10.5px] font-extrabold text-[#3c4f54] mb-1">
+          参加者（支払い済み {day.paidCount}名{day.entryCount > day.paidCount ? ` ・ 未払い ${day.entryCount - day.paidCount}名` : ""}）
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {day.participants.map((p, i) => (
             <span key={i} className="inline-flex items-center rounded-2xl px-2.5 min-h-[30px] text-[12px] font-bold bg-white border" style={{ borderColor: p.isMe ? POKER_ACCENT : "#e4e7e9", color: "#231714" }}>
               {p.displayName}{p.isMe && "（あなた）"}
+              {!p.paid && <span className="ml-1 text-[10px] font-bold" style={{ color: "#a1702c" }}>未払い</span>}
             </span>
           ))}
         </div>
       </div>
-      {day.iAmParticipant ? (
+      {day.iAmParticipant && !day.iAmPaid ? (
+        <InfoCard text="参加費が未払いです。お支払いいただくと参加・ディーラーができます（「参加」タブからお支払いください）。" />
+      ) : day.iAmParticipant ? (
         <button onClick={become} disabled={busy || !enoughPeople} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: POKER_ACCENT }}>
           {busy ? "登録中…" : "ディーラーをやる"}
         </button>
       ) : (
         <InfoCard text="参加者のみディーラーになれます。" />
       )}
-      {!enoughPeople && <p className="text-[10.5px] text-center text-[#231714]/80">参加者が{day.minParticipants}名以上になると始められます。</p>}
+      {!enoughPeople && <p className="text-[10.5px] text-center text-[#231714]/80">支払い済みが{day.minParticipants}名以上になると始められます（未払いの方はその場でお支払いください）。</p>}
     </div>
   );
 }
