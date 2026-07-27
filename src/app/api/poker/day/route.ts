@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { getPokerDayState, fetchPokerParticipants } from "@/lib/pokerDay";
+import { getPokerDayState, fetchPokerParticipants, playingPokerParticipants } from "@/lib/pokerDay";
 import { isValidPokerDate } from "@/lib/pokerEntryValidation";
 import { POKER_MIN_PARTICIPANTS, POKER_GAME_DURATION_MIN, POKER_INITIAL_CHIPS, type PokerDayMember } from "@/types/poker";
 
@@ -41,10 +41,14 @@ export async function GET(req: NextRequest) {
     const iAmDealer = !!game && game.dealerId === userId && game.status !== "confirmed";
     const dealerName = game ? roster.find((p) => p.lineUserId === game.dealerId)?.displayName ?? "ディーラー" : null;
 
-    // 現在の試合のプレイヤー（＝参加者からディーラーを除く）。ディーラーには lineUserId と申告値も渡す。
+    // 現在の試合のプレイヤー（＝**支払い済みの**参加者からディーラーを除く）。
+    // 未払いは進行に参加しないので一覧にも入れない（サーバーの reportPokerChips/confirm と母数を揃える）。
+    // ディーラーには lineUserId と申告値も渡す。
     let currentGame: unknown = null;
     if (game && game.status !== "confirmed") {
-      const playerIds = day!.participants.map((p) => p.lineUserId).filter((id) => id !== game.dealerId);
+      const playerIds = playingPokerParticipants(day!)
+        .map((p) => p.lineUserId)
+        .filter((id) => id !== game.dealerId);
       const players = playerIds.map((id) => {
         const m = roster.find((p) => p.lineUserId === id);
         const reported = game.reports[id] !== undefined;
@@ -80,9 +84,12 @@ export async function GET(req: NextRequest) {
         phase,
         eventDate,
         minParticipants: POKER_MIN_PARTICIPANTS,
-        paidCount: roster.length,
+        // 進行に参加できるのは支払い済みだけ。開始可否の閾値もこれで見る。
+        paidCount: roster.filter((p) => p.paid !== false).length,
+        entryCount: roster.length,
+        iAmPaid: roster.some((p) => p.lineUserId === userId && p.paid !== false),
         iAmParticipant,
-        participants: roster.map((p) => ({ displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId })),
+        participants: roster.map((p) => ({ displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId, paid: p.paid !== false })),
         gamesPlayed: day ? day.games.filter((g) => g.status === "confirmed").length : 0,
         currentGame,
       },
