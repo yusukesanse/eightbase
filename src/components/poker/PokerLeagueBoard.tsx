@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
+import { GamePlayerHistorySheet } from "@/components/GamePlayerHistorySheet";
 import { POKER_ACCENT, POKER_TIER_COLOR, fmtChips } from "@/components/poker/pokerShared";
-import { PokerChipRace } from "@/components/poker/PokerChipRace";
+import { PokerRoyalBoard } from "@/components/poker/PokerRoyalBoard";
 import { type PokerTier } from "@/types/poker";
 
 /**
- * ポーカー リーグボード（通算チップ合計順）。tier P1(1-4)/P2(5-8)/P3(9+)。
- * データは GET /api/poker/standings。トレンドは各開催日の累積チップ推移。
+ * ポーカー リーグボード（Figma 4c Royal Board 111:49 準拠。ダーツ LeagueBoard と同デザイン言語）。
+ * ROYAL BOARD ヒーロー＋P1/P2/P3 のセクション別ランキング＋脚注。
+ * データは GET /api/poker/standings（通算チップ合計順。tier P1(1-4)/P2(5-8)/P3(9+)）。
  */
 
 interface Standing {
@@ -23,37 +25,29 @@ interface Standing {
   isMe: boolean;
   trend: number[];
 }
-interface Me { rank: number; tier: PokerTier; totalChips: number; days: number; firsts: number; gapToP1: number }
 
-const TIER_COLOR = POKER_TIER_COLOR;
-const TIER_LABEL: Record<PokerTier, string> = { P1: "P1（1〜4位）", P2: "P2（5〜8位）", P3: "P3（9位〜）" };
+const TIER = {
+  P1: { color: POKER_TIER_COLOR.P1, label: "P1.LEAGUE", range: "通算 1〜4位" },
+  P2: { color: POKER_TIER_COLOR.P2, label: "P2.LEAGUE", range: "通算 5〜8位" },
+  P3: { color: POKER_TIER_COLOR.P3, label: "P3.LEAGUE", range: "通算 9位以下" },
+} as const;
 
-function Sparkline({ points, color }: { points: number[]; color: string }) {
-  if (points.length < 2) return null;
-  const w = 56, h = 18, max = Math.max(...points, 1), min = Math.min(...points, 0);
-  const span = max - min || 1;
-  const d = points
-    .map((p, i) => `${(i / (points.length - 1)) * w},${h - ((p - min) / span) * h}`)
-    .join(" ");
-  return (
-    <svg width={w} height={h} className="shrink-0">
-      <polyline points={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
+// 自分の行の強調（金＝あなた。ROYAL BOARD の金縁リングと同系色）。
+const YOU_ROW = { background: "#fbf6e8", border: "1.5px solid #e6bd52" } as const;
 
 export function PokerLeagueBoard() {
   const [standings, setStandings] = useState<Standing[]>([]);
-  const [me, setMe] = useState<Me | null>(null);
+  const [counts, setCounts] = useState<Record<PokerTier, number>>({ P1: 0, P2: 0, P3: 0 });
   const [seasonName, setSeasonName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/poker/standings", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         setStandings(d.standings ?? []);
-        setMe(d.me ?? null);
+        setCounts(d.counts ?? { P1: 0, P2: 0, P3: 0 });
         setSeasonName(d.seasonName ?? null);
       })
       .catch(() => {})
@@ -76,52 +70,94 @@ export function PokerLeagueBoard() {
     );
   }
 
-  const tiers: PokerTier[] = ["P1", "P2", "P3"];
-
   return (
-    <div className="flex flex-col gap-4">
-      {/* ヒーロー: CHIP RACE（Figma hero-chip-race。通算チップの積み上げレース） */}
-      <PokerChipRace standings={standings} seasonName={seasonName} me={me} />
+    <div className="flex flex-col gap-[14px]">
+      {/* ヒーロー: ROYAL BOARD（上位12名のトランプカードグリッド） */}
+      <PokerRoyalBoard standings={standings} counts={counts} seasonName={seasonName} />
 
-      {tiers.map((tier) => {
+      {(["P1", "P2", "P3"] as PokerTier[]).map((tier) => {
         const rows = standings.filter((s) => s.tier === tier);
         if (rows.length === 0) return null;
         return (
-          <div key={tier} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-2 text-[12px] font-black text-white" style={{ background: TIER_COLOR[tier] }}>
-              {TIER_LABEL[tier]}
+          <div key={tier} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 px-0.5">
+              <span className="text-[13px] font-black" style={{ color: TIER[tier].color }}>{TIER[tier].label}</span>
+              <span className="text-[11px] text-[#97999d]">{TIER[tier].range}</span>
+              <div className="flex-1 h-px bg-[#eceff1]" />
             </div>
-            <div className="divide-y divide-gray-50">
-              {rows.map((s) => (
-                <div
-                  key={s.lineUserId}
-                  className="flex items-center gap-2.5 px-3 py-2.5"
-                  style={s.isMe ? { background: `color-mix(in srgb, ${POKER_ACCENT} 7%, #fff)` } : undefined}
-                >
-                  <span className="w-[24px] text-center font-black tabular-nums shrink-0" style={{ color: TIER_COLOR[tier], letterSpacing: "-.03em" }}>
-                    {s.rank}
-                  </span>
-                  <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold text-[#1c1f21] truncate">
-                      {s.displayName}
-                      {s.isMe && <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: POKER_ACCENT }}>YOU</span>}
-                    </div>
-                    <div className="text-[10px] text-[#3f4247] tabular-nums mt-0.5">
-                      {s.days}開催 ・ 1位 {s.firsts}回
-                    </div>
-                  </div>
-                  <Sparkline points={s.trend} color={TIER_COLOR[tier]} />
-                  <div className="text-right shrink-0 min-w-[58px]">
-                    <div className="text-[15px] font-black text-[#1c1f21] tabular-nums leading-none">{fmtChips(s.totalChips)}</div>
-                    <div className="text-[9px] font-bold text-[#3f4247] mt-0.5">チップ</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {rows.map((s) => (
+              <RankRow key={s.lineUserId} s={s} tierColor={TIER[tier].color} onSelect={setHistoryId} />
+            ))}
           </div>
         );
       })}
+
+      {/* 脚注 */}
+      <p className="px-0.5 text-[11px] text-[#97999d] leading-[1.6]">
+        順位は各開催の獲得チップを通算。同チップの場合は1位回数 → 出場数 → 名前順。
+      </p>
+
+      {historyId && (
+        <GamePlayerHistorySheet
+          lineUserId={historyId}
+          gameCategory="poker"
+          accent={POKER_ACCENT}
+          onClose={() => setHistoryId(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function RankRow({ s, tierColor, onSelect }: { s: Standing; tierColor: string; onSelect: (id: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(s.lineUserId)}
+      className="w-full text-left flex items-center gap-2.5 rounded-[14px] px-3 py-2.5 active:scale-[0.99] transition-transform"
+      style={s.isMe ? YOU_ROW : { border: "1px solid #eceff1", background: "#fff" }}
+    >
+      <span className="w-[22px] text-center text-[16px] font-black tabular-nums" style={{ color: tierColor }}>{s.rank}</span>
+      <Avatar src={s.pictureUrl} name={s.displayName} size={34} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[13.5px] font-bold text-[#1c1f21] truncate">{s.displayName}</span>
+          {s.isMe && <span className="shrink-0 text-[10.5px] font-bold" style={{ color: tierColor }}>YOU</span>}
+        </div>
+        <div className="text-[10.5px] text-[#97999d]">出場 {s.days}回 ・ 1位 {s.firsts}回</div>
+      </div>
+      <Sparkline data={s.trend} color={tierColor} />
+      <div className="flex items-end gap-[2px] shrink-0">
+        <span className="text-[16px] font-black text-[#1c1f21] tabular-nums leading-none">{fmtChips(s.totalChips)}</span>
+        <span className="text-[9.5px] font-bold text-[#97999d] leading-none">Chips</span>
+      </div>
+    </button>
+  );
+}
+
+/** 累積チップの推移スパークライン（開催日順）。1点以下はプレースホルダ。 */
+function Sparkline({ data, color, w = 52, h = 22 }: { data: number[]; color: string; w?: number; h?: number }) {
+  if (!data || data.length < 2) {
+    return (
+      <svg width={w} height={h} className="shrink-0" aria-hidden>
+        <line x1={2} y1={h - 4} x2={w - 2} y2={h - 4} stroke="#e4e7e9" strokeWidth={1.5} strokeLinecap="round" />
+      </svg>
+    );
+  }
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  const pad = 3;
+  const pts = data.map((v, i) => {
+    const x = pad + (i * (w - pad * 2)) / (data.length - 1);
+    const y = h - pad - ((v - min) / span) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = pts[pts.length - 1].split(",");
+  return (
+    <svg width={w} height={h} className="shrink-0" aria-hidden>
+      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+      <circle cx={last[0]} cy={last[1]} r={2} fill={color} />
+    </svg>
   );
 }
