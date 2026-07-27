@@ -203,6 +203,16 @@ export async function DELETE(req: NextRequest) {
     const season = await getActiveSeason("billiards");
     if (!season) return NextResponse.json({ success: true });
 
+    // 受付締切（開催日の開始時刻）を過ぎたら取消不可。
+    // 「締切までに参加表明した人＝その日の参加者」なので、締切後に抜けられると名簿が崩れる。
+    // 未払いのまま来ない人は、当日GMが参加者から外す運用（DELETE /api/{game}/day/participant）。
+    if (await isEntryClosedByTime("billiards", season.seasonId, eventDate)) {
+      return NextResponse.json(
+        { error: "ENTRY_DEADLINE_PASSED", message: "受付を締め切ったため取消できません。ご都合が悪い場合は当日のゲームマスターにお伝えください。" },
+        { status: 409 }
+      );
+    }
+
     const db = getDb();
     const entryId = buildBilliardsEntryId(season.seasonId, eventDate, userId);
     const ref = db.collection("billiardsEntries").doc(entryId);

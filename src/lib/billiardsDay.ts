@@ -14,7 +14,6 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { deriveStatus } from "@/lib/billiardsEntryStatus";
 import { isScheduledBilliardsDate, isBilliardsCancelledDate } from "@/lib/billiardsSchedule";
 import { computeBilliardsDay, rankBilliards } from "@/lib/billiardsScore";
-import { notifyAdmin } from "@/lib/adminNotify";
 import {
   BILLIARDS_MIN_PARTICIPANTS,
   BILLIARDS_MAX_LOSER_BALLS,
@@ -426,60 +425,75 @@ export async function cancelBilliardsDay(
 ): Promise<BilliardsCancelResult> {
   const db = getDb();
   const cancelRef = db.collection("billiardsCancelledDates").doc(eventDate);
-  if ((await cancelRef.get()).exists) return { status: "already" };
-
   const dayRef = db.collection("billiardsDayState").doc(billiardsDayId(seasonId, eventDate));
-  const daySnap = await dayRef.get();
-  if (daySnap.exists && (daySnap.data() as BilliardsDayState).finishedAt) return { status: "finished" };
-
-  const entrySnap = await db.collection("billiardsEntries").where("seasonId", "==", seasonId).where("eventDate", "==", eventDate).get();
-  const entries = entrySnap.docs.map((d) => ({ id: d.id, ...(d.data() as BilliardsEntry) }));
-  const seated = entries.filter((e) => deriveStatus(e) === "paid");
-  const reserved = entries.filter((e) => deriveStatus(e) === "reserved");
-
-  const nowIso = new Date().toISOString();
-  try {
-    await cancelRef.create({ seasonId, eventDate, reason: "manual", paidCount: seated.length, decidedAt: nowIso, decidedBy: gmUserId });
-  } catch {
-    return { status: "already" };
-  }
-
-  const refundable = seated.filter((e) => !!e.paymentTransactionId);
+  const entriesQuery = db
+    .collection("billiardsEntries")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", eventDate);
   const month = eventDate.slice(0, 7);
-  const batch = db.batch();
-  for (const e of refundable) {
-    batch.set(
-      db.collection("billiardsEntries").doc(e.id),
-      { status: "cancelRequested", paymentStatus: "cancelRequested", cancelReason: "forfeit", cancelRequestedAt: nowIso, updatedAt: nowIso },
-      { merge: true }
-    );
-  }
-  // 決済リンク発行済み（in-flight）の reserved は **削除しない**。orderId は entry にしか無く、
-  // 削除すると後から成立した決済を complete が照合できず取りこぼす（ダーツ/ポーカーと同方針）。
-  const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
-  for (const e of reservedToDelete) batch.delete(db.collection("billiardsEntries").doc(e.id));
-  for (const e of [...seated, ...reservedToDelete]) {
-    batch.delete(db.collection("billiardsMonthlyLocks").doc(`${seasonId}_${e.lineUserId}_${month}`));
-  }
-  if (daySnap.exists) batch.delete(dayRef);
 
-  try {
-    await batch.commit();
-  } catch (e) {
-    await cancelRef.delete().catch(() => {});
-    throw e;
-  }
-
-  await notifyAdmin(
-    "billiards_event_forfeit",
-    `${eventDate} は中止（流会）。返金対象 ${refundable.length}名（Squareで手動返金）。`,
-    {
-      eventDate,
-      paidCount: seated.length,
-      refundCount: refundable.length,
-      refunds: refundable.map((e) => ({ entryId: e.id, displayName: e.displayName, amount: e.paymentAmount ?? BILLIARDS_ENTRY_FEE, orderId: e.paymentTransactionId ?? null })),
+  // 中止判定・返金対象化・ロック解除・管理者通知を**1トランザクション**に閉じる
+  // （ダーツ/ポーカーと同方針）。分割すると「中止docは出来たのに返金対象リストが消える」
+  // 部分状態が起きうるため。通知も永続docにして取りこぼさない。
+  return db.runTransaction(async (tx) => {
+    const [cancelSnap, daySnap, entriesSnap] = await Promise.all([
+      tx.get(cancelRef),
+      tx.get(dayRef),
+      tx.get(entriesQuery),
+    ]);
+    if (cancelSnap.exists) return { status: "already" as const };
+    if (daySnap.exists && (daySnap.data() as BilliardsDayState).finishedAt) {
+      return { status: "finished" as const };
     }
-  );
 
-  return { status: "forfeited", paidCount: seated.length, refundCount: refundable.length };
+    const entries = entriesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as BilliardsEntry) }));
+    const seated = entries.filter((e) => deriveStatus(e) === "paid");
+    const reserved = entries.filter((e) => deriveStatus(e) === "reserved");
+    const refundable = seated.filter((e) => !!e.paymentTransactionId); // staff は免除＝対象外
+    // 決済リンク発行済み（in-flight）の reserved は **削除しない**。orderId は entry にしか無く、
+    // 削除すると後から成立した決済を complete が照合できず取りこぼす。
+    const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
+
+    const nowIso = new Date().toISOString();
+    tx.create(cancelRef, {
+      seasonId,
+      eventDate,
+      reason: "manual",
+      paidCount: seated.length,
+      decidedAt: nowIso,
+      decidedBy: gmUserId,
+    });
+    for (const e of refundable) {
+      tx.set(
+        db.collection("billiardsEntries").doc(e.id),
+        { status: "cancelRequested", paymentStatus: "cancelRequested", cancelReason: "forfeit", cancelRequestedAt: nowIso, updatedAt: nowIso },
+        { merge: true }
+      );
+    }
+    for (const e of reservedToDelete) tx.delete(db.collection("billiardsEntries").doc(e.id));
+    for (const e of [...seated, ...reserved]) {
+      tx.delete(db.collection("billiardsMonthlyLocks").doc(`${seasonId}_${e.lineUserId}_${month}`));
+    }
+    if (daySnap.exists) tx.delete(dayRef);
+
+    tx.create(db.collection("adminNotifications").doc(), {
+      type: "billiards_event_forfeit",
+      message: `${eventDate} は中止（流会）。返金対象 ${refundable.length}名（Squareで手動返金）。`,
+      data: {
+        eventDate,
+        paidCount: seated.length,
+        refundCount: refundable.length,
+        refunds: refundable.map((e) => ({
+          entryId: e.id,
+          displayName: e.displayName,
+          amount: e.paymentAmount ?? BILLIARDS_ENTRY_FEE,
+          orderId: e.paymentTransactionId ?? null,
+        })),
+      },
+      read: false,
+      createdAt: nowIso,
+    });
+
+    return { status: "forfeited" as const, paidCount: seated.length, refundCount: refundable.length };
+  });
 }
