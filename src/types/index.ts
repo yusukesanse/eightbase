@@ -134,9 +134,7 @@ export interface NewsItem {
   scheduledAt?: string; // ISO8601: この日時になったら自動公開
 }
 
-// ─── ゲーム（大会・トーナメント） ───────────────────────────────────────────────
-
-export type GameStatus = "upcoming" | "ongoing" | "awaiting_results" | "completed" | "cancelled";
+// ─── ゲーム種目 ───────────────────────────────────────────────────────────────
 
 /** スコアボード対象の4種目 */
 export const GAME_CATEGORIES = [
@@ -147,30 +145,6 @@ export const GAME_CATEGORIES = [
 ] as const;
 
 export type ScoreboardGameId = "mahjong" | "poker" | "billiards" | "darts";
-
-export interface Game {
-  gameId: string;
-  title: string;
-  category: string;       // GAME_CATEGORIES の id
-  categoryLabel?: string; // 旧データ互換用
-  description: string;
-  startAt: string;        // ISO8601
-  endAt?: string;         // ISO8601
-  location: string;
-  imageUrl?: string;
-  maxParticipants: number;
-  deadline: string;       // ISO8601: 申込締切
-  googleEventId?: string;
-  calendarId?: string;
-  status: GameStatus;
-  participantCount: number;
-  published: boolean;
-  scheduledAt?: string;   // ISO8601: 自動公開日時
-  seasonId?: string;      // 紐付けシーズンID
-  scoreRegistered?: boolean; // スコア登録済みフラグ
-  createdAt: string;
-  updatedAt: string;
-}
 
 // ─── スコアボード ─────────────────────────────────────────────────────────────
 
