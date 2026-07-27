@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
 import { getBilliardsDayState, fetchBilliardsParticipants, computeBilliardsDayScores } from "@/lib/billiardsDay";
 import { isValidBilliardsDate } from "@/lib/billiardsEntryValidation";
 
@@ -20,18 +20,21 @@ export async function GET(req: NextRequest) {
   const eventDate = req.nextUrl.searchParams.get("eventDate");
   if (!isValidBilliardsDate(eventDate)) return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
 
-  const isGm = isGameMaster(season, userId);
 
   try {
     const day = await getBilliardsDayState(season.seasonId, eventDate);
+    // 当日GM（シーズン固定GMではない）。未設定なら誰もGMではない。
+    const isGm = !!day?.gmUserId && day.gmUserId === userId;
+    const gameMasterName = day?.gmDisplayName ?? null;
 
-    if (!day) {
+    if (!day?.entryClosedAt) {
       const roster = isGm ? await fetchBilliardsParticipants(season.seasonId, eventDate) : [];
       return NextResponse.json(
         {
           started: false,
           finished: false,
           isGameMaster: isGm,
+          gameMasterName,
           participants: isGm
             ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId }))
             : [],
@@ -78,6 +81,7 @@ export async function GET(req: NextRequest) {
         started: !!day.entryClosedAt,
         finished: !!day.finishedAt,
         isGameMaster: isGm,
+        gameMasterName,
         participants,
         paidCount: day.participants.length,
         matches,

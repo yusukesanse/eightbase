@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { isDayGm, DAY_GM_REQUIRED_MESSAGE } from "@/lib/dayGameMaster";
 import { logBilliardsMatch, deleteBilliardsMatch } from "@/lib/billiardsDay";
 import { isValidBilliardsDate, isValidDocId } from "@/lib/billiardsEntryValidation";
 
@@ -15,7 +16,6 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   const season = await getActiveSeason("billiards");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
   const loserId: unknown = body?.loserId;
   const loserBalls = Number(body?.loserBalls);
   if (!isValidBilliardsDate(eventDate)) return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+
+  if (!(await isDayGm("billiards", season.seasonId, eventDate, userId))) {
+    return NextResponse.json({ error: DAY_GM_REQUIRED_MESSAGE }, { status: 403 });
+  }
   if (typeof winnerId !== "string" || typeof loserId !== "string" || !winnerId || !loserId) {
     return NextResponse.json({ error: "winnerId / loserId は必須です" }, { status: 400 });
   }
@@ -43,12 +47,15 @@ export async function DELETE(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   const season = await getActiveSeason("billiards");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   const matchId: unknown = body?.matchId;
   if (!isValidBilliardsDate(eventDate)) return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+
+  if (!(await isDayGm("billiards", season.seasonId, eventDate, userId))) {
+    return NextResponse.json({ error: DAY_GM_REQUIRED_MESSAGE }, { status: 403 });
+  }
   if (!isValidDocId(matchId)) return NextResponse.json({ error: "matchId が不正です" }, { status: 400 });
 
   try {

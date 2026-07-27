@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { isDayGm } from "@/lib/dayGameMaster";
 import { reportDartsScore } from "@/lib/dartsDay";
 import { isValidDartsDate } from "@/lib/dartsEntryValidation";
 import { DARTS_EVENT_ORDER, type DartsEventKind } from "@/types/darts";
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "targetUserId が不正です" }, { status: 400 });
   }
 
-  const isGm = isGameMaster(season, userId);
+  const isGm = await isDayGm("darts", season.seasonId, eventDate, userId);
 
   try {
     const result = await reportDartsScore(

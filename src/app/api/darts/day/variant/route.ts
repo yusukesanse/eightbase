@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { isDayGm, DAY_GM_REQUIRED_MESSAGE } from "@/lib/dayGameMaster";
 import { setZeroOneVariant } from "@/lib/dartsDay";
 import { isValidDartsDate } from "@/lib/dartsEntryValidation";
 import type { DartsZeroOneOut } from "@/types/darts";
@@ -19,9 +20,6 @@ export async function POST(req: NextRequest) {
 
   const season = await getActiveSeason("darts");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
@@ -29,6 +27,10 @@ export async function POST(req: NextRequest) {
   const out: unknown = body?.out;
   if (!isValidDartsDate(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+  }
+
+  if (!(await isDayGm("darts", season.seasonId, eventDate, userId))) {
+    return NextResponse.json({ error: DAY_GM_REQUIRED_MESSAGE }, { status: 403 });
   }
   if (typeof start !== "number" || !Number.isInteger(start) || start < 1 || start > 10000) {
     return NextResponse.json({ error: "元数（start）が不正です" }, { status: 400 });

@@ -220,10 +220,18 @@ export async function startDartsDay(
       };
     }
     const now = new Date().toISOString();
+    // ⚠️ tx.set は全上書き。当日GM（gmUserId/gmDisplayName）は必ず引き継ぐ。
+    // 落とすと開始した瞬間にGM不在になり、以降の進行が全部403になる。
+    const prev = snap.exists ? (snap.data() as DartsDayState) : null;
     const day: DartsDayState = {
       seasonId,
       eventDate,
       participants,
+      gmUserId: prev?.gmUserId ?? gmUserId,
+      gmDisplayName:
+        prev?.gmDisplayName ??
+        participants.find((p) => p.lineUserId === gmUserId)?.displayName ??
+        null,
       entryClosedAt: now,
       startedBy: gmUserId,
       zeroOneVariant: null,
@@ -235,6 +243,73 @@ export async function startDartsDay(
     };
     tx.set(dayRef, day);
     return { ok: true as const, already: false, paidCount: participants.length };
+  });
+}
+
+/**
+ * 「GMをやる」。呼び出したユーザー自身がこの開催日のGMになる（参加者のみ）。
+ * - 開始前は「支払い済み参加者」、開始後は「確定済み参加者」から資格を判定する。
+ * - **交代可**（担当者が帰ると当日フローが詰むため）。UI側で確認を出すこと。
+ * - 当日stateがまだ無ければ最小のdocを作る（`entryClosedAt` は打たない＝受付は開いたまま）。
+ */
+export async function claimDartsGm(
+  seasonId: string,
+  eventDate: string,
+  userId: string
+): Promise<DayMutationResult> {
+  const db = getDb();
+  if (!(await isScheduledDartsDate(seasonId, eventDate))) {
+    return { ok: false, status: 400, error: "開催日ではありません" };
+  }
+
+  const dayRef = db.collection("dartsDayState").doc(dartsDayId(seasonId, eventDate));
+  const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
+  const entriesQuery = db
+    .collection("dartsEntries")
+    .where("seasonId", "==", seasonId)
+    .where("eventDate", "==", eventDate);
+
+  return db.runTransaction(async (tx) => {
+    const [snap, cancelSnap, entriesSnap] = await Promise.all([
+      tx.get(dayRef),
+      tx.get(cancelRef),
+      tx.get(entriesQuery),
+    ]);
+    if (cancelSnap.exists) return { ok: false as const, status: 409, error: "この開催日は中止されました" };
+
+    const prev = snap.exists ? (snap.data() as DartsDayState) : null;
+    if (prev?.finishedAt) return { ok: false as const, status: 409, error: "この開催日は終了しています" };
+
+    // 開始後は確定済み参加者、開始前は現在の支払い済みから資格判定。
+    const roster = prev?.entryClosedAt ? prev.participants : paidParticipantsFromDocs(entriesSnap.docs);
+    const me = roster.find((p) => p.lineUserId === userId);
+    if (!me) {
+      return { ok: false as const, status: 403, error: "参加者（支払い済み）のみゲームマスターになれます" };
+    }
+
+    const now = new Date().toISOString();
+    if (prev) {
+      tx.set(dayRef, { gmUserId: userId, gmDisplayName: me.displayName, updatedAt: now }, { merge: true });
+    } else {
+      // 未開始・doc未作成。受付は開いたまま（entryClosedAt は打たない）。
+      const day: DartsDayState = {
+        seasonId,
+        eventDate,
+        participants: [],
+        gmUserId: userId,
+        gmDisplayName: me.displayName,
+        entryClosedAt: null,
+        startedBy: null,
+        zeroOneVariant: null,
+        cricketTeams: null,
+        events: buildInitialEvents(),
+        finishedAt: null,
+        finishedBy: null,
+        updatedAt: now,
+      };
+      tx.set(dayRef, day);
+    }
+    return { ok: true as const };
   });
 }
 

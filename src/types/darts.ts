@@ -137,6 +137,10 @@ export interface DartsDayState {
   seasonId: string;
   eventDate: string; // YYYY-MM-DD
   participants: DartsDayMember[]; // 開始時に確定（paid+staff）
+  // 当日GM。参加者が「GMをやる」で自己選出する（シーズン固定GM=Season.gameMasterIds は麻雀専用）。
+  // 交代可（担当が帰った場合の詰みを避ける）。displayName は表示用に非正規化（GET の追加読み取りを避ける）。
+  gmUserId?: string | null;
+  gmDisplayName?: string | null;
   entryClosedAt?: string | null; // GM「ゲーム開始」= 受付締切
   startedBy?: string | null;
   zeroOneVariant?: DartsZeroOneVariant | null; // GM 選択（ゼロワン申告の前提）

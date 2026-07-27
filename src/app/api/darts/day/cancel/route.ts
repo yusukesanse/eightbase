@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { isDayGm, DAY_GM_REQUIRED_MESSAGE } from "@/lib/dayGameMaster";
 import { cancelDartsDay } from "@/lib/dartsDay";
 import { isValidDartsDate } from "@/lib/dartsEntryValidation";
 import { writeAuditLog } from "@/lib/auditLog";
@@ -19,14 +20,15 @@ export async function POST(req: NextRequest) {
 
   const season = await getActiveSeason("darts");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   if (!isValidDartsDate(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+  }
+
+  if (!(await isDayGm("darts", season.seasonId, eventDate, userId))) {
+    return NextResponse.json({ error: DAY_GM_REQUIRED_MESSAGE }, { status: 403 });
   }
 
   try {

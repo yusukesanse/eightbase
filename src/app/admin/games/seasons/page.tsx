@@ -18,11 +18,11 @@ const GAME_LABELS: Record<ScoreboardGameId, string> = {
 const GAME_IDS: ScoreboardGameId[] = ["mahjong", "poker", "billiards", "darts"];
 
 /**
- * 当日GMフロー（GMが「ゲーム開始」で受付を締切→進行→流会を操作）を持つ種目。
- * これらはGM未設定だと当日「ゲーム開始」で受付を締め切れず、対局を開始できない。
- * ポーカーは閲覧のみで当日フローが無いため対象外。
+ * シーズン固定GMを使う種目＝**麻雀だけ**。
+ * ダーツ/ビリヤードは開催日ごとに参加者が「GMをやる」で自己選出する（`src/lib/dayGameMaster.ts`）、
+ * ポーカーは試合ごとのディーラー主導。いずれもシーズンでGMを決める必要がない。
  */
-const GM_DAY_FLOW_GAMES: ScoreboardGameId[] = ["mahjong", "darts", "billiards"];
+const GM_DAY_FLOW_GAMES: ScoreboardGameId[] = ["mahjong"];
 function usesGameMaster(gameCategory: ScoreboardGameId): boolean {
   return GM_DAY_FLOW_GAMES.includes(gameCategory);
 }

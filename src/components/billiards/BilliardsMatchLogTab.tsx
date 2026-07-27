@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { Avatar } from "@/components/ui/LineContact";
 import { BILLIARDS_ACCENT, todayJst } from "@/components/billiards/billiardsShared";
+import { DayGmBanner } from "@/components/games/DayGmBanner";
 import { BILLIARDS_MAX_LOSER_BALLS, BILLIARDS_MIN_PARTICIPANTS } from "@/types/billiards";
 
 /**
@@ -19,6 +20,7 @@ interface DayDto {
   started: boolean;
   finished: boolean;
   isGameMaster: boolean;
+  gameMasterName: string | null;
   participants: DayMember[];
   paidCount: number;
   matches: DayMatch[];
@@ -49,10 +51,19 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       {error && <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{error}</div>}
+      {/* 当日GMは開催日ごとに参加者が自己選出する（シーズン固定GMは麻雀だけ）。 */}
+      <DayGmBanner
+        game="billiards"
+        eventDate={eventDate}
+        isGameMaster={day.isGameMaster}
+        gameMasterName={day.gameMasterName}
+        finished={day.finished}
+        onChanged={refresh}
+      />
       {day.isGameMaster && <GmPanel day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
 
       {!day.started ? (
-        <InfoCard text="ゲームマスターの「ゲーム開始」を待っています。" />
+        <InfoCard text={day.gameMasterName ? "ゲームマスターの「ゲーム開始」を待っています。" : "まだゲームマスターが決まっていません。上の「GMをやる」から担当を決めてください。"} />
       ) : (
         <>
           {/* ライブ当日順位 */}

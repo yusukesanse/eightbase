@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { DARTS_ACCENT, todayJst, CheckIcon } from "@/components/darts/dartsShared";
 import { DartsGmPanel } from "@/components/darts/DartsGmPanel";
+import { DayGmBanner } from "@/components/games/DayGmBanner";
 import { DARTS_EVENT_ORDER, DARTS_EVENT_LABEL, type DartsEventKind, type DartsZeroOneOut } from "@/types/darts";
 
 /**
@@ -24,6 +25,7 @@ interface DayDto {
   started: boolean;
   finished: boolean;
   isGameMaster: boolean;
+  gameMasterName: string | null;
   participants: { displayName: string; pictureUrl?: string; isMe: boolean }[];
   events: EventStateDto[] | null;
   zeroOneVariant: { start: number; out: DartsZeroOneOut } | null;
@@ -65,7 +67,7 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
   // 参加者としての当日カード（GM でも参加者なら申告できる）。
   const body = (() => {
     if (!day || !day.started) {
-      return <InfoCard text="ゲームマスターの「ゲーム開始」を待っています。" />;
+      return <InfoCard text={day?.gameMasterName ? "ゲームマスターの「ゲーム開始」を待っています。" : "まだゲームマスターが決まっていません。上の「GMをやる」から担当を決めてください。"} />;
     }
     if (day.finished) {
       return <InfoCard text="本日の対局はすべて終了しました。結果は「リーグ」タブに反映されます。おつかれさまでした。" />;
@@ -139,6 +141,15 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 当日GMは開催日ごとに参加者が自己選出する（シーズン固定GMは麻雀だけ）。 */}
+      <DayGmBanner
+        game="darts"
+        eventDate={eventDate}
+        isGameMaster={!!day?.isGameMaster}
+        gameMasterName={day?.gameMasterName ?? null}
+        finished={!!day?.finished}
+        onChanged={() => { load(); onChanged(); }}
+      />
       {/* 参加者としての自分のスコア申告を先に出し、その下に GM パネル（名簿＋「全員のスコアを確定」）を置く。 */}
       {body}
       {gmPanel}

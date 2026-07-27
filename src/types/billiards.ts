@@ -81,6 +81,9 @@ export interface BilliardsDayState {
   seasonId: string;
   eventDate: string; // YYYY-MM-DD
   participants: BilliardsDayMember[]; // 開始時に確定（paid+staff）
+  // 当日GM。参加者が「GMをやる」で自己選出する（ダーツと同方式。詳細は src/lib/dayGameMaster.ts）。
+  gmUserId?: string | null;
+  gmDisplayName?: string | null;
   entryClosedAt?: string | null; // GM「ゲーム開始」= 受付締切
   startedBy?: string | null;
   matches: BilliardsMatchLog[]; // GM が記録した試合ログ

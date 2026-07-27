@@ -75,7 +75,16 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - 利用者アプリのタブ: **リーグ / 参加 / 卓確認・申告 / CS / ルール・約款**。
 
 ### ゲームマスター（GM）運用 ← 当日フローの中心
-- GM は `Season.gameMasterIds`（管理画面のシーズン編集で複数選択）。**空 = 従来どおりの自動進行**（後方互換）。
+- **シーズン固定GM（`Season.gameMasterIds`）を使うのは麻雀だけ。** 管理画面のシーズン編集でも
+  GM欄は麻雀を選んだときしか出ない（`GM_DAY_FLOW_GAMES`）。
+  - ダーツ / ビリヤード … **開催日ごとに参加者が「GMをやる」で自己選出**（`src/lib/dayGameMaster.ts`）。
+    保存先は `{game}DayState.gmUserId` / `gmDisplayName`。進行系APIの認可は `isDayGm()` に一本化。
+    **交代可**（担当が帰ると当日フローが詰むため）。UIは `DayGmBanner`（当日タブの先頭）。
+    ⚠️ `startDartsDay` / `startBilliardsDay` は当日stateを `tx.set` で**全上書き**するので、
+    新stateを組むとき `gmUserId`/`gmDisplayName` を必ず引き継ぐこと（落とすと開始直後にGM不在＝全操作403）。
+    回帰テスト: `__tests__/unit/lib/dayGameMasterTx.test.ts`。
+  - ポーカー … 試合ごとにディーラーを自己選出（GMの概念なし）。
+- 以下は**麻雀の**GM仕様。GM は `Season.gameMasterIds`（管理画面のシーズン編集で複数選択）。**空 = 従来どおりの自動進行**（後方互換）。
 - **⚠️ 本番のアクティブな麻雀シーズンには GM を1名以上設定すること。** 未設定だと受付が締まらず、流会もできない。
 - 当日の流れ:
   1. GM が「ゲーム開始（受付を締め切る）」→ `mahjongDayState.entryClosedAt` を打刻。**押した瞬間が締切**で、以降は参加表明も参加費の支払いも不可（`POST /api/mahjong/day/start`）。支払い済み4名未満は開始できない。

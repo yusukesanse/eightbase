@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
 import {
   getDartsDayState,
   fetchDartsParticipants,
@@ -28,19 +28,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
   }
 
-  const isGm = isGameMaster(season, userId);
 
   try {
     const day = await getDartsDayState(season.seasonId, eventDate);
+    // 当日GM（シーズン固定GMではない）。未設定なら誰もGMではない。
+    const isGm = !!day?.gmUserId && day.gmUserId === userId;
+    const gameMasterName = day?.gmDisplayName ?? null;
 
     // 未開始: GM は現在の支払い済みロスターを、参加者は最小情報のみ。
-    if (!day) {
+    if (!day?.entryClosedAt) {
       const roster = isGm ? await fetchDartsParticipants(season.seasonId, eventDate) : [];
       return NextResponse.json(
         {
           started: false,
           finished: false,
           isGameMaster: isGm,
+          gameMasterName,
           participants: isGm
             ? roster.map((p) => ({ lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId }))
             : [],
@@ -123,6 +126,7 @@ export async function GET(req: NextRequest) {
         started: !!day.entryClosedAt,
         finished: !!day.finishedAt,
         isGameMaster: isGm,
+        gameMasterName,
         participants,
         paidCount: day.participants.length,
         events,
