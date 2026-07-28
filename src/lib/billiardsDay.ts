@@ -11,6 +11,7 @@
  */
 
 import { getDb } from "@/lib/firebaseAdmin";
+import { sendGameForfeitNotice } from "@/lib/line";
 import { deriveStatus } from "@/lib/billiardsEntryStatus";
 import { isScheduledBilliardsDate, isBilliardsCancelledDate } from "@/lib/billiardsSchedule";
 import { computeBilliardsDay, rankBilliards } from "@/lib/billiardsScore";
@@ -424,6 +425,9 @@ export async function cancelBilliardsDay(
   gmUserId: string
 ): Promise<BilliardsCancelResult> {
   const db = getDb();
+  // 中止が確定したら参加者へLINEで知らせる（tx の外＝コミット後に送る）。
+  // 未払いの人にも送る（当日来ても開催されないため）。文面は返金有無で出し分ける。
+  let notifyTargets: { lineUserId: string; paid: boolean }[] = [];
   const cancelRef = db.collection("billiardsCancelledDates").doc(eventDate);
   const dayRef = db.collection("billiardsDayState").doc(billiardsDayId(seasonId, eventDate));
   const entriesQuery = db
@@ -435,7 +439,7 @@ export async function cancelBilliardsDay(
   // 中止判定・返金対象化・ロック解除・管理者通知を**1トランザクション**に閉じる
   // （ダーツ/ポーカーと同方針）。分割すると「中止docは出来たのに返金対象リストが消える」
   // 部分状態が起きうるため。通知も永続docにして取りこぼさない。
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const [cancelSnap, daySnap, entriesSnap] = await Promise.all([
       tx.get(cancelRef),
       tx.get(dayRef),
@@ -454,6 +458,11 @@ export async function cancelBilliardsDay(
     // 削除すると後から成立した決済を complete が照合できず取りこぼす。
     const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
 
+    // tx は再試行されうるので毎回入れ直す。
+    notifyTargets = [
+      ...seated.map((e) => ({ lineUserId: e.lineUserId, paid: true })),
+      ...reserved.map((e) => ({ lineUserId: e.lineUserId, paid: false })),
+    ];
     const nowIso = new Date().toISOString();
     tx.create(cancelRef, {
       seasonId,
@@ -496,4 +505,12 @@ export async function cancelBilliardsDay(
 
     return { status: "forfeited" as const, paidCount: seated.length, refundCount: refundable.length };
   });
+
+  if (result.status === "forfeited") {
+    // 送信失敗で中止処理を巻き戻さない（通知は best-effort）。
+    await Promise.allSettled(
+      notifyTargets.map((t) => sendGameForfeitNotice(t.lineUserId, { gameLabel: "ビリヤードリーグ", eventDate, paid: t.paid }))
+    );
+  }
+  return result;
 }

@@ -16,6 +16,7 @@
  */
 
 import { getDb } from "@/lib/firebaseAdmin";
+import { sendGameForfeitNotice } from "@/lib/line";
 import { deriveStatus } from "@/lib/dartsEntryStatus";
 import { isDangerousObjectKey } from "@/lib/dartsEntryValidation";
 import { isScheduledDartsDate } from "@/lib/dartsSchedule";
@@ -729,6 +730,9 @@ export async function cancelDartsDay(
   gmUserId: string
 ): Promise<DartsCancelResult> {
   const db = getDb();
+  // 中止が確定したら参加者へLINEで知らせる（tx の外＝コミット後に送る）。
+  // 未払いの人にも送る（当日来ても開催されないため）。文面は返金有無で出し分ける。
+  let notifyTargets: { lineUserId: string; paid: boolean }[] = [];
   const cancelRef = db.collection("dartsCancelledDates").doc(eventDate);
   const dayRef = db.collection("dartsDayState").doc(dartsDayId(seasonId, eventDate));
   const entriesQuery = db
@@ -742,7 +746,7 @@ export async function cancelDartsDay(
   // - cancelRef 存在チェックも tx 内なので二重中止は冪等成功。
   // - 通知（adminNotifications doc）も同 tx で作るので、中止と通知が「両方 or どちらも無し」＝返金対象を失わない。
   // - 対象は当日エントリー(≤定員)のみなので tx の書き込み上限に収まる。外部API呼び出しは行わない。
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const cancelSnap = await tx.get(cancelRef);
     if (cancelSnap.exists) return { status: "already" as const };
 
@@ -761,6 +765,11 @@ export async function cancelDartsDay(
     // entry を残して complete 側で返金待ちに回す（cancelRef があるので paid にはならない）。
     const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
 
+    // tx は再試行されうるので毎回入れ直す。
+    notifyTargets = [
+      ...seated.map((e) => ({ lineUserId: e.lineUserId, paid: true })),
+      ...reserved.map((e) => ({ lineUserId: e.lineUserId, paid: false })),
+    ];
     const nowIso = new Date().toISOString();
 
     // 書き込み（全ての読み取りの後）。
@@ -813,4 +822,12 @@ export async function cancelDartsDay(
 
     return { status: "forfeited" as const, paidCount: seated.length, refundCount: refundable.length };
   });
+
+  if (result.status === "forfeited") {
+    // 送信失敗で中止処理を巻き戻さない（通知は best-effort）。
+    await Promise.allSettled(
+      notifyTargets.map((t) => sendGameForfeitNotice(t.lineUserId, { gameLabel: "ダーツリーグ", eventDate, paid: t.paid }))
+    );
+  }
+  return result;
 }

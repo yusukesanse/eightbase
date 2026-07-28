@@ -20,6 +20,7 @@
  */
 
 import { getDb } from "@/lib/firebaseAdmin";
+import { sendGameForfeitNotice } from "@/lib/line";
 import { deriveStatus } from "@/lib/pokerEntryStatus";
 import { isScheduledPokerDate } from "@/lib/pokerSchedule";
 import { computePokerDay, rankByChips } from "@/lib/pokerScore";
@@ -425,6 +426,9 @@ export async function cancelPokerDay(
   byUserId: string
 ): Promise<PokerCancelResult> {
   const db = getDb();
+  // 中止が確定したら参加者へLINEで知らせる（tx の外＝コミット後に送る）。
+  // 未払いの人にも送る（当日来ても開催されないため）。文面は返金有無で出し分ける。
+  let notifyTargets: { lineUserId: string; paid: boolean }[] = [];
   const cancelRef = db.collection("pokerCancelledDates").doc(eventDate);
   const dayRef = db.collection("pokerDayState").doc(pokerDayId(seasonId, eventDate));
   const entriesQuery = db
@@ -433,7 +437,7 @@ export async function cancelPokerDay(
     .where("eventDate", "==", eventDate);
   const month = eventDate.slice(0, 7);
 
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const cancelSnap = await tx.get(cancelRef);
     if (cancelSnap.exists) return { status: "already" as const };
 
@@ -452,6 +456,11 @@ export async function cancelPokerDay(
     const refundable = seated.filter((e) => !!e.paymentTransactionId); // staff は免除＝対象外
     const reservedToDelete = reserved.filter((e) => !e.paymentTransactionId);
 
+    // tx は再試行されうるので毎回入れ直す。
+    notifyTargets = [
+      ...seated.map((e) => ({ lineUserId: e.lineUserId, paid: true })),
+      ...reserved.map((e) => ({ lineUserId: e.lineUserId, paid: false })),
+    ];
     const nowIso = new Date().toISOString();
     tx.create(cancelRef, {
       seasonId,
@@ -494,4 +503,12 @@ export async function cancelPokerDay(
 
     return { status: "forfeited" as const, paidCount: seated.length, refundCount: refundable.length };
   });
+
+  if (result.status === "forfeited") {
+    // 送信失敗で中止処理を巻き戻さない（通知は best-effort）。
+    await Promise.allSettled(
+      notifyTargets.map((t) => sendGameForfeitNotice(t.lineUserId, { gameLabel: "ポーカーリーグ", eventDate, paid: t.paid }))
+    );
+  }
+  return result;
 }

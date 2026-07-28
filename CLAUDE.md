@@ -287,4 +287,9 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
 ### LINE 公式アカウント配信（role 別文面・宛先）
 - 一斉配信の宛先は必ず `getActiveLineUserIdsByRoles(roles)`（`src/lib/firebaseAdmin.ts`）で **登録ユーザーの選択 role のみ**に絞る。**friend 全体への broadcast API は使わない**（未登録フォロワー＝第三者に届く）。
 - コンテンツ公開: news/event/game は doc の `lineNotify`（既定ON）＋ `lineBroadcastAudience: UserRole[]`（未設定は種別デフォルト＝news/event: member+staff / game: all）に従い、`broadcastContentPublished(contentType, title, audience)`（`src/lib/line.ts`）が **role 別文面**で送る。ゲストは会員専用ルートに入れないので news/event のゲスト宛リンクは `/info`。管理UIは news/events の編集画面（`LineAudienceField`）。cron 公開（`api/cron/publish`）も同設定を参照。
+- **開催日の中止（流会）は参加者へLINEで通知する**（4種目共通・`sendGameForfeitNotice`）。
+  宛先は**その開催日の参加者だけ**（lineUserId を個別 push・一斉配信APIは使わない）。
+  未払いの人にも送る（当日来ても開催されないため）＝文面だけ返金有無で出し分ける。
+  送信はトランザクションの**外**（コミット後）で `Promise.allSettled`＝失敗しても中止処理は巻き戻さない。
+  ※ `pushMessage` は `LINE_CHANNEL_ACCESS_TOKEN` 未設定ならスキップする（テスト・未構成環境で誤送信しない）。
 - 管理者アプリ「メッセージ送信」（`/admin/messages`・`/api/admin/messages`）: 自由文＋任意リンクを宛先 role 選択で `sendAdminMessage` 配信。送信履歴は `adminMessageLogs`。要件: `docs/requirements/LINE公式アカウント-配信文面-区分-要件定義.md`。

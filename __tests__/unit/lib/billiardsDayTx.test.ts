@@ -12,6 +12,7 @@
  */
 
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: jest.fn() }));
+jest.mock("@/lib/line", () => ({ sendGameForfeitNotice: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/billiardsSchedule", () => ({
   isScheduledBilliardsDate: jest.fn().mockResolvedValue(true),
   isBilliardsCancelledDate: jest.fn().mockResolvedValue(false),
