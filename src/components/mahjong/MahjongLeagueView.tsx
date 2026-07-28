@@ -89,24 +89,33 @@ export function MahjongLeagueView() {
   }, []);
 
   // silent=true はバックグラウンド更新（ポーリング/操作後）。loading を触らず全画面スピナーを出さない。
-  const loadCore = useCallback(async (silent = false) => {
+  /**
+   * @param withStandings 通算順位も取り直すか。
+   *   ⚠️ /api/mahjong/standings は **scores をシーズン全件スキャン**するので、
+   *   15秒ポーリングで毎回叩くと閲覧者×開催数に比例して読み取りが膨張する
+   *   （過去に無料枠5万件/日を焼き切った実績あり）。順位が動くのは「本日終了」の瞬間だけなので、
+   *   ポーリングでは取りに行かず、初回・シーズン切替・申告後だけ取り直す。
+   */
+  const loadCore = useCallback(async (silent = false, withStandings = true) => {
     if (!silent) setLoading(true);
     try {
       const standingsUrl = selectedSeasonId
         ? `/api/mahjong/standings?seasonId=${encodeURIComponent(selectedSeasonId)}`
         : "/api/mahjong/standings";
       const [sRes, tRes, eRes] = await Promise.all([
-        fetch(standingsUrl, { credentials: "include" }),
+        withStandings ? fetch(standingsUrl, { credentials: "include" }) : Promise.resolve(null),
         fetch("/api/mahjong/tables?mine=1", { credentials: "include" }),
         fetch("/api/mahjong/entries?mine=1", { credentials: "include" }),
       ]);
-      const sData = await sRes.json();
+      const sData = sRes ? await sRes.json() : null;
       const tData = await tRes.json();
       const eData = await eRes.json();
-      setStandings(sData.standings ?? []);
-      setCurrentUserId(sData.currentUserId);
-      setRankingMetric(sData.rankingMetric === "total" ? "total" : "average");
-      setViewSeasonId(sData.seasonId ?? selectedSeasonId ?? undefined);
+      if (sData) {
+        setStandings(sData.standings ?? []);
+        setCurrentUserId(sData.currentUserId);
+        setRankingMetric(sData.rankingMetric === "total" ? "total" : "average");
+        setViewSeasonId(sData.seasonId ?? selectedSeasonId ?? undefined);
+      }
       setTables(tData.tables ?? []);
 
       // 自分の参加日＋支払い状態（月1回制御・カレンダー表示に使う）
@@ -129,8 +138,9 @@ export function MahjongLeagueView() {
   useEffect(() => {
     loadCore();
   }, [loadCore]);
-  // 参加状況・卓/順位を追従（15秒ポーリング＋復帰時）。ポーリングはサイレント更新。
-  useAutoRefresh(() => loadCore(true), 15000);
+  // 参加状況・卓を追従（15秒ポーリング＋復帰時）。サイレント更新。
+  // 通算順位はポーリング対象外（全件スキャンのため。上記 loadCore のコメント参照）。
+  useAutoRefresh(() => loadCore(true, false), 15000);
 
   // Square 参加費決済の戻り: ?mjpay=<エントリーID> を確定処理する（決済導線はこのビューに集約）
   useEffect(() => {

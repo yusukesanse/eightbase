@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { GamePlayerHistorySheet } from "@/components/GamePlayerHistorySheet";
 import { GameLeagueBoard, type GameLeagueStanding } from "@/components/games/GameLeagueBoard";
 import { BILLIARDS_ACCENT } from "@/components/billiards/billiardsShared";
@@ -43,7 +42,10 @@ export function BilliardsLeagueBoard() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, []);
-  useAutoRefresh(() => fetch("/api/billiards/standings", { credentials: "include" }).then((r) => r.json()).then((d) => !d.error && setData(d)).catch(() => {}), 15000);
+  // ⚠️ 通算順位はポーリングしない。
+  // /api/{game}/standings は **scores をシーズン全件スキャン**するため、15秒ポーリングだと
+  // 閲覧者×開催数に比例して読み取りが膨張する（過去に無料枠5万件/日を焼き切った実績あり）。
+  // 順位が動くのは「本日終了」を押した瞬間だけなので、マウント時の取得で十分。
 
   if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
 

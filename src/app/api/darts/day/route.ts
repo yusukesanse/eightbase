@@ -34,15 +34,25 @@ export async function GET(req: NextRequest) {
 
   try {
     const day = await getDartsDayState(season.seasonId, eventDate);
-    // 自分がこの開催日に参加しているか。決定的IDなので1 doc 読むだけで判る（全件クエリを避ける）。
-    // 当日の進行画面は参加者にだけ意味があるので、UIの出し分けに使う。
-    const myEntry = (await getDb().collection("dartsEntries").doc(buildDartsEntryId(season.seasonId, eventDate, userId)).get()).data() as
-      | { status?: string; paymentStatus?: string }
-      | undefined;
-    const iAmParticipant = !!myEntry && myEntry.status !== "refunded" && myEntry.status !== "cancelRequested";
-    // 受付締切は「開催日の開始時刻」（GM操作ではない）。UIの出し分けに使う。
-    const startTime = await getScheduleStartTime("darts", season.seasonId, eventDate);
-    const entryClosed = isPastEntryDeadline(eventDate, startTime);
+    // 読み取りを最小化する（当日タブは全参加者が12秒間隔でポーリングするため）。
+    //  - 開始後: 締切済みは自明なので日程docを読まない。参加判定も participants から導ける ⇒ **1 read**
+    //  - 開始前: 日程doc（開始時刻＝受付締切）と自分のエントリー（決定的ID）を各1 read
+    const started = !!day?.entryClosedAt;
+    let startTime: string | null = null;
+    let entryClosed = true;
+    if (!started) {
+      startTime = await getScheduleStartTime("darts", season.seasonId, eventDate);
+      entryClosed = isPastEntryDeadline(eventDate, startTime);
+    }
+    let iAmParticipant: boolean;
+    if (started) {
+      iAmParticipant = (day?.participants ?? []).some((p) => p.lineUserId === userId);
+    } else {
+      const myEntry = (await getDb().collection("dartsEntries").doc(buildDartsEntryId(season.seasonId, eventDate, userId)).get()).data() as
+        | { status?: string }
+        | undefined;
+      iAmParticipant = !!myEntry && myEntry.status !== "refunded" && myEntry.status !== "cancelRequested";
+    }
     // 当日GM（シーズン固定GMではない）。未設定なら誰もGMではない。
     const isGm = !!day?.gmUserId && day.gmUserId === userId;
     const gameMasterName = day?.gmDisplayName ?? null;
