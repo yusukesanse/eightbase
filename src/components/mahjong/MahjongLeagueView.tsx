@@ -14,6 +14,7 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { JoinTab } from "@/components/mahjong/MahjongJoinTab";
 import { ReportTab } from "@/components/mahjong/MahjongReportTab";
 import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
+import { DayTabPlaceholder } from "@/components/games/DayTabPlaceholder";
 import { MahjongRulesTab } from "@/components/mahjong/MahjongRulesTab";
 
 /**
@@ -173,7 +174,8 @@ export function MahjongLeagueView() {
           [
             { id: "league", label: "リーグ", enabled: true },
             { id: "join", label: "参加", enabled: true },
-            { id: "report", label: "対戦記録", enabled: isParticipating },
+            // タブ自体は常に開ける（他3種目と挙動を揃える）。非参加者には中身でプレースホルダを出す。
+            { id: "report", label: "対戦記録", enabled: true },
             { id: "cs", label: "CS", enabled: true },
             { id: "rules", label: "ルール/約款", enabled: true },
           ] as { id: SubTab; label: string; enabled: boolean }[]
@@ -226,10 +228,14 @@ export function MahjongLeagueView() {
           onChanged={() => loadCore(true)}
         />
       ) : subTab === "report" ? (
-        <ReportTab
-          tables={tables}
-          onChanged={() => loadCore(true)}
-        />
+        isParticipating ? (
+          <ReportTab
+            tables={tables}
+            onChanged={() => loadCore(true)}
+          />
+        ) : (
+          <DayTabPlaceholder />
+        )
       ) : subTab === "cs" ? (
         <MahjongCsView />
       ) : (

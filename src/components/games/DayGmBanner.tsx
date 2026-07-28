@@ -17,7 +17,6 @@ export function DayGmBanner({
   finished,
   entryClosed,
   startTime,
-  iAmParticipant,
   onChanged,
 }: {
   game: "darts" | "billiards";
@@ -29,8 +28,6 @@ export function DayGmBanner({
   entryClosed?: boolean;
   /** 開催日の開始時刻（HH:MM・JST）。締切前の案内に出す。 */
   startTime?: string | null;
-  /** この開催日に参加表明しているか。当日の進行UIは参加者にだけ意味があるので出し分ける。 */
-  iAmParticipant?: boolean;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -38,17 +35,6 @@ export function DayGmBanner({
 
   if (finished) return null;
 
-  // 非参加者には当日の進行UI（GM選出）を見せない。参加すれば表示されることだけ伝える。
-  if (iAmParticipant === false) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-        <div className="text-[13px] font-extrabold text-[#231714]">この開催日には参加していません</div>
-        <div className="text-[11px] text-[#3c4f54] mt-0.5">
-          「参加」タブから参加すると、当日の進行画面（ゲームマスターの選出・スコア申告）が表示されます。
-        </div>
-      </div>
-    );
-  }
 
   // 締切前はGMを決めない（参加者が確定していないため）。開始時刻＝受付締切であることだけ伝える。
   if (entryClosed === false) {

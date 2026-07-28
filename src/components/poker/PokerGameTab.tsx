@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import { DayTabPlaceholder } from "@/components/games/DayTabPlaceholder";
 import { POKER_ACCENT, todayJst, CheckIcon, fmtChips } from "@/components/poker/pokerShared";
 import { POKER_INITIAL_CHIPS } from "@/types/poker";
 
@@ -99,7 +100,8 @@ export function PokerGameTab({ onChanged }: { onChanged: () => void }) {
       </div>
     );
   }
-  if (!day) return <InfoCard text={error ?? "読み込みに失敗しました。"} />;
+  // 参加者以外（シーズン未作成・APIエラーで day が無い場合も含む）には出さない。
+  if (!day || !day.iAmParticipant) return <DayTabPlaceholder />;
   if (day.finished) return <InfoCard text="本日の対局はすべて終了しました。結果は「リーグ」タブに反映されます。" />;
 
   return (
@@ -120,10 +122,6 @@ export function PokerGameTab({ onChanged }: { onChanged: () => void }) {
           </span>
         )}
       </div>
-
-      {!day.iAmParticipant && !day.started && (
-        <InfoCard text="この開催日に参加していません。参加タブから参加してください。" />
-      )}
 
       {day.phase === "dealerSelect" && <DealerSelect day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
       {day.phase === "ready" && day.currentGame && <ReadyPhase game={day.currentGame} eventDate={eventDate} onDone={refresh} setError={setError} />}
@@ -170,14 +168,12 @@ function DealerSelect({ day, eventDate, onDone, setError }: { day: DayDto; event
           ))}
         </div>
       </div>
-      {day.iAmParticipant && !day.iAmPaid ? (
+      {!day.iAmPaid ? (
         <InfoCard text="参加費が未払いです。お支払いいただくと参加・ディーラーができます（「参加」タブからお支払いください）。" />
-      ) : day.iAmParticipant ? (
+      ) : (
         <button onClick={become} disabled={busy || !enoughPeople} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: POKER_ACCENT }}>
           {busy ? "登録中…" : "ディーラーをやる"}
         </button>
-      ) : (
-        <InfoCard text="この開催日には参加していません。「参加」タブから参加すると、当日の進行画面が表示されます。" />
       )}
       {!enoughPeople && <p className="text-[10.5px] text-center text-[#231714]/80">支払い済みが{day.minParticipants}名以上になると始められます（未払いの方はその場でお支払いください）。</p>}
     </div>
