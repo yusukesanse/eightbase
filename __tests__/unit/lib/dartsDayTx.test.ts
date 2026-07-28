@@ -10,12 +10,14 @@
  */
 
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: jest.fn() }));
+jest.mock("@/lib/line", () => ({ sendGameForfeitNotice: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/dartsSchedule", () => ({
   isScheduledDartsDate: jest.fn().mockResolvedValue(true),
   isDartsCancelledDate: jest.fn().mockResolvedValue(false),
 }));
 
 import { getDb } from "@/lib/firebaseAdmin";
+import { sendGameForfeitNotice } from "@/lib/line";
 import {
   startDartsDay,
   cancelDartsDay,
@@ -342,5 +344,34 @@ describe("confirmDartsEvent（GM確定・自動確定は廃止）", () => {
     writeDay({ ...(dayDoc() as DartsDayState), finishedAt: "2026-07-16T12:00:00.000Z" });
     const r = await confirmDartsEvent(SEASON, DATE, "zeroOne");
     expect(r).toMatchObject({ ok: false, status: 409 });
+  });
+});
+
+/* ───────── 中止時の利用者向けLINE通知 ───────── */
+describe("cancelDartsDay の参加者通知", () => {
+  test("支払い済み・未払いの両方へ送る（文面は返金有無で出し分け）", async () => {
+    seedPaidEntry("a", 0);
+    seedPaidEntry("b", 1);
+    seedReservedEntry("z", 0);
+    (sendGameForfeitNotice as jest.Mock).mockClear();
+
+    const r = await cancelDartsDay(SEASON, DATE, "gm");
+    expect(r).toMatchObject({ status: "forfeited" });
+
+    const calls = (sendGameForfeitNotice as jest.Mock).mock.calls;
+    const byUser = new Map(calls.map((c) => [c[0], c[1]]));
+    expect(byUser.get("a")).toMatchObject({ gameLabel: "ダーツリーグ", eventDate: DATE, paid: true });
+    expect(byUser.get("z")).toMatchObject({ paid: false }); // 未払いにも「開催されない」ことは伝える
+    expect(byUser.size).toBe(3);
+  });
+
+  test("二重中止（already）では送らない", async () => {
+    seedPaidEntry("a", 0);
+    await cancelDartsDay(SEASON, DATE, "gm");
+    (sendGameForfeitNotice as jest.Mock).mockClear();
+
+    const r = await cancelDartsDay(SEASON, DATE, "gm");
+    expect(r).toMatchObject({ status: "already" });
+    expect((sendGameForfeitNotice as jest.Mock).mock.calls.length).toBe(0);
   });
 });

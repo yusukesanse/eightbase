@@ -10,6 +10,12 @@ import type { UserRole } from "./roles";
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 
 async function pushMessage(userId: string, messages: object[]) {
+  // トークン未設定（ローカル・テスト・未構成の環境）では送らない。
+  // 以前は `Bearer undefined` で LINE API を叩いて必ず失敗していた。
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    console.warn("[line] LINE_CHANNEL_ACCESS_TOKEN 未設定のため push をスキップしました");
+    return;
+  }
   const res = await fetch(`${LINE_API_BASE}/message/push`, {
     method: "POST",
     headers: {
@@ -259,15 +265,25 @@ export async function sendReservationReminder(
 }
 
 // ─── 麻雀リーグ 人数不足による中止（流会）通知 ──────────────────────────────
-export async function sendMahjongForfeitNotice(
+/**
+ * 開催日の中止（流会）を参加者へLINEで知らせる（4種目共通）。
+ *
+ * - 宛先は**その開催日の参加者だけ**（lineUserId を個別 push）。一斉配信APIは使わない。
+ * - 未払いの人にも送る（当日来ても開催されないため）。文面だけ返金有無で出し分ける。
+ * - 送信失敗で中止処理を巻き戻さないこと（呼び出し側は Promise.allSettled で流す）。
+ */
+export async function sendGameForfeitNotice(
   lineUserId: string,
-  { eventDate }: { eventDate: string }
+  { gameLabel, eventDate, paid }: { gameLabel: string; eventDate: string; paid: boolean }
 ) {
   const dateLabel = formatDate(eventDate);
+  const tail = paid
+    ? "お支払いいただいた参加費は返金対応いたします（担当より順次ご連絡します）。"
+    : "参加費のお支払いは不要です。次回の開催日にぜひご参加ください。";
   await pushMessage(lineUserId, [
     {
       type: "flex",
-      altText: `【麻雀リーグ 中止】${dateLabel} は人数不足のため中止です`,
+      altText: `【${gameLabel} 中止】${dateLabel} は中止になりました`,
       contents: {
         type: "bubble",
         header: {
@@ -276,7 +292,7 @@ export async function sendMahjongForfeitNotice(
           backgroundColor: "#d8a526",
           paddingAll: "14px",
           contents: [
-            { type: "text", text: "本日のリーグ戦は中止です", color: "#231714", weight: "bold", size: "md" },
+            { type: "text", text: `${gameLabel}は中止です`, color: "#231714", weight: "bold", size: "md" },
           ],
         },
         body: {
@@ -288,7 +304,7 @@ export async function sendMahjongForfeitNotice(
             { type: "separator", margin: "md" },
             {
               type: "text",
-              text: "参加者が規定人数（4名）に満たなかったため、リーグ戦は中止となりました。お支払いいただいた参加費は返金対応いたします（担当より順次ご連絡します）。",
+              text: `${dateLabel} の${gameLabel}は中止となりました。${tail}`,
               color: "#888888",
               size: "xs",
               margin: "md",
@@ -302,7 +318,7 @@ export async function sendMahjongForfeitNotice(
           contents: [
             {
               type: "button",
-              action: { type: "uri", label: "アプリを開く", uri: liffUrl("/info") },
+              action: { type: "uri", label: "アプリを開く", uri: liffUrl("/games") },
               style: "primary",
               color: "#d8a526",
             },
@@ -311,6 +327,14 @@ export async function sendMahjongForfeitNotice(
       },
     },
   ]);
+}
+
+/** 麻雀リーグの中止通知（人数不足での自動中止を含む）。 */
+export async function sendMahjongForfeitNotice(
+  lineUserId: string,
+  { eventDate }: { eventDate: string }
+) {
+  await sendGameForfeitNotice(lineUserId, { gameLabel: "麻雀リーグ", eventDate, paid: true });
 }
 
 // ─── コンテンツ公開通知（イベント・ゲーム・ニュース）─────────────────────────
