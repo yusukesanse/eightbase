@@ -60,14 +60,9 @@ export function GameLeagueBoard({
   ariaLabel?: string;
   emptyText?: string;
 }) {
-  if (standings.length === 0) {
-    return (
-      <div className="rounded-[14px] border border-[#eceff1] bg-white p-8 text-center text-sm text-[#231714]/70">
-        {emptyText}
-      </div>
-    );
-  }
-
+  // ⚠️ 成績が無くても**ピラミッドは常に描く**（麻雀 LeaguePyramid と揃える）。
+  // ここで early-return すると「シーズン開始直後は他種目だけピラミッドが出ない」ことになる。
+  const isEmpty = standings.length === 0;
   const meId = standings.find((s) => s.isMe)?.lineUserId;
   const byTier: GameLeagueStanding[][] = [[], [], []];
   standings.forEach((s) => byTier[tierIndexOf(s.rank)].push(s));
@@ -89,7 +84,12 @@ export function GameLeagueBoard({
         />
       </div>
 
-      {/* 順位リスト */}
+      {/* 順位リスト（成績が無い間はプレースホルダ） */}
+      {isEmpty ? (
+        <div className="rounded-[14px] border border-[#eceff1] bg-white p-8 text-center text-sm text-[#231714]/70">
+          {emptyText}
+        </div>
+      ) : (
       <div className="space-y-[18px]">
         {tierKeys.map((tier, i) => {
           const members = byTier[i];
@@ -147,6 +147,7 @@ export function GameLeagueBoard({
           );
         })}
       </div>
+      )}
 
       <p className="text-[11px] text-[#3f4247] leading-relaxed px-1">{footnote}</p>
     </div>
