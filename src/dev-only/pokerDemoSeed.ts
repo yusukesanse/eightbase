@@ -146,6 +146,15 @@ export async function seedDemoPokerParticipants(seasonId: string): Promise<Recor
     });
     entryCount++;
   }
+
+  // 未払い(reserved)を1名混ぜる。新仕様の検証用:
+  //  「名簿には出るが進行に参加しない」「その場で支払うと参加できる」「GMが外せる」を確認するため。
+  const UNPAID: P = { lineUserId: "demo-unpaid-01", displayName: "未払い テスト" };
+  await db.collection("pokerEntries").doc(`${seasonId}_${today}_${UNPAID.lineUserId}`).set({
+    seasonId, eventDate: today, lineUserId: UNPAID.lineUserId, displayName: UNPAID.displayName, pictureUrl: "",
+    enteredAt: nowIso, status: "reserved", paymentStatus: "pending", paymentAmount: POKER_ENTRY_FEE, ...DUMMY_FLAG,
+  });
+  entryCount++;
   // 当日フローは未開始で入れる（誰かが「ディーラーをやる→ゲーム開始」から通しで体験）。既存 dayState はリセット。
   await db.collection("pokerDayState").doc(`${seasonId}_${today}`).delete().catch(() => {});
 

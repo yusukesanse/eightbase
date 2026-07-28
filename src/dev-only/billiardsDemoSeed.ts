@@ -107,7 +107,8 @@ export async function seedDemoBilliardsParticipants(seasonId: string): Promise<R
     if (doc.data().gameCategory === "billiards") await doc.ref.update({ active: false, updatedAt: nowIso });
   }
   await db.collection("seasons").doc(seasonId).set(
-    { active: true, gameMasterIds: [SELF.lineUserId], updatedAt: nowIso },
+    // 当日GM方式（参加者が「GMをやる」で自己選出）なのでシーズン固定GMは置かない。
+    { active: true, gameMasterIds: [], updatedAt: nowIso },
     { merge: true }
   );
 
@@ -172,6 +173,15 @@ export async function seedDemoBilliardsParticipants(seasonId: string): Promise<R
     });
     entryCount++;
   }
+
+  // 未払い(reserved)を1名混ぜる。新仕様の検証用:
+  //  「名簿には出るが進行に参加しない」「その場で支払うと参加できる」「GMが外せる」を確認するため。
+  const UNPAID: P = { lineUserId: "demo-unpaid-01", displayName: "未払い テスト" };
+  await db.collection("billiardsEntries").doc(`${seasonId}_${today}_${UNPAID.lineUserId}`).set({
+    seasonId, eventDate: today, lineUserId: UNPAID.lineUserId, displayName: UNPAID.displayName, pictureUrl: "",
+    enteredAt: nowIso, status: "reserved", paymentStatus: "pending", paymentAmount: BILLIARDS_ENTRY_FEE, ...DUMMY_FLAG,
+  });
+  entryCount++;
   // 当日フローは未開始で入れる（GM が「ゲーム開始」から通しで体験）。既存の dayState は消してリセット。
   await db.collection("billiardsDayState").doc(`${seasonId}_${today}`).delete().catch(() => {});
 
