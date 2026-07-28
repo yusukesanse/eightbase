@@ -30,10 +30,10 @@ export default function SeasonDetailLayout({
   const isPoker = season?.gameCategory === "poker";
   const TABS = isPoker
     ? [
-        // ポーカーは CS 未実装（後日）。概要/日程/ランキング/返金/監査。
         { href: `/admin/games/seasons/${seasonId}`, label: "概要", exact: true },
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
         { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
+        { href: `/admin/games/seasons/${seasonId}/poker-cs`, label: "CS" },
         { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
         { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ]

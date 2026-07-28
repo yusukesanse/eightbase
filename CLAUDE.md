@@ -136,6 +136,17 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - **リーグ**: `LeaguePyramid3D.tsx`（Three.js の四角錐スタック・確定版／左固定ゴールドラベル[Noto Serif JP]／自分のアバター浮遊＋「あなた」／spin・sway・off／reduced-motion・WebGL非対応フォールバック／アンマウントでGPU資源dispose）を `LeaguePyramid.tsx` のアイボリー帯ヒーローに配置。直下に M1/M2/M3 順位リスト（YOU強調・順位/戦数/1位/連対率/AVG）。
 - **参加/当日の卓/スコア申告**: `MahjongLeagueView.tsx`。参加=日付カード＋参加する/参加中（**卓の中身は見せない**。確定済みはバッジのみ）。当日の卓=緑フェルトボード＋席(東南西北は卓内並び順から付与)・自席強調・持ち点/着順・n/4申告。申告=持ち点＋1〜4着のダイアログ。アクセントはフェルト緑 `#2f7d57`。GM には同じタブに `MahjongGmAssignPanel` が出る。
 - **CS**: `MahjongCsView.tsx`。決勝卓の確定結果から金銀銅の表彰台（王冠・持ち点）＋トーナメント表（`MahjongCsEntrant.seed` でSEED、勝ち上がりを緑強調、決勝はゴールド）。
+
+### ポーカーCS（2026-07-28 実装）
+- 方式: **卓分け → 勝ち上がり → 決勝卓**（ダーツCSの読み替え。`src/lib/pokerCs.ts` は純関数）。
+  3〜4名の卓に分け、各卓の**終了時チップ1位**が勝ち上がる。リーグ上位4名は予選免除シード。
+  残り4名以下で決勝卓 → 1位=金/2位=銀/3位=銅。
+- 申告は**卓の全員が自分の終了時チップを自己申告** → 全員そろったら自動確定 → 次ラウンド自動生成（GMなし）。
+  **CSはディーラーを固定しない**（卓の中で交代しながら回す運用）＝リーグと違い全員がプレイして申告する。
+- 同点は「追加ハンド」（`tiebreakChips`）で決着。通常ラウンドは1位の同点のみ、決勝は金銀銅まで解消する。
+- API: `GET /api/poker/cs`（締切日到来で遅延生成）・`POST/DELETE /api/poker/cs/entry`・`PATCH /api/poker/cs/report`、
+  管理は `GET/POST /api/admin/poker/cs` と `/admin/games/seasons/[seasonId]/poker-cs`。
+  コレクションは `pokerCsEvents`。テスト `__tests__/unit/lib/pokerCs.test.ts`（20件）。
 - いずれも**リーグ仕様・API（standings/entries/tables/report/cs）は不変。UIのみ差し替え**。タブ/シェルも不変。
 - アバターは `/api/avatar` プロキシ経由（WebGLのCanvasタイント回避にcrossOrigin必須）。
 - 既知の簡略化: 順位リストのアベレージ推移スパークライン（履歴データ無し→省略）／当日の卓のB卓・見学者（`tables?mine=1`は自分の卓のみ→省略）／席順は卓内並び順から割当。
