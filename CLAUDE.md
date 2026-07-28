@@ -207,7 +207,17 @@ Vercel のサーバーは UTC で動く。`new Date("2026-07-11T00:00:00+09:00")
 ### Firestore の読み取りを浪費しない
 麻雀のクエリは `where("seasonId","==",…).where("eventDate","==",…)` で**当日分に絞る**（等値2条件なので複合インデックス不要）。
 シーズン全件スキャンは開催を重ねるほど重くなり、実際に demo で日次無料枠5万件を焼き切って全APIが `RESOURCE_EXHAUSTED` で落ちた。
-ポーリングを足すときは必ず先に絞ること。※`api/mahjong/day/route.ts`・`lib/mahjongDay.ts` などに未対応の全件スキャンが残っている。
+ポーリングを足すときは必ず先に絞ること。当日系（`api/mahjong/day`・`lib/mahjongDay` 等）は
+`seasonId + eventDate` の等値2条件に対応済み。
+
+**通算順位（`/api/{game}/standings`）は scores をシーズン全件スキャンする＝ポーリング禁止。**
+順位が動くのは「本日終了」の瞬間だけなので、マウント時と申告後だけ取り直す
+（2026-07-28: ダーツ/ビリヤードの15秒ポーリングを撤去、麻雀は `loadCore(silent, withStandings)` で
+ポーリング時のみ順位を除外）。
+
+**当日GET（ダーツ/ビリヤード）は開始後 1 read に収める。** 全参加者が12秒間隔でポーリングするため、
+開始後は「締切済みは自明＝日程docを読まない」「参加判定は `day.participants` から導く」で
+dayState の1 readだけにする。開始前のみ日程doc＋自分のエントリー（決定的ID）を読む。
 
 ## 実装状況サマリ（主要機能の現行仕様）
 
