@@ -156,3 +156,66 @@ export interface PokerCancelledDate {
   decidedAt: string;
   decidedBy: string;
 }
+
+// ─── チャンピオンシップ（CS・GMなし完全自動進行） ─────────────────────────────
+//
+// 方式（2026-07-28 確定）: **卓分け → 勝ち上がり → 決勝卓**。
+//  - 参加者を3〜4名の卓に分け、各卓の**終了時チップ1位**が勝ち上がる。
+//  - リーグ上位4名は予選免除シード（byes として本戦から合流）。
+//  - 残り4名以下で決勝卓。決勝は 1位=金 / 2位=銀 / 3位=銅。
+//  - 申告は**全員が自分の終了時チップを自己申告**し、卓全員そろったら自動確定
+//    （リーグと違い CS はディーラーを固定しない＝卓の中で交代しながら回す運用）。
+//  - 通過順位に同点が残ったら「追加ハンド」（tiebreakChips）で決着。
+
+export type PokerCsStatus = "setup" | "running" | "finished";
+export type PokerCsMatchStatus = "reporting" | "tiebreak" | "completed";
+export type PokerCsRoundType = "prelim" | "semi" | "final";
+
+/** CS参戦者（自己エントリー）。rank=シーズン順位（seed/卓分け順・リーグ未参加は番兵）。 */
+export interface PokerCsEntrant {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  rank: number;
+  seed: boolean; // 上位4名（予選免除）
+}
+
+export interface PokerCsMatchPlayer {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  chips: number | null; // 終了時チップ（null=未申告）
+  rank: number | null; // 確定時に chips 降順で付与（1=最上位）
+  tiebreakChips?: number | null; // 同点時の追加ハンド
+}
+
+export interface PokerCsMatch {
+  matchId: string;
+  label: string; // 予選卓A / 準決勝卓 / 決勝卓 等
+  players: PokerCsMatchPlayer[];
+  status: PokerCsMatchStatus;
+}
+
+export interface PokerCsRound {
+  type: PokerCsRoundType;
+  label: string;
+  matches: PokerCsMatch[];
+  /** 次ラウンドへ不戦で進む者（round1=上位4シード、以降=端数）。 */
+  byes?: PokerCsMatchPlayer[];
+}
+
+/** pokerCsEvents/{id}。シーズンに1つ。eventDate=締切日（到来で自動ブラケット生成）。 */
+export interface PokerCsEvent {
+  csEventId: string;
+  seasonId: string;
+  name: string;
+  eventDate: string; // YYYY-MM-DD（エントリー締切＝自動生成の起点）
+  status: PokerCsStatus;
+  entrants: PokerCsEntrant[];
+  rounds: PokerCsRound[];
+  championId?: string | null;
+  /** 決勝卓の金銀銅（lineUserId）。 */
+  podium?: { gold?: string | null; silver?: string | null; bronze?: string | null };
+  createdAt: string;
+  updatedAt: string;
+}

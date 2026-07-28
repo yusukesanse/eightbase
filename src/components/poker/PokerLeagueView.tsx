@@ -7,15 +7,15 @@ import { PokerLeagueBoard } from "@/components/poker/PokerLeagueBoard";
 import { PokerJoinTab } from "@/components/poker/PokerJoinTab";
 import { PokerGameTab } from "@/components/poker/PokerGameTab";
 import { PokerRulesTab } from "@/components/poker/PokerRulesTab";
+import { PokerCsView } from "@/components/poker/PokerCsView";
 import type { PokerPaymentStatus, PokerScheduleEntry } from "@/types/poker";
 
 /**
  * ランキング > ポーカー のビュー（ダーツ/ビリヤードの LeagueView の読み替え）。
- * タブ: リーグ（通算チップ順）/ 参加（開催日カレンダー＋参加/決済）/ 当日（ディーラー進行）/ ルール。
- * CS は未実装（後日）。
+ * タブ: リーグ（通算チップ順）/ 参加（開催日カレンダー＋参加/決済）/ 当日（ディーラー進行）/ CS / ルール。
  */
 
-type SubTab = "league" | "join" | "game" | "rules";
+type SubTab = "league" | "join" | "game" | "cs" | "rules";
 
 export function PokerLeagueView() {
   const [subTab, setSubTab] = useState<SubTab>("league");
@@ -99,6 +99,7 @@ export function PokerLeagueView() {
             { id: "league", label: "リーグ" },
             { id: "join", label: "参加" },
             { id: "game", label: "当日" },
+            { id: "cs", label: "CS" },
             { id: "rules", label: "ルール/約款" },
           ] as { id: SubTab; label: string }[]
         ).map((t) => (
@@ -132,6 +133,8 @@ export function PokerLeagueView() {
         />
       ) : subTab === "game" ? (
         <PokerGameTab onChanged={() => loadCore(true)} />
+      ) : subTab === "cs" ? (
+        <PokerCsView />
       ) : (
         <PokerRulesTab />
       )}
