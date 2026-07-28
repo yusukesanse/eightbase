@@ -27,6 +27,7 @@ interface DayDto {
   finished: boolean;
   isGameMaster: boolean;
   gameMasterName: string | null;
+  iAmParticipant: boolean;
   entryClosed: boolean;
   startTime: string | null;
   participants: { lineUserId?: string; displayName: string; pictureUrl?: string; isMe: boolean; paid: boolean }[];
@@ -57,6 +58,18 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
     return (
       <div className="flex justify-center py-12">
         <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 非参加者には当日の進行UIを出さない（参加すれば見えることだけ伝える）。
+  if (day && day.iAmParticipant === false) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-5 text-center">
+        <div className="text-[13.5px] font-extrabold text-[#231714]">この開催日には参加していません</div>
+        <p className="text-[12px] text-[#3c4f54] mt-1.5 leading-relaxed">
+          「参加」タブから参加すると、当日の進行画面（ゲームマスターの選出・スコア申告）が表示されます。
+        </p>
       </div>
     );
   }
@@ -154,6 +167,7 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
         finished={!!day?.finished}
         entryClosed={day?.entryClosed}
         startTime={day?.startTime ?? null}
+        iAmParticipant={day?.iAmParticipant}
         onChanged={() => { load(); onChanged(); }}
       />
       {/* 参加者名簿（未払い表示・GMは参加剥奪）。締切後だけ意味があるので開始後に出す。 */}

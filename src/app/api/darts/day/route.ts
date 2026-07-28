@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
+import { getDb } from "@/lib/firebaseAdmin";
 import { getScheduleStartTime, isPastEntryDeadline } from "@/lib/entryDeadline";
 import { getActiveSeason } from "@/lib/mahjong";
 import {
@@ -8,7 +9,7 @@ import {
   computeDartsEventResults,
   playingDartsParticipants,
 } from "@/lib/dartsDay";
-import { isValidDartsDate } from "@/lib/dartsEntryValidation";
+import { isValidDartsDate, buildDartsEntryId } from "@/lib/dartsEntryValidation";
 import type { DartsDayMember, DartsEventState } from "@/types/darts";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const day = await getDartsDayState(season.seasonId, eventDate);
+    // 自分がこの開催日に参加しているか。決定的IDなので1 doc 読むだけで判る（全件クエリを避ける）。
+    // 当日の進行画面は参加者にだけ意味があるので、UIの出し分けに使う。
+    const myEntry = (await getDb().collection("dartsEntries").doc(buildDartsEntryId(season.seasonId, eventDate, userId)).get()).data() as
+      | { status?: string; paymentStatus?: string }
+      | undefined;
+    const iAmParticipant = !!myEntry && myEntry.status !== "refunded" && myEntry.status !== "cancelRequested";
     // 受付締切は「開催日の開始時刻」（GM操作ではない）。UIの出し分けに使う。
     const startTime = await getScheduleStartTime("darts", season.seasonId, eventDate);
     const entryClosed = isPastEntryDeadline(eventDate, startTime);
@@ -49,6 +56,7 @@ export async function GET(req: NextRequest) {
           finished: false,
           isGameMaster: isGm,
           gameMasterName,
+          iAmParticipant,
           startTime,
           entryClosed,
           participants: isGm
@@ -140,6 +148,7 @@ export async function GET(req: NextRequest) {
         finished: !!day.finishedAt,
         isGameMaster: isGm,
         gameMasterName,
+        iAmParticipant,
         startTime,
         entryClosed,
         participants,

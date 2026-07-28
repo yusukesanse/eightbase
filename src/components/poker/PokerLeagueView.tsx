@@ -98,7 +98,7 @@ export function PokerLeagueView() {
           [
             { id: "league", label: "リーグ" },
             { id: "join", label: "参加" },
-            { id: "game", label: "当日" },
+            { id: "game", label: "対戦記録" },
             { id: "cs", label: "CS" },
             { id: "rules", label: "ルール/約款" },
           ] as { id: SubTab; label: string }[]

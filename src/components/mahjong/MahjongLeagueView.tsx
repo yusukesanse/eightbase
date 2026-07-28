@@ -173,7 +173,7 @@ export function MahjongLeagueView() {
           [
             { id: "league", label: "リーグ", enabled: true },
             { id: "join", label: "参加", enabled: true },
-            { id: "report", label: "卓確認/申告", enabled: isParticipating },
+            { id: "report", label: "対戦記録", enabled: isParticipating },
             { id: "cs", label: "CS", enabled: true },
             { id: "rules", label: "ルール/約款", enabled: true },
           ] as { id: SubTab; label: string; enabled: boolean }[]

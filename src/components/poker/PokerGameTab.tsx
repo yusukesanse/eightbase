@@ -177,7 +177,7 @@ function DealerSelect({ day, eventDate, onDone, setError }: { day: DayDto; event
           {busy ? "登録中…" : "ディーラーをやる"}
         </button>
       ) : (
-        <InfoCard text="参加者のみディーラーになれます。" />
+        <InfoCard text="この開催日には参加していません。「参加」タブから参加すると、当日の進行画面が表示されます。" />
       )}
       {!enoughPeople && <p className="text-[10.5px] text-center text-[#231714]/80">支払い済みが{day.minParticipants}名以上になると始められます（未払いの方はその場でお支払いください）。</p>}
     </div>
