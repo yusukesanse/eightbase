@@ -253,7 +253,11 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
   メールのボタン → LINEミニアプリ `/guest` で引き換え → ゲストは氏名確認のみ、会員/社員は `/setup-profile` へ。
   1URL=1回（最初に開いた1名のみ）・既定2日で失効。`usesUrlInvite()` は常に true。
   ⚠️ **発行済みのOTPは引き続き有効**（`/api/auth/invite` が passcode で照合し `usesUrlInvite` を見ないため）。
-  `/login` のコード入力画面もそのために残している。未連携でも OTP は自動表示せず、`/` は「招待が必要」案内、OTP入力は `/login` の明示導線のみ。
+  `/login` のコード入力画面もそのために残している。
+- **OTPに戻す予定はない**（2026-07-29 決定）。管理画面へ平文パスコードを返す経路と
+  `sendPasscodeEmail` は削除済み。メール送信に失敗したときは**招待URL（`guestUrl`）を管理者に出して手動共有**する。
+  ※ `passcode` 自体は招待URLに埋め込むトークンとして現役（`buildGuestInviteUrl(passcode)`・`passcodeHash` で照合）。
+    「平文を人に見せる用途」だけを廃止した、という区別に注意。未連携でも OTP は自動表示せず、`/` は「招待が必要」案内、OTP入力は `/login` の明示導線のみ。
 - ログアウト: `initLiff()` 後 `liff.logout()`＋フラグで `/` の自動再ログインを抑止（「ログアウトしました」画面＋明示ログイン）。ログアウトは `/api/auth/logout` に一本化。
 - AuthGuard の認証キャッシュは 60 秒（表示キャッシュとは別扱い。最終判定はサーバー）。
 

@@ -5,7 +5,7 @@
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
 import { usesUrlInvite } from "@/lib/roles";
-import { sendPasscodeEmail, sendGuestInviteEmail, sendStaffInviteEmail } from "@/lib/email";
+import { sendGuestInviteEmail, sendStaffInviteEmail } from "@/lib/email";
 import { liffUrl } from "@/lib/liffUrl";
 
 export type InviteRole = "member" | "guest" | "staff";
@@ -148,7 +148,6 @@ export async function createInvitation(params: {
     ok: true,
     invitationId: inviteRef.id,
     emailSent,
-    passcode: emailSent || usesUrlInvite(role) ? undefined : passcode,
     guestUrl: emailSent || !usesUrlInvite(role) ? undefined : buildGuestInviteUrl(passcode),
     expiresAt: expiresAt.toISOString(),
   };
