@@ -6,7 +6,7 @@ import type { User } from "./types";
 /**
  * 招待の再送モーダル（既存招待の再送 / 旧ユーザーは新規作成）。
  * 招待は全ロールURL（メールのボタン）方式なので、メール送信に失敗したときは
- * 招待URLを手動共有できるように出す（旧OTPの passcode も後方互換で表示する）。
+ * 招待URLを手動共有できるように出す。
  */
 export function ReissuePasscodeModal({
   user,
@@ -19,7 +19,6 @@ export function ReissuePasscodeModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [passcode, setPasscode] = useState<string | null>(null);
   const [guestUrl, setGuestUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -37,7 +36,6 @@ export function ReissuePasscodeModal({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setPasscode(data.passcode ?? null);
         setGuestUrl(data.guestUrl ?? null);
         setEmailSent(data.emailSent ?? false);
       } else {
@@ -53,7 +51,6 @@ export function ReissuePasscodeModal({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        setPasscode(data.passcode ?? null);
         setGuestUrl(data.guestUrl ?? null);
         setEmailSent(data.emailSent ?? false);
       }
@@ -67,7 +64,7 @@ export function ReissuePasscodeModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        {(emailSent || passcode || guestUrl) ? (
+        {(emailSent || guestUrl) ? (
           <>
             <h3 className="text-base font-semibold text-[#231714] mb-1">
               {emailSent ? "招待メールを再送しました" : "招待を再発行しました"}
@@ -86,15 +83,10 @@ export function ReissuePasscodeModal({
                 <p className="text-[11px] font-mono break-all text-[#231714]">{guestUrl}</p>
               </div>
             )}
-            {passcode && (
-              <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-                <p className="text-2xl font-bold font-mono tracking-[0.2em] text-[#231714]">{passcode}</p>
-              </div>
-            )}
             <div className="flex gap-2">
-              {(guestUrl || passcode) && (
+              {guestUrl && (
                 <button
-                  onClick={async () => { await navigator.clipboard.writeText(guestUrl ?? passcode ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  onClick={async () => { await navigator.clipboard.writeText(guestUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                   className="flex-1 py-2.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors"
                 >
                   {copied ? "コピーしました" : "コピー"}
@@ -102,7 +94,7 @@ export function ReissuePasscodeModal({
               )}
               <button
                 onClick={() => onReissued(`${user.displayName} さん${emailSent ? "に招待メールを再送" : "の招待を再発行"}しました`)}
-                className={`${guestUrl || passcode ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors`}
+                className={`${guestUrl ? "px-4" : "flex-1"} py-2.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors`}
               >
                 閉じる
               </button>

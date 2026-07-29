@@ -74,14 +74,12 @@ export default function AdminAccessRequestsPage() {
         setNote((p) => ({
           ...p,
           // 招待は全ロールURL（メールのボタン）方式。メール送信に失敗したときは
-          // 管理者が手で共有できるよう招待URLを出す（旧OTPの passcode も一応拾う）。
+          // 管理者が手で共有できるよう招待URLを出す。
           [id]: d.emailSent
             ? "承認しご案内メールを送信しました"
             : d.guestUrl
               ? `承認（メール送信失敗）。招待URLを本人へ共有してください: ${d.guestUrl}`
-              : d.passcode
-                ? `承認（メール送信失敗）。手動共有コード: ${d.passcode}`
-                : "承認しました",
+              : "承認しました",
         }));
         load();
       }

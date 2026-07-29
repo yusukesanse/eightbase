@@ -66,7 +66,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         status: "approved",
         role,
         emailSent: result.emailSent,
-        passcode: result.passcode, // メール失敗時のみ（手動共有用）
         guestUrl: result.guestUrl,
       });
     }

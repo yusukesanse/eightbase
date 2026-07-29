@@ -3,7 +3,7 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb } from "@/lib/firebaseAdmin";
 import { generatePasscode, hashPasscode } from "@/lib/passcode";
 import { normalizeRole } from "@/lib/roles";
-import { sendPasscodeEmail, sendGuestInviteEmail, sendStaffInviteEmail } from "@/lib/email";
+import { sendGuestInviteEmail, sendStaffInviteEmail } from "@/lib/email";
 import {
   createInvitation,
   buildGuestInviteUrl,
@@ -91,7 +91,6 @@ export async function POST(req: NextRequest) {
       success: true,
       id: result.invitationId,
       role,
-      passcode: result.passcode,
       guestUrl: result.guestUrl,
       emailSent: result.emailSent,
       expiresAt: result.expiresAt,
@@ -167,20 +166,22 @@ export async function PATCH(req: NextRequest) {
       emailError: null,
     });
 
-    // メール再送（member: パスコード / guest・staff: ワンタイムURL・文言は身分別）
+    // メール再送。招待は全ロールURL方式で、文面はゲストだけ別（ゲーム参加のみのため）。
     let emailSent = false;
     const savedEmail = data.email as string | undefined;
     if (savedEmail) {
       try {
-        if (usesUrlInvite(role)) {
-          const inviteUrl = buildGuestInviteUrl(passcode);
-          if (role === "staff") {
-            await sendStaffInviteEmail(savedEmail, data.displayName || "", inviteUrl, expiryDays);
-          } else {
-            await sendGuestInviteEmail(savedEmail, data.displayName || "", inviteUrl, expiryDays);
-          }
+        const inviteUrl = buildGuestInviteUrl(passcode);
+        if (role === "guest") {
+          await sendGuestInviteEmail(savedEmail, data.displayName || "", inviteUrl, expiryDays);
         } else {
-          await sendPasscodeEmail(savedEmail, data.displayName || "", passcode);
+          await sendStaffInviteEmail(
+            savedEmail,
+            data.displayName || "",
+            inviteUrl,
+            expiryDays,
+            role === "staff" ? "staff" : "member"
+          );
         }
         emailSent = true;
         await docRef.update({
@@ -201,7 +202,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       success: true,
       role,
-      passcode: emailSent || usesUrlInvite(role) ? undefined : passcode,
       guestUrl: emailSent || !usesUrlInvite(role) ? undefined : buildGuestInviteUrl(passcode),
       emailSent,
       expiresAt: expiresAt.toISOString(),
