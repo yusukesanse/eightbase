@@ -106,7 +106,7 @@ beforeEach(() => {
 });
 
 test("日時変更でロックが旧→新へ移り、GCalが新時間で更新される", async () => {
-  const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: { id: RID } });
+  const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
   expect(res.status).toBe(200);
   // 旧ロック削除・新ロック作成（confirmed）
   expect(lockAt("10:00", "11:00")).toBeUndefined();
@@ -122,7 +122,7 @@ test("変更先が予約済みなら 409・ロックと予約は不変", async (
   db.__store.get("reservationLocks")!.set(buildReservationSlotKey(FAC, "2026-07-11", "13:00", "14:00"), {
     facilityId: FAC, date: "2026-07-11", startTime: "13:00", endTime: "14:00", status: "confirmed", reservationId: "other",
   });
-  const res = await PATCH(req({ startTime: "13:30", endTime: "14:00" }), { params: { id: RID } });
+  const res = await PATCH(req({ startTime: "13:30", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
   expect(res.status).toBe(409);
   // 旧ロックは残り、予約も元のまま
   expect(lockAt("10:00", "11:00")).toBeTruthy();
@@ -132,7 +132,7 @@ test("変更先が予約済みなら 409・ロックと予約は不変", async (
 
 test("GCal更新失敗時は Firestore を旧状態へ巻き戻す（502）", async () => {
   (updateCalendarEvent as jest.Mock).mockRejectedValueOnce(new Error("gcal down"));
-  const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: { id: RID } });
+  const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
   expect(res.status).toBe(502);
   // ロック・予約は旧状態へ復元
   expect(lockAt("13:00", "14:00")).toBeUndefined();
@@ -142,12 +142,12 @@ test("GCal更新失敗時は Firestore を旧状態へ巻き戻す（502）", as
 
 test("確定済み以外は 409", async () => {
   db.__store.get("reservations")!.set(RID, { ...reservation(), status: "cancelled" });
-  const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: { id: RID } });
+  const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
   expect(res.status).toBe(409);
 });
 
 test("同一スロット（変更なし）は成功しGCalを呼ばない", async () => {
-  const res = await PATCH(req({ startTime: "10:00", endTime: "11:00" }), { params: { id: RID } });
+  const res = await PATCH(req({ startTime: "10:00", endTime: "11:00" }), { params: Promise.resolve({ id: RID }) });
   expect(res.status).toBe(200);
   expect(updateCalendarEvent).not.toHaveBeenCalled();
 });

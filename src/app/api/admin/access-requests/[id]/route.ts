@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * approve: 申請から招待を作成（OTP発行 + authorizedUser + 会社名プリフィル）→ 申請を approved に。
  * reject : 申請を rejected に（利用者への通知はしない＝静かに）。
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const adminEmail = await checkAdminAuth(req);
   if (!adminEmail) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,7 +25,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       role?: string;
     };
     const db = getDb();
-    const ref = db.collection("accessRequests").doc(params.id);
+    const { id } = await params;
+    const ref = db.collection("accessRequests").doc(id);
     const doc = await ref.get();
     if (!doc.exists) {
       return NextResponse.json({ error: "申請が見つかりません" }, { status: 404 });
