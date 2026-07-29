@@ -68,6 +68,12 @@ export default function AccessRequestForm() {
   };
 
   if (done) {
+    // 承認後に届くメールは**申請した種別で方式が違う**（src/lib/invitations.ts）。
+    //  - オフィス契約者(member): ワンタイムパスワードのメール → /login でコード入力
+    //  - 社員(staff) / ゲスト(guest): 招待URLのメール → ボタンからそのまま登録に進む
+    // ここを一律「ワンタイムパスワードが届きます」にしていると、社員・ゲストに
+    // 存在しないコード入力を案内してしまう。
+    const urlInvite = userType === "staff" || userType === "guest";
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 text-center">
         <div className="w-14 h-14 rounded-full bg-[#EAF7C9] flex items-center justify-center mb-4">
@@ -76,20 +82,30 @@ export default function AccessRequestForm() {
           </svg>
         </div>
         <h1 className="text-base font-bold text-[#1c1f21]">申請を受け付けました</h1>
-        <p className="text-xs text-[#231714]/80 mt-2 leading-relaxed">
-          管理者が承認すると、ご入力のメールアドレスに<br />
-          ワンタイムパスワードが届きます。<br />
-          届いたら下の「ログイン」からコードを入力してください。
-        </p>
-        <a
-          href="/login"
-          className="mt-6 flex items-center justify-center w-full max-w-xs py-3.5 rounded-2xl text-sm font-bold bg-[#231714] text-white active:scale-[0.99] transition-transform"
-        >
-          ログイン
-        </a>
-        <p className="text-[11px] text-[#231714]/80 mt-2">
-          ワンタイムパスワードが届いてから入力してください
-        </p>
+        {urlInvite ? (
+          <p className="text-xs text-[#231714]/80 mt-2 leading-relaxed">
+            管理者が承認すると、ご入力のメールアドレスに<br />
+            ご案内メールが届きます。<br />
+            メール内のボタンから、そのままご利用を開始できます。
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-[#231714]/80 mt-2 leading-relaxed">
+              管理者が承認すると、ご入力のメールアドレスに<br />
+              ワンタイムパスワードが届きます。<br />
+              届いたら下の「ログイン」からコードを入力してください。
+            </p>
+            <a
+              href="/login"
+              className="mt-6 flex items-center justify-center w-full max-w-xs py-3.5 rounded-2xl text-sm font-bold bg-[#231714] text-white active:scale-[0.99] transition-transform"
+            >
+              ログイン
+            </a>
+            <p className="text-[11px] text-[#231714]/80 mt-2">
+              ワンタイムパスワードが届いてから入力してください
+            </p>
+          </>
+        )}
       </div>
     );
   }
