@@ -76,6 +76,9 @@ export async function GET(req: NextRequest) {
           googleEventId: d.googleEventId ?? null,
           termsAgreed: d.termsAgreed ?? false,
           termsAgreedAt: d.termsAgreedAt ?? null,
+          // 同伴者（サウナ等）。同伴者なしの予約はフィールドを持たないので既定値で埋める。
+          companions: d.companions ?? [],
+          partySize: d.partySize ?? null,
           createdAt: d.createdAt,
         };
       })

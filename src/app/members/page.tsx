@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { openExternalUrl } from "@/lib/liff";
+import { kanaIncludes } from "@/lib/kana";
 import { BottomSheet } from "@/components/ui/Sheet";
 import {
   Avatar,
@@ -45,19 +46,6 @@ const BANNERS = [
   "linear-gradient(120deg, #b9c7cc 0%, #3c4f54 100%)",
   "linear-gradient(120deg, #d3dee0 0%, #a5c1c7 100%)",
 ];
-
-/* ── ひらがな↔カタカナ対応の部分一致 ── */
-function toKatakana(s: string) {
-  return s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
-}
-function toHiragana(s: string) {
-  return s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
-}
-function kanaIncludes(target: string, query: string) {
-  const t = (target || "").toLowerCase();
-  const q = query.toLowerCase();
-  return t.includes(q) || t.includes(toKatakana(q)) || t.includes(toHiragana(q));
-}
 
 function stripUrl(url: string) {
   return url.replace(/^https?:\/\//, "").replace(/\/$/, "");

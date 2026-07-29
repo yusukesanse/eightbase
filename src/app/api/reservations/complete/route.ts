@@ -10,6 +10,7 @@ import { generatePasscode, issueTimeLimitPasscodeWithRetry } from "@/lib/switchb
 import { reservationEpochMs, buildReservationSlotKey } from "@/lib/reservations";
 import { notifyAdmin } from "@/lib/adminNotify";
 import { writeReservationAudit } from "@/lib/reservationAudit";
+import { buildCompanionCalendarLines } from "@/lib/companions";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
@@ -149,8 +150,17 @@ export async function POST(req: NextRequest) {
         date: reservation.date,
         startTime: reservation.startTime,
         endTime: reservation.endTime,
-        summary: `${facility.name}（決済済）`,
-        description: `予約者LINE ID: ${userId}\nSquare決済: ${verified.paymentId}`,
+        // 予約者名・同伴者は仮押さえ時に予約 doc へ保存済み（追加の読み取りは不要）
+        summary:
+          `${facility.name}${reservation.organizerName ? ` - ${reservation.organizerName}` : ""}（決済済）` +
+          (reservation.companions?.length ? `（他${reservation.companions.length}名）` : ""),
+        description:
+          (reservation.organizerName ? `予約者: ${reservation.organizerName}\n` : "") +
+          `予約者LINE ID: ${userId}\nSquare決済: ${verified.paymentId}` +
+          buildCompanionCalendarLines(
+            reservation.companions ?? [],
+            reservation.partySize ?? 1
+          ),
       });
     } catch (e) {
       console.error("[reservations/complete] calendar failed:", e);

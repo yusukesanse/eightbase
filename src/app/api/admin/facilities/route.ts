@@ -27,6 +27,8 @@ const VALIDATION_RULES = {
   // ── 決済 / 解錠 ──
   paymentAmount: { type: "number" as const, min: 0, max: 10000000 },
   switchBotDeviceId: { type: "string" as const, maxLength: 100 },
+  // ── 同伴者（0 = 同伴者必須OFF。ONなら下の validateCompanionFields で 2 以上を強制） ──
+  minPartySize: { type: "number" as const, min: 0, max: 20 },
   // Square認証情報（facilitySecrets へ暗号化保存。facilities ドキュメントには入れない）
   squareAccessToken: { type: "string" as const, maxLength: 300 },
   squareLocationId: { type: "string" as const, maxLength: 100 },
@@ -40,6 +42,7 @@ const ALLOWED_UPDATE_FIELDS = [
   "requireTerms", "termsContent",
   "requirePayment", "hourlyRate",
   "paymentAmount", "switchBotDeviceId",
+  "requireCompanions", "minPartySize",
 ];
 
 /** Square認証情報の入力（clear=登録削除）。値はログに出さないこと。 */
@@ -85,6 +88,24 @@ function extractSquareSecretsInput(
 function validatePaymentFields(body: Record<string, unknown>): string | null {
   if (body.requirePayment === true && !(Number(body.paymentAmount) > 0)) {
     return "Square決済を必須にする場合は決済額（1円以上）を入力してください";
+  }
+  return null;
+}
+
+/**
+ * requireCompanions=true なのに最低合計人数が不正な保存を弾く。
+ * 最低合計人数は予約者本人を含むので 2 未満（＝1人で予約できる）は設定として矛盾する。
+ * 収容人数より大きいと誰も予約できなくなるのでこれも弾く。
+ */
+function validateCompanionFields(body: Record<string, unknown>): string | null {
+  if (body.requireCompanions !== true) return null;
+  const min = Number(body.minPartySize);
+  if (!Number.isInteger(min) || min < 2) {
+    return "同伴者を必須にする場合は最低合計人数（2名以上）を入力してください";
+  }
+  const capacity = Number(body.capacity);
+  if (Number.isFinite(capacity) && capacity > 0 && min > capacity) {
+    return "最低合計人数は収容人数以下にしてください";
   }
   return null;
 }
@@ -202,6 +223,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: paymentError }, { status: 400 });
   }
 
+  const companionError = validateCompanionFields(body);
+  if (companionError) {
+    return NextResponse.json({ error: companionError }, { status: 400 });
+  }
+
   const { input: squareSecretsInput, error: squareSecretsError } = extractSquareSecretsInput(body);
   if (squareSecretsError) {
     return NextResponse.json({ error: squareSecretsError }, { status: 400 });
@@ -228,6 +254,10 @@ export async function POST(req: NextRequest) {
       // トレーラー等: 決済額 / 解錠デバイス（新規作成でも保存する）
       paymentAmount: body.paymentAmount ? Number(body.paymentAmount) : undefined,
       switchBotDeviceId: body.switchBotDeviceId || undefined,
+      // サウナ等: 同伴者必須（OFFなら両方 undefined でフィールドを作らない）
+      requireCompanions: body.requireCompanions === true ? true : undefined,
+      minPartySize:
+        body.requireCompanions === true ? Number(body.minPartySize) : undefined,
     });
     await applySquareSecrets(facility.id, squareSecretsInput);
     return NextResponse.json({ facility }, { status: 201 });
@@ -277,6 +307,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: paymentError }, { status: 400 });
   }
 
+  const companionError = validateCompanionFields(body);
+  if (companionError) {
+    return NextResponse.json({ error: companionError }, { status: 400 });
+  }
+
   const { input: squareSecretsInput, error: squareSecretsError } = extractSquareSecretsInput(body);
   if (squareSecretsError) {
     return NextResponse.json({ error: squareSecretsError }, { status: 400 });
@@ -294,6 +329,9 @@ export async function PUT(req: NextRequest) {
   }
   if (updateData.hourlyRate !== undefined) {
     updateData.hourlyRate = Number(updateData.hourlyRate);
+  }
+  if (updateData.minPartySize !== undefined) {
+    updateData.minPartySize = Number(updateData.minPartySize);
   }
 
   try {

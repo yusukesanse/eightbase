@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { clearAllCache, getCacheOwner, setCacheOwner } from "@/lib/swrCache";
 import { clearPostsCache } from "@/lib/timelineCache";
 import { clearEventGoods } from "@/lib/eventGoods";
+import { clearReservationDraft } from "@/lib/reservationDraft";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 import { isDevLoginEnabled } from "@/lib/env";
 
@@ -19,6 +20,7 @@ function reconcileCacheOwner(userId: string) {
     clearAllCache();
     clearPostsCache();
     clearEventGoods();
+    clearReservationDraft();
   }
   setCacheOwner(userId);
 }
@@ -177,4 +179,7 @@ export function clearAuthCache() {
   clearAllCache();
   clearPostsCache();
   clearEventGoods();
+  // 予約の下書き（同伴者の選択）は swr: プレフィックスではないので個別に消す。
+  // 共有端末で前ユーザーが選んだ同伴者が残らないようにするため。
+  clearReservationDraft();
 }

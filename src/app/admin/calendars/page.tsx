@@ -97,6 +97,8 @@ export default function CalendarsPage() {
       squareEnvironment: facility.square?.environment ?? "production",
       clearSquareCredentials: false,
       switchBotDeviceId: facility.switchBotDeviceId ?? "",
+      requireCompanions: facility.requireCompanions ?? false,
+      minPartySize: facility.minPartySize ? String(facility.minPartySize) : "",
     });
     setShowModal(true);
   }
@@ -133,6 +135,18 @@ export default function CalendarsPage() {
         return;
       }
     }
+    if (form.requireCompanions) {
+      const min = Number(form.minPartySize || 2);
+      if (!Number.isInteger(min) || min < 2) {
+        setError("最低合計人数は2名以上で入力してください");
+        return;
+      }
+      // 同伴者は「予約者以外」なので、収容人数が最低合計人数に満たないと誰も予約できなくなる
+      if (Number(form.capacity) > 0 && min > Number(form.capacity)) {
+        setError("最低合計人数は収容人数以下にしてください");
+        return;
+      }
+    }
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -155,6 +169,9 @@ export default function CalendarsPage() {
         squareEnvironment: form.squareEnvironment,
         clearSquareCredentials: form.clearSquareCredentials || undefined,
         switchBotDeviceId: form.switchBotDeviceId.trim(),
+        // 同伴者必須OFF保存時は最低人数を落として設定を無効化（チェック＝機能の有効/無効）
+        requireCompanions: form.requireCompanions,
+        minPartySize: form.requireCompanions ? Number(form.minPartySize || 2) : 0,
       };
 
       if (editingId) {
@@ -642,6 +659,47 @@ export default function CalendarsPage() {
                     value={form.termsContent}
                     onChange={(v) => setForm({ ...form, termsContent: v })}
                   />
+                )}
+              </div>
+
+              {/* ── 同伴者（サウナ等・1人での利用を禁止する施設） ── */}
+              <div className="border-t border-gray-100 pt-4 mt-2">
+                <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.requireCompanions}
+                    onChange={(e) => setForm({ ...form, requireCompanions: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-[#231714] focus:ring-[#231714]"
+                  />
+                  <span className="text-sm text-gray-700">1人での利用を禁止する（同伴者の指定を必須にする）</span>
+                </label>
+
+                {!form.requireCompanions ? (
+                  <p className="text-[10px] text-gray-700">
+                    ONにすると、予約時に「一緒に入る人」をアプリ利用者（ゲストを除く）から選ぶ必要があります。
+                  </p>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      最低合計人数（予約者を含む）
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={form.minPartySize}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9]/g, "");
+                        setForm({ ...form, minPartySize: v });
+                      }}
+                      placeholder="2"
+                      className="w-32 px-3 py-2 border border-[#231714]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
+                    />
+                    <p className="text-[10px] text-gray-700 mt-1.5">
+                      未入力なら2名。同伴者の上限は収容人数
+                      {Number(form.capacity) > 0 ? `（${form.capacity}名）` : ""}に従います。
+                    </p>
+                  </div>
                 )}
               </div>
 

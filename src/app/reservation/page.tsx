@@ -10,6 +10,9 @@ import remarkGfm from "remark-gfm";
 import clsx from "clsx";
 import { timeToMin, generateSlots } from "./slots";
 import { FacilityPill } from "./FacilityPill";
+import { CompanionPicker, type CompanionCandidate } from "./CompanionPicker";
+import { saveReservationDraft } from "@/lib/reservationDraft";
+import { minPartySizeOf, maxCompanionsOf } from "@/lib/companions";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -366,10 +369,20 @@ export default function ReservationPage() {
   const [payError, setPayError] = useState<string | null>(null);
   const needsTerms = selectedFacility?.requireTerms ?? false;
 
+  // ─── 同伴者（サウナ等・1人での利用を禁止する施設） ─────────────────────────
+  const [companions, setCompanions] = useState<CompanionCandidate[]>([]);
+  const requiresCompanions = selectedFacility?.requireCompanions === true;
+  const minPartySize = selectedFacility ? minPartySizeOf(selectedFacility) : 2;
+  const maxCompanions = selectedFacility ? maxCompanionsOf(selectedFacility) : 1;
+  const partySize = 1 + companions.length;
+  // 最終判定はサーバー（POST が同伴者の資格と人数を必ず再検証する）。ここはUXのため。
+  const companionsOk = !requiresCompanions || partySize >= minPartySize;
+
   // 施設変更時にリセット
   useEffect(() => {
     setTermsAgreed(false);
     setTermsRead(false);
+    setCompanions([]);
   }, [selectedFacility?.id]);
 
   /** 規約モーダルのスクロール検知 */
@@ -392,6 +405,7 @@ export default function ReservationPage() {
     if (!selectedFacility || !selectedDate || !selStart || !selEnd) return;
     if (needsTerms && !termsAgreed) return;
     if (needsPayment) return; // 有料施設はオンライン予約不可
+    if (!companionsOk) return;
     const params = new URLSearchParams({
       facilityId: selectedFacility.id,
       date: selectedDate,
@@ -399,6 +413,15 @@ export default function ReservationPage() {
       endTime: selEnd,
     });
     if (termsAgreed) params.set("termsAgreed", "true");
+    // 同伴者は URL に載せない（lineUserId が履歴・ログに残るため）。sessionStorage で受け渡す。
+    saveReservationDraft({
+      facilityId: selectedFacility.id,
+      date: selectedDate,
+      startTime: selStart,
+      endTime: selEnd,
+      termsAgreed,
+      companions: companions.map((c) => ({ lineUserId: c.lineUserId, displayName: c.displayName })),
+    });
     router.push(`/reservation/confirm?${params.toString()}`);
   }
 
@@ -406,6 +429,7 @@ export default function ReservationPage() {
   async function handlePay() {
     if (!isTrailer || !selectedFacility || !selectedDate || !selStart || !selEnd) return;
     if (needsTerms && !termsAgreed) return;
+    if (!companionsOk) return;
     setPaying(true);
     setPayError(null);
     try {
@@ -419,6 +443,9 @@ export default function ReservationPage() {
           startTime: selStart,
           endTime: selEnd,
           ...(termsAgreed ? { termsAgreed: true } : {}),
+          ...(companions.length
+            ? { companionIds: companions.map((c) => c.lineUserId) }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -435,7 +462,7 @@ export default function ReservationPage() {
     }
   }
 
-  const canConfirm = !!(selectedFacility && selectedDate && selStart && selEnd && (!needsTerms || termsAgreed) && !needsPayment);
+  const canConfirm = !!(selectedFacility && selectedDate && selStart && selEnd && (!needsTerms || termsAgreed) && !needsPayment && companionsOk);
   const meetingRooms = facilities.filter((f) => f.type === "meeting_room");
   const booths = facilities.filter((f) => f.type === "booth");
   const activities = facilities.filter((f) => f.type === "activity");
@@ -730,6 +757,19 @@ export default function ReservationPage() {
               </>
             )}
           </section>
+
+          {/* ── 同伴者（サウナ等）: 日時が決まってから選ぶ ── */}
+          {requiresCompanions && selectedDate && selStart && selEnd && (
+            <section className="px-5 pb-4">
+              <CompanionPicker
+                enabled
+                value={companions}
+                onChange={setCompanions}
+                minTotal={minPartySize}
+                maxCompanions={maxCompanions}
+              />
+            </section>
+          )}
         </>
       )}
 
@@ -813,6 +853,9 @@ export default function ReservationPage() {
                       利用{fixedMinDuration - facilityPrepTime}分 ＋ 準備{facilityPrepTime}分
                     </p>
                   )}
+                  {requiresCompanions && (
+                    <p className="text-[10px] text-[#231714]/80">合計{partySize}名</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -836,6 +879,16 @@ export default function ReservationPage() {
                   利用規約を確認する
                 </button>
               )
+            )}
+
+            {/* 同伴者が足りない（サウナ等・1人での利用を禁止する施設） */}
+            {requiresCompanions && !companionsOk && (
+              <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                <p className="text-xs text-amber-700">
+                  この施設は1人ではご利用いただけません。一緒に入る人を
+                  {minPartySize - partySize}名以上選んでください。
+                </p>
+              </div>
             )}
 
             {/* 有料施設は予約不可（旧 requirePayment・決済URL未設定時のみ） */}

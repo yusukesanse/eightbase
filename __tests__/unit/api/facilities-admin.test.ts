@@ -237,6 +237,72 @@ describe("管理施設API — /api/admin/facilities", () => {
       expect(JSON.stringify(created)).not.toContain("EAAAtoken");
       expect(JSON.stringify(created)).not.toContain("LOC123");
     });
+
+    // ─── 同伴者（サウナ等・1人での利用を禁止する施設） ───
+    test("requireCompanions=true で最低合計人数が1名は400", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "サウナ", calendarId: "cal@google.com", type: "activity", capacity: 6,
+          requireCompanions: true, minPartySize: 1,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(400);
+      expect(res._data.error).toContain("最低合計人数");
+    });
+
+    test("requireCompanions=true で最低合計人数の指定なしは400", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "サウナ", calendarId: "cal@google.com", type: "activity", capacity: 6,
+          requireCompanions: true,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(400);
+    });
+
+    test("最低合計人数が収容人数を超えると400（誰も予約できなくなるため）", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "サウナ", calendarId: "cal@google.com", type: "activity", capacity: 2,
+          requireCompanions: true, minPartySize: 3,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(400);
+      expect(res._data.error).toContain("収容人数");
+    });
+
+    test("requireCompanions=true で作成すると施設に保存される", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "サウナ", calendarId: "cal@google.com", type: "activity", capacity: 6,
+          requireCompanions: true, minPartySize: 2,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(201);
+      const created = mockCreateFacility.mock.calls[0][0];
+      expect(created.requireCompanions).toBe(true);
+      expect(created.minPartySize).toBe(2);
+    });
+
+    test("同伴者OFFの施設には同伴者フィールドを書かない（既存施設の回帰）", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({ name: "会議室D", calendarId: "cal-d@google.com", type: "meeting_room", capacity: 8 }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(201);
+      const created = mockCreateFacility.mock.calls[0][0];
+      expect(created.requireCompanions).toBeUndefined();
+      expect(created.minPartySize).toBeUndefined();
+    });
   });
 
   // ─── PUT ────────────────────────────────────────────────────
@@ -333,6 +399,41 @@ describe("管理施設API — /api/admin/facilities", () => {
       });
       const res = asMock(await PUT(req));
       expect(res.status).toBe(400);
+    });
+
+    // ─── 同伴者 ───
+    test("requireCompanions=true で最低合計人数が1名は400", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "PUT",
+        body: JSON.stringify({ id: "sauna", requireCompanions: true, minPartySize: 1 }),
+      });
+      const res = asMock(await PUT(req));
+      expect(res.status).toBe(400);
+      expect(mockUpdateFacility).not.toHaveBeenCalled();
+    });
+
+    test("同伴者設定は ALLOWED_UPDATE_FIELDS を通って保存される", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "PUT",
+        body: JSON.stringify({ id: "sauna", capacity: 6, requireCompanions: true, minPartySize: 2 }),
+      });
+      const res = asMock(await PUT(req));
+      expect(res.status).toBe(200);
+      const updated = mockUpdateFacility.mock.calls[0][1];
+      expect(updated.requireCompanions).toBe(true);
+      expect(updated.minPartySize).toBe(2);
+    });
+
+    test("同伴者必須をOFFに戻すと minPartySize=0 で無効化される", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "PUT",
+        body: JSON.stringify({ id: "sauna", requireCompanions: false, minPartySize: 0 }),
+      });
+      const res = asMock(await PUT(req));
+      expect(res.status).toBe(200);
+      const updated = mockUpdateFacility.mock.calls[0][1];
+      expect(updated.requireCompanions).toBe(false);
+      expect(updated.minPartySize).toBe(0);
     });
   });
 
