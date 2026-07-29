@@ -33,8 +33,11 @@ export async function POST(req: NextRequest) {
     const displayName = typeof body?.displayName === "string" ? body.displayName.trim() : "";
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const companyName = typeof body?.companyName === "string" ? body.companyName.trim() : "";
-    // 自己申告できるのは member / guest のみ（staffはURL招待の別導線。self-elevation防止）
-    const requestedRole: "member" | "guest" = body?.requestedRole === "guest" ? "guest" : "member";
+    // ここは「希望」であって付与ではない。**実際のロールは管理者が承認時に選ぶ**
+    // （`/api/admin/access-requests/[id]` の approve で normalizeRole(rawRole)）ので、
+    // 社員を自己申告できても自己昇格にはならない。未知の値は member に丸める。
+    const requestedRole: "member" | "staff" | "guest" =
+      body?.requestedRole === "guest" ? "guest" : body?.requestedRole === "staff" ? "staff" : "member";
 
     if (!accessToken || typeof accessToken !== "string") {
       return NextResponse.json({ error: "LINEアクセストークンが必要です" }, { status: 400 });
@@ -111,7 +114,8 @@ export async function POST(req: NextRequest) {
       requestId = ref.id;
     }
 
-    const roleLabel = requestedRole === "guest" ? "ゲスト" : "オフィス契約者";
+    const roleLabel =
+      requestedRole === "guest" ? "ゲスト" : requestedRole === "staff" ? "社員" : "オフィス契約者";
     await notifyAdmin(
       "access_request",
       `利用申請が届きました：${displayName}（${roleLabel} / ${companyName} / ${email}）`,

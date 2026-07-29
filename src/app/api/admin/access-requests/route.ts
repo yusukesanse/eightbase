@@ -26,7 +26,8 @@ export async function GET(req: NextRequest) {
         displayName: x.displayName ?? "",
         email: x.email ?? "",
         companyName: x.companyName ?? "",
-        requestedRole: x.requestedRole === "guest" ? "guest" : "member",
+        requestedRole:
+          x.requestedRole === "guest" ? "guest" : x.requestedRole === "staff" ? "staff" : "member",
         status: x.status ?? "pending",
         createdAt: x.createdAt ?? "",
         reviewedAt: x.reviewedAt,

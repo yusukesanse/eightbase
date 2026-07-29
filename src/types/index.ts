@@ -12,7 +12,11 @@ export interface AccessRequest {
   displayName: string;  // 申請者が入力した氏名
   email: string;        // 正規化済み
   companyName: string;  // 会社名（承認時に本登録プロフィールへ引き継ぐ）
-  requestedRole: "member" | "guest"; // 申請者が自己申告した種別（承認時のrole初期値）。staffはURL招待の別導線
+  /**
+   * 申請者が自己申告した種別（承認時の role の**初期値**）。
+   * 実際に付与されるロールは管理者が承認時に選ぶため、社員を自己申告できても自己昇格にはならない。
+   */
+  requestedRole: "member" | "staff" | "guest";
   status: AccessRequestStatus;
   createdAt: string;
   reviewedAt?: string;
