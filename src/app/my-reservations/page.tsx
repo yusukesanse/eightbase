@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/ui/TopBar";
-import type { Reservation } from "@/types";
+import type { MyReservationItem } from "@/types";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
 
 export default function MyReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<MyReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -159,16 +159,18 @@ function ReservationCard({
   cancelling,
   isPast = false,
 }: {
-  reservation: Reservation;
+  reservation: MyReservationItem;
   onCancel: (id: string) => void;
   cancelling: boolean;
   isPast?: boolean;
 }) {
   const dateLabel = dayjs(r.date).format("M月D日（ddd）");
 
-  // キャンセル期限（終了時刻まで可能）
+  // キャンセル期限（終了時刻まで可能）。同伴者は自分の予約ではないのでキャンセルできない
+  // （サーバー側も本人確認で 403 を返す。ここはボタンを出さないだけ）。
   const endDt = dayjs(`${r.date}T${r.endTime}:00`);
-  const canCancel = !isPast && dayjs().isBefore(endDt);
+  const canCancel = !isPast && !r.isCompanion && dayjs().isBefore(endDt);
+  const companionNames = (r.companions ?? []).map((c) => c.displayName).join("、");
 
   // トレーラー等（決済済み）: 解錠コードと取消ラベルを出し分け
   const isTrailer = !!(r.switchBotPasscode || r.paymentTransactionId);
@@ -194,10 +196,28 @@ function ReservationCard({
           )}
         />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">{r.facilityName}</p>
+          <p className="text-sm font-medium text-gray-800">
+            {r.facilityName}
+            {r.isCompanion && (
+              <span className="ml-2 align-middle rounded-full bg-[#a5c1c7]/25 px-2 py-0.5 text-[10px] font-medium text-[#4f757e]">
+                同伴
+              </span>
+            )}
+          </p>
           <p className="text-xs text-gray-700 mt-0.5">
             {dateLabel}　{r.startTime}〜{r.endTime}
           </p>
+          {r.isCompanion ? (
+            r.organizerName && (
+              <p className="text-[11px] text-gray-700 mt-0.5 truncate">予約者: {r.organizerName}</p>
+            )
+          ) : (
+            companionNames && (
+              <p className="text-[11px] text-gray-700 mt-0.5 truncate">
+                一緒に入る人: {companionNames}
+              </p>
+            )
+          )}
         </div>
         {canCancel && (
           <button

@@ -19,6 +19,8 @@ interface Reservation {
   status: string;
   termsAgreed: boolean;
   termsAgreedAt: string | null;
+  companions: { lineUserId: string; displayName: string }[];
+  partySize: number | null;
   createdAt: string;
 }
 
@@ -333,6 +335,13 @@ export default function AdminReservationsPage() {
                           )}
                           <span className="font-medium text-[#231714]">{r.displayName}</span>
                         </div>
+                        {/* 同伴者（サウナ等）。列は増やさず予約者の下にぶら下げる */}
+                        {r.companions.length > 0 && (
+                          <p className="mt-0.5 pl-9 text-xs text-[#231714]/75">
+                            ＋ {r.companions.map((c) => c.displayName).join("、")}
+                            （計{r.partySize ?? r.companions.length + 1}名）
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-3 text-[#231714]/80 whitespace-nowrap">{r.tenantName || "—"}</td>
                       <td className="px-6 py-3 whitespace-nowrap">

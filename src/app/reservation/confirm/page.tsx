@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/ui/TopBar";
 import type { Facility } from "@/types";
 import { getLineProfile } from "@/lib/liff";
+import { readReservationDraft, clearReservationDraft } from "@/lib/reservationDraft";
 
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -24,6 +25,15 @@ function ConfirmContent() {
 
   const [facility, setFacility] = useState<Facility | null>(null);
   const dateLabel = dayjs(date).format("M月D日（ddd）");
+
+  // 同伴者は URL ではなく sessionStorage で受け渡す（lineUserId を履歴に残さない）。
+  // 予約内容が一致する下書きだけを拾うので、別予約の残骸は混ざらない。
+  const companions = useMemo(
+    () => readReservationDraft({ facilityId, date, startTime, endTime })?.companions ?? [],
+    [facilityId, date, startTime, endTime]
+  );
+  // リロードや直リンクで下書きが消えると同伴者を復元できない。黙って1人で確定させない。
+  const companionsLost = facility?.requireCompanions === true && companions.length === 0;
 
   const [step, setStep] = useState<Step>("confirm");
   const [displayName, setDisplayName] = useState<string>("");
@@ -67,6 +77,9 @@ function ConfirmContent() {
         credentials: "include",
         body: JSON.stringify({
           facilityId, date, startTime, endTime, displayName, termsAgreed,
+          ...(companions.length
+            ? { companionIds: companions.map((c) => c.lineUserId) }
+            : {}),
         }),
       });
 
@@ -78,6 +91,7 @@ function ConfirmContent() {
         return;
       }
 
+      clearReservationDraft();
       setReservationId(data.reservationId);
       setStep("done");
     } catch {
@@ -178,8 +192,25 @@ function ConfirmContent() {
           <DetailRow label="日付" value={dateLabel} />
           <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
           <DetailRow label="予約者" value={displayName || "読み込み中..."} />
+          {companions.length > 0 && (
+            <>
+              <DetailRow
+                label="一緒に入る人"
+                value={companions.map((c) => c.displayName).join("、")}
+              />
+              <DetailRow label="合計人数" value={`${1 + companions.length}名`} />
+            </>
+          )}
           {termsAgreed && <DetailRow label="利用規約" value="同意済み ✓" />}
         </div>
+
+        {companionsLost && (
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+            <p className="text-xs text-amber-700">
+              一緒に入る人の選択が失われました。前の画面で選び直してください。
+            </p>
+          </div>
+        )}
 
         <p className="text-xs text-gray-700 text-center">
           予約確定後はLINEにて通知が届きます
@@ -187,10 +218,10 @@ function ConfirmContent() {
 
         <button
           onClick={handleReserve}
-          disabled={!profileLoaded}
+          disabled={!profileLoaded || companionsLost}
           className={clsx(
             "w-full py-3 rounded-xl text-sm font-medium transition-colors",
-            profileLoaded
+            profileLoaded && !companionsLost
               ? "bg-[#B0E401] text-[#231714]"
               : "bg-gray-200 text-gray-700 cursor-not-allowed"
           )}

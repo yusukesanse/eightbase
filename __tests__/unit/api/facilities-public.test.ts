@@ -10,6 +10,7 @@ type MockRes = { status: number; _data: Record<string, any>; json: () => Promise
 const mockActiveFacilities: Facility[] = [
   { id: "room-a", name: "会議室A", type: "meeting_room", capacity: 6, calendarId: "secret-cal-a@google.com", active: true, order: 1 },
   { id: "booth-1", name: "ブース1", type: "booth", capacity: 1, calendarId: "secret-cal-b@google.com", active: true, order: 2, paymentAmount: 22000, switchBotDeviceId: "SECRET-DEVICE-ID" },
+  { id: "sauna", name: "サウナ", type: "activity", capacity: 6, calendarId: "secret-cal-s@google.com", active: true, order: 3, availableDays: [6], requireCompanions: true, minPartySize: 2 },
 ];
 
 // facilities モジュールをモック
@@ -50,7 +51,7 @@ describe("公開施設API — GET /api/facilities", () => {
     const data = res._data;
     expect(data.facilities).toBeDefined();
     expect(Array.isArray(data.facilities)).toBe(true);
-    expect(data.facilities.length).toBe(2);
+    expect(data.facilities.length).toBe(3);
   });
 
   test("calendarIdがレスポンスに含まれない（セキュリティ）", async () => {
@@ -82,6 +83,16 @@ describe("公開施設API — GET /api/facilities", () => {
     // 決済額はポータルの「決済する」表示に必要なので残す
     const booth1 = data.facilities.find((f: Facility) => f.id === "booth-1");
     expect(booth1.paymentAmount).toBe(22000);
+  });
+
+  test("同伴者必須の設定は含まれる（予約画面での出し分けに必要）", async () => {
+    const res = asMock(await GET(req));
+    const sauna = res._data.facilities.find((f: Facility) => f.id === "sauna");
+    expect(sauna.requireCompanions).toBe(true);
+    expect(sauna.minPartySize).toBe(2);
+    // 同伴者OFFの施設にはフィールドが生えない
+    const roomA = res._data.facilities.find((f: Facility) => f.id === "room-a");
+    expect(roomA.requireCompanions).toBeUndefined();
   });
 
   test("エラー時は500を返す", async () => {

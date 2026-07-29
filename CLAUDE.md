@@ -240,6 +240,32 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
 - GCal 書き込みは作成・更新とも `+09:00`/`Asia/Tokyo`（`googleCalendar.ts`）。
 - **GCal を人が直接編集した手動予定の取り込み（双方向同期・webhook/syncToken/cron）は Phase 2（未実装）**。現状の空き表示は手動GCal予定を反映しない。
 
+#### 同伴者必須の予約（サウナ＝1人で入れない施設）
+- 施設設定 `Facility.requireCompanions`（既定 false）＋ `minPartySize`（最低合計人数・予約者本人を含む・既定2）。
+  管理画面の施設編集「1人での利用を禁止する」で設定する。**facilityId のハードコードはしない**。
+  同伴者の上限は `capacity - 1`（`MAX_COMPANIONS=9` で頭打ち）。
+- 予約時、日時を選んだ後に「一緒に入る人」を **アプリ利用者（ゲスト以外）から全員選ぶ**。
+  数値で人数を入れる欄は作らない（合計 = 1 + 選択数）。合計が `minPartySize` 未満なら予約ボタンは非活性。
+- 候補API `GET /api/reservations/companions`（`requireMemberProfileComplete`）。
+  `authorizedUsers.active==true` をメモリで role 判定（guest と自分を除外）→ `users` を `getAll` でピンポイント取得。
+  **`/api/members` は使わない**（`src/app/api/members/route.ts:72-73` がスキル未登録者を意図的に落とすため候補として不足）。
+  クライアントは `members:companions` キーでキャッシュ（TTL5分）し、**予測変換は `kanaIncludes`（`src/lib/kana.ts`）でメモリ絞り込み**。
+- **検証は必ずサーバー（`src/lib/companions.ts` の `validateCompanionsForReservation`）**。
+  `POST /api/reservations` と `POST /api/reservations/pending` の両方で、GCal / Square を叩く前に呼ぶ。
+  エラーは `COMPANION_REQUIRED` / `COMPANION_INVALID` / `COMPANION_SELF` / `COMPANION_TOO_MANY` / `COMPANION_NOT_ALLOWED`（すべて400）。
+  ⚠️ **トランザクションの外**で呼ぶこと（`assertSlotFreeInTx` の read と競合させない）。
+  ⚠️ 重複IDの除去は**人数を数える前**（同じ人を2回選んで最低人数を突破させない）。
+- 保存: `Reservation.companions`（表示名スナップショット）/ `companionIds`（array-contains用）/ `partySize` / `organizerName`。
+  **同伴者0件のときは1フィールドも書かない**（既存予約と doc 形状を完全一致させる。`companionReservationFields()` が空オブジェクトを返す）。
+  `partySize` は 2階スペース人数制限型要件（`docs/requirements/2階スペース-人数制限型予約-要件定義.md`）と共有する同一フィールド。
+- 同伴者のマイ予約: `GET /api/reservations` が `companionIds array-contains` の2本目のクエリを合成する。
+  ⚠️ array-contains に `status` を重ねない（複合インデックスが要る）。status はメモリで絞る。
+  ⚠️ **同伴者に返すレコードからは解錠コード・決済情報を必ず落とす**（単独解錠を防ぐ）。キャンセルは同伴者不可（`[id]` DELETE の本人確認で既に403）。
+- 同伴者の選択は URL ではなく `src/lib/reservationDraft.ts`（sessionStorage）で confirm 画面へ渡す（lineUserId を履歴・ログに残さない）。
+  `clearAuthCache()` から `clearReservationDraft()` を呼ぶ経路を外さないこと（共有端末で前ユーザーの選択が残る）。
+- 同伴者へのLINE通知は**なし**（2026-07-29 決定）。
+- テスト: `__tests__/unit/lib/{kana,companions,companionResolve}.test.ts` / `__tests__/unit/api/myReservationsCompanion.test.ts`。
+
 ### 決済（現状すべて無効）
 - `/api/payments`・`/api/payments/config` は先頭で `501 PAYMENT_DISABLED` を返す。
 - 予約APIは `paymentId` を受け付けず、`requirePayment=true` 施設はオンライン予約不可。

@@ -53,6 +53,10 @@ export interface Facility {
   paymentAmount?: number;    // 決済額（円・税込）。Square API照合の金額チェックにも使用
   // ── 解錠（SwitchBot時限パスコード・能力フィールド） ──
   switchBotDeviceId?: string; // キーパッド/ロックのデバイスID。あれば予約ごとに時限パスコードを発行
+  // ── 同伴者（サウナ等・1人での利用を禁止する施設） ──
+  // true=予約に同伴者（アプリ利用者・ゲスト以外）の指定が必要。未設定=false で既存施設は無影響。
+  requireCompanions?: boolean;
+  minPartySize?: number;   // 最低合計人数（予約者本人を含む）。requireCompanions=true のとき有効（既定 2）
   createdAt?: string;  // ISO8601
   updatedAt?: string;  // ISO8601
 }
@@ -97,7 +101,24 @@ export interface Reservation {
   switchBotKeyId?: number;             // SwitchBotが返すキーID（deleteKey用）
   switchBotPasscodeExpiresAt?: string; // パスコード失効（=予約終了）ISO8601
   switchBotStatus?: "issued" | "pending" | "failed" | "manual"; // 発行状態（failed=要手動再発行 / manual=SwitchBot未連携で手動解錠対応）
+  // ── 同伴者（requireCompanions=true の施設のみ。同伴者なしの予約には一切書かない） ──
+  companions?: ReservationCompanion[]; // 表示名は予約時点のスナップショット（改名しても履歴が崩れない）
+  companionIds?: string[];             // companions の lineUserId のみ。array-contains クエリ専用の非正規化
+  partySize?: number;                  // 合計人数 = 1 + companions.length
+  organizerName?: string;              // 予約者の表示名スナップショット（同伴者側の表示に使う）
   createdAt: string;
+}
+
+/** 予約に紐づく同伴者（アプリ利用者・ゲスト以外）。 */
+export interface ReservationCompanion {
+  lineUserId: string;
+  displayName: string;
+}
+
+/** マイ予約一覧の1件。自分が同伴者として含まれている予約も混ざる。 */
+export interface MyReservationItem extends Reservation {
+  /** true = 自分は同伴者（予約者ではない）。キャンセル不可・解錠コードは配信されない */
+  isCompanion: boolean;
 }
 
 export type UnavailableReason = "ALREADY_BOOKED" | "OUT_OF_HOURS" | "PAST_DATE";

@@ -27,6 +27,9 @@ export interface FacilityForm {
   clearSquareCredentials: boolean; // true=登録済みのSquare認証情報を削除
   // 解錠（SwitchBot）
   switchBotDeviceId: string; // 空文字=未設定（あれば解錠パスコード発行）
+  // 同伴者（サウナ等・1人での利用を禁止する施設）
+  requireCompanions: boolean;
+  minPartySize: string;      // 最低合計人数（予約者含む）。空文字=既定の2
 }
 
 export const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -51,4 +54,6 @@ export const EMPTY_FORM: FacilityForm = {
   squareEnvironment: "production",
   clearSquareCredentials: false,
   switchBotDeviceId: "",
+  requireCompanions: false,
+  minPartySize: "",
 };

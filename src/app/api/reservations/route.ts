@@ -9,7 +9,12 @@ import {
   assertSlotFreeInTx,
   buildReservationSlotKey,
 } from "@/lib/reservations";
-import type { Reservation } from "@/types";
+import {
+  validateCompanionsForReservation,
+  companionReservationFields,
+  buildCompanionCalendarLines,
+} from "@/lib/companions";
+import type { MyReservationItem, Reservation } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -24,22 +29,50 @@ export async function GET(req: NextRequest) {
   const db = getDb();
   // NOTE: .orderBy() を使うと Firestore の複合インデックスが必要になるため
   // クエリではソートせず、取得後にメモリ上でソートする。
-  const snap = await db
-    .collection("reservations")
-    .where("lineUserId", "==", userId)
-    .where("status", "==", "confirmed")
-    .get();
+  // 同伴者側は array-contains に status を重ねると複合インデックスが要るので、
+  // status も同様にメモリで絞る。companionIds を持たない既存予約はそもそもヒットしない。
+  const [ownSnap, companionSnap] = await Promise.all([
+    db
+      .collection("reservations")
+      .where("lineUserId", "==", userId)
+      .where("status", "==", "confirmed")
+      .get(),
+    db
+      .collection("reservations")
+      .where("companionIds", "array-contains", userId)
+      .get(),
+  ]);
 
-  const reservations: Reservation[] = snap.docs
-    .map((doc) => ({
+  const byId = new Map<string, MyReservationItem>();
+  for (const doc of ownSnap.docs) {
+    byId.set(doc.id, {
       reservationId: doc.id,
       ...(doc.data() as Omit<Reservation, "reservationId">),
-    }))
-    .sort((a, b) => {
-      // 日付 → 開始時刻 の昇順
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.startTime.localeCompare(b.startTime);
+      isCompanion: false,
     });
+  }
+  for (const doc of companionSnap.docs) {
+    if (byId.has(doc.id)) continue; // 予約者としても入っていれば予約者側を優先
+    const data = doc.data() as Omit<Reservation, "reservationId">;
+    if (data.status !== "confirmed") continue;
+    // 同伴者には解錠コードと決済情報を渡さない（単独解錠・決済照会を防ぐ）
+    const {
+      switchBotPasscode: _passcode,
+      switchBotKeyId: _keyId,
+      switchBotPasscodeExpiresAt: _passcodeExpiresAt,
+      switchBotStatus: _switchBotStatus,
+      paymentId: _paymentId,
+      paymentTransactionId: _paymentTransactionId,
+      ...safe
+    } = data;
+    byId.set(doc.id, { reservationId: doc.id, ...safe, isCompanion: true });
+  }
+
+  const reservations: MyReservationItem[] = Array.from(byId.values()).sort((a, b) => {
+    // 日付 → 開始時刻 の昇順
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.startTime.localeCompare(b.startTime);
+  });
 
   return NextResponse.json({ reservations });
 }
@@ -56,7 +89,7 @@ export async function POST(req: NextRequest) {
     const {
       facilityId, date, startTime, endTime,
       displayName: bodyDisplayName, termsAgreed,
-      paymentId,
+      paymentId, companionIds,
     } = body as {
       facilityId: string;
       date: string;
@@ -65,6 +98,7 @@ export async function POST(req: NextRequest) {
       displayName?: string;
       termsAgreed?: boolean;
       paymentId?: string;
+      companionIds?: unknown;
     };
 
     // Square決済は現在無効 — paymentIdを受け付けない
@@ -107,6 +141,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const db = getDb();
+
+    // 同伴者（サウナ等・1人での利用を禁止する施設）。Google Calendar を叩く前に弾く。
+    // 同伴者必須OFFの施設かつ同伴者なしなら Firestore には触れない。
+    const companionResult = await validateCompanionsForReservation(
+      db,
+      facility,
+      userId,
+      companionIds
+    );
+    if (!companionResult.ok) {
+      return NextResponse.json(
+        {
+          error: companionResult.reason,
+          message: companionResult.message,
+          ...(companionResult.invalidIds ? { invalidIds: companionResult.invalidIds } : {}),
+        },
+        { status: 400 }
+      );
+    }
+
     // 二重予約防止: 直前に再度空き確認（Google Calendar は補助。最終判定は下の transaction）
     const available = await checkAvailability(
       facility.calendarId,
@@ -122,7 +177,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Firestore からユーザー情報取得（存在しない場合は自動作成）
-    const db = getDb();
     const userRef = db.collection("users").doc(userId);
     const userDoc = await userRef.get();
     let user: { displayName: string; tenantName: string };
@@ -174,8 +228,12 @@ export async function POST(req: NextRequest) {
         date,
         startTime,
         endTime,
-        summary: `${facility.name} - ${user.displayName}`,
-        description: `予約者: ${user.displayName}\nテナント: ${user.tenantName}\nLINE ID: ${userId}`,
+        summary:
+          `${facility.name} - ${user.displayName}` +
+          (companionResult.companions.length ? `（他${companionResult.companions.length}名）` : ""),
+        description:
+          `予約者: ${user.displayName}\nテナント: ${user.tenantName}\nLINE ID: ${userId}` +
+          buildCompanionCalendarLines(companionResult.companions, companionResult.partySize),
       });
 
       // Firestore に予約レコードを保存
@@ -189,6 +247,8 @@ export async function POST(req: NextRequest) {
         googleEventId,
         status: "confirmed",
         ...(termsAgreed ? { termsAgreed: true, termsAgreedAt: dayjs().toISOString() } : {}),
+        // 同伴者なしのときは1フィールドも足さない（既存予約と doc の形状を完全に一致させる）
+        ...companionReservationFields(companionResult, user.displayName),
         createdAt: dayjs().toISOString(),
       };
 

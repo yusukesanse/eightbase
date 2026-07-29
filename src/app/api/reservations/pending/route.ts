@@ -12,6 +12,10 @@ import { getFacilitySquareCredentials } from "@/lib/facilitySecrets";
 import { liffUrl } from "@/lib/liffUrl";
 import { isDevLoginEnabled } from "@/lib/env";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
+import {
+  validateCompanionsForReservation,
+  companionReservationFields,
+} from "@/lib/companions";
 import type { Reservation } from "@/types";
 import dayjs from "dayjs";
 
@@ -33,12 +37,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { facilityId, date, startTime, endTime, termsAgreed } = body as {
+    const { facilityId, date, startTime, endTime, termsAgreed, companionIds } = body as {
       facilityId: string;
       date: string;
       startTime: string;
       endTime: string;
       termsAgreed?: boolean;
+      companionIds?: unknown;
     };
 
     if (!facilityId || !date || !startTime || !endTime) {
@@ -72,6 +77,25 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
+
+    // 同伴者（サウナ等）。Square 決済リンクを作る前に弾く。
+    const companionResult = await validateCompanionsForReservation(
+      db,
+      facility,
+      userId,
+      companionIds
+    );
+    if (!companionResult.ok) {
+      return NextResponse.json(
+        {
+          error: companionResult.reason,
+          message: companionResult.message,
+          ...(companionResult.invalidIds ? { invalidIds: companionResult.invalidIds } : {}),
+        },
+        { status: 400 }
+      );
+    }
+
     const nowIso = dayjs().toISOString();
     const expiresAt = dayjs().add(PENDING_TTL_MIN, "minute").toISOString();
     const slotRef = db
@@ -136,6 +160,8 @@ export async function POST(req: NextRequest) {
         paymentTransactionId: paymentLink.orderId,
         paymentAmount: facility.paymentAmount,
         ...(termsAgreed ? { termsAgreed: true, termsAgreedAt: nowIso } : {}),
+        // 同伴者なしのときは1フィールドも足さない（既存予約と doc の形状を完全に一致させる）
+        ...companionReservationFields(companionResult),
         createdAt: nowIso,
       };
       tx.create(reservationRef, reservationData);
