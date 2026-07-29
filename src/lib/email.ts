@@ -143,15 +143,16 @@ export async function sendGuestInviteEmail(
 }
 
 /**
- * エイト社員（staff）向けの URL 招待メール。
- * ゲスト用（麻雀リーグ参加）とは文言を分ける: 社員は会員同等の全機能が使え、登録後にプロフィール登録へ進む。
+ * 会員（member）／エイト社員（staff）向けの URL 招待メール。
+ * ゲスト用（ゲーム参加のみ）とは文言を分ける: こちらは全機能が使え、登録後にプロフィール登録へ進む。
  * URL first-clicker 方式・1回限りである点はゲストと同じ。
  */
 export async function sendStaffInviteEmail(
   to: string,
   displayName: string,
   url: string,
-  expiryDays = 2
+  expiryDays = 2,
+  audience: "member" | "staff" = "staff"
 ): Promise<void> {
   const resend = getResend();
 
@@ -162,7 +163,10 @@ export async function sendStaffInviteEmail(
   const { error } = await resend.emails.send({
     from: FROM_ADDRESS,
     to,
-    subject: "【EIGHT BASE】ご利用のご案内（エイトデザイン社員）",
+    subject:
+      audience === "staff"
+        ? "【EIGHT BASE】ご利用のご案内（エイトデザイン社員）"
+        : "【EIGHT BASE】ご利用のご案内",
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 16px;">
         <div style="text-align: center; margin-bottom: 32px;">

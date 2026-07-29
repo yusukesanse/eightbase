@@ -84,8 +84,9 @@ function GuestInner() {
           router.replace(data.role === "guest" ? GUEST_HOME : "/reservation");
           return;
         }
-        // 新規エイト社員: 会員同等の簡素版プロフィール登録へ（氏名確認だけでは終わらない）。
-        if (data.role === "staff") {
+        // 新規の会員/エイト社員: プロフィール登録へ（氏名確認だけでは終わらない）。
+        // ゲストだけが氏名確認で完了する（利用範囲がゲームのみのため）。
+        if (data.role !== "guest") {
           router.replace("/setup-profile");
           return;
         }

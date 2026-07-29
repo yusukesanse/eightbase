@@ -129,15 +129,12 @@ export async function createInvitation(params: {
   // メール送信（member=OTP / guest・staff=URL・文言は身分別）
   let emailSent = false;
   try {
-    if (usesUrlInvite(role)) {
-      const inviteUrl = buildGuestInviteUrl(passcode);
-      if (role === "staff") {
-        await sendStaffInviteEmail(email, displayName, inviteUrl, expiryDays);
-      } else {
-        await sendGuestInviteEmail(email, displayName, inviteUrl, expiryDays);
-      }
+    // 全ロールURL方式。ゲストだけ文面が別（ゲーム参加のみのため）。
+    const inviteUrl = buildGuestInviteUrl(passcode);
+    if (role === "guest") {
+      await sendGuestInviteEmail(email, displayName, inviteUrl, expiryDays);
     } else {
-      await sendPasscodeEmail(email, displayName, passcode);
+      await sendStaffInviteEmail(email, displayName, inviteUrl, expiryDays, role === "staff" ? "staff" : "member");
     }
     emailSent = true;
     await inviteRef.update({ emailDeliveryStatus: "sent", emailSentAt: new Date().toISOString() });

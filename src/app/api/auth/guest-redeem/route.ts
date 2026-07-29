@@ -152,7 +152,8 @@ export async function POST(req: NextRequest) {
 
       // URL招待（ゲスト / エイト社員）であること。会員招待(OTP)はこの経路では引き換えない。
       if (!usesUrlInvite(invite.role)) return { error: INVALID_MSG, status: 400 };
-      const inviteRole: "guest" | "staff" = invite.role === "staff" ? "staff" : "guest";
+      // 招待に記録されたロールをそのまま採用（member/staff/guest すべてURL招待）。
+      const inviteRole = normalizeRole(invite.role);
       // 使用済み / 無効化 / 期限切れ
       if (invite.usedAt || invite.lineUserId) return { error: INVALID_MSG, status: 400 };
       if (invite.revokedAt) return { error: INVALID_MSG, status: 400 };

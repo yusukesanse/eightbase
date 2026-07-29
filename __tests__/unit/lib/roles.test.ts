@@ -27,11 +27,13 @@ describe("roles — 参加者種別ヘルパー", () => {
     expect(isGamesOnlyRole(undefined)).toBe(false);
   });
 
-  test("usesUrlInvite: guest と staff は URL 招待（member は OTP）", () => {
+  // 仕様変更（2026-07-29）: ワンタイムパスワード方式を廃止し、**全ロールがURL（メールのボタン）招待**。
+  // 発行済みのOTPは /api/auth/invite が passcode で照合するため引き続き使える（この関数は見ない）。
+  test("usesUrlInvite: 全ロールが URL 招待", () => {
     expect(usesUrlInvite("guest")).toBe(true);
     expect(usesUrlInvite("staff")).toBe(true);
-    expect(usesUrlInvite("member")).toBe(false);
-    expect(usesUrlInvite(undefined)).toBe(false);
+    expect(usesUrlInvite("member")).toBe(true);
+    expect(usesUrlInvite(undefined)).toBe(true); // 未知の値は member 扱い
   });
 
   test("mahjongPaymentRequired: 会員/ゲストは要、エイト社員(staff)は不要", () => {
