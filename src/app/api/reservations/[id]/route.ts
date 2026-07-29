@@ -14,14 +14,14 @@ export const dynamic = "force-dynamic";
 // ─── DELETE: 予約キャンセル ────────────────────────────────────────────────────
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const userId = await requireMember(req);
   if (!userId) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const reservationId = params.id;
+  const { id: reservationId } = await params;
   const db = getDb();
 
   // Firestore から予約取得
