@@ -9,16 +9,22 @@ import { getAuthAccessToken } from "@/lib/liff";
  * 送信すると管理者に通知され、承認されるとメールにワンタイムパスワードが届く。
  * （この時点ではメールを送らない＝管理者の承認が前提）
  */
+/** 社員（staff）申請時に自動で入る会社名。入力欄は出さない。 */
+const STAFF_COMPANY_NAME = "エイトデザイン株式会社";
+
 export default function AccessRequestForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
-  const [userType, setUserType] = useState<"member" | "guest">("member");
+  const [userType, setUserType] = useState<"member" | "staff" | "guest">("member");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  const canSubmit = name.trim() && email.trim() && company.trim() && !submitting;
+  // 社員は会社名を固定するので入力必須から外す。
+  const isStaff = userType === "staff";
+  const companyName = isStaff ? STAFF_COMPANY_NAME : company.trim();
+  const canSubmit = name.trim() && email.trim() && companyName && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -39,7 +45,7 @@ export default function AccessRequestForm() {
           accessToken,
           displayName: name.trim(),
           email: email.trim(),
-          companyName: company.trim(),
+          companyName,
           requestedRole: userType,
         }),
       });
@@ -120,16 +126,17 @@ export default function AccessRequestForm() {
             />
           </Field>
           <Field label="ご利用形態">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {([
-                { key: "member", label: "オフィス契約者" },
+                { key: "member", label: "オフィス\n契約者" },
+                { key: "staff", label: "社員" },
                 { key: "guest", label: "ゲスト" },
               ] as const).map((opt) => (
                 <button
                   key={opt.key}
                   type="button"
                   onClick={() => setUserType(opt.key)}
-                  className={`rounded-xl border px-3 py-3 text-sm font-bold transition-colors ${
+                  className={`rounded-xl border px-2 py-3 text-[13px] font-bold leading-tight whitespace-pre-line transition-colors ${
                     userType === opt.key
                       ? "border-[#231714] bg-[#231714] text-white"
                       : "border-gray-200 bg-white text-[#231714]/85"
@@ -139,15 +146,24 @@ export default function AccessRequestForm() {
                 </button>
               ))}
             </div>
+            {isStaff && (
+              <p className="text-[11px] text-[#231714]/70 mt-1.5 leading-relaxed">
+                エイトデザインの社員の方はこちら（会社名は{STAFF_COMPANY_NAME}で申請されます）。
+                管理者の承認後にご利用いただけます。
+              </p>
+            )}
           </Field>
-          <Field label="会社名">
-            <input
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder="エイトデザイン株式会社"
-              className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
-            />
-          </Field>
+          {/* 社員は会社名が自明なので入力欄を出さず、STAFF_COMPANY_NAME を送る。 */}
+          {!isStaff && (
+            <Field label="会社名">
+              <input
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="エイトデザイン株式会社"
+                className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
+              />
+            </Field>
+          )}
         </div>
 
         {error && <p className="text-xs text-red-500 mt-3">{error}</p>}

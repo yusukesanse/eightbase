@@ -9,7 +9,7 @@ interface AccessRequestItem {
   displayName: string;
   email: string;
   companyName: string;
-  requestedRole: "member" | "guest";
+  requestedRole: "member" | "staff" | "guest";
   status: "pending" | "approved" | "rejected";
   createdAt: string;
   reviewedAt?: string;
@@ -17,7 +17,7 @@ interface AccessRequestItem {
 }
 
 // 自己申告できるのは member / guest のみ（staffはURL招待の別導線）。
-type RoleOption = "member" | "guest";
+type RoleOption = "member" | "staff" | "guest";
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   member: { label: "オフィス契約者", color: "#1172a5" },
   guest: { label: "ゲスト", color: "#b48f13" },
@@ -159,7 +159,7 @@ export default function AdminAccessRequestsPage() {
                       onChange={(e) => setRoleById((p) => ({ ...p, [it.id]: e.target.value as RoleOption }))}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-2"
                     >
-                      {(["member", "guest"] as RoleOption[]).map((r) => (
+                      {(["member", "staff", "guest"] as RoleOption[]).map((r) => (
                         <option key={r} value={r}>{ROLE_LABEL[r].label}</option>
                       ))}
                     </select>
