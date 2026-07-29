@@ -249,7 +249,11 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
 - 共通処理 `runLiffServerLogin()`（`src/lib/liff.ts`）を両画面で使用。
 - 環境判定 `detectEnv()`: `?env` 優先、無ければホスト名（localhost→dev / *.vercel.app→review / その他→prod）。**prodで dev LIFF ID にフォールバックしない**。
 - 連携成功時は `clearAuthCache()`＋`profileComplete` で分岐（未完了は `/setup-profile` 直行で往復を防止）。
-- 招待は**メール+ワンタイムパスワード方式**。未連携でも OTP は自動表示せず、`/` は「招待が必要」案内、OTP入力は `/login` の明示導線のみ。
+- 招待は**メールの招待URL（ボタン）方式・全ロール共通**（2026-07-29にOTPから統一）。
+  メールのボタン → LINEミニアプリ `/guest` で引き換え → ゲストは氏名確認のみ、会員/社員は `/setup-profile` へ。
+  1URL=1回（最初に開いた1名のみ）・既定2日で失効。`usesUrlInvite()` は常に true。
+  ⚠️ **発行済みのOTPは引き続き有効**（`/api/auth/invite` が passcode で照合し `usesUrlInvite` を見ないため）。
+  `/login` のコード入力画面もそのために残している。未連携でも OTP は自動表示せず、`/` は「招待が必要」案内、OTP入力は `/login` の明示導線のみ。
 - ログアウト: `initLiff()` 後 `liff.logout()`＋フラグで `/` の自動再ログインを抑止（「ログアウトしました」画面＋明示ログイン）。ログアウトは `/api/auth/logout` に一本化。
 - AuthGuard の認証キャッシュは 60 秒（表示キャッシュとは別扱い。最終判定はサーバー）。
 

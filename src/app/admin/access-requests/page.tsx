@@ -73,11 +73,15 @@ export default function AdminAccessRequestsPage() {
       } else {
         setNote((p) => ({
           ...p,
+          // 招待は全ロールURL（メールのボタン）方式。メール送信に失敗したときは
+          // 管理者が手で共有できるよう招待URLを出す（旧OTPの passcode も一応拾う）。
           [id]: d.emailSent
-            ? "承認しOTPメールを送信しました"
-            : d.passcode
-              ? `承認（メール送信失敗）。手動共有コード: ${d.passcode}`
-              : "承認しました",
+            ? "承認しご案内メールを送信しました"
+            : d.guestUrl
+              ? `承認（メール送信失敗）。招待URLを本人へ共有してください: ${d.guestUrl}`
+              : d.passcode
+                ? `承認（メール送信失敗）。手動共有コード: ${d.passcode}`
+                : "承認しました",
         }));
         load();
       }
@@ -110,7 +114,7 @@ export default function AdminAccessRequestsPage() {
       <div className="mb-5">
         <h1 className="text-lg font-bold text-[#1c1f21]">利用申請</h1>
         <p className="text-xs text-[#8a8f94] mt-0.5">
-          利用者からの申請を承認するとOTPメールが届き、本登録に進めます。
+          利用者からの申請を承認するとご案内メールが届き、メール内のボタンから本登録に進めます。
         </p>
       </div>
 

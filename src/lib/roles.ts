@@ -32,8 +32,12 @@ export function isGamesOnlyRole(role: unknown): boolean {
  * 招待の引き換え可否・氏名確認導線の判定に使う（機能アクセス範囲とは別軸）。
  */
 export function usesUrlInvite(role: unknown): boolean {
-  const r = normalizeRole(role);
-  return r === "guest" || r === "staff";
+  // **全ロールが URL（メールのボタン）方式**。ワンタイムパスワードは廃止した
+  // （コードを控えて入力させるより、ボタン1つでLINEに入れる方が離脱が少ないため）。
+  // ※ 発行済みのOTP招待は `/api/auth/invite` が passcode で照合するので引き続き使える。
+  //    そちらは usesUrlInvite を見ないため、この変更で無効にはならない。
+  normalizeRole(role);
+  return true;
 }
 
 /**
