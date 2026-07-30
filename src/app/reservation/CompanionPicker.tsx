@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { kanaIncludes } from "@/lib/kana";
 import { Avatar } from "@/components/ui/LineContact";
+import {
+  companionPickerReducer,
+  isCompanionDropdownOpen,
+  INITIAL_COMPANION_PICKER_STATE,
+} from "./companionPickerState";
 
 export interface CompanionCandidate {
   lineUserId: string;
@@ -41,10 +46,13 @@ export function CompanionPicker({
   maxCompanions,
 }: CompanionPickerProps) {
   const listId = useId();
-  const [q, setQ] = useState("");
+  // 候補ドロップダウンの開閉は reducer に切り出してある（companionPickerState.ts）。
+  // 「選択後も続けて2人目を打てる」不変条件をテストで固定するため。
+  const [picker, dispatch] = useReducer(companionPickerReducer, INITIAL_COMPANION_PICKER_STATE);
+  const { query: q, focused } = picker;
   const [activeIndex, setActiveIndex] = useState(0);
-  const [focused, setFocused] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // key=null で無効化。描画だけ止めると既存施設でも候補APIを叩いてしまう。
   // 名前空間を members にすることで swrCache の TTL 5分・sessionStorage 既定に相乗りする。
@@ -81,7 +89,7 @@ export function CompanionPicker({
   useEffect(() => {
     if (!focused) return;
     function onPointerDown(e: PointerEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setFocused(false);
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) dispatch({ type: "dismiss" });
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -92,8 +100,10 @@ export function CompanionPicker({
   function add(c: CompanionCandidate) {
     if (isFull || chosenIds.has(c.lineUserId)) return;
     onChange([...value, c]);
-    setQ("");
-    setFocused(false);
+    // query が空になるので候補は閉じる。focused は保たれる（＝2人目をそのまま打てる）。
+    dispatch({ type: "select" });
+    // 選択後もキャレットとキーボードを input に残す。上限に達して disabled になった場合は no-op。
+    inputRef.current?.focus();
   }
 
   function remove(lineUserId: string) {
@@ -102,7 +112,7 @@ export function CompanionPicker({
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") {
-      setFocused(false);
+      dispatch({ type: "escape" });
       return;
     }
     if (suggestions.length === 0) return;
@@ -120,7 +130,7 @@ export function CompanionPicker({
 
   const total = 1 + value.length;
   const shortBy = Math.max(0, minTotal - total);
-  const open = focused && q.trim() !== "";
+  const open = isCompanionDropdownOpen(picker);
 
   return (
     <div className="bg-white rounded-[18px] border border-[#eceff1] p-4">
@@ -165,6 +175,7 @@ export function CompanionPicker({
           <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         <input
+          ref={inputRef}
           type="text"
           role="combobox"
           aria-expanded={open}
@@ -172,8 +183,8 @@ export function CompanionPicker({
           aria-autocomplete="list"
           value={q}
           disabled={isFull}
-          onChange={(e) => setQ(e.target.value)}
-          onFocus={() => setFocused(true)}
+          onChange={(e) => dispatch({ type: "type", query: e.target.value })}
+          onFocus={() => dispatch({ type: "focus" })}
           onKeyDown={onKeyDown}
           placeholder={isFull ? `同伴者は最大${maxCompanions}名までです` : "名前で検索…"}
           className="w-full pl-9 pr-4 py-2.5 text-[14px] bg-[#f3f5f6] rounded-xl border border-[#eceff1] focus:outline-none focus:border-[#a5c1c7] transition-colors disabled:opacity-60"
@@ -226,6 +237,15 @@ export function CompanionPicker({
           <span className="text-[#b4543f]">　あと{shortBy}名選んでください</span>
         )}
       </p>
+
+      {/* 上限に達したことを本文でも知らせる。placeholder だけだと「検索が壊れている」と
+          区別がつかない（同伴者の上限は施設の定員-1 なので、定員2名なら1名で打ち止め）。 */}
+      {isFull && (
+        <p className="text-[12px] text-[#45484d] mt-1.5">
+          この施設で選べる同伴者は最大{maxCompanions}名です。
+          変更するには選択済みの人を外してください。
+        </p>
+      )}
     </div>
   );
 }
