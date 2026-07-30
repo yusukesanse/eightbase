@@ -31,11 +31,14 @@ export async function GET(req: NextRequest) {
   // クエリではソートせず、取得後にメモリ上でソートする。
   // 同伴者側は array-contains に status を重ねると複合インデックスが要るので、
   // status も同様にメモリで絞る。companionIds を持たない既存予約はそもそもヒットしない。
+  // 自分の予約は confirmed だけでなく **決済待ちの仮押さえ(pending_payment)も返す**。
+  // ⚠️ 返さないと「決済せずに離脱した仮押さえ」が誰にも見えないまま枠を握り続け、
+  //    利用者は「取り消したのに時間が選べない」状態になる（TTL 15分の自然解放を待つしかない）。
+  //    status はメモリで絞る（`in` + `==` を重ねると複合インデックスが要る）。
   const [ownSnap, companionSnap] = await Promise.all([
     db
       .collection("reservations")
       .where("lineUserId", "==", userId)
-      .where("status", "==", "confirmed")
       .get(),
     db
       .collection("reservations")
@@ -43,13 +46,20 @@ export async function GET(req: NextRequest) {
       .get(),
   ]);
 
+  const nowIso = dayjs().toISOString();
   const byId = new Map<string, MyReservationItem>();
   for (const doc of ownSnap.docs) {
-    byId.set(doc.id, {
-      reservationId: doc.id,
-      ...(doc.data() as Omit<Reservation, "reservationId">),
-      isCompanion: false,
-    });
+    const data = doc.data() as Omit<Reservation, "reservationId">;
+    if (data.status === "cancelled") continue;
+    // 失効した仮押さえは枠を握っていない（isLockBlocking が空き扱いにする）ので出さない。
+    // 有効な仮押さえだけ出す＝利用者が自分で取り消して枠を解放できる。
+    if (
+      data.status === "pending_payment" &&
+      (!data.pendingExpiresAt || data.pendingExpiresAt <= nowIso)
+    ) {
+      continue;
+    }
+    byId.set(doc.id, { reservationId: doc.id, ...data, isCompanion: false });
   }
   for (const doc of companionSnap.docs) {
     if (byId.has(doc.id)) continue; // 予約者としても入っていれば予約者側を優先
