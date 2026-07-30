@@ -42,6 +42,10 @@ export interface Facility {
   minDuration?: number;    // 最低利用時間（分）。未設定=30分刻みで自由選択
   fixedDuration?: boolean; // true=固定枠（開始時刻のみ選択、終了自動計算）
   prepTime?: number;       // 準備時間（分）。予約枠には含むがユーザー利用時間には含まない
+  // 利用日の何日前までに予約が必要か（＝最低リードタイム日数）。
+  // 例: 7 なら「利用日の7日前まで」＝ 今日+7 以降の日付しか予約できない（直前予約の禁止）。
+  // 0 / 未設定 = 制限なし（当日でも予約可・既存施設は無影響）。
+  minAdvanceDays?: number;
   // ── 利用規約 ──
   requireTerms?: boolean;  // true=予約前に利用規約への同意が必要
   termsContent?: string;   // 利用規約の本文（改行対応）
@@ -121,7 +125,8 @@ export interface MyReservationItem extends Reservation {
   isCompanion: boolean;
 }
 
-export type UnavailableReason = "ALREADY_BOOKED" | "OUT_OF_HOURS" | "PAST_DATE";
+// TOO_SOON = 直前すぎる（施設の minAdvanceDays に満たない）
+export type UnavailableReason = "ALREADY_BOOKED" | "OUT_OF_HOURS" | "PAST_DATE" | "TOO_SOON";
 
 export interface AvailabilityResponse {
   available: boolean;

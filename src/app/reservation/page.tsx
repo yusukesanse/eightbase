@@ -13,6 +13,7 @@ import { FacilityPill } from "./FacilityPill";
 import { CompanionPicker, type CompanionCandidate } from "./CompanionPicker";
 import { saveReservationDraft } from "@/lib/reservationDraft";
 import { minPartySizeOf, maxCompanionsOf } from "@/lib/companions";
+import { BOOKING_HORIZON_DAYS, earliestBookableDate, minAdvanceDaysOf } from "@/lib/reservations";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -57,7 +58,11 @@ export default function ReservationPage() {
   const [selEnd, setSelEnd] = useState<string | null>(null);
 
   const today = dayjs().format("YYYY-MM-DD");
-  const maxDate = dayjs().add(30, "day").format("YYYY-MM-DD");
+  const maxDate = dayjs().add(BOOKING_HORIZON_DAYS, "day").format("YYYY-MM-DD");
+  // 予約できる最も早い日。施設の minAdvanceDays（直前予約の禁止）を反映する。
+  // 判定ロジックはサーバーと同じ earliestBookableDate を使い、表示と検証をズレさせない。
+  const minAdvanceDays = selectedFacility ? minAdvanceDaysOf(selectedFacility) : 0;
+  const minDate = selectedFacility ? earliestBookableDate(selectedFacility, today) : today;
 
   // ─── 月の空き（週ごとに取得して合算。短時間キャッシュ＋裏で更新）──────────
   const weekKey = selectedFacility
@@ -158,11 +163,13 @@ export default function ReservationPage() {
     (d: dayjs.Dayjs) => {
       const dateStr = d.format("YYYY-MM-DD");
       const isPast = dateStr < today;
+      // 直前すぎる日（minAdvanceDays 未満）も選べない。過去日と同じ「disabled」で出す。
+      const isTooSoon = dateStr < minDate;
       const isBeyond = dateStr > maxDate;
       const availDays = selectedFacility?.availableDays ?? [1, 2, 3, 4, 5];
       const isUnavailableDay = !availDays.includes(d.day());
 
-      if (isPast || isBeyond || isUnavailableDay) return "disabled" as const;
+      if (isPast || isTooSoon || isBeyond || isUnavailableDay) return "disabled" as const;
 
       // 空きデータがあれば、その日が完全に埋まっているか判定
       const booked = weekData[dateStr];
@@ -181,7 +188,7 @@ export default function ReservationPage() {
       }
       return "available" as const;
     },
-    [today, maxDate, selectedFacility, weekData]
+    [today, minDate, maxDate, selectedFacility, weekData]
   );
 
   // ─── 固定枠関連 ─────────────────────────────────────────────────────────────
@@ -563,6 +570,17 @@ export default function ReservationPage() {
       {/* ── カレンダー ── */}
       {selectedFacility ? (
         <section className="px-5 pt-4 pb-2">
+          {/* 直前予約を禁止している施設は、なぜ手前の日付が選べないのかを先に伝える */}
+          {minAdvanceDays > 0 && (
+            <div className="mb-3 bg-[#f3f5f6] rounded-xl px-3 py-2.5">
+              <p className="text-[12px] text-[#45484d] leading-relaxed">
+                この施設は<strong className="text-[#231714]">利用日の{minAdvanceDays}日前まで</strong>にご予約ください。
+                <br />
+                {dayjs(minDate).format("M月D日（ddd）")}以降の日付から選べます。
+              </p>
+            </div>
+          )}
+
           {/* 月ナビ */}
           <div className="flex items-center justify-between mb-4">
             <button

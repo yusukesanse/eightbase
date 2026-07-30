@@ -24,6 +24,17 @@ export function dayOfWeek(dateStr: string): number {
   return new Date(`${dateStr}T12:00:00Z`).getUTCDay();
 }
 
+/**
+ * YYYY-MM-DD に日数を足す（負数で引く）。返り値も YYYY-MM-DD。
+ *
+ * ⚠️ `new Date(dateStr)` + `setDate()` は本番(TZ=UTC)とローカル(JST)で結果が変わるので使わない。
+ * `upcomingSaturdayJst` / `daysUntil` と同じ「UTC 0時基準 + epoch 加算」方式に揃える。
+ */
+export function addDaysJst(dateStr: string, days: number): string {
+  const base = new Date(`${dateStr}T00:00:00Z`).getTime();
+  return new Date(base + days * 86400000).toISOString().slice(0, 10);
+}
+
 /** "HH:MM" を 0時からの分に変換。 */
 export function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number);

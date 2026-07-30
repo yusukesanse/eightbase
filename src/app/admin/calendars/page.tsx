@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Facility, FacilitySquareStatus, FacilityType } from "@/types";
+import { MAX_COMPANIONS } from "@/lib/companions";
+import { BOOKING_HORIZON_DAYS } from "@/lib/reservations";
 import TimePicker from "@/components/ui/TimePicker";
 import { type FacilityForm, DAY_LABELS, EMPTY_FORM } from "./facilityForm";
 import { TermsEditor } from "./TermsEditor";
@@ -87,6 +89,7 @@ export default function CalendarsPage() {
       minDuration: facility.minDuration ? String(facility.minDuration) : "",
       fixedDuration: facility.fixedDuration ?? false,
       prepTime: facility.prepTime ? String(facility.prepTime) : "",
+      minAdvanceDays: facility.minAdvanceDays ? String(facility.minAdvanceDays) : "",
       requireTerms: facility.requireTerms ?? false,
       termsContent: facility.termsContent ?? "",
       // 旧データ（決済額のみ設定・チェック無し）もチェックONとして表示する
@@ -135,10 +138,24 @@ export default function CalendarsPage() {
         return;
       }
     }
+    // 直前予約の禁止日数が予約可能期間以上だと、予約できる日が1日も無くなる
+    if (Number(form.minAdvanceDays || 0) >= BOOKING_HORIZON_DAYS) {
+      setError(
+        `「何日前までに予約が必要か」は${BOOKING_HORIZON_DAYS - 1}日以下にしてください（予約できるのは${BOOKING_HORIZON_DAYS}日先までのため）`
+      );
+      return;
+    }
     if (form.requireCompanions) {
       const min = Number(form.minPartySize || 2);
       if (!Number.isInteger(min) || min < 2) {
         setError("最低合計人数は2名以上で入力してください");
+        return;
+      }
+      // 同伴者は MAX_COMPANIONS 名までしか選べないので、それを超える最低人数は成立しない
+      if (min - 1 > MAX_COMPANIONS) {
+        setError(
+          `同伴者の上限が${MAX_COMPANIONS}名のため、最低合計人数は${MAX_COMPANIONS + 1}名以下にしてください`
+        );
         return;
       }
       // 同伴者は「予約者以外」なので、収容人数が最低合計人数に満たないと誰も予約できなくなる
@@ -158,6 +175,8 @@ export default function CalendarsPage() {
         capacity: Number(form.capacity),
         minDuration: form.minDuration ? Number(form.minDuration) : undefined,
         prepTime: form.prepTime ? Number(form.prepTime) : undefined,
+        // 空欄は 0（＝制限なし）で送る。undefined にすると更新時に既存値が消えない
+        minAdvanceDays: Number(form.minAdvanceDays || 0),
         // termsContent は requireTerms=false なら送らない
         termsContent: form.requireTerms ? form.termsContent : undefined,
         // 決済OFF保存時は決済額を0にして「決済する」フローを無効化（チェック＝決済の有効/無効）
@@ -371,6 +390,11 @@ export default function CalendarsPage() {
                       <p className="text-xs text-[#231714]/80 mt-0.5">
                         ⏱️ {f.fixedDuration ? "固定枠" : "最低利用"}{f.minDuration ? ` ${f.minDuration}分` : ""}
                         {f.prepTime ? ` （準備${f.prepTime}分含む）` : ""}
+                      </p>
+                    )}
+                    {(f.minAdvanceDays ?? 0) > 0 && (
+                      <p className="text-xs text-[#231714]/80 mt-0.5">
+                        📆 利用日の{f.minAdvanceDays}日前までに予約（直前予約 不可）
                       </p>
                     )}
                     {f.requireTerms && (
@@ -640,6 +664,30 @@ export default function CalendarsPage() {
                       : `${form.minDuration}分の固定枠`}
                   </p>
                 )}
+
+                {/* 直前予約の禁止（最低リードタイム） */}
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    何日前までに予約が必要か（日）
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={form.minAdvanceDays}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      setForm({ ...form, minAdvanceDays: v });
+                    }}
+                    placeholder="例: 7（1週間前まで）"
+                    className="w-full px-3 py-2 border border-[#231714]/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#231714] focus:border-transparent"
+                  />
+                  <p className="text-xs text-[#231714]/85 mt-1.5">
+                    {Number(form.minAdvanceDays) > 0
+                      ? `利用日の${form.minAdvanceDays}日前までに予約が必要（＝${form.minAdvanceDays}日以内の直前予約は不可）`
+                      : "空欄または0＝制限なし（当日でも予約できる）"}
+                  </p>
+                </div>
               </div>
 
               {/* ── 利用規約 ── */}

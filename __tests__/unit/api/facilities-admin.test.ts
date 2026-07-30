@@ -238,6 +238,47 @@ describe("管理施設API — /api/admin/facilities", () => {
       expect(JSON.stringify(created)).not.toContain("LOC123");
     });
 
+    // ─── 直前予約の禁止（最低リードタイム） ───
+    test("minAdvanceDays を指定すると施設に保存される", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "サウナ", calendarId: "cal@google.com", type: "activity", capacity: 4,
+          minAdvanceDays: 7,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(201);
+      expect(mockCreateFacility.mock.calls[0][0].minAdvanceDays).toBe(7);
+    });
+
+    test("minAdvanceDays=0 はフィールドを作らない（既存施設の回帰）", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "会議室E", calendarId: "cal-e@google.com", type: "meeting_room", capacity: 8,
+          minAdvanceDays: 0,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(201);
+      expect(mockCreateFacility.mock.calls[0][0].minAdvanceDays).toBeUndefined();
+    });
+
+    test("minAdvanceDays が予約可能期間(30日)以上は400（予約できる日が無くなる）", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "サウナ", calendarId: "cal@google.com", type: "activity", capacity: 4,
+          minAdvanceDays: 30,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(400);
+      expect(res._data.error).toContain("29日以下");
+      expect(mockCreateFacility).not.toHaveBeenCalled();
+    });
+
     // ─── 同伴者（サウナ等・1人での利用を禁止する施設） ───
     test("requireCompanions=true で最低合計人数が1名は400", async () => {
       const req = new NextRequest("http://localhost/api/admin/facilities", {
@@ -275,6 +316,32 @@ describe("管理施設API — /api/admin/facilities", () => {
       const res = asMock(await POST(req));
       expect(res.status).toBe(400);
       expect(res._data.error).toContain("収容人数");
+    });
+
+    test("最低合計人数が同伴者の上限(9名)を超えると400（同伴者を選び切れず予約が成立しないため）", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "大浴場", calendarId: "cal@google.com", type: "activity", capacity: 20,
+          requireCompanions: true, minPartySize: 15,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(400);
+      expect(res._data.error).toContain("同伴者の上限");
+    });
+
+    test("最低合計人数10名（＝同伴者9名・境界値）は保存できる", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "大浴場", calendarId: "cal@google.com", type: "activity", capacity: 20,
+          requireCompanions: true, minPartySize: 10,
+        }),
+      });
+      const res = asMock(await POST(req));
+      expect(res.status).toBe(201);
+      expect(mockCreateFacility.mock.calls[0][0].minPartySize).toBe(10);
     });
 
     test("requireCompanions=true で作成すると施設に保存される", async () => {
@@ -401,6 +468,26 @@ describe("管理施設API — /api/admin/facilities", () => {
       expect(res.status).toBe(400);
     });
 
+    test("minAdvanceDays は ALLOWED_UPDATE_FIELDS を通って数値で保存される", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "PUT",
+        body: JSON.stringify({ id: "sauna", minAdvanceDays: 7 }),
+      });
+      const res = asMock(await PUT(req));
+      expect(res.status).toBe(200);
+      expect(mockUpdateFacility.mock.calls[0][1].minAdvanceDays).toBe(7);
+    });
+
+    test("minAdvanceDays=0 で直前予約の禁止を解除できる", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "PUT",
+        body: JSON.stringify({ id: "sauna", minAdvanceDays: 0 }),
+      });
+      const res = asMock(await PUT(req));
+      expect(res.status).toBe(200);
+      expect(mockUpdateFacility.mock.calls[0][1].minAdvanceDays).toBe(0);
+    });
+
     // ─── 同伴者 ───
     test("requireCompanions=true で最低合計人数が1名は400", async () => {
       const req = new NextRequest("http://localhost/api/admin/facilities", {
@@ -409,6 +496,17 @@ describe("管理施設API — /api/admin/facilities", () => {
       });
       const res = asMock(await PUT(req));
       expect(res.status).toBe(400);
+      expect(mockUpdateFacility).not.toHaveBeenCalled();
+    });
+
+    test("最低合計人数が同伴者の上限(9名)を超える更新は400", async () => {
+      const req = new NextRequest("http://localhost/api/admin/facilities", {
+        method: "PUT",
+        body: JSON.stringify({ id: "sauna", capacity: 20, requireCompanions: true, minPartySize: 11 }),
+      });
+      const res = asMock(await PUT(req));
+      expect(res.status).toBe(400);
+      expect(res._data.error).toContain("同伴者の上限");
       expect(mockUpdateFacility).not.toHaveBeenCalled();
     });
 
