@@ -179,6 +179,65 @@ describe("GET /api/reservations — 同伴者の予約", () => {
     expect(res._data.reservations.map((r: any) => r.reservationId)).toEqual(["c", "b", "a"]);
   });
 
+  /* ── 決済待ちの仮押さえ（見えないと枠を握ったまま解放できない） ── */
+  describe("自分の仮押さえ（pending_payment）", () => {
+    const future = new Date(Date.now() + 10 * 60_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
+
+    test("有効な仮押さえは返す（利用者が自分で取り消して枠を解放できるように）", async () => {
+      ownDocs = [
+        {
+          id: "r-pending",
+          data: confirmed({
+            lineUserId: "U-me",
+            status: "pending_payment",
+            pendingExpiresAt: future,
+          }),
+        },
+      ];
+      const res = asMock(await GET(req));
+      const list = res._data.reservations;
+      expect(list).toHaveLength(1);
+      expect(list[0].status).toBe("pending_payment");
+      expect(list[0].pendingExpiresAt).toBe(future);
+    });
+
+    test("失効した仮押さえは返さない（枠を握っていないので出す意味がない）", async () => {
+      ownDocs = [
+        {
+          id: "r-expired",
+          data: confirmed({ lineUserId: "U-me", status: "pending_payment", pendingExpiresAt: past }),
+        },
+      ];
+      expect(asMock(await GET(req))._data.reservations).toHaveLength(0);
+    });
+
+    test("pendingExpiresAt が無い仮押さえは返さない", async () => {
+      ownDocs = [
+        { id: "r-noexp", data: confirmed({ lineUserId: "U-me", status: "pending_payment" }) },
+      ];
+      expect(asMock(await GET(req))._data.reservations).toHaveLength(0);
+    });
+
+    test("自分のキャンセル済みは返さない（回帰）", async () => {
+      ownDocs = [
+        { id: "r-cancelled", data: confirmed({ lineUserId: "U-me", status: "cancelled" }) },
+        { id: "r-ok", data: confirmed({ lineUserId: "U-me" }) },
+      ];
+      expect(asMock(await GET(req))._data.reservations.map((r: any) => r.reservationId)).toEqual([
+        "r-ok",
+      ]);
+    });
+
+    test("自分側クエリに status の等値条件を重ねない（メモリで絞る＝複合インデックスを増やさない）", async () => {
+      await GET(req);
+      const ownQuery = whereCalls.find((calls) =>
+        calls.some((c) => c.field === "lineUserId")
+      );
+      expect(ownQuery).toEqual([{ field: "lineUserId", op: "==", value: "U-me" }]);
+    });
+  });
+
   test("同伴側クエリに status の等値条件を重ねない（複合インデックス回避の回帰）", async () => {
     await GET(req);
     const companionQuery = whereCalls.find((calls) =>
