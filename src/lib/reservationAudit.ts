@@ -8,7 +8,8 @@ import { getDb } from "@/lib/firebaseAdmin";
 export type ReservationAuditEvent =
   | "unlock.issued" // 時限パスコード発行成功
   | "unlock.failed" // SwitchBot API 失敗（要手動再発行）
-  | "unlock.manual"; // SwitchBot未連携（deviceId未設定）→ 手動解錠運用
+  | "unlock.manual" // SwitchBot未連携（deviceId未設定）→ 手動解錠運用
+  | "unlock.rescheduled"; // 予約日時の変更にあわせて有効期間を貼り替えた（パスコードは同じ）
 
 export interface ReservationAuditInput {
   eventType: ReservationAuditEvent;
