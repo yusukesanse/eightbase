@@ -259,7 +259,9 @@ export async function POST(req: NextRequest) {
         passcode = code;
         await reservationRef.update({
           switchBotPasscode: code,
-          switchBotKeyId: keyId,
+          // keyId は取れないことがある（createKey は id を返さず、keyList 反映が非同期）。
+          // その場合はフィールドを書かない＝キャンセル時の自動失効ができない状態。
+          ...(keyId !== null ? { switchBotKeyId: keyId } : {}),
           switchBotPasscodeExpiresAt: new Date(endMs).toISOString(),
           switchBotStatus: "issued",
         });
@@ -267,7 +269,17 @@ export async function POST(req: NextRequest) {
           eventType: "unlock.issued",
           reservationId: reservation.reservationId,
           facilityId: facility.id,
+          ...(keyId === null ? { reason: "keyId 未取得（自動失効不可・要手動削除）" } : {}),
         });
+        if (keyId === null) {
+          // 解錠はできるが、キャンセル時に自動で失効させられない。人が消せるように通知する。
+          await notifyAdmin(
+            "switchbot_failed",
+            `解錠コードは発行できましたが keyId を取得できませんでした（予約 ${reservation.reservationId} / ${facility.name}）。` +
+              "キャンセル時に自動失効できないため、必要なら SwitchBot アプリでパスコードを削除してください。",
+            { reservationId: reservation.reservationId, facilityId: facility.id }
+          );
+        }
       } catch (e) {
         // 発行失敗：手動再発行が必要。
         passcodePending = true;

@@ -5,7 +5,7 @@ import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { sendReservationCancelled } from "@/lib/line";
 import { requireMember } from "@/lib/auth";
 import { buildReservationSlotKey } from "@/lib/reservations";
-import { deletePasscode } from "@/lib/switchbot";
+import { deletePasscodeByName } from "@/lib/switchbot";
 import { notifyAdmin } from "@/lib/adminNotify";
 import type { Reservation } from "@/types";
 
@@ -88,9 +88,11 @@ export async function DELETE(
   });
 
   // トレーラー等: 解錠コードを即時無効化（残存させない）し、返金対応を管理者へ通知。
-  if (reservation.switchBotKeyId && facility?.switchBotDeviceId) {
+  // ⚠️ **name（予約ID）で消す**こと。switchBotKeyId は取得できていない場合があるため
+  //    （createKey は id を返さない）、keyId 前提にすると失効漏れでコードが生き残る。
+  if (reservation.switchBotPasscode && facility?.switchBotDeviceId) {
     try {
-      await deletePasscode(facility.switchBotDeviceId, reservation.switchBotKeyId);
+      await deletePasscodeByName(facility.switchBotDeviceId, reservation.reservationId);
     } catch (err) {
       console.error("[reservations DELETE] passcode revoke failed:", err);
     }

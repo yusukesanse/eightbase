@@ -866,16 +866,22 @@ export default function CalendarsPage() {
               {/* ── 解錠（SwitchBot） ── */}
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-sm font-medium text-gray-700 mb-3">解錠（SwitchBot）</p>
-                <label className="block text-xs font-medium text-gray-700 mb-1">SwitchBot デバイスID</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  SwitchBot デバイスID（<span className="font-bold">キーパッド</span>）
+                </label>
                 <input
                   type="text"
                   value={form.switchBotDeviceId}
                   onChange={(e) => setForm({ ...form, switchBotDeviceId: e.target.value })}
-                  placeholder="例: ABCDEF123456"
+                  placeholder="例: CED6749F1F5A"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5C1C8]"
                 />
                 <p className="text-[10px] text-gray-700 mt-1">
                   設定すると予約ごとに、予約時間だけ有効な解錠パスコードを発行します（管理者の永続パスは別管理）。
+                  <br />
+                  パスコードを扱うのは<span className="font-bold">キーパッド</span>なので、その deviceId を入れてください
+                  （スマートロックのIDでも紐づくキーパッドに自動で読み替えます）。
+                  IDは <code>node scripts/switchbot-devices.mjs</code> で確認できます。
                 </p>
               </div>
 
