@@ -5,9 +5,10 @@ import { getFacilityById } from "@/lib/facilities";
 import {
   generatePasscode,
   issueTimeLimitPasscodeWithRetry,
-  deletePasscode,
+  deletePasscodeByName,
 } from "@/lib/switchbot";
 import { reservationEpochMs } from "@/lib/reservations";
+import { FieldValue } from "firebase-admin/firestore";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -48,13 +49,22 @@ export async function POST(
     );
   }
 
-  // 既存キーがあれば削除（重複・孤児キー防止）
-  if (typeof r.switchBotKeyId === "number") {
-    try {
-      await deletePasscode(facility.switchBotDeviceId, r.switchBotKeyId);
-    } catch (e) {
-      console.error("[admin/reservations/reissue] old key delete failed:", e);
-    }
+  // 既存キーを削除（重複・孤児キー防止）。
+  // ⚠️ **name（予約ID）で消すこと**が必須。issueTimeLimitPasscode は同名キーがあると
+  //    作成せず既存を返すので、消し漏れると「新コードを保存したのに端末は旧コードのまま」になる。
+  //    switchBotKeyId が未保存（keyId 未取得）のケースも name 指定なら確実に消せる。
+  try {
+    await deletePasscodeByName(facility.switchBotDeviceId, id);
+  } catch (e) {
+    console.error("[admin/reservations/reissue] old key delete failed:", e);
+    return NextResponse.json(
+      {
+        error: "REISSUE_FAILED",
+        message:
+          "古い解錠コードを削除できませんでした。端末に旧コードが残るため再発行を中止しました。",
+      },
+      { status: 502 }
+    );
   }
 
   const code = generatePasscode();
@@ -70,7 +80,9 @@ export async function POST(
     });
     await ref.update({
       switchBotPasscode: code,
-      switchBotKeyId: keyId,
+      // keyId は取れないことがある（createKey は id を返さず、keyList 反映が非同期）。
+      // 取れなければフィールドを消しておく（古い id を残すと無関係なキーを消しかねない）。
+      switchBotKeyId: keyId ?? FieldValue.delete(),
       switchBotPasscodeExpiresAt: new Date(endMs).toISOString(),
       switchBotStatus: "issued",
       updatedAt: dayjs().toISOString(),

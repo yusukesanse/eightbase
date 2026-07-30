@@ -8,7 +8,7 @@ import {
   isLockBlocking,
 } from "@/lib/reservations";
 import { timeToMin } from "@/lib/date";
-import { deletePasscode } from "@/lib/switchbot";
+import { deletePasscodeByName } from "@/lib/switchbot";
 import { getFacilityById } from "@/lib/facilities";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,9 +68,10 @@ export async function DELETE(
     });
 
     // トレーラー等: 管理者キャンセルでも解錠コードを即時無効化（残存させない）。
-    if (data.switchBotKeyId && facility?.switchBotDeviceId) {
+    // ⚠️ **name（予約ID）で消す**こと。switchBotKeyId は取得できていない場合がある。
+    if (data.switchBotPasscode && facility?.switchBotDeviceId) {
       try {
-        await deletePasscode(facility.switchBotDeviceId, data.switchBotKeyId as number);
+        await deletePasscodeByName(facility.switchBotDeviceId, id);
       } catch (err) {
         console.error("[admin/reservations] passcode revoke failed:", err);
       }
