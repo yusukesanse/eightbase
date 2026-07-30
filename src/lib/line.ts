@@ -175,6 +175,54 @@ export async function sendTrailerPasscodeNotice(
   ]);
 }
 
+// ─── 管理者による予約日時の変更通知 ──────────────────────────────────────────
+/**
+ * 管理者が予約日時を変更したことを利用者へ知らせる。
+ *
+ * 利用者の操作なしに予約が動くので、**通知しないと変更に気づけない**。
+ * 解錠コードがある施設（トレーラー等）はコードの数字は変わらず有効期間だけ動くので、
+ * 「コードはそのまま使える」ことを明記して問い合わせを減らす。
+ */
+export async function sendReservationRescheduled(
+  lineUserId: string,
+  {
+    facilityName,
+    oldDate,
+    oldStartTime,
+    oldEndTime,
+    date,
+    startTime,
+    endTime,
+    hasPasscode,
+  }: {
+    facilityName: string;
+    oldDate: string;
+    oldStartTime: string;
+    oldEndTime: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    /** 解錠コードが発行済みか（数字は変わらない旨を案内する） */
+    hasPasscode?: boolean;
+  }
+) {
+  await pushMessage(lineUserId, [
+    {
+      type: "text",
+      text:
+        `【EIGHT BASE UNGA 予約日時の変更】\n` +
+        `ご予約の日時を変更しました。\n\n` +
+        `施設：${facilityName}\n` +
+        `変更前：${formatDate(oldDate)} ${oldStartTime}〜${oldEndTime}\n` +
+        `変更後：${formatDate(date)} ${startTime}〜${endTime}` +
+        (hasPasscode
+          ? `\n\n🔑 解錠コードは変更前と同じ番号のままご利用いただけます（有効時間が上記に変わります）。`
+          : "") +
+        `\n\nご不明な点は管理者までお問い合わせください。`,
+    },
+  ]);
+}
+
 // ─── キャンセル完了通知 ────────────────────────────────────────────────────────
 export async function sendReservationCancelled(
   lineUserId: string,

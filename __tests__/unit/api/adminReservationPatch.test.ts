@@ -12,7 +12,14 @@ import { buildReservationSlotKey } from "@/lib/reservations";
 
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: jest.fn() }));
 jest.mock("@/lib/adminAuth", () => ({ checkAdminAuth: jest.fn().mockResolvedValue(true) }));
-jest.mock("@/lib/switchbot", () => ({ deletePasscode: jest.fn() }));
+jest.mock("@/lib/switchbot", () => ({
+  deletePasscodeByName: jest.fn().mockResolvedValue(1),
+  issueTimeLimitPasscodeWithRetry: jest.fn().mockResolvedValue({ keyId: 77, keypadDeviceId: "KP" }),
+}));
+jest.mock("@/lib/adminNotify", () => ({ notifyAdmin: jest.fn().mockResolvedValue(undefined) }));
+// モックしないと実際に LINE API を叩いてしまう（jest.setup.ts がトークンを入れているため）
+jest.mock("@/lib/line", () => ({ sendReservationRescheduled: jest.fn().mockResolvedValue(undefined) }));
+jest.mock("@/lib/reservationAudit", () => ({ writeReservationAudit: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/facilities", () => ({
   getFacilityById: jest.fn().mockResolvedValue({ id: "room-a", name: "会議室A", calendarId: "cal-a" }),
 }));
@@ -24,6 +31,10 @@ jest.mock("@/lib/googleCalendar", () => ({
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { updateCalendarEvent } from "@/lib/googleCalendar";
+import { getFacilityById } from "@/lib/facilities";
+import { deletePasscodeByName, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
+import { notifyAdmin } from "@/lib/adminNotify";
+import { sendReservationRescheduled } from "@/lib/line";
 import { PATCH } from "@/app/api/admin/reservations/[id]/route";
 import type { NextRequest } from "next/server";
 
@@ -102,6 +113,14 @@ beforeEach(() => {
   db = makeDb();
   (getDb as jest.Mock).mockReturnValue(db);
   (updateCalendarEvent as jest.Mock).mockClear().mockResolvedValue(undefined);
+  // 施設は既定で SwitchBot 未連携（＝パスコード処理を通らない状態）に戻す
+  (getFacilityById as jest.Mock).mockResolvedValue({ id: FAC, name: "会議室A", calendarId: "cal-a" });
+  (deletePasscodeByName as jest.Mock).mockClear().mockResolvedValue(1);
+  (issueTimeLimitPasscodeWithRetry as jest.Mock)
+    .mockClear()
+    .mockResolvedValue({ keyId: 77, keypadDeviceId: "KP" });
+  (notifyAdmin as jest.Mock).mockClear();
+  (sendReservationRescheduled as jest.Mock).mockClear().mockResolvedValue(undefined);
   seedConfirmed();
 });
 
@@ -150,4 +169,121 @@ test("同一スロット（変更なし）は成功しGCalを呼ばない", asyn
   const res = await PATCH(req({ startTime: "10:00", endTime: "11:00" }), { params: Promise.resolve({ id: RID }) });
   expect(res.status).toBe(200);
   expect(updateCalendarEvent).not.toHaveBeenCalled();
+});
+
+/* ───────── 利用者への日時変更通知 ───────── */
+describe("日時変更の通知", () => {
+  test("変更前後の日時を添えて利用者へ通知する", async () => {
+    await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
+    expect(sendReservationRescheduled).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        oldDate: "2026-07-11",
+        oldStartTime: "10:00",
+        oldEndTime: "11:00",
+        date: "2026-07-11",
+        startTime: "13:00",
+        endTime: "14:00",
+        hasPasscode: false,
+      })
+    );
+  });
+
+  test("変更なし（同一スロット）では通知しない", async () => {
+    await PATCH(req({ startTime: "10:00", endTime: "11:00" }), { params: Promise.resolve({ id: RID }) });
+    expect(sendReservationRescheduled).not.toHaveBeenCalled();
+  });
+
+  test("409（変更先が予約済み）では通知しない", async () => {
+    db.__store.get("reservationLocks")!.set(buildReservationSlotKey(FAC, "2026-07-11", "13:00", "14:00"), {
+      facilityId: FAC, date: "2026-07-11", startTime: "13:00", endTime: "14:00", status: "confirmed", reservationId: "other",
+    });
+    await PATCH(req({ startTime: "13:30", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
+    expect(sendReservationRescheduled).not.toHaveBeenCalled();
+  });
+
+  test("通知が失敗しても日時変更は成功のまま（巻き戻さない）", async () => {
+    (sendReservationRescheduled as jest.Mock).mockRejectedValueOnce(new Error("line down"));
+    const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), { params: Promise.resolve({ id: RID }) });
+    expect(res.status).toBe(200);
+    expect(reservation()).toMatchObject({ startTime: "13:00", endTime: "14:00" });
+  });
+});
+
+/* ───────── 解錠パスコードの有効期間の貼り替え（トレーラー等） ───────── */
+describe("解錠パスコードの追随", () => {
+  /** SwitchBot 連携済みの施設＋パスコード発行済みの予約にする */
+  function seedWithPasscode() {
+    (getFacilityById as jest.Mock).mockResolvedValue({
+      id: FAC,
+      name: "トレーラー",
+      calendarId: "cal-a",
+      switchBotDeviceId: "KEYPAD-1",
+    });
+    db.__store.get("reservations")!.set(RID, {
+      ...reservation(),
+      switchBotPasscode: "123456",
+      switchBotKeyId: 42,
+      switchBotStatus: "issued",
+      switchBotPasscodeExpiresAt: "2026-07-11T02:00:00.000Z",
+    });
+  }
+
+  test("日時変更で旧キーを消し、同じコードで新しい有効期間に貼り替える", async () => {
+    seedWithPasscode();
+    const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), {
+      params: Promise.resolve({ id: RID }),
+    });
+    expect(res.status).toBe(200);
+
+    // 先に name（予約ID）で削除している＝消し漏れると createKey が既存を返してしまう
+    expect(deletePasscodeByName).toHaveBeenCalledWith("KEYPAD-1", RID);
+    // 同じパスコードを使い回す（利用者へ配り直さない）
+    expect(issueTimeLimitPasscodeWithRetry).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId: "KEYPAD-1", name: RID, password: "123456" })
+    );
+    // 窓は新しい日時（JST 13:00〜14:00）
+    const arg = (issueTimeLimitPasscodeWithRetry as jest.Mock).mock.calls[0][0];
+    expect(arg.startMs).toBe(new Date("2026-07-11T13:00:00+09:00").getTime());
+    expect(arg.endMs).toBe(new Date("2026-07-11T14:00:00+09:00").getTime());
+    // 予約docの有効期限・keyId・status が更新される
+    expect(reservation()).toMatchObject({
+      switchBotKeyId: 77,
+      switchBotStatus: "issued",
+      switchBotPasscodeExpiresAt: new Date("2026-07-11T14:00:00+09:00").toISOString(),
+    });
+    // 「コードはそのまま使える」と案内する
+    expect(sendReservationRescheduled).toHaveBeenCalledWith("u1", expect.objectContaining({ hasPasscode: true }));
+  });
+
+  test("貼り替えに失敗しても日時変更は維持し、failed にして管理者へ通知する", async () => {
+    seedWithPasscode();
+    (issueTimeLimitPasscodeWithRetry as jest.Mock).mockRejectedValueOnce(new Error("switchbot down"));
+    const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), {
+      params: Promise.resolve({ id: RID }),
+    });
+    // 予約の移動が主目的なので巻き戻さない
+    expect(res.status).toBe(200);
+    expect(reservation()).toMatchObject({ startTime: "13:00", endTime: "14:00", switchBotStatus: "failed" });
+    expect(lockAt("13:00", "14:00")).toBeTruthy();
+    // 黙って捨てない（利用者が入れない状態なので必ず通知）
+    expect(notifyAdmin).toHaveBeenCalledWith(
+      "switchbot_failed",
+      expect.stringContaining("解錠コード"),
+      expect.objectContaining({ reservationId: RID })
+    );
+    expect(await res.json()).toMatchObject({ passcodeWarning: expect.any(String) });
+    // 貼り替え失敗時は「コードはそのまま使える」と案内してはいけない（実際は使えない）
+    expect(sendReservationRescheduled).toHaveBeenCalledWith("u1", expect.objectContaining({ hasPasscode: false }));
+  });
+
+  test("パスコード未発行の予約では SwitchBot を叩かない（既存施設の回帰）", async () => {
+    // seedConfirmed のまま（switchBotPasscode なし・施設に deviceId なし）
+    const res = await PATCH(req({ startTime: "13:00", endTime: "14:00" }), {
+      params: Promise.resolve({ id: RID }),
+    });
+    expect(res.status).toBe(200);
+    expect(deletePasscodeByName).not.toHaveBeenCalled();
+    expect(issueTimeLimitPasscodeWithRetry).not.toHaveBeenCalled();
+  });
 });

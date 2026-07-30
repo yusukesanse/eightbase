@@ -6,10 +6,15 @@ import {
   buildReservationSlotKey,
   intervalsOverlap,
   isLockBlocking,
+  reservationEpochMs,
 } from "@/lib/reservations";
 import { timeToMin } from "@/lib/date";
-import { deletePasscodeByName } from "@/lib/switchbot";
+import { deletePasscodeByName, issueTimeLimitPasscodeWithRetry } from "@/lib/switchbot";
 import { getFacilityById } from "@/lib/facilities";
+import { notifyAdmin } from "@/lib/adminNotify";
+import { writeReservationAudit } from "@/lib/reservationAudit";
+import { sendReservationRescheduled } from "@/lib/line";
+import { FieldValue } from "firebase-admin/firestore";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -252,7 +257,93 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ success: true, date: newDate, startTime: newStart, endTime: newEnd });
+    // 5) 解錠パスコードの有効期間を新しい日時へ貼り替える。
+    //
+    // これを忘れると「日時を動かしたのに解錠コードの窓は旧時間のまま」＝利用者が入れない。
+    // SwitchBot に「キーの更新」コマンドは無いので削除→作成しかない。
+    // **パスコードは同じ数字を使い回す**（利用者へ新しいコードを配り直さなくて済む）。
+    //
+    // ⚠️ 日時変更そのものは既に確定済み。パスコードの貼り替えに失敗しても**巻き戻さない**
+    //    （予約の移動が主目的で、コードは管理画面の「再発行」で復旧できる）。
+    //    ただし失敗を黙って捨てると利用者が入れないので、failed にして管理者へ通知する。
+    let passcodeWarning: string | undefined;
+    if (data.switchBotPasscode && facility?.switchBotDeviceId) {
+      const code = data.switchBotPasscode as string;
+      const newStartMs = reservationEpochMs(newDate, newStart);
+      const newEndMs = reservationEpochMs(newDate, newEnd);
+      try {
+        // 同名キーがあると createKey は作成せず既存を返すので、必ず先に消す。
+        await deletePasscodeByName(facility.switchBotDeviceId, id);
+        const { keyId } = await issueTimeLimitPasscodeWithRetry({
+          deviceId: facility.switchBotDeviceId,
+          name: id,
+          password: code, // 同じコードを使い回す
+          startMs: newStartMs,
+          endMs: newEndMs,
+        });
+        await docRef.update({
+          switchBotKeyId: keyId ?? FieldValue.delete(),
+          switchBotPasscodeExpiresAt: new Date(newEndMs).toISOString(),
+          switchBotStatus: "issued",
+        });
+        await writeReservationAudit({
+          eventType: "unlock.rescheduled",
+          reservationId: id,
+          facilityId: facility.id,
+          ...(keyId === null ? { reason: "keyId 未取得（自動失効不可）" } : {}),
+        });
+      } catch (e) {
+        await docRef.update({ switchBotStatus: "failed" }).catch(() => {});
+        await notifyAdmin(
+          "switchbot_failed",
+          `予約日時を変更しましたが、解錠コードの有効期間の貼り替えに失敗しました（予約 ${id} / ${facility.name} / ` +
+            `${newDate} ${newStart}〜${newEnd}）。利用者が入れない状態です。管理画面から再発行してください。`,
+          { reservationId: id, facilityId: facility.id }
+        );
+        await writeReservationAudit({
+          eventType: "unlock.failed",
+          reservationId: id,
+          facilityId: facility.id,
+          reason: e instanceof Error ? e.message : "日時変更後の貼り替え失敗",
+        });
+        console.error(
+          "[admin/reservations] passcode reschedule failed:",
+          e instanceof Error ? e.message : "error"
+        );
+        passcodeWarning =
+          "日時は変更しましたが、解錠コードの有効期間の貼り替えに失敗しました。再発行してください。";
+      }
+    }
+
+    // 6) 利用者へ日時変更を通知。利用者の操作なしに予約が動くので、
+    //    通知しないと変更に気づけない（解錠はできても来る時間が分からない）。
+    //    ⚠️ パスコードの貼り替え(5)の後に送る。コードの扱いを本文に含めるため。
+    //    通知失敗で日時変更を巻き戻さない（他の予約通知と同じ方針）。
+    if (data.lineUserId) {
+      try {
+        await sendReservationRescheduled(data.lineUserId as string, {
+          facilityName: (data.facilityName as string) ?? facility?.name ?? "",
+          oldDate: data.date as string,
+          oldStartTime: data.startTime as string,
+          oldEndTime: data.endTime as string,
+          date: newDate,
+          startTime: newStart,
+          endTime: newEnd,
+          // 貼り替えが失敗した場合は「同じコードで使える」と案内できない
+          hasPasscode: !!data.switchBotPasscode && !passcodeWarning,
+        });
+      } catch (err) {
+        console.error("[admin/reservations] reschedule notification failed:", err);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      date: newDate,
+      startTime: newStart,
+      endTime: newEnd,
+      ...(passcodeWarning ? { passcodeWarning } : {}),
+    });
   } catch (error) {
     console.error("[admin/reservations] PATCH error:", error);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
