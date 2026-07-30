@@ -172,6 +172,14 @@ function ReservationCard({
   const canCancel = !isPast && !r.isCompanion && dayjs().isBefore(endDt);
   const companionNames = (r.companions ?? []).map((c) => c.displayName).join("、");
 
+  // 決済待ちの仮押さえ。**確定予約と混ぜて見せない**。
+  // これを表示しないと「決済せず離脱した仮押さえ」が見えないまま枠を握り続け、
+  // 利用者は「取り消したのに時間が選べない」状態になる。
+  const isPending = r.status === "pending_payment";
+  const pendingMinutesLeft = r.pendingExpiresAt
+    ? Math.max(0, Math.ceil(dayjs(r.pendingExpiresAt).diff(dayjs(), "minute", true)))
+    : null;
+
   // トレーラー等（決済済み）: 解錠コードと取消ラベルを出し分け
   const isTrailer = !!(r.switchBotPasscode || r.paymentTransactionId);
   const showPasscode = !isPast && !!r.switchBotPasscode;
@@ -203,10 +211,22 @@ function ReservationCard({
                 同伴
               </span>
             )}
+            {isPending && (
+              <span className="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                決済待ち
+              </span>
+            )}
           </p>
           <p className="text-xs text-gray-700 mt-0.5">
             {dateLabel}　{r.startTime}〜{r.endTime}
           </p>
+          {isPending && (
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              お支払いが未完了です。
+              {pendingMinutesLeft !== null && `あと約${pendingMinutesLeft}分で自動的に解放されます。`}
+              すぐに枠を空けたいときは「仮押さえを取消」を押してください。
+            </p>
+          )}
           {r.isCompanion ? (
             r.organizerName && (
               <p className="text-[11px] text-gray-700 mt-0.5 truncate">予約者: {r.organizerName}</p>
@@ -225,7 +245,13 @@ function ReservationCard({
             disabled={cancelling}
             className="text-[11px] text-red-500 border border-red-200 rounded-lg px-2.5 py-1.5 flex-shrink-0 disabled:opacity-50"
           >
-            {cancelling ? "処理中..." : isTrailer ? "予約取消（返金）" : "キャンセル"}
+            {cancelling
+              ? "処理中..."
+              : isPending
+                ? "仮押さえを取消"
+                : isTrailer
+                  ? "予約取消（返金）"
+                  : "キャンセル"}
           </button>
         )}
       </div>
