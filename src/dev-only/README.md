@@ -30,6 +30,12 @@ EIGHTBASE の「開発検証だけで使う機能」を一箇所に集約し、�
 | `src/dev-only/devSeed.ts` | 麻雀ゲームデータ一式の投入（`/api/dev/seed`） |
 | `src/dev-only/mahjongDemo.ts` | ダミー分の申告代行（`reportOneDemoDummy`＝1名ずつ／`advanceDemoDay`＝一括）＋半荘成立判定 |
 | `src/dev-only/saunaDemoSeed.ts` | サウナ（同伴者必須）予約の検証データ投入・削除。**唯一アカウントを作る seed** |
+| `src/dev-only/appSeed.ts` | **demo をアプリ全体で整える単一の入口**（施設・サウナ・コンテンツ・4種目をまとめて投入） |
+
+> **投入ツールは `/admin/demo-data`（検証データ（全体））に集約した。**
+> 種目単位・機能単位に分かれていて「画面ごとにデータが欠けていて確認しづらい」と指摘されたため
+> （2026-07-30）。個別の `/admin/games/demo-data`（シーズン指定）と
+> `/admin/reservations/demo-data`（サウナ単体）は残っているが、通常は全体版を使う。
 
 ### Next.js のルーティング上ここに置くしかない dev 専用の入口（`src/app/…`）
 これらは**丸ごと dev 専用**（本番 404）。ファイル単位で main から除外してよい:
@@ -40,6 +46,8 @@ EIGHTBASE の「開発検証だけで使う機能」を一箇所に集約し、�
 - `src/app/admin/games/demo-data/page.tsx` … ダミー投入/削除 管理UI
 - `src/app/api/admin/reservations/demo-data/route.ts` … サウナ検証データ 投入/削除 API
 - `src/app/admin/reservations/demo-data/page.tsx` … サウナ検証データ 管理UI
+- `src/app/api/admin/demo-data/route.ts` … アプリ全体の検証データ 投入/削除 API
+- `src/app/admin/demo-data/page.tsx` … アプリ全体の検証データ 管理UI（**通常はこれを使う**）
 
 ### 本体ファイルに残る「呼び出し口」（最小限・`DEV-ONLY` マーカー付き）
 本番フローと同じファイルに、ガード付きで数行だけ残っている。main へ持ち込む場合はこの行を外す:
@@ -47,7 +55,7 @@ EIGHTBASE の「開発検証だけで使う機能」を一箇所に集約し、�
 - `src/components/AuthGuard.tsx` … `loginPath()` の dev 分岐（未認証→`/`）
 - `src/components/mahjong/MahjongCsView.tsx` … デモCSの結果入力UI
 - `src/app/api/mahjong/tables/[tableId]/report/route.ts` … デモ卓の自動補完呼び出し
-- `src/app/admin/layout.tsx` … 非本番のみ「検証データ（サウナ）」のナビ項目を出す
+- `src/app/admin/layout.tsx` … 非本番のみ「検証データ（全体）」のナビ項目を出す
 
 > 補足: `src/lib/env.ts`（`isDevLoginEnabled`）・`src/lib/liff.ts`（開発スタブ）は本番でも import される共通基盤なので dev-only には移さない。分岐は `isProduction()` で無効化される。
 

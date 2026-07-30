@@ -60,17 +60,18 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   // DEV-ONLY（develop 専用 / main へ入れない）
-  // サウナ（同伴者必須）予約の検証データ投入ツール。非本番のみ表示（APIも本番では404）。
+  // demo 環境をアプリ全体で整える単一の入口。非本番のみ表示（APIも本番では404）。
   ...(process.env.NEXT_PUBLIC_APP_ENV !== "production"
     ? [
         {
-          href: "/admin/reservations/demo-data",
-          label: "検証データ（サウナ）",
+          href: "/admin/demo-data",
+          label: "検証データ（全体）",
           exact: true,
           icon: (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M3 11h14v3.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 3 14.5V11Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-              <path d="M7 8c0-1 1-1.5 1-2.5S7 3.5 7 3.5M11 8c0-1 1-1.5 1-2.5s-1-2-1-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M3 5.5c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Z" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M3 5.5v9c0 1.1 3.1 2 7 2s7-.9 7-2v-9" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M3 10c0 1.1 3.1 2 7 2s7-.9 7-2" stroke="currentColor" strokeWidth="1.5" />
             </svg>
           ),
         },
