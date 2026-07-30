@@ -15,6 +15,8 @@ import {
   SECRETS_KEY_MISSING_MESSAGE,
   type SquareEnvironmentName,
 } from "@/lib/facilitySecrets";
+import { MAX_COMPANIONS } from "@/lib/companions";
+import { BOOKING_HORIZON_DAYS } from "@/lib/reservations";
 import type { FacilityType } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,9 @@ const VALIDATION_RULES = {
   switchBotDeviceId: { type: "string" as const, maxLength: 100 },
   // ── 同伴者（0 = 同伴者必須OFF。ONなら下の validateCompanionFields で 2 以上を強制） ──
   minPartySize: { type: "number" as const, min: 0, max: 20 },
+  // ── 直前予約の禁止（0 = 制限なし）。利用日の何日前までに予約が必要か ──
+  //    上限は予約可能期間（クライアントの 30日先まで）より小さくしないと予約できる日が無くなる。
+  minAdvanceDays: { type: "number" as const, min: 0, max: 29 },
   // Square認証情報（facilitySecrets へ暗号化保存。facilities ドキュメントには入れない）
   squareAccessToken: { type: "string" as const, maxLength: 300 },
   squareLocationId: { type: "string" as const, maxLength: 100 },
@@ -38,7 +43,7 @@ const VALIDATION_RULES = {
 const ALLOWED_UPDATE_FIELDS = [
   "name", "type", "capacity", "calendarId", "active", "order",
   "openTime", "closeTime", "availableDays",
-  "minDuration", "fixedDuration", "prepTime",
+  "minDuration", "fixedDuration", "prepTime", "minAdvanceDays",
   "requireTerms", "termsContent",
   "requirePayment", "hourlyRate",
   "paymentAmount", "switchBotDeviceId",
@@ -93,15 +98,38 @@ function validatePaymentFields(body: Record<string, unknown>): string | null {
 }
 
 /**
+ * 直前予約の禁止日数（minAdvanceDays）が不正な保存を弾く。
+ * 予約可能期間（BOOKING_HORIZON_DAYS 日先まで）以上にすると予約できる日が1日も無くなるため上限を設ける。
+ * ※ VALIDATION_RULES にも同じ範囲を書いているが、こちらは理由の分かる文言を返すための明示チェック。
+ */
+function validateAdvanceFields(body: Record<string, unknown>): string | null {
+  if (body.minAdvanceDays === undefined || body.minAdvanceDays === null) return null;
+  const days = Number(body.minAdvanceDays);
+  if (!Number.isInteger(days) || days < 0) {
+    return "「何日前までに予約が必要か」は0以上の整数で入力してください（0=制限なし）";
+  }
+  if (days >= BOOKING_HORIZON_DAYS) {
+    return `「何日前までに予約が必要か」は${BOOKING_HORIZON_DAYS - 1}日以下にしてください（予約できるのは${BOOKING_HORIZON_DAYS}日先までのため）`;
+  }
+  return null;
+}
+
+/**
  * requireCompanions=true なのに最低合計人数が不正な保存を弾く。
  * 最低合計人数は予約者本人を含むので 2 未満（＝1人で予約できる）は設定として矛盾する。
  * 収容人数より大きいと誰も予約できなくなるのでこれも弾く。
+ * 同伴者は MAX_COMPANIONS 名までしか選べないので、それを超える最低人数も「誰も予約できない」設定になる。
  */
 function validateCompanionFields(body: Record<string, unknown>): string | null {
   if (body.requireCompanions !== true) return null;
   const min = Number(body.minPartySize);
   if (!Number.isInteger(min) || min < 2) {
     return "同伴者を必須にする場合は最低合計人数（2名以上）を入力してください";
+  }
+  // 予約者本人＋同伴者 MAX_COMPANIONS 名が上限。ここを超えると同伴者を選び切れず
+  // 予約が永久に成立しない（`maxCompanionsOf` が MAX_COMPANIONS で頭打ちになるため）。
+  if (min - 1 > MAX_COMPANIONS) {
+    return `同伴者の上限が${MAX_COMPANIONS}名のため、最低合計人数は${MAX_COMPANIONS + 1}名以下にしてください`;
   }
   const capacity = Number(body.capacity);
   if (Number.isFinite(capacity) && capacity > 0 && min > capacity) {
@@ -223,6 +251,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: paymentError }, { status: 400 });
   }
 
+  const advanceError = validateAdvanceFields(body);
+  if (advanceError) {
+    return NextResponse.json({ error: advanceError }, { status: 400 });
+  }
+
   const companionError = validateCompanionFields(body);
   if (companionError) {
     return NextResponse.json({ error: companionError }, { status: 400 });
@@ -247,6 +280,8 @@ export async function POST(req: NextRequest) {
       minDuration: body.minDuration,
       fixedDuration: body.fixedDuration,
       prepTime: body.prepTime,
+      // 直前予約の禁止。0/未指定はフィールドを作らない（既存施設と doc 形状を揃える）
+      minAdvanceDays: Number(body.minAdvanceDays) > 0 ? Number(body.minAdvanceDays) : undefined,
       requireTerms: body.requireTerms,
       termsContent: body.termsContent,
       requirePayment: body.requirePayment,
@@ -307,6 +342,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: paymentError }, { status: 400 });
   }
 
+  const advanceError = validateAdvanceFields(body);
+  if (advanceError) {
+    return NextResponse.json({ error: advanceError }, { status: 400 });
+  }
+
   const companionError = validateCompanionFields(body);
   if (companionError) {
     return NextResponse.json({ error: companionError }, { status: 400 });
@@ -332,6 +372,9 @@ export async function PUT(req: NextRequest) {
   }
   if (updateData.minPartySize !== undefined) {
     updateData.minPartySize = Number(updateData.minPartySize);
+  }
+  if (updateData.minAdvanceDays !== undefined) {
+    updateData.minAdvanceDays = Number(updateData.minAdvanceDays);
   }
 
   try {

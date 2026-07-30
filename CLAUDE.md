@@ -240,6 +240,21 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
 - GCal 書き込みは作成・更新とも `+09:00`/`Asia/Tokyo`（`googleCalendar.ts`）。
 - **GCal を人が直接編集した手動予定の取り込み（双方向同期・webhook/syncToken/cron）は Phase 2（未実装）**。現状の空き表示は手動GCal予定を反映しない。
 
+#### 直前予約の禁止（「利用日の N 日前までに予約」）
+- 施設設定 `Facility.minAdvanceDays`（**0/未設定 = 制限なし**＝当日も予約可。既存施設は無影響）。
+  管理画面の施設編集「何日前までに予約が必要か（日）」で設定する。**facilityId のハードコードはしない**。
+  例: `7` なら「利用日の1週間前まで」＝ **今日+7 以降しか予約できない**（ちょうど7日後はOK・6日後はNG）。
+- 判定は `validateReservationSlot()` に入れてあるので、**空き状況API・予約POST・トレーラー仮押さえの全経路で効く**。
+  理由コードは `TOO_SOON`（400）。過去日 `PAST_DATE` とは別に返す（利用者に理由を出し分ける）。
+- クライアント（カレンダーの活性判定）とサーバーは **`earliestBookableDate()` を共用**する。
+  ここを別実装にすると「押せるのに予約できない日」ができるので分岐を二重に書かないこと。
+- 上限は `BOOKING_HORIZON_DAYS`（=30・予約できる先の上限日数）**未満**。同数以上にすると予約できる日が
+  1日も無くなるため、管理APIの `validateAdvanceFields` が 400 で弾く（クライアントにも同じチェック）。
+  `BOOKING_HORIZON_DAYS` は予約画面のカレンダー上限と共用（マジックナンバーを二重に持たない）。
+- ⚠️ 本番は TZ=UTC。日付の加算は **`addDaysJst()`**（UTC 0時基準 + epoch 加算）を使う。
+  `new Date(str).setDate()` はローカル(JST)では通って本番だけ1日ズレる。
+  境界値テスト: `__tests__/unit/lib/minAdvanceDays.test.ts`。
+
 #### 同伴者必須の予約（サウナ＝1人で入れない施設）
 - 施設設定 `Facility.requireCompanions`（既定 false）＋ `minPartySize`（最低合計人数・予約者本人を含む・既定2）。
   管理画面の施設編集「1人での利用を禁止する」で設定する。**facilityId のハードコードはしない**。

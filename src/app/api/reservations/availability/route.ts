@@ -8,7 +8,7 @@ import {
   intervalsOverlap,
 } from "@/lib/reservations";
 import { timeToMin } from "@/lib/date";
-import type { AvailabilityResponse } from "@/types";
+import type { AvailabilityResponse, UnavailableReason } from "@/types";
 import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +63,14 @@ export async function GET(req: NextRequest) {
   // 規約同意は確認時には問わない（enforceTerms 既定 false）。
   const slotValidation = validateReservationSlot(facility, { date, startTime, endTime });
   if (!slotValidation.ok) {
-    const reason = slotValidation.reason === "PAST_DATE" ? "PAST_DATE" : "OUT_OF_HOURS";
+    // PAST_DATE / TOO_SOON はそのまま返す（利用者に理由を出し分けるため）。
+    // それ以外（曜日・営業時間・固定枠）はまとめて OUT_OF_HOURS。
+    const reason: UnavailableReason =
+      slotValidation.reason === "PAST_DATE"
+        ? "PAST_DATE"
+        : slotValidation.reason === "TOO_SOON"
+          ? "TOO_SOON"
+          : "OUT_OF_HOURS";
     const res: AvailabilityResponse = { available: false, reason };
     return NextResponse.json(res, { headers: { "Cache-Control": "no-store" } });
   }

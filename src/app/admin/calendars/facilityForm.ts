@@ -14,6 +14,7 @@ export interface FacilityForm {
   minDuration: string;       // 分（空文字=未設定）
   fixedDuration: boolean;
   prepTime: string;          // 分（空文字=未設定）
+  minAdvanceDays: string;    // 利用日の何日前までに予約が必要か（空文字/0=制限なし＝当日も予約可）
   // 利用規約
   requireTerms: boolean;
   termsContent: string;
@@ -45,6 +46,7 @@ export const EMPTY_FORM: FacilityForm = {
   minDuration: "",
   fixedDuration: false,
   prepTime: "",
+  minAdvanceDays: "",
   requireTerms: false,
   termsContent: "",
   requirePayment: false,

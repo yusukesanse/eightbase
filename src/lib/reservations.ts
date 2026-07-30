@@ -12,7 +12,7 @@
  */
 
 import type { Facility } from "@/types";
-import { dayOfWeek, timeToMin, todayJst } from "./date";
+import { addDaysJst, dayOfWeek, timeToMin, todayJst } from "./date";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -181,9 +181,40 @@ export async function assertSlotFreeInTx(
 export type SlotValidationReason =
   | "INVALID_RANGE"
   | "PAST_DATE"
+  | "TOO_SOON"
   | "OUT_OF_HOURS"
   | "DURATION_INVALID"
   | "TERMS_REQUIRED";
+
+/**
+ * 予約を取れる先の上限日数（今日から何日先まで予約できるか）。
+ * 予約画面のカレンダーと、管理画面の minAdvanceDays 検証で共用する
+ * （直前予約の禁止日数がこれ以上だと、予約できる日が1日も無くなる）。
+ */
+export const BOOKING_HORIZON_DAYS = 30;
+
+/**
+ * 施設に設定された最低リードタイム日数（利用日の何日前までに予約が必要か）。
+ * 0 / 未設定 / 不正値 = 制限なし。
+ */
+export function minAdvanceDaysOf(facility: Pick<Facility, "minAdvanceDays">): number {
+  const v = facility.minAdvanceDays;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+}
+
+/**
+ * その施設で予約できる最も早い日付（YYYY-MM-DD）。
+ * 制限なしなら今日。7日前必須なら「今日+7」＝ちょうど1週間後から予約できる。
+ * クライアント（カレンダーの活性判定）とサーバー（検証）で共用し、表示と判定をズレさせない。
+ * @param today テスト用に注入可
+ */
+export function earliestBookableDate(
+  facility: Pick<Facility, "minAdvanceDays">,
+  today: string = todayJst()
+): string {
+  const days = minAdvanceDaysOf(facility);
+  return days === 0 ? today : addDaysJst(today, days);
+}
 
 export interface SlotValidationResult {
   ok: boolean;
@@ -225,6 +256,17 @@ export function validateReservationSlot(
   const today = todayJst();
   if (date < today) {
     return { ok: false, reason: "PAST_DATE", message: "過去の日付は予約できません。" };
+  }
+
+  // 最低リードタイム（直前予約の禁止）。過去日より後、曜日より前に見る
+  //  ＝「過去」「直前すぎる」「曜日違い」を利用者に区別して返せる順序。
+  const minAdvance = minAdvanceDaysOf(facility);
+  if (minAdvance > 0 && date < addDaysJst(today, minAdvance)) {
+    return {
+      ok: false,
+      reason: "TOO_SOON",
+      message: `この施設は利用日の${minAdvance}日前までにご予約ください。`,
+    };
   }
 
   // 利用可能曜日チェック
