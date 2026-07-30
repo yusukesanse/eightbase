@@ -127,8 +127,10 @@ async function listDevices() {
 async function listKeys(id) {
   const body = await api("/devices");
   const devices = body.deviceList ?? [];
+  // ⚠️ 判定は `src/lib/switchbot.ts` の resolveKeypad と揃えること。
+  //    keyList が空のキーパッドでもアプリ側は解決するので、ここだけ違うと結果が食い違う。
   const keypad =
-    devices.find((d) => d.deviceId === id && d.keyList) ??
+    devices.find((d) => d.deviceId === id && (d.deviceType === "Keypad" || d.keyList)) ??
     devices.find((d) => d.lockDeviceId === id);
   if (!keypad) {
     console.error(`[switchbot] ${id} に対応する Keypad が見つかりません`);
@@ -154,13 +156,23 @@ async function sendCommand(id, command, parameter) {
   });
 }
 
+/**
+ * ⚠️ アプリ（`src/lib/switchbot.ts` の `PASSCODE_GRACE_MINUTES`）と**同じ値を保つこと**。
+ *
+ * 端末の時計がクラウドより数分遅れているため、開始=現在ちょうどの窓では**解錠できない**。
+ * ここにグレースが無いと「CLIで出したコードは開かないのにアプリ経由なら開く」という
+ * 食い違いが起き、CLI での確認が何の証明にもならなくなる（実際に消耗した）。
+ */
+const GRACE_MINUTES = 10;
+
 async function createTestKey(id, minutes = 5) {
   const password = String(randomInt(0, 1_000_000)).padStart(6, "0");
   // ⚠️ startTime/endTime は **Unix epoch 秒**（ミリ秒ではない）。
   //    ms を渡すと数万年後の有効期間として登録され、パスコードは永久に使えない（実機で確認）。
-  const startSec = Math.floor(Date.now() / 1000);
-  const endSec = startSec + minutes * 60;
-  const name = `test-${startSec}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const startSec = nowSec - GRACE_MINUTES * 60;
+  const endSec = nowSec + (minutes + GRACE_MINUTES) * 60;
+  const name = `test-${nowSec}`;
   const body = await sendCommand(id, "createKey", {
     name,
     type: "timeLimit",
@@ -168,8 +180,12 @@ async function createTestKey(id, minutes = 5) {
     startTime: startSec,
     endTime: endSec,
   });
+  const jst = (sec) =>
+    new Date(sec * 1000).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
   console.log("createKey OK:", JSON.stringify(body));
   console.log(`\n  パスコード: ${password}（${minutes}分間有効）`);
+  console.log(`  端末に書いた窓: ${jst(startSec)} 〜 ${jst(endSec)}`);
+  console.log(`  （アプリと同じ前後${GRACE_MINUTES}分のグレースを含む。無いと解錠できない）`);
   console.log(`  name: ${name}`);
   // ⚠️ createKey の応答は {} で **keyId を返さない**（公式ドキュメントの例も空ボディ）。
   //    削除に必要な id は API から引けないので、SwitchBot アプリのパスコード一覧で消す。
