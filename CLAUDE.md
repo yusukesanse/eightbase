@@ -402,3 +402,30 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
   送信はトランザクションの**外**（コミット後）で `Promise.allSettled`＝失敗しても中止処理は巻き戻さない。
   ※ `pushMessage` は `LINE_CHANNEL_ACCESS_TOKEN` 未設定ならスキップする（テスト・未構成環境で誤送信しない）。
 - 管理者アプリ「メッセージ送信」（`/admin/messages`・`/api/admin/messages`）: 自由文＋任意リンクを宛先 role 選択で `sendAdminMessage` 配信。送信履歴は `adminMessageLogs`。要件: `docs/requirements/LINE公式アカウント-配信文面-区分-要件定義.md`。
+
+#### ⚠️ 配信通数の上限（2026-07-31 本番で発生）— 「送れない」の第一容疑者
+**LINE は宛先1人＝1通で数える。** multicast も同じで、登録者50人へニュース1本＝50通。
+無料の「コミュニケーションプラン」は月200通しかないため、数本の一斉配信で枯れる。
+上限に達すると LINE が 429 を返し、**ニュース/イベント/管理メッセージが一切届かなくなる**。
+- 症状: 管理画面のニュース一覧に「LINE配信失敗」バッジ（`lineNotifyResult.ok === false`）。
+  LINE Official Account Manager 側は「配信可能数を超えています」と表示する。
+- 復旧はプラン変更か翌月のリセット待ち。**コードでは直せない**。
+- 残量は送信画面に常時表示する（`getMessageQuota()` = `/v2/bot/message/quota` + `/quota/consumption`）。
+  対象人数 > 残量なら送る前に警告を出す。原因調査より先にここを見ること。
+
+**この障害で判明した設計上の落とし穴（戻さないこと）**
+1. **`multicastMessage` の戻り値を捨てない。** 以前 `sendAdminMessage` が `void` で結果を捨てていたため、
+   LINE が全件拒否しても API は `success: true`、画面は「N名へ送信しました」と表示していた。
+   切り分けが極端に難しくなるので、`ok` を見て 502＋理由を返す。
+2. **失敗理由は `describeLineError()` で日本語にして doc/レスポンスに残す。** 429/401/403 は
+   「何をすれば直るか」まで書く。生の英文だけだと原因に辿り着けない。
+3. **`notifyContentPublishedOnce` は失敗しても `lineNotifiedAt`（通知済みの主張）を維持する。**
+   二重送信は防げるが、**上限超過は1通も届いていないのに「送信済み」で固定される**ため、
+   増枠しても再送されない。救済は管理画面の「LINE再送」ボタン
+   （`POST /api/admin/line-resend` → `notifyContentPublishedOnce(..., { force: true })`）だけ。
+   **自動再送は作らない**（意図せず全員へ二重配信する）。
+4. **イベントもニュースと同じ `notifyContentPublishedOnce` を通す。** 以前は `broadcastContentPublished`
+   を直接呼んでいたため、下書き↔公開を往復するたびに全員へ再配信して通数を浪費し、
+   失敗も `lineNotifyResult` に残らず管理画面から見えなかった。
+5. `multicastMessage` にも `pushMessage` と同じトークン未設定ガードを入れる（`Bearer undefined` で叩かない）。
+- 回帰テスト: `__tests__/unit/lib/lineDelivery.test.ts`（429の扱い・force再送・残量計算を固定）。

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getDb, getActiveLineUserIdsByRoles } from "@/lib/firebaseAdmin";
-import { sendAdminMessage } from "@/lib/line";
+import { sendAdminMessage, getMessageQuota } from "@/lib/line";
 import type { UserRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,10 @@ function parseRoles(input: unknown): UserRole[] {
 
 /**
  * GET /api/admin/messages?roles=member,staff
- * 送信前の確認用に「対象人数」を返す（送信はしない）。
+ * 送信前の確認用に「対象人数」と「今月の残り配信通数」を返す（送信はしない）。
+ *
+ * 残量を返すのは、LINE が **宛先1人＝1通** で数えるため。対象人数 > 残量なら送っても
+ * 上限超過で弾かれるので、送信前に気づけるようにする。
  */
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
@@ -31,9 +34,11 @@ export async function GET(req: NextRequest) {
   }
   try {
     const roles = parseRoles(req.nextUrl.searchParams.get("roles"));
-    if (roles.length === 0) return NextResponse.json({ count: 0, roles: [] });
+    // 残量の取得に失敗しても人数表示は出す（送信前の目安であり、送信可否の最終判定ではない）。
+    const quota = await getMessageQuota().catch(() => undefined);
+    if (roles.length === 0) return NextResponse.json({ count: 0, roles: [], quota });
     const ids = await getActiveLineUserIdsByRoles(roles);
-    return NextResponse.json({ count: ids.length, roles });
+    return NextResponse.json({ count: ids.length, roles, quota });
   } catch (error) {
     console.error("[admin/messages] GET error:", error);
     return NextResponse.json({ error: "対象人数の取得に失敗しました" }, { status: 500 });
@@ -72,14 +77,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, sent: 0, message: "対象ユーザーがいません" });
     }
 
-    await sendAdminMessage(ids, text, linkUrl || undefined);
+    const outcome = await sendAdminMessage(ids, text, linkUrl || undefined);
 
-    // 送信履歴（監査）。本処理は止めない。
+    // 送信履歴（監査）。本処理は止めない。成否も残す（後から「送ったのに届かない」を追える）。
     try {
       await getDb().collection("adminMessageLogs").add({
         actor: admin,
         roles,
         recipientCount: ids.length,
+        deliveredCount: outcome.deliveredCount,
+        ok: outcome.ok,
+        ...(outcome.error ? { error: outcome.error } : {}),
         textPreview: text.slice(0, 200),
         hasLink: !!linkUrl,
         createdAt: new Date().toISOString(),
@@ -88,7 +96,19 @@ export async function POST(req: NextRequest) {
       console.error("[admin/messages] audit log failed:", e);
     }
 
-    return NextResponse.json({ success: true, sent: ids.length });
+    // LINE が拒否したのに success を返さない。配信上限超過はここに出る。
+    if (!outcome.ok) {
+      return NextResponse.json(
+        {
+          error: outcome.error ?? "LINE配信に失敗しました",
+          sent: outcome.deliveredCount,
+          recipientCount: ids.length,
+        },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({ success: true, sent: outcome.deliveredCount });
   } catch (error) {
     console.error("[admin/messages] POST error:", error);
     return NextResponse.json({ error: "送信に失敗しました" }, { status: 500 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
-import { broadcastContentPublished, sanitizeAudience } from "@/lib/line";
+import { notifyContentPublishedOnce, sanitizeAudience } from "@/lib/line";
 import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
@@ -98,13 +98,10 @@ export async function POST(req: NextRequest) {
 
     const docRef = await db.collection("events").add(data);
 
-    // 公開時は選択 role へ LINE 通知
-    if (data.published === true && lineNotify && audience.length > 0) {
-      try {
-        await broadcastContentPublished("event", title, audience);
-      } catch (err) {
-        console.error("[admin/events] broadcast failed:", err);
-      }
+    // 公開時は選択 role へ LINE 通知。ニュースと同じく「1 doc 最大1回」＋結果を doc に記録する
+    // （下書き↔公開の往復で全員へ再配信して通数を浪費しないため。失敗も管理画面に出る）。
+    if (data.published === true) {
+      await notifyContentPublishedOnce(db, "events", docRef.id, "event", title, lineNotify, audience);
     }
 
     return NextResponse.json({ success: true, eventId: docRef.id });
@@ -161,20 +158,14 @@ export async function PUT(req: NextRequest) {
     const wasPublished = doc.data()?.published === true;
     await docRef.update({ ...fields, updatedAt: new Date().toISOString() });
 
-    // 下書き→公開への変更時に LINE 通知
+    // 下書き→公開への変更時に LINE 通知（1 doc 最大1回・結果を doc に記録）。
     if (!wasPublished && fields.published === true) {
-      try {
-        const title = fields.title || doc.data()?.title || "新しいイベント";
-        const lineNotify = typeof body.lineNotify === "boolean" ? body.lineNotify : doc.data()?.lineNotify !== false;
-        const audience = Array.isArray(body.lineBroadcastAudience)
-          ? sanitizeAudience(body.lineBroadcastAudience, "event")
-          : sanitizeAudience(doc.data()?.lineBroadcastAudience, "event");
-        if (lineNotify && audience.length > 0) {
-          await broadcastContentPublished("event", title, audience);
-        }
-      } catch (err) {
-        console.error("[admin/events] broadcast failed:", err);
-      }
+      const title = (fields.title as string) || doc.data()?.title || "新しいイベント";
+      const lineNotify = typeof body.lineNotify === "boolean" ? body.lineNotify : doc.data()?.lineNotify !== false;
+      const audience = Array.isArray(body.lineBroadcastAudience)
+        ? sanitizeAudience(body.lineBroadcastAudience, "event")
+        : sanitizeAudience(doc.data()?.lineBroadcastAudience, "event");
+      await notifyContentPublishedOnce(db, "events", eventId, "event", title, lineNotify, audience);
     }
 
     return NextResponse.json({ success: true });

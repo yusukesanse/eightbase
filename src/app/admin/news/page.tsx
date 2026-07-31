@@ -69,6 +69,8 @@ export default function AdminNewsPage() {
   const [publishMode, setPublishMode] = useState<PublishMode>("draft");
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  /** LINE再送中のニュースID（多重クリック防止）。 */
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [statusTab, setStatusTab] = useState<"all" | "published" | "draft" | "scheduled">("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -262,6 +264,48 @@ export default function AdminNewsPage() {
     return null;
   }
 
+  /**
+   * 配信に失敗したものだけに出す手動再送ボタン。
+   * 失敗しても「通知済み」の主張は残る仕様なので、増枠後などに送り直す唯一の手段。
+   * 自動再送はしない（意図せず全員へ二重配信するため）。
+   */
+  function resendButton(item: NewsItem) {
+    const r = item.lineNotifyResult;
+    if (!r || r.ok || !item.published) return null;
+    const busy = resendingId === item.newsId;
+    return (
+      <button
+        onClick={() => resendLine(item)}
+        disabled={busy}
+        className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-[#4f757e] text-[#4f757e] hover:bg-[#eef4f5] disabled:opacity-50"
+        title="LINEへ配信し直します（対象は設定済みの配信先全員）"
+      >
+        {busy ? "再送中…" : "LINE再送"}
+      </button>
+    );
+  }
+
+  async function resendLine(item: NewsItem) {
+    if (!confirm(`「${item.title}」をLINEへ再送します。\n配信先の全員にもう一度届きます。よろしいですか？`)) return;
+    setResendingId(item.newsId);
+    try {
+      const res = await fetch("/api/admin/line-resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ type: "news", id: item.newsId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) alert(data.error ?? "再送に失敗しました");
+      else alert(`${data.recipientCount ?? 0}名へ再送しました`);
+      await fetchNews();
+    } catch {
+      alert("再送に失敗しました");
+    } finally {
+      setResendingId(null);
+    }
+  }
+
   const N_TABS = [
     { key: "all" as const, label: "すべて", count: newsList.length },
     { key: "published" as const, label: "公開済み", count: newsList.filter(n => n.published).length },
@@ -358,6 +402,7 @@ export default function AdminNewsPage() {
                     <div className="flex flex-col gap-1 items-start">
                       {statusBadge(item)}
                       {lineBadge(item)}
+                      {resendButton(item)}
                     </div>
                   </td>
                   <td className="px-6 py-3 text-[#231714]/80 text-xs whitespace-nowrap">

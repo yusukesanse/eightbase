@@ -32,15 +32,70 @@ async function pushMessage(userId: string, messages: object[]) {
 }
 
 /**
+ * LINE API の失敗を、管理者が見て次の行動が分かる日本語にする。
+ *
+ * ⚠️ 実運用で最も多いのは 429（月間配信上限の超過）。LINE は **宛先1人＝1通** で数えるため、
+ *    登録者が増えるほど1回の一斉配信で消費する通数も増え、無料プランはすぐ枯れる。
+ *    生のレスポンス（例: "You have reached your monthly limit."）だけだと原因に辿り着けないので、
+ *    ここで「何をすれば直るか」まで含めた文言にして doc / API レスポンスに残す。
+ */
+function describeLineError(status: number, body: string): string {
+  const raw = body.slice(0, 300);
+  if (status === 429) {
+    return `LINEの月間配信上限に達しています。LINE Official Account Manager でプランを変更するか、翌月のリセットを待ってください（宛先1人＝1通で消費します）。[429] ${raw}`;
+  }
+  if (status === 401) {
+    return `LINEのチャネルアクセストークンが無効です。再発行して LINE_CHANNEL_ACCESS_TOKEN を更新してください。[401] ${raw}`;
+  }
+  if (status === 403) {
+    return `LINE Messaging API の権限がありません。チャネル設定を確認してください。[403] ${raw}`;
+  }
+  return `LINE配信に失敗しました。[${status}] ${raw}`;
+}
+
+/** 一斉配信の結果。呼び出し側はこれを**必ず**見て、成功と失敗を混同しないこと。 */
+export type MulticastOutcome = {
+  /** 全バッチ成功したか */
+  ok: boolean;
+  failedBatches: number;
+  totalBatches: number;
+  /** 実際に配信できた宛先数（失敗バッチ分は含めない） */
+  deliveredCount: number;
+  /** 最初の失敗の理由（管理者向け日本語） */
+  error?: string;
+};
+
+/**
  * マルチキャスト（最大500人同時送信）
  * 500人を超える場合は自動分割
+ *
+ * ⚠️ 戻り値を捨てないこと。捨てると「LINEが全件拒否したのに管理画面は送信成功と表示する」
+ *    という、原因追跡が極めて困難な状態になる（実際に配信上限超過の切り分けで問題になった）。
  */
 async function multicastMessage(
   userIds: string[],
   messages: object[]
-): Promise<{ ok: boolean; failedBatches: number }> {
+): Promise<MulticastOutcome> {
   const BATCH_SIZE = 500;
+  const totalBatches = Math.ceil(userIds.length / BATCH_SIZE);
+
+  // トークン未設定（ローカル・テスト・未構成の環境）では送らない。
+  // pushMessage と揃える。以前はここだけガードが無く `Bearer undefined` で叩いていた。
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    console.warn("[line] LINE_CHANNEL_ACCESS_TOKEN 未設定のため multicast をスキップしました");
+    return {
+      ok: false,
+      failedBatches: totalBatches,
+      totalBatches,
+      deliveredCount: 0,
+      error: "LINE_CHANNEL_ACCESS_TOKEN が未設定です（この環境からは配信できません）",
+    };
+  }
+
   let failedBatches = 0;
+  let deliveredCount = 0;
+  let firstError: string | undefined;
+
   for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
     const batch = userIds.slice(i, i + BATCH_SIZE);
     const res = await fetch(`${LINE_API_BASE}/message/multicast`, {
@@ -53,12 +108,52 @@ async function multicastMessage(
     });
 
     if (!res.ok) {
-      const error = await res.text();
-      console.error(`LINE multicast failed (batch ${i / BATCH_SIZE + 1}):`, error);
+      const body = await res.text();
+      const described = describeLineError(res.status, body);
+      console.error(`LINE multicast failed (batch ${i / BATCH_SIZE + 1}):`, described);
       failedBatches++;
+      if (!firstError) firstError = described;
+    } else {
+      deliveredCount += batch.length;
     }
   }
-  return { ok: failedBatches === 0, failedBatches };
+  return { ok: failedBatches === 0, failedBatches, totalBatches, deliveredCount, error: firstError };
+}
+
+/**
+ * 今月の配信可能通数と消費量を取得する（送信はしない）。
+ * 管理者アプリの送信画面で「送る前に」残量を見せ、上限超過に気づけるようにするためのもの。
+ */
+export async function getMessageQuota(): Promise<{
+  configured: boolean;
+  /** "none" = 上限なしプラン / "limited" = 上限あり */
+  type?: string;
+  limit?: number | null;
+  used?: number | null;
+  remaining?: number | null;
+  error?: string;
+}> {
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    return { configured: false, error: "LINE_CHANNEL_ACCESS_TOKEN が未設定です" };
+  }
+  const headers = { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` };
+  try {
+    const [quotaRes, usedRes] = await Promise.all([
+      fetch(`${LINE_API_BASE}/message/quota`, { headers }),
+      fetch(`${LINE_API_BASE}/message/quota/consumption`, { headers }),
+    ]);
+    if (!quotaRes.ok) {
+      return { configured: true, error: describeLineError(quotaRes.status, await quotaRes.text()) };
+    }
+    const quota = (await quotaRes.json()) as { type?: string; value?: number };
+    const used = usedRes.ok ? ((await usedRes.json()) as { totalUsage?: number }).totalUsage ?? null : null;
+    // type: "none" は上限なしプラン（value は返らない）
+    const limit = quota.type === "limited" ? quota.value ?? null : null;
+    const remaining = limit != null && used != null ? Math.max(0, limit - used) : null;
+    return { configured: true, type: quota.type, limit, used, remaining };
+  } catch (e) {
+    return { configured: true, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 // ─── 予約完了通知 ──────────────────────────────────────────────────────────────
@@ -473,18 +568,24 @@ export async function broadcastContentPublished(
   contentType: ContentType,
   title: string,
   audience: UserRole[],
-): Promise<{ recipientCount: number; ok: boolean }> {
-  if (!audience || audience.length === 0) return { recipientCount: 0, ok: true };
+): Promise<{ recipientCount: number; deliveredCount: number; ok: boolean; error?: string }> {
+  if (!audience || audience.length === 0) return { recipientCount: 0, deliveredCount: 0, ok: true };
 
   let recipientCount = 0;
+  let deliveredCount = 0;
   let ok = true;
+  let error: string | undefined;
   const memberRoles = audience.filter((r) => r === "member" || r === "staff");
   if (memberRoles.length > 0) {
     const ids = await getActiveLineUserIdsByRoles(memberRoles);
     if (ids.length > 0) {
       const r = await multicastMessage(ids, [contentFlex(contentType, title, false)]);
       recipientCount += ids.length;
-      if (!r.ok) ok = false;
+      deliveredCount += r.deliveredCount;
+      if (!r.ok) {
+        ok = false;
+        if (!error) error = r.error;
+      }
     }
   }
   if (audience.includes("guest")) {
@@ -492,10 +593,14 @@ export async function broadcastContentPublished(
     if (ids.length > 0) {
       const r = await multicastMessage(ids, [contentFlex(contentType, title, true)]);
       recipientCount += ids.length;
-      if (!r.ok) ok = false;
+      deliveredCount += r.deliveredCount;
+      if (!r.ok) {
+        ok = false;
+        if (!error) error = r.error;
+      }
     }
   }
-  return { recipientCount, ok };
+  return { recipientCount, deliveredCount, ok, ...(error ? { error } : {}) };
 }
 
 /**
@@ -513,7 +618,8 @@ export async function notifyContentPublishedOnce(
   title: string,
   lineNotify: boolean,
   audience: UserRole[],
-): Promise<{ sent: boolean; recipientCount: number; reason?: string }> {
+  options?: { force?: boolean },
+): Promise<{ sent: boolean; recipientCount: number; reason?: string; error?: string }> {
   if (!lineNotify || audience.length === 0) {
     return { sent: false, recipientCount: 0, reason: "disabled" };
   }
@@ -521,29 +627,36 @@ export async function notifyContentPublishedOnce(
   const nowIso = new Date().toISOString();
 
   // 「通知済み」を原子的に主張。既に主張済みなら送らない。
+  // force=true は管理者が明示的に押す「再送」。失敗して claim だけが残った doc を救済するための唯一の経路。
   const claimed = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) return false;
-    if (snap.data()?.lineNotifiedAt) return false;
+    if (snap.data()?.lineNotifiedAt && !options?.force) return false;
     tx.update(ref, { lineNotifiedAt: nowIso });
     return true;
   });
   if (!claimed) return { sent: false, recipientCount: 0, reason: "already_notified" };
 
   try {
-    const { recipientCount, ok } = await broadcastContentPublished(contentType, title, audience);
-    // ok=false は LINE 配信の一部バッチが失敗（一部は届いている）。二重送信を避けるため claim は維持し、
-    // 失敗を結果に残す（管理者が追跡し、必要なら手動で再送を判断できる）。
+    const { recipientCount, deliveredCount, ok, error } = await broadcastContentPublished(contentType, title, audience);
+    // ok=false は LINE 配信の一部（または全部）が失敗。二重送信を避けるため claim は維持し、
+    // 失敗の理由を doc に残す（管理画面のバッジに出る。上限超過ならそう書かれる）。
+    // 1通も届いていない場合は管理者が「再送」ボタンで救済できる。
     await ref.update({
       lineNotifyResult: {
         ok,
         recipientCount,
+        deliveredCount,
         audience,
         at: nowIso,
-        ...(ok ? {} : { error: "LINE配信の一部が失敗しました（詳細はサーバーログ）" }),
+        ...(ok ? {} : { error: error ?? "LINE配信に失敗しました（詳細はサーバーログ）" }),
       },
     });
-    return { sent: ok, recipientCount, ...(ok ? {} : { reason: "partial_failure" }) };
+    return {
+      sent: ok,
+      recipientCount,
+      ...(ok ? {} : { reason: "partial_failure", error: error ?? undefined }),
+    };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     // 送信前の例外（宛先取得失敗など・何も届いていない）: claim を戻して再試行可能にし、失敗を記録する。
@@ -558,13 +671,18 @@ export async function notifyContentPublishedOnce(
 /**
  * 管理者アプリ「メッセージ送信」からの自由文配信。指定 lineUserId 群へ multicast。
  * text（＋任意でリンク1つ＝ボタン）。宛先 role 解決は呼び出し側で行う（登録ユーザーのみ）。
+ *
+ * ⚠️ 戻り値の ok を必ず見ること。以前はここが void で `multicastMessage` の失敗を捨てていたため、
+ *    LINE が配信上限で全件拒否しても管理画面には「N名へ送信しました」と出ていた。
  */
 export async function sendAdminMessage(
   userIds: string[],
   text: string,
   linkUrl?: string,
-): Promise<void> {
-  if (userIds.length === 0 || !text.trim()) return;
+): Promise<MulticastOutcome> {
+  if (userIds.length === 0 || !text.trim()) {
+    return { ok: true, failedBatches: 0, totalBatches: 0, deliveredCount: 0 };
+  }
   const trimmed = text.trim();
 
   const messages: object[] = linkUrl
@@ -592,7 +710,7 @@ export async function sendAdminMessage(
       ]
     : [{ type: "text", text: trimmed }];
 
-  await multicastMessage(userIds, messages);
+  return multicastMessage(userIds, messages);
 }
 
 // ─── 掲示板コメント通知 ──────────────────────────────────────────────────────

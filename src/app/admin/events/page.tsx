@@ -20,6 +20,8 @@ interface EventItem {
   goodCount?: number;
   lineNotify?: boolean;
   lineBroadcastAudience?: string[];
+  lineNotifiedAt?: string | null;
+  lineNotifyResult?: { ok: boolean; recipientCount?: number; error?: string; at?: string };
 }
 
 // 種別デフォルト配信対象（サーバー側 defaultBroadcastAudience と一致させる）。
@@ -65,6 +67,8 @@ export default function AdminEventsPage() {
   const [publishMode, setPublishMode] = useState<PublishMode>("draft");
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  /** LINE再送中のイベントID（多重クリック防止）。 */
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [statusTab, setStatusTab] = useState<"all" | "published" | "draft" | "scheduled">("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -236,6 +240,59 @@ export default function AdminEventsPage() {
     return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-[#231714]/80">下書き</span>;
   }
 
+  /** LINE 配信の結果バッジ（ニュース一覧と同じ見え方に揃える）。 */
+  function lineBadge(ev: EventItem) {
+    const r = ev.lineNotifyResult;
+    if (r?.ok) {
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#eef4dd] text-[#5f7d1e]">LINE送信済 {r.recipientCount ?? 0}件</span>;
+    }
+    if (r && !r.ok) {
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#fdece8] text-[#d8533a]" title={r.error ?? ""}>LINE配信失敗</span>;
+    }
+    if (ev.published && ev.lineNotify === false) {
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-[#231714]/60">LINE通知なし</span>;
+    }
+    return null;
+  }
+
+  /** 配信に失敗したものだけに出す手動再送ボタン（ニュースと同じ方針・自動再送はしない）。 */
+  function resendButton(ev: EventItem) {
+    const r = ev.lineNotifyResult;
+    if (!r || r.ok || !ev.published) return null;
+    const busy = resendingId === ev.eventId;
+    return (
+      <button
+        onClick={() => resendLine(ev)}
+        disabled={busy}
+        className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-[#4f757e] text-[#4f757e] hover:bg-[#eef4f5] disabled:opacity-50"
+        title="LINEへ配信し直します（対象は設定済みの配信先全員）"
+      >
+        {busy ? "再送中…" : "LINE再送"}
+      </button>
+    );
+  }
+
+  async function resendLine(ev: EventItem) {
+    if (!confirm(`「${ev.title}」をLINEへ再送します。\n配信先の全員にもう一度届きます。よろしいですか？`)) return;
+    setResendingId(ev.eventId);
+    try {
+      const res = await fetch("/api/admin/line-resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ type: "event", id: ev.eventId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) alert(data.error ?? "再送に失敗しました");
+      else alert(`${data.recipientCount ?? 0}名へ再送しました`);
+      await fetchEvents();
+    } catch {
+      alert("再送に失敗しました");
+    } finally {
+      setResendingId(null);
+    }
+  }
+
   const STATUS_TABS = [
     { key: "all" as const, label: "すべて", count: events.length },
     { key: "published" as const, label: "公開済み", count: events.filter(e => e.published).length },
@@ -331,7 +388,13 @@ export default function AdminEventsPage() {
                       {ev.goodCount ?? 0}
                     </span>
                   </td>
-                  <td className="px-6 py-3">{statusBadge(ev)}</td>
+                  <td className="px-6 py-3">
+                    <div className="flex flex-col gap-1 items-start">
+                      {statusBadge(ev)}
+                      {lineBadge(ev)}
+                      {resendButton(ev)}
+                    </div>
+                  </td>
                   <td className="px-6 py-3 text-[#231714]/80 text-xs whitespace-nowrap">
                     {ev.scheduledAt ? dayjs(ev.scheduledAt).format("YYYY/M/D HH:mm") : "—"}
                   </td>

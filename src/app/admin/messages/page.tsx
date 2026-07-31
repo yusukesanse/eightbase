@@ -17,12 +17,23 @@ const ROLE_OPTIONS: { role: UserRole; label: string; desc: string }[] = [
 
 const MAX_TEXT = 5000;
 
+/** GET /api/admin/messages が返す今月の配信枠。LINE は宛先1人＝1通で数える。 */
+type Quota = {
+  configured: boolean;
+  type?: string;
+  limit?: number | null;
+  used?: number | null;
+  remaining?: number | null;
+  error?: string;
+};
+
 export default function AdminMessagesPage() {
   const [text, setText] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [roles, setRoles] = useState<Set<UserRole>>(new Set());
   const [count, setCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
+  const [quota, setQuota] = useState<Quota | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -32,19 +43,20 @@ export default function AdminMessagesPage() {
 
   // 宛先が変わるたびに対象人数を取得（送信前の確認用）。
   useEffect(() => {
-    if (roleList.length === 0) {
-      setCount(null);
-      return;
-    }
     let alive = true;
-    setCountLoading(true);
+    // 宛先未選択でも叩く（今月の残り通数だけは常に見せたいため）。
+    setCountLoading(roleList.length > 0);
     fetch(`/api/admin/messages?roles=${roleList.join(",")}`, { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => {
-        if (alive) setCount(typeof d.count === "number" ? d.count : null);
+        if (!alive) return;
+        setCount(roleList.length > 0 && typeof d.count === "number" ? d.count : null);
+        setQuota(d.quota ?? null);
       })
       .catch(() => {
-        if (alive) setCount(null);
+        if (!alive) return;
+        setCount(null);
+        setQuota(null);
       })
       .finally(() => {
         if (alive) setCountLoading(false);
@@ -103,6 +115,60 @@ export default function AdminMessagesPage() {
     }
   }
 
+  /**
+   * 今月の配信枠。LINE は **宛先1人＝1通** で数えるので、対象人数が残量を超えていると
+   * 送っても上限超過で弾かれる。送る前に気づけるよう、残量と不足を明示する。
+   */
+  function quotaBanner() {
+    if (!quota) return null;
+    if (!quota.configured) {
+      return (
+        <div className="mb-4 rounded-xl bg-[#fdece8] border border-[#f4c9bd] px-4 py-3 text-sm font-bold text-[#d8533a]">
+          この環境は LINE 配信が未設定です（LINE_CHANNEL_ACCESS_TOKEN 未設定）。送信できません。
+        </div>
+      );
+    }
+    if (quota.error) {
+      return (
+        <div className="mb-4 rounded-xl bg-[#fff8e5] border border-[#f0dfae] px-4 py-3 text-sm text-[#8a6d1f]">
+          配信可能数を取得できませんでした: {quota.error}
+        </div>
+      );
+    }
+    if (quota.type === "none") return null; // 上限なしプラン
+
+    const remaining = quota.remaining;
+    if (remaining == null) return null;
+    const short = count != null && count > remaining;
+    const empty = remaining === 0;
+    const tone = empty || short
+      ? "bg-[#fdece8] border-[#f4c9bd] text-[#d8533a]"
+      : "bg-[#f4f7f8] border-[#dde7ea] text-[#231714]/85";
+    return (
+      <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${tone}`}>
+        <span className="font-bold">
+          今月の残り配信通数: {remaining.toLocaleString()} 通
+        </span>
+        <span className="opacity-80">
+          （上限 {quota.limit?.toLocaleString() ?? "—"} / 使用 {quota.used?.toLocaleString() ?? "—"}）
+        </span>
+        {empty && (
+          <p className="mt-1 font-bold">
+            上限に達しています。LINE Official Account Manager でプランを変更するか、翌月のリセットをお待ちください。
+          </p>
+        )}
+        {!empty && short && (
+          <p className="mt-1 font-bold">
+            対象 {count} 名に対して残りが足りません。このまま送ると上限超過で失敗します。
+          </p>
+        )}
+        <p className="mt-1 text-xs opacity-75">
+          宛先1人につき1通消費します（{count != null ? `今回の想定消費: ${count} 通` : "宛先を選ぶと想定消費を表示します"}）。
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-8 max-w-2xl">
       <h1 className="text-xl font-bold text-[#231714] mb-1">メッセージ送信</h1>
@@ -110,6 +176,8 @@ export default function AdminMessagesPage() {
         LINE公式アカウントから、選んだ区分の登録ユーザーのみへメッセージを送信します。
         登録ユーザー以外の第三者には届きません。
       </p>
+
+      {quotaBanner()}
 
       {result && (
         <div className="mb-4 rounded-xl bg-[#eef6f0] border border-[#cfe6d8] px-4 py-3 text-sm font-bold text-[#2f7d57]">
