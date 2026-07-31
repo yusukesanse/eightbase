@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Facility } from "@/types";
@@ -392,14 +392,33 @@ export default function ReservationPage() {
     setCompanions([]);
   }, [selectedFacility?.id]);
 
+  /** 規約本文のスクロール領域。「スクロール不要な短い規約」の判定に使う */
+  const termsScrollRef = useRef<HTMLDivElement>(null);
+
+  /** 下端まで20px以内なら読了とみなす（＝同意ボタンを出す） */
+  const REACHED_BOTTOM_PX = 20;
+
   /** 規約モーダルのスクロール検知 */
   function handleTermsScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
-    // 下端まで20px以内でスクロール完了とみなす
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 20) {
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < REACHED_BOTTOM_PX) {
       setTermsRead(true);
     }
   }
+
+  // ⚠️ 規約が短くてスクロールバーが出ない施設では onScroll が一度も発火せず、
+  //    同意ボタンが永久に出ない＝**その施設は予約できない**（実際にサウナで発生）。
+  //    モーダルを開いた時点で「スクロールの必要が無い」なら読了扱いにする。
+  useEffect(() => {
+    if (!showTermsModal) return;
+    // Markdown 描画後に測るため次フレームで判定する
+    const raf = requestAnimationFrame(() => {
+      const el = termsScrollRef.current;
+      if (!el) return;
+      if (el.scrollHeight - el.clientHeight < REACHED_BOTTOM_PX) setTermsRead(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [showTermsModal, selectedFacility?.termsContent]);
 
   // ─── 課金関連 ─────────────────────────────────────────────────────────────
   // 決済額(paymentAmount)が設定された施設は「決済する」フロー（予約ごとに動的Square決済リンクを生成）。
@@ -808,7 +827,7 @@ export default function ReservationPage() {
           </header>
 
           {/* 規約本文（スクロール領域） */}
-          <div className="flex-1 overflow-y-auto relative" onScroll={handleTermsScroll}>
+          <div ref={termsScrollRef} className="flex-1 overflow-y-auto relative" onScroll={handleTermsScroll}>
             <div className="px-5 py-5">
               <div className="prose prose-sm max-w-none text-[#231714]/90
                 prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
