@@ -166,6 +166,23 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - `awaitingAssignment=true` の間に残る卓は自動進行時代の**残骸**。ロックにも下書きにも使わない（`isAssignmentLocked`（`src/lib/mahjongAssign.ts`）を GET/POST で共有する）。
 - 卓振り分けUIは **Pointer Events**（`MahjongGmAssignPanel.tsx`）。HTML5 の drag はタッチで発火せず、LINEミニアプリでは動かない。`Chip`/`DropZone` はトップレベルで `memo` 化し、指の座標は ref + `requestAnimationFrame` で `transform` を直接書く（state に入れると毎フレーム再マウントしてカクつく）。
 
+#### 管理者が対戦結果を手入力する（紙運用・障害時の後入力）
+アプリを通さず紙で付けた結果を、管理画面から後から入れられる。
+2026-08-01 はゲストが参加できない不具合（`gamePaymentReturn` 参照）で申告できず紙運用になった。
+- 場所: 管理 → シーズン（麻雀）→ **卓一覧タブ → 「＋ 卓を手入力で追加」**。
+  `POST /api/admin/mahjong/tables`（既存の PATCH=修正 / DELETE=削除 と対）。
+- **参加者はアプリ利用者なら誰でも選べる**（参加表明の有無を問わない・ゲスト含む）。
+  候補は `GET /api/admin/games/participants`（`authorizedUsers` の active かつ LINE 連携済み）。
+  ⚠️ ここで**ゲストを除外しないこと**（ゲスト救済がこの機能の目的）。`/api/members` は使わない。
+- 検証は利用者申告と同じ `validateTableReports`（合計100,000点・順位1〜4が1人ずつ）。
+  通らなくても保存はするが **`reporting`＝集計対象外**（通算順位を汚さない）。UIで明示する。
+- 表示名・アイコンは**サーバーが `authorizedUsers`/`users` から解決**する（クライアント値を信用しない）。
+- `createdBy` は `admin:<メール>`。監査ログ `table.adminCreated` に残る。
+- ⚠️ 麻雀の通算順位は `scores` ではなく **`mahjongTables`** から計算する（`computeStandings`）。
+  ダーツ/ビリヤード/ポーカーは `scores` 集計なので、同じ手入力を作るなら別実装になる（未実装）。
+- 卓が0件の日でも開催日セレクタと追加フォームを出す（以前は0件だと何も出ず入力できなかった）。
+- 回帰テスト: `__tests__/unit/api/adminMahjongTableCreate.test.ts`。
+
 ### ルール・約款
 - `Season.rulesMarkdown` / `Season.termsMarkdown`（Markdown）。シーズンは種目別なので「種目ごと × シーズンごと」になる。
 - 管理画面のシーズン編集で入力（`TermsEditor` を再利用）。利用者は「ルール/約款」タブで**閲覧のみ**（同意フローなし）。取得は `GET /api/games/rules?gameCategory=`（ログイン必須）。
