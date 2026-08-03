@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
-import MahjongTableCreateForm from "@/components/admin/MahjongTableCreateForm";
+import MahjongDayResultForm from "@/components/admin/MahjongDayResultForm";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import type {
@@ -394,8 +394,8 @@ export default function SeasonMahjongPage() {
               </div>
             </div>
 
-            {/* 紙で付けた結果などをあとから入れるための手入力（参加表明していない人・ゲストも選べる）。 */}
-            <MahjongTableCreateForm
+            {/* 紙で付けた結果などをあとから入れる（参加者を選ぶ→卓数→卓ごとの点数）。 */}
+            <MahjongDayResultForm
               seasonId={seasonId}
               eventDate={tableDate}
               onCreated={() => fetchAll(true)}
