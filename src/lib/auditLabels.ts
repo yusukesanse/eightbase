@@ -10,6 +10,9 @@ export interface AuditEventLabel { text: string; color: string; desc: string }
 /** 監査イベント種別 → 日本語ラベル（AuditEventType を全て網羅）。 */
 export const AUDIT_EVENT_LABEL: Record<string, AuditEventLabel> = {
   "payment.cancelRequested": { text: "キャンセル依頼", color: "#a1502c", desc: "利用者が支払い済みの参加費をキャンセル依頼" },
+  "payment.markedPaid": { text: "支払い済みに戻した", color: "#2f7d57", desc: "Squareの入金を照合し、確定漏れのエントリーを支払い済みにした" },
+  "day.participant_removed": { text: "参加者を外した", color: "#c0563c", desc: "当日GMが参加者を名簿から外した（未払い/不参加）" },
+  "day.gm_claimed": { text: "GMを選出", color: "#1172a5", desc: "参加者が「GMをやる」で自己選出（交代も含む）" },
   "refund.refunded": { text: "返金 完了", color: "#2f7d57", desc: "管理者が Square で返金し「返金済」にした" },
   "refund.rejected": { text: "返金 却下", color: "#5f6266", desc: "管理者がキャンセル依頼を却下（参加は継続）" },
   "schedule.closed": { text: "休催にした", color: "#c0563c", desc: "その開催日を休催（開催しない）に設定" },
