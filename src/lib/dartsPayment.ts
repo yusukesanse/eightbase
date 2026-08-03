@@ -16,7 +16,7 @@ export async function startDartsEntryPayment(eventDate: string): Promise<{ entry
   return data;
 }
 
-/** 決済後リダイレクト（/info?dartspay=rid）からの確定。 */
+/** 決済後リダイレクト（/games?dartspay=rid）からの確定。 */
 export async function completeDartsEntryPayment(rid: string): Promise<{ paid: boolean; alreadyDone?: boolean }> {
   const res = await fetch("/api/darts/entries/complete", {
     method: "POST",

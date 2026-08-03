@@ -119,7 +119,7 @@ export function DartsJoinTab({
     setPayMsg(null);
     try {
       const r = await startDartsEntryPayment(date);
-      // Square 決済ページへ同一 webview で遷移（戻りは /info?dartspay=... で確定）
+      // Square 決済ページへ同一 webview で遷移（戻りは /games?dartspay=... で確定）
       window.location.href = r.paymentUrl;
     } catch (e) {
       setPayMsg(e instanceof Error ? e.message : "決済の開始に失敗しました");

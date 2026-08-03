@@ -5,6 +5,7 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { gamePaymentRequired } from "@/lib/roles";
 import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
+import { gamePaymentReturnPath } from "@/lib/gamePaymentReturn";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { isDartsCancelledDate } from "@/lib/dartsSchedule";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/darts/entries/pay  Body: { eventDate }
  * ダーツ参加費（¥1,000）の決済リンク発行（麻雀 pay を流用・Square purpose="darts"）。
- * 戻り先は /info?dartspay=エントリーID → /api/darts/entries/complete が確定する。
+ * 戻り先は /games?dartspay=エントリーID → /api/darts/entries/complete が確定する。
  * 受付締切（開催日の開始時刻）後も参加者は支払える（当日その場で支払う）。本日終了後は不可。
  */
 export async function POST(req: NextRequest) {
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const completePath = `/info?dartspay=${entryId}`;
+    const completePath = gamePaymentReturnPath("darts", entryId);
     const redirectUrl = isDevLoginEnabled()
       ? `${req.headers.get("origin") || req.nextUrl.origin}${completePath}`
       : liffUrl(completePath);

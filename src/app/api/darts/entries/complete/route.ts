@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/darts/entries/complete  Body: { rid }（= エントリーID）
- * Square 決済後リダイレクト（/info?dartspay=...）からの参加費確定（麻雀 complete を流用・purpose="darts"）。
+ * Square 決済後リダイレクト（/games?dartspay=...）からの参加費確定（麻雀 complete を流用・purpose="darts"）。
  * squareOrders/{orderId} の一意 doc で「再利用防止」と「paid 化」を1 transaction に原子化する。
  */
 export async function POST(req: NextRequest) {
