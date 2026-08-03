@@ -12,6 +12,7 @@ export type AuditGameCategory = "mahjong" | "darts" | "billiards" | "poker";
 
 export type AuditEventType =
   | "payment.cancelRequested" // 支払い済みのキャンセル依頼（利用者）
+  | "payment.markedPaid" // 入金済みなのに未払いのまま残ったエントリーを管理者が支払い済みに戻した
   | "refund.refunded" // 返金処理（管理者）
   | "refund.rejected" // キャンセル却下（管理者）
   | "schedule.closed" // 休催化（管理者）

@@ -34,7 +34,7 @@ export default function SeasonDetailLayout({
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
         { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
         { href: `/admin/games/seasons/${seasonId}/poker-cs`, label: "CS" },
-        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "参加費・返金" },
         { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ]
     : isDarts
@@ -43,7 +43,7 @@ export default function SeasonDetailLayout({
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
         { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
         { href: `/admin/games/seasons/${seasonId}/darts-cs`, label: "CS" },
-        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "参加費・返金" },
         { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ]
     : isBilliards
@@ -52,7 +52,7 @@ export default function SeasonDetailLayout({
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
         { href: `/admin/games/seasons/${seasonId}/ranking`, label: "ランキング" },
         { href: `/admin/games/seasons/${seasonId}/billiards-cs`, label: "CS" },
-        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "参加費・返金" },
         { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ]
     : [
@@ -60,7 +60,7 @@ export default function SeasonDetailLayout({
         { href: `/admin/games/seasons/${seasonId}/schedule`, label: "日程" },
         { href: `/admin/games/seasons/${seasonId}/mahjong`, label: "ランキング" },
         { href: `/admin/games/seasons/${seasonId}/mahjong-cs`, label: "CS" },
-        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "返金対応" },
+        { href: `/admin/games/seasons/${seasonId}/refunds`, label: "参加費・返金" },
         { href: `/admin/games/seasons/${seasonId}/audit`, label: "監査ログ" },
       ];
 
