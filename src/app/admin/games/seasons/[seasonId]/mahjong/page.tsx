@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
+import MahjongTableCreateForm from "@/components/admin/MahjongTableCreateForm";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import type {
@@ -353,11 +354,10 @@ export default function SeasonMahjongPage() {
       {/* ───── 卓一覧（日付を選ぶとその日の卓だけ表示） ───── */}
       <section className={tab === "tables" ? "" : "hidden"}>
         <h2 className="text-sm font-bold text-[#231714] mb-3">卓一覧（申告状況）</h2>
-        {tables.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
-            卓がまだ作成されていません
-          </div>
-        ) : (
+        {/*
+          卓が1つも無い日でも「開催日の選択」と「手入力で追加」は出す。
+          以前は卓が0件だと何も表示されず、紙で付けた日の結果を入れる手段が無かった。
+        */}
           <>
             {/* 開催日セレクタ（月・日プルダウン）。月=シーズン開催期間、日=日程の開催日（毎週土曜−休催）。 */}
             <div className="mb-4">
@@ -393,6 +393,13 @@ export default function SeasonMahjongPage() {
                 </select>
               </div>
             </div>
+
+            {/* 紙で付けた結果などをあとから入れるための手入力（参加表明していない人・ゲストも選べる）。 */}
+            <MahjongTableCreateForm
+              seasonId={seasonId}
+              eventDate={tableDate}
+              onCreated={() => fetchAll(true)}
+            />
 
             {dayTables.length === 0 ? (
               <div className="bg-white rounded-xl border border-[#231714]/10 p-10 text-center text-sm text-[#231714]/80">
@@ -457,7 +464,6 @@ export default function SeasonMahjongPage() {
               </div>
             )}
           </>
-        )}
       </section>
 
       {/* ───── 当日進行（抜け番） ───── */}

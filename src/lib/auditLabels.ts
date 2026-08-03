@@ -21,6 +21,7 @@ export const AUDIT_EVENT_LABEL: Record<string, AuditEventLabel> = {
   "cs.matchEdited": { text: "CS 結果を修正", color: "#a1502c", desc: "管理者がCSの試合結果を手動修正" },
   "cs.reset": { text: "CS リセット", color: "#c0563c", desc: "管理者がCSブラケットをリセット" },
   "table.completed": { text: "卓・試合を確定", color: "#40434a", desc: "申告が揃い集計を確定" },
+  "table.adminCreated": { text: "卓を手入力で追加", color: "#1172a5", desc: "管理者が卓を新規作成（紙で付けた結果の後入力など）" },
   "day.advanced": { text: "次へ進行", color: "#1172a5", desc: "抜け番などで次の半荘/回へ進行" },
   "day.started": { text: "ゲーム開始（受付締切）", color: "#2f7d57", desc: "GMが開始＝以降は参加・支払い不可" },
   "day.cancelled": { text: "開催中止（流会）", color: "#c0563c", desc: "GMが開催日を中止。支払い済みは返金対象へ" },
