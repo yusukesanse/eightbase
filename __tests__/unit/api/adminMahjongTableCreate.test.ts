@@ -28,21 +28,32 @@ function makeDb() {
     return store.get(n)!;
   };
   const docRef = (c: string, id: string) => ({
+    __c: c,
     id,
     get: async () => ({ exists: col(c).has(id), id, data: () => col(c).get(id) }),
     set: async (d: Data) => { col(c).set(id, { ...d }); },
   });
   let autoId = 0;
+  /** where().where().get() の連鎖に対応する簡易クエリ。 */
+  const query = (c: string, conds: [string, unknown][]) => ({
+    where: (f: string, _op: string, v: unknown) => query(c, [...conds, [f, v]]),
+    get: async () => ({
+      docs: [...col(c).entries()]
+        .filter(([, v]) => conds.every(([f, val]) => v[f] === val))
+        .map(([id, v]) => ({ id, data: () => v })),
+    }),
+  });
   const db = {
+    batch: () => {
+      const ops: [string, string, Data][] = [];
+      return {
+        set: (ref: { __c: string; id: string }, d: Data) => { ops.push([ref.__c, ref.id, d]); },
+        commit: async () => { ops.forEach(([c, id, d]) => col(c).set(id, { ...d })); },
+      };
+    },
     collection: (c: string) => ({
       doc: (id?: string) => docRef(c, id ?? `auto-${++autoId}`),
-      where: (field: string, _op: string, value: unknown) => ({
-        get: async () => ({
-          docs: [...col(c).entries()]
-            .filter(([, v]) => v[field] === value)
-            .map(([id, v]) => ({ id, data: () => v })),
-        }),
-      }),
+      where: (f: string, _op: string, v: unknown) => query(c, [[f, v]]),
     }),
     getAll: async (...refs: { id: string }[]) =>
       refs.map((r) => ({ id: r.id, exists: col("users").has(r.id), data: () => col("users").get(r.id) })),
@@ -88,9 +99,16 @@ beforeEach(() => {
 });
 
 const call = (body: unknown) => POST(req(body));
-const okBody = (over: Partial<Record<string, unknown>> = {}) => ({
-  seasonId: "s1", eventDate: "2026-08-01", members: MEMBERS_OK, ...over,
-});
+/** 1卓ぶんのボディ。members を渡すと1卓、tables を渡すと複数卓。 */
+const okBody = (over: Partial<Record<string, unknown>> = {}) => {
+  const { members, ...rest } = over as { members?: unknown };
+  return {
+    seasonId: "s1",
+    eventDate: "2026-08-01",
+    tables: [{ members: members ?? MEMBERS_OK }],
+    ...rest,
+  };
+};
 
 describe("正常系", () => {
   test("合計100,000点・順位1〜4が揃えば completed で作成される", async () => {
@@ -98,7 +116,8 @@ describe("正常系", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json).toMatchObject({ success: true, tableStatus: "completed" });
+    expect(json).toMatchObject({ success: true, completedCount: 1, reportingCount: 0 });
+    expect(json.created[0]).toMatchObject({ round: 1, status: "completed" });
 
     const table = [...db.__store.get("mahjongTables")!.values()][0] as Data;
     expect(table.eventDate).toBe("2026-08-01");
@@ -121,7 +140,7 @@ describe("正常系", () => {
 
   test("ゲストも参加者に指定できる（この機能の目的）", async () => {
     const res = await call(okBody());
-    expect((await res.json()).tableStatus).toBe("completed");
+    expect((await res.json()).completedCount).toBe(1);
     const table = [...db.__store.get("mahjongTables")!.values()][0] as Data;
     expect((table.memberIds as string[])).toContain("U3");
   });
@@ -145,8 +164,8 @@ describe("検証に通らない場合は保存するが集計対象外(reporting
       ],
     }));
     const json = await res.json();
-    expect(json.tableStatus).toBe("reporting");
-    expect(json.validation.error).toMatch(/100,000/);
+    expect(json).toMatchObject({ completedCount: 0, reportingCount: 1 });
+    expect(json.created[0].error).toMatch(/100,000/);
     const table = [...db.__store.get("mahjongTables")!.values()][0] as Data;
     expect(table.status).toBe("reporting");
   });
@@ -160,7 +179,73 @@ describe("検証に通らない場合は保存するが集計対象外(reporting
         { lineUserId: "U4", points: 9000, rank: 4 },
       ],
     }));
-    expect((await res.json()).tableStatus).toBe("reporting");
+    expect((await res.json()).reportingCount).toBe(1);
+  });
+});
+
+describe("複数卓（1日ぶんをまとめて登録）", () => {
+  /** 参加者6名から3卓ぶんを作る（同じ人が複数卓に出るのが通常＝アベレージの母数になる）。 */
+  test("卓ごとに第n半荘の番号が振られ、全卓が保存される", async () => {
+    db.__set("authorizedUsers", "auth-4", { lineUserId: "U5", displayName: "会員E", role: "member", active: true });
+    db.__set("authorizedUsers", "auth-5", { lineUserId: "U6", displayName: "会員F", role: "member", active: true });
+    const t = (ids: string[]) => ({
+      members: [
+        { lineUserId: ids[0], points: 45000, rank: 1 },
+        { lineUserId: ids[1], points: 28000, rank: 2 },
+        { lineUserId: ids[2], points: 18000, rank: 3 },
+        { lineUserId: ids[3], points: 9000, rank: 4 },
+      ],
+    });
+    const res = await call({
+      seasonId: "s1", eventDate: "2026-08-01",
+      tables: [t(["U1","U2","U3","U4"]), t(["U1","U2","U5","U6"]), t(["U3","U4","U5","U6"])],
+    });
+    const json = await res.json();
+
+    expect(json).toMatchObject({ success: true, completedCount: 3, reportingCount: 0 });
+    expect(json.created.map((c: { round: number }) => c.round)).toEqual([1, 2, 3]);
+    expect(db.__store.get("mahjongTables")!.size).toBe(3);
+  });
+
+  test("既にその日に卓があれば続きの半荘番号になる", async () => {
+    db.__set("mahjongTables", "existing", { seasonId: "s1", eventDate: "2026-08-01", round: 4 });
+    const json = await (await call(okBody())).json();
+    expect(json.created[0].round).toBe(5);
+  });
+
+  test("合計が合わない卓だけ reporting になり、他の卓は completed のまま", async () => {
+    const bad = { members: [
+      { lineUserId: "U1", points: 45000, rank: 1 },
+      { lineUserId: "U2", points: 28000, rank: 2 },
+      { lineUserId: "U3", points: 18000, rank: 3 },
+      { lineUserId: "U4", points: 8000, rank: 4 },
+    ]};
+    const json = await (await call({
+      seasonId: "s1", eventDate: "2026-08-01", tables: [{ members: MEMBERS_OK }, bad],
+    })).json();
+    expect(json).toMatchObject({ completedCount: 1, reportingCount: 1 });
+  });
+
+  test("卓が0件なら 400", async () => {
+    expect((await call({ seasonId: "s1", eventDate: "2026-08-01", tables: [] })).status).toBe(400);
+  });
+
+  test("上限(30卓)を超えたら 400", async () => {
+    const many = Array.from({ length: 31 }, () => ({ members: MEMBERS_OK }));
+    const res = await call({ seasonId: "s1", eventDate: "2026-08-01", tables: many });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/30卓/);
+  });
+
+  test("不正な卓は何卓目かを示して 400（どこを直せばよいか分かる）", async () => {
+    const res = await call({
+      seasonId: "s1", eventDate: "2026-08-01",
+      tables: [{ members: MEMBERS_OK }, { members: MEMBERS_OK.slice(0, 3) }],
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/^2卓目/);
+    // 1件も保存されない（半端に残さない）
+    expect(db.__store.get("mahjongTables")?.size ?? 0).toBe(0);
   });
 });
 
@@ -181,7 +266,7 @@ describe("入力チェック", () => {
       ],
     }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/複数回/);
+    expect((await res.json()).error).toMatch(/同じ人を複数の席/);
   });
 
   test("eventDate の形式が不正なら 400", async () => {
