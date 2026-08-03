@@ -5,6 +5,7 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
 import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
+import { gamePaymentReturnPath } from "@/lib/gamePaymentReturn";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { getDayState, isEntryClosed } from "@/lib/mahjongDay";
@@ -22,9 +23,9 @@ export const dynamic = "force-dynamic";
  * POST /api/mahjong/entries/pay  Body: { eventDate }
  * 参加費（3,000円）の「決済前 仮押さえ」。トレーラー予約と同型の Square 動的リンク方式。
  *  1. role が支払い対象（member/guest）か・参加表明済みか・**開催当日かつ開始時刻前**かを検証
- *  2. 参加費専用の Square 決済リンクを生成（戻り先 /info?mjpay=エントリーID＝麻雀ハブ）
+ *  2. 参加費専用の Square 決済リンクを生成（戻り先 /games?mjpay=エントリーID＝麻雀ハブ）
  *  3. エントリーを pending 化し注文ID(orderId)を保存 → 決済URLを返す
- *  戻りは /info?mjpay=... 経由で /api/mahjong/entries/complete が確定する。
+ *  戻りは /games?mjpay=... 経由で /api/mahjong/entries/complete が確定する。
  */
 export async function POST(req: NextRequest) {
   try {
@@ -125,7 +126,7 @@ export async function POST(req: NextRequest) {
     // 失敗時は pending 化する前に中断（不要な pending を残さない）。
     // 戻り先は LINEミニアプリ(LIFF)。demo のブラウザ検証（Dev ログイン時）は Web URL。
     // 戻り先は麻雀のハブ = /info（ゲームタブ）。?mjpay を検知して自動でゲーム/麻雀を開き確定する。
-    const completePath = `/info?mjpay=${entryId}`;
+    const completePath = gamePaymentReturnPath("mahjong", entryId);
     const redirectUrl = isDevLoginEnabled()
       ? `${req.headers.get("origin") || req.nextUrl.origin}${completePath}`
       : liffUrl(completePath);

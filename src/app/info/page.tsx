@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NufEvent, NewsItem } from "@/types";
 import { TimelineBoard } from "@/components/TimelineBoard";
+import { paymentReturnSearch, GAME_PAYMENT_RETURN_BASE } from "@/lib/gamePaymentReturn";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -25,14 +26,14 @@ const EMPTY_NEWS: NewsItem[] = [];
 export default function InfoPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("events");
-  // 参加費のSquare決済の戻り（?mjpay= 等）はゲームハブ /games へ転送する
-  //（ゲームは E-1 で /games に移設。GamesHub が対象ゲームを選び LeagueView が確定処理する）。
+  // 参加費 Square 決済の戻りは現在 /games へ直接返している（gamePaymentReturnPath）。
+  // ここは **決済リンク発行済み・未確定の古い `/info?...` 戻り**を取りこぼさないための後方互換。
+  // ⚠️ 会員は /info に入れるので転送できるが、ゲストは AuthGuard に弾かれてここまで来ない。
+  //    ゲストの救済は AuthGuard 側（決済パラメータを引き継いで /games へ送る）が担当する。
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const params = new URL(window.location.href).searchParams;
-    if (params.has("mjpay") || params.has("dartspay") || params.has("billiardspay") || params.has("pokerpay")) {
-      router.replace(`/games${window.location.search}`);
-    }
+    const search = paymentReturnSearch(window.location.search);
+    if (search) router.replace(`${GAME_PAYMENT_RETURN_BASE}${search}`);
   }, [router]);
 
   const visibleTabs = TABS;

@@ -7,6 +7,7 @@ import { clearPostsCache } from "@/lib/timelineCache";
 import { clearEventGoods } from "@/lib/eventGoods";
 import { clearReservationDraft } from "@/lib/reservationDraft";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
+import { paymentReturnSearch, GAME_PAYMENT_RETURN_BASE } from "@/lib/gamePaymentReturn";
 import { isDevLoginEnabled } from "@/lib/env";
 
 /**
@@ -39,10 +40,25 @@ function loginPath(): string {
 /** ゲスト(role=guest)が閲覧できるのはゲーム機能のみ。会員専用ルート（/info・掲示板等）はブロック。 */
 function isGuestAllowedPath(pathname: string): boolean {
   // E-1: ゲームは独立導線 /games に集約（/info は会員専用の イベント/ニュース/掲示板 になった）。
-  return pathname.startsWith("/games");
+  return pathname.startsWith(GAME_PAYMENT_RETURN_BASE);
 }
 /** ゲストの初期到達先（全ゲームのハブ=/games）。 */
-const GUEST_HOME = "/games";
+const GUEST_HOME = GAME_PAYMENT_RETURN_BASE;
+
+/**
+ * ゲーム限定ロールを許可パスへ送り返すときの遷移先。
+ *
+ * ⚠️ **決済戻りのクエリを必ず引き継ぐこと。**
+ *    2026-08-03 の本番障害はここで `router.replace("/games")` とクエリを捨てていたのが原因。
+ *    Square が会員専用の `/info?dartspay=<id>` へ戻していたため、ゲストだけが弾かれて
+ *    `?dartspay=` を失い、確定APIが呼ばれず「払ったのに未払い」になった。
+ *    現在は戻り先を `/games` にしたが、**発行済みで未確定の古い決済リンク**が `/info` を
+ *    指したまま残るので、この引き継ぎが救済経路になる。
+ */
+function gamesOnlyRedirectTarget(): string {
+  const search = typeof window === "undefined" ? "" : paymentReturnSearch(window.location.search);
+  return `${GUEST_HOME}${search}`;
+}
 
 /**
  * セッション中の認証キャッシュ（ページ遷移ごとのAPIコール連打を防ぐための短期メモ）。
@@ -79,7 +95,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         if (isGamesOnlyRole(authCache.role)) {
           // ゲスト/エイト社員はゲーム系のみ。setup-profile は強制しない。
           if (!isGuestAllowedPath(pathname)) {
-            router.replace(GUEST_HOME);
+            router.replace(gamesOnlyRedirectTarget());
             return;
           }
           setStatus("authorized");
@@ -119,7 +135,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             if (isGamesOnlyRole(authCache.role)) {
               // ゲスト/エイト社員はゲーム系のみ。setup-profile は強制しない。
               if (!isGuestAllowedPath(pathname)) {
-                router.replace(GUEST_HOME);
+                router.replace(gamesOnlyRedirectTarget());
                 return;
               }
               setStatus("authorized");

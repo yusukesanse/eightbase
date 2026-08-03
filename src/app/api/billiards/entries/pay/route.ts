@@ -5,6 +5,7 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { gamePaymentRequired } from "@/lib/roles";
 import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
 import { liffUrl } from "@/lib/liffUrl";
+import { gamePaymentReturnPath } from "@/lib/gamePaymentReturn";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { todayJst } from "@/lib/date";
 import { isBilliardsCancelledDate } from "@/lib/billiardsSchedule";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/billiards/entries/pay  Body: { eventDate }
  * ビリヤード参加費（¥1,500）の決済リンク発行（ダーツ pay を流用・Square purpose="billiards"）。
- * 戻り先は /info?billiardspay=エントリーID → /api/billiards/entries/complete が確定する。
+ * 戻り先は /games?billiardspay=エントリーID → /api/billiards/entries/complete が確定する。
  * 受付締切（開催日の開始時刻）後も参加者は支払える（当日その場で支払う）。本日終了後は不可。
  */
 export async function POST(req: NextRequest) {
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const completePath = `/info?billiardspay=${entryId}`;
+    const completePath = gamePaymentReturnPath("billiards", entryId);
     const redirectUrl = isDevLoginEnabled()
       ? `${req.headers.get("origin") || req.nextUrl.origin}${completePath}`
       : liffUrl(completePath);

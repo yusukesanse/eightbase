@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GAME_CATEGORIES, type ScoreboardGameId } from "@/types";
+import { findPaymentReturn } from "@/lib/gamePaymentReturn";
 import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
 import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
 import { BilliardsLeagueView } from "@/components/billiards/BilliardsLeagueView";
@@ -16,21 +17,10 @@ import clsx from "clsx";
  */
 
 
-const PAY_PARAM_TO_GAME: Record<string, ScoreboardGameId> = {
-  mjpay: "mahjong",
-  dartspay: "darts",
-  billiardspay: "billiards",
-  pokerpay: "poker",
-};
-
 /** 決済戻りの URL パラメータから初期表示ゲームを決める（無ければ麻雀）。 */
 function initialGameFromUrl(): ScoreboardGameId {
   if (typeof window === "undefined") return "mahjong";
-  const params = new URL(window.location.href).searchParams;
-  for (const [param, game] of Object.entries(PAY_PARAM_TO_GAME)) {
-    if (params.has(param)) return game;
-  }
-  return "mahjong";
+  return findPaymentReturn(window.location.search)?.game ?? "mahjong";
 }
 
 export function GamesHub() {
