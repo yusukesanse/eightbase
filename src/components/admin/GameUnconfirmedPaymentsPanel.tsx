@@ -89,13 +89,13 @@ export default function GameUnconfirmedPaymentsPanel({ gameCategory }: { gameCat
   }
 
   if (loading) {
-    return <div className="p-8 flex justify-center"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
+    return <div className="p-5 flex justify-center"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   return (
-    <section className="mb-8">
-      <h2 className="text-base font-bold text-[#231714] mb-1">入金確認待ち</h2>
-      <p className="text-xs text-[#231714]/80 mb-3">
+    <section className="p-5 pb-0 max-w-3xl">
+      <h1 className="text-lg font-bold text-[#231714] mb-1">入金確認待ち</h1>
+      <p className="text-sm text-[#231714]/80 mb-4">
         決済リンクは発行済みなのに未払いのまま残っているエントリーです。
         Square の入金を照合したうえで「支払い済み」に戻せます（未入金なら確定されません）。
       </p>
