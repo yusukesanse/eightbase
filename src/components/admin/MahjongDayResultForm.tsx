@@ -12,7 +12,9 @@ import { kanaIncludes } from "@/lib/kana";
  * 入力の流れ（現場の順序に合わせる）:
  *   ① その日の参加者を選ぶ（アプリ利用者なら誰でも。ゲスト含む）
  *   ② 実施した卓数を入れる（＝半荘数。アベレージの母数になる）
- *   ③ 卓ごとに 1〜4位の持ち点を入れる（席の候補は①で選んだ人だけ）
+ *   ③ 卓ごとに参加者と持ち点を入れる（席の候補は①で選んだ人だけ）
+ *      着順は**持ち点から自動で決まる**。行順で着順を決めさせると、点数と着順が逆転した卓が
+ *      量産されて `validateTableReports` の整合性チェックに落ちる（2026-08-01 に実際に発生）。
  *
  * 検証は利用者申告と同じ（合計100,000点・順位1〜4が1人ずつ）。
  * 満たさない卓は保存はされるが「集計対象外」になるため、卓ごとに合計を常時表示する。
@@ -36,6 +38,21 @@ interface Seat {
 }
 
 const emptyTable = (): Seat[] => Array.from({ length: TABLE_SIZE }, () => ({ lineUserId: "", points: "" }));
+
+/**
+ * 持ち点から着順を割り出す（1位＝最高得点。同点は上の行を上位）。
+ * 麻雀の着順は持ち点で決まるので、入力者に点数順に並べ替えさせない。
+ * サーバー側 `deriveRanksFromPoints` と同じ規則にすること（表示と保存がズレると事故る）。
+ */
+function ranksFromPoints(seats: Seat[]): (number | null)[] {
+  const filled = seats.map((s, i) => ({ i, v: s.points.trim() === "" ? null : Number(s.points) }));
+  const order = filled
+    .filter((x) => x.v !== null)
+    .sort((a, b) => (b.v as number) - (a.v as number) || a.i - b.i);
+  const rank = new Map<number, number>();
+  order.forEach((o, idx) => rank.set(o.i, idx + 1));
+  return seats.map((_, i) => rank.get(i) ?? null);
+}
 
 const ROLE_LABEL: Record<string, string> = { member: "会員", staff: "社員", guest: "ゲスト" };
 
@@ -103,6 +120,9 @@ export default function MahjongDayResultForm({
     setTables((prev) => prev.map((t, i) => (i === ti ? t.map((s, j) => (j === si ? { ...s, ...patch } : s)) : t)));
   }
 
+  /** 卓ごとの着順（持ち点から算出・表示用）。 */
+  const seatRanks = tables.map((t) => ranksFromPoints(t));
+
   const tableStats = tables.map((t) => {
     const chosen = t.map((s) => s.lineUserId).filter(Boolean);
     const total = t.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
@@ -136,13 +156,17 @@ export default function MahjongDayResultForm({
         body: JSON.stringify({
           seasonId,
           eventDate,
-          tables: sendIndexes.map((i) => ({
-            members: tables[i].map((s, si) => ({
-              lineUserId: s.lineUserId,
-              points: Number(s.points),
-              rank: si + 1,
-            })),
-          })),
+          tables: sendIndexes.map((i) => {
+            const ranks = ranksFromPoints(tables[i]);
+            return {
+              members: tables[i].map((s, si) => ({
+                lineUserId: s.lineUserId,
+                points: Number(s.points),
+                // 着順は持ち点から決める（行の位置ではない）
+                rank: ranks[si] ?? si + 1,
+              })),
+            };
+          }),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -290,7 +314,10 @@ export default function MahjongDayResultForm({
 
       {/* ───── ③ 卓ごとの点数 ───── */}
       <section>
-        <h4 className="text-xs font-bold text-[#231714] mb-2">③ 卓ごとの点数</h4>
+        <h4 className="text-xs font-bold text-[#231714] mb-1">③ 卓ごとの点数</h4>
+        <p className="text-[11px] text-[#231714]/70 mb-2">
+          並び順は自由です。<b>着順は持ち点から自動で決まります</b>（1位＝最高得点）。
+        </p>
         {participants.length < TABLE_SIZE ? (
           <p className="text-xs text-[#231714]/70 py-3">先に参加者を{TABLE_SIZE}名以上追加してください。</p>
         ) : (
@@ -314,9 +341,13 @@ export default function MahjongDayResultForm({
                   <div className="space-y-1.5">
                     {seats.map((seat, si) => {
                       const takenHere = seats.map((s) => s.lineUserId).filter((id, j) => id && j !== si);
+                      const rank = seatRanks[ti][si];
                       return (
                         <div key={si} className="flex items-center gap-2">
-                          <span className="w-9 text-xs text-[#231714]/70">{si + 1}位</span>
+                          {/* 着順は持ち点から自動で決まる（入力者が並べ替える必要はない） */}
+                          <span className={`w-9 text-xs font-bold ${rank ? "text-[#231714]" : "text-[#231714]/35"}`}>
+                            {rank ? `${rank}位` : "—"}
+                          </span>
                           <select
                             value={seat.lineUserId}
                             onChange={(e) => setSeat(ti, si, { lineUserId: e.target.value })}
