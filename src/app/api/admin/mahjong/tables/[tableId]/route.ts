@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { validateTableReports } from "@/lib/mahjong";
+import { validateTableReports, deriveRanksFromPoints } from "@/lib/mahjong";
 import type { MahjongTable, MahjongTableMember } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,26 @@ export async function PATCH(
 
   try {
     const body = await req.json().catch(() => null);
+
+    // action="confirm": 入力済みの持ち点から**着順を振り直して**確定させる。
+    // 麻雀の着順は持ち点で決まるので、入力者が行順で着順を付け間違えた卓を救済できる。
+    // 検証（合計100,000点・順位1〜4）は通常どおり行い、通らなければ reporting のまま理由を返す。
+    if (body?.action === "confirm") {
+      const { tableId } = await params;
+      const ref = getDb().collection("mahjongTables").doc(tableId);
+      const doc = await ref.get();
+      if (!doc.exists) {
+        return NextResponse.json({ error: "卓が見つかりません" }, { status: 404 });
+      }
+      const table = doc.data() as MahjongTable;
+      const members = deriveRanksFromPoints(table.members);
+      const validation = validateTableReports(members);
+      const status = validation.ok ? "completed" : "reporting";
+
+      await ref.update({ members, status, updatedAt: new Date().toISOString() });
+      return NextResponse.json({ success: validation.ok, tableStatus: status, validation });
+    }
+
     const updates: unknown = body?.members;
     if (!Array.isArray(updates) || updates.length === 0) {
       return NextResponse.json({ error: "members が不正です" }, { status: 400 });

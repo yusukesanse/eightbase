@@ -134,6 +134,31 @@ export function validateTableReports(
   return { ok: true, allReported: true, total };
 }
 
+/**
+ * 持ち点から着順を振り直す（1位＝最高得点）。同点は元の並び順で先に来た方を上位にする。
+ *
+ * 麻雀の着順は持ち点で決まるので、入力者に「点数順に並べて入れる」ことを要求しない。
+ * 実際に管理画面の手入力で行順＝着順にしていたため、点数と着順が逆転した卓が量産され、
+ * `validateTableReports` の整合性チェック（点数が多いのに順位が下はNG）に落ちて
+ * 集計対象にならなかった（2026-08-01 の5卓）。
+ */
+export function deriveRanksFromPoints(members: MahjongTableMember[]): MahjongTableMember[] {
+  const order = members
+    .map((m, i) => ({ i, points: m.points }))
+    // 未申告(null)は最後尾へ。同点は元の並び順を保つ（安定ソート）。
+    .sort((a, b) => {
+      if (a.points === null && b.points === null) return a.i - b.i;
+      if (a.points === null) return 1;
+      if (b.points === null) return -1;
+      return b.points - a.points || a.i - b.i;
+    });
+
+  const rankByIndex = new Map<number, number>();
+  order.forEach((o, idx) => rankByIndex.set(o.i, idx + 1));
+
+  return members.map((m, i) => (m.points === null ? m : { ...m, rank: rankByIndex.get(i) ?? m.rank }));
+}
+
 // ─── 集計 ─────────────────────────────────────────────────────────────────────
 
 /** 順位からリーグを判定（1-4位=M1, 5-8位=M2, 9位〜=M3） */

@@ -187,7 +187,15 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - ⚠️ 麻雀の通算順位は `scores` ではなく **`mahjongTables`** から計算する（`computeStandings`）。
   ダーツ/ビリヤード/ポーカーは `scores` 集計なので、同じ手入力を作るなら別実装になる（未実装）。
 - 卓が0件の日でも開催日セレクタと入力フォームを出す（以前は0件だと何も出ず入力できなかった）。
-- 回帰テスト: `__tests__/unit/api/adminMahjongTableCreate.test.ts`。
+- ⚠️ **着順は入力させず持ち点から決める**（`deriveRanksFromPoints`）。`validateTableReports` の最後に
+  「点数が多いのに順位が下はNG」の整合性チェックがあるため、行順＝着順にすると
+  点数順に並べ替えて入れない限り落ちる。実際に 2026-08-01 の5卓が全て「申告待ち」になった
+  （合計100,000点・順位1〜4は満たしていたのに、点数と着順が逆転していた）。
+- 申告待ちの卓には**「確定」ボタン**を出す（`PATCH .../tables/[tableId]` に `{ action: "confirm" }`）。
+  持ち点から着順を振り直してから検証するので、着順を付け間違えた卓を救済できる。
+  検証に通らない卓は申告待ちのまま理由を返す（通算順位を壊さない）。
+- 回帰テスト: `__tests__/unit/api/adminMahjongTableCreate.test.ts` /
+  `__tests__/unit/lib/mahjongDeriveRanks.test.ts`（2026-08-01 の実データで再現）。
 
 ### ルール・約款
 - `Season.rulesMarkdown` / `Season.termsMarkdown`（Markdown）。シーズンは種目別なので「種目ごと × シーズンごと」になる。

@@ -242,6 +242,28 @@ export default function SeasonMahjongPage() {
     else alert("取消に失敗しました");
   }
 
+  /**
+   * 申告待ちの卓を確定する。**持ち点から着順を振り直して**から検証する。
+   * 麻雀の着順は持ち点で決まるので、入力時に行順で着順を付け間違えた卓もこれで救える
+   * （2026-08-01 の5卓が点数と着順の逆転で集計対象外になっていた）。
+   * 検証に通らない卓は申告待ちのまま理由を出す（順位を壊さない）。
+   */
+  async function confirmTable(tableId: string) {
+    const res = await fetch(`/api/admin/mahjong/tables/${tableId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ action: "confirm" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error ?? "確定に失敗しました");
+    } else if (data.tableStatus !== "completed") {
+      alert(`確定できませんでした: ${data.validation?.error ?? "検証に通りませんでした"}`);
+    }
+    fetchAll();
+  }
+
   async function deleteTable(tableId: string) {
     if (!confirm("この卓を削除しますか？（集計からも除外されます）")) return;
     const res = await fetch(`/api/admin/mahjong/tables/${tableId}`, {
@@ -431,6 +453,15 @@ export default function SeasonMahjongPage() {
                         )}
                       </div>
                       <div className="flex gap-2">
+                        {t.status !== "completed" && (
+                          <button
+                            onClick={() => confirmTable(t.tableId)}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-[#2f7d57] rounded-lg hover:bg-[#2f7d57]/85"
+                            title="持ち点から着順を振り直して集計対象にします"
+                          >
+                            確定
+                          </button>
+                        )}
                         <button
                           onClick={() => setEditTable(t)}
                           className="px-3 py-1.5 text-xs font-medium text-[#231714]/80 hover:text-[#231714] border border-[#231714]/10 rounded-lg hover:bg-gray-50"
