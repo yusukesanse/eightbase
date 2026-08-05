@@ -45,10 +45,12 @@ export async function GET(req: NextRequest) {
     }
     const { lineUserId: userId, role } = auth;
     const paymentRequired = mahjongPaymentRequired(role);
+    // 管理者が個別に付与する月1回制限の免除。UIの出し分け用（可否の判定は POST 側が正）。
+    const monthlyExempt = auth.monthlyEntryExempt;
 
     // mine=1: 自分の参加一覧（開催日＋支払い状態）。カレンダー参加UI・月1回制御に使う。
     if (req.nextUrl.searchParams.get("mine") === "1") {
-      if (!season) return NextResponse.json({ entries: [], paymentRequired });
+      if (!season) return NextResponse.json({ entries: [], paymentRequired, monthlyExempt });
       // 自分の分だけ読む（等値2条件なので複合インデックス不要）。
       // シーズン全件を読んで JS で絞ると、ポーリングのたびに参加者数×開催日数を読むことになる。
       const snap = await getDb()
@@ -59,7 +61,7 @@ export async function GET(req: NextRequest) {
       const my = snap.docs
         .map((d) => d.data() as MahjongEntry)
         .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
-      return NextResponse.json({ entries: my, paymentRequired });
+      return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
@@ -137,6 +139,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
     const userId = auth.lineUserId;
+    // 管理者が個別に付与した「月1回制限の免除」（4種目共通・src/lib/monthlyEntryExempt.ts）。
+    // 免除するのは月1回だけで、定員・受付締切・参加費は従来どおり。
+    const monthlyExempt = auth.monthlyEntryExempt;
     // 会員/ゲストは参加確定（未払い・内部 reserved）、免除(staff)は参加時点で支払い済み扱い。
     // ※ POST 時点で参加確定＝定員8名・月ロックを消費する（利用者向けに「仮予約」とは呼ばない）。
     const status: "reserved" | "paid" = mahjongPaymentRequired(auth.role) ? "reserved" : "paid";
@@ -198,6 +203,7 @@ export async function POST(req: NextRequest) {
     // 参加は「1ユーザー月1回」。月ロックdoc(mahjongMonthlyLocks)を transaction 内で
     // 読んで原子的に確保する（同一docへの並行書き込みは競合検知＝phantomすり抜けを防ぐ）。
     // 同日は冪等（再表明可）、別日・同月は 409、別月は許可。stale lockは自己回復。
+    // ただし管理者に免除（monthlyEntryExempt）されたユーザーは同月に何度でも参加できる。
     // 定員: 抜け番許容OFFのシーズンは 1 開催日 MAHJONG_MAX_ENTRIES_PER_DATE(8) 名で締切。
     const allowByeSeats = season.mahjongAllowByeSeats === true;
     const ym = eventDate.slice(0, 7);
@@ -230,7 +236,8 @@ export async function POST(req: NextRequest) {
           );
           if (dateSnap.size >= MAHJONG_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         }
-        if (!entrySnap.exists && lockSnap.exists) {
+        // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
+        if (!entrySnap.exists && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             // 別日ロックだが、その予約が実在するときだけ拒否（無ければstale＝上書き許可）。

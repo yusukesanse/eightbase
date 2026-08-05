@@ -27,6 +27,7 @@ import type { NextRequest } from "next/server";
 import { getSessionUserId } from "./session";
 import { isPreviewMode, PREVIEW_USER_ID } from "./preview";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "./roles";
+import { isMonthlyEntryExempt } from "./monthlyEntryExempt";
 import { getDb } from "./firebaseAdmin";
 
 /**
@@ -93,13 +94,20 @@ export async function requireGameUser(req: NextRequest): Promise<string | null> 
 /**
  * ゲーム機能用（role も返す版）: 参加費の支払い要否判定（mahjongPaymentRequired）に使う。
  * 仮ユーザー（バイパス/プレビュー・user=null）は role 未設定＝member 扱い。
+ *
+ * monthlyEntryExempt: 管理者が個別に付与する「月1回制限の免除」（`src/lib/monthlyEntryExempt.ts`）。
+ * 既に読んでいる authorizedUsers から取るので追加の読み取りは発生しない。仮ユーザーは false（安全側）。
  */
 export async function requireGameUserWithRole(
   req: NextRequest
-): Promise<{ lineUserId: string; role: UserRole } | null> {
+): Promise<{ lineUserId: string; role: UserRole; monthlyEntryExempt: boolean } | null> {
   const r = await resolveActiveUser(req);
   if (!r) return null;
-  return { lineUserId: r.lineUserId, role: normalizeRole(r.user?.role) };
+  return {
+    lineUserId: r.lineUserId,
+    role: normalizeRole(r.user?.role),
+    monthlyEntryExempt: isMonthlyEntryExempt(r.user),
+  };
 }
 
 /**

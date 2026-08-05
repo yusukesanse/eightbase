@@ -26,6 +26,7 @@ export function DartsJoinTab({
   scheduleTimes,
   cancelledDates,
   paymentRequired,
+  monthlyExempt = false,
   paymentStatusByDate,
   onChanged,
 }: {
@@ -35,6 +36,8 @@ export function DartsJoinTab({
   scheduleTimes?: Record<string, { startTime?: string; endTime?: string }>;
   cancelledDates: Set<string>;
   paymentRequired: boolean;
+  /** 管理者が月1回制限を解除したユーザーか（表示の出し分けのみ。可否の判定はサーバー）。 */
+  monthlyExempt?: boolean;
   paymentStatusByDate: Record<string, DartsPaymentStatus | null>;
   onChanged: () => void;
 }) {
@@ -146,7 +149,7 @@ export function DartsJoinTab({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/85 leading-relaxed px-0.5">
-        隔週木曜が開催日です。カレンダーの開催日から参加日を選んでください（参加は1か月に1回）。
+        隔週木曜が開催日です。カレンダーの開催日から参加日を選んでください{monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）"}。
         {paymentRequired &&
           `　「参加する」で参加枠を確保し、参加費 ¥${DARTS_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${DARTS_MAX_ENTRIES_PER_DATE}名）。`}
         　参加費のキャンセルは開催7日前まで。<b>開始時刻を過ぎると参加表明・取消はできません。</b>

@@ -271,6 +271,37 @@ export default function AdminUsersPage() {
     }
   }
 
+  /** ゲーム参加の月1回制限を、このユーザーだけ解除／元に戻す（4種目共通）。 */
+  async function handleToggleMonthlyExempt(user: User) {
+    const next = !user.monthlyEntryExempt;
+    if (
+      !confirm(
+        next
+          ? `${user.displayName} さんの「月1回まで」の制限を解除しますか？（麻雀・ダーツ・ビリヤード・ポーカーすべてで同じ月に何回でも参加できるようになります）`
+          : `${user.displayName} さんを「月1回まで」に戻しますか？`
+      )
+    )
+      return;
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ id: user.id, monthlyEntryExempt: next }),
+      });
+      if (!res.ok) throw new Error();
+      setActionMsg(
+        next
+          ? `${user.displayName} の月1回制限を解除しました`
+          : `${user.displayName} を月1回制限ありに戻しました`
+      );
+      setSelectedUser({ ...user, monthlyEntryExempt: next });
+      await fetchUsers();
+    } catch {
+      setActionMsg("月1回制限の変更に失敗しました");
+    }
+  }
+
   async function handleDeleteUser() {
     if (!deleteTarget) return;
     setDeleteLoading(true);
@@ -521,6 +552,7 @@ export default function AdminUsersPage() {
           onReissuePasscode={(u) => { setResetTarget(u); }}
           onDelete={(u) => { setDeleteTarget(u); }}
           onSetRole={handleSetRole}
+          onToggleMonthlyExempt={handleToggleMonthlyExempt}
         />
       )}
 

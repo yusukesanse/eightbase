@@ -30,6 +30,7 @@ export function JoinTab({
   cancelledDates,
   scheduledDates,
   paymentRequired,
+  monthlyExempt = false,
   paymentStatusByDate,
   onChanged,
 }: {
@@ -38,6 +39,8 @@ export function JoinTab({
   cancelledDates: Set<string>;
   scheduledDates?: Set<string>;
   paymentRequired: boolean;
+  /** 管理者が月1回制限を解除したユーザーか（表示の出し分けのみ。可否の判定はサーバー）。 */
+  monthlyExempt?: boolean;
   paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
   onChanged: () => void;
 }) {
@@ -205,12 +208,12 @@ export function JoinTab({
 
   const enteredArr = Array.from(effectiveEntered);
   // カレンダー判定は純関数 mahjongJoinCalendar に集約（過去土曜も閲覧可・参加は未来のみ）。
-  const calCtx = { today, enteredDates: effectiveEntered, closedDates, cancelledDates, scheduledDates };
+  const calCtx = { today, enteredDates: effectiveEntered, closedDates, cancelledDates, scheduledDates, monthlyExempt };
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[12px] text-[#231714]/85 leading-relaxed px-0.5">
-        毎週土曜が開催日です。カレンダーから参加日を選んでください（参加は1か月に1回）。
+        毎週土曜が開催日です。カレンダーから参加日を選んでください{monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）"}。
         {paymentRequired && `　「参加する」で参加が確定します（定員8名）。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は別途お支払いください。`}
         {`　${MAHJONG_CANCEL_POLICY}`}
       </p>
@@ -290,7 +293,7 @@ export function JoinTab({
           // 参加確定・未払い（会員/ゲスト）→ 支払い促しの注意書きを表示。社員・支払い済みには出さない。
           const unpaidNotice = needsPay && payStatus !== "paid" && payStatus !== "cancelRequested";
           // 未参加日: この月に別日で参加確定済みなら新規参加不可（閲覧は可）。
-          const monthlyBlocked = !entered && isMonthlyBlocked(selectedDate, effectiveEntered);
+          const monthlyBlocked = !entered && isMonthlyBlocked(selectedDate, effectiveEntered, monthlyExempt);
           // 終了した過去土曜は参加導線を出さない（閲覧・当日順位のみ）。参加可否は純関数で判定。
           const isPast = isPastEventDate(selectedDate, calCtx);
           const canJoin = canJoinDate(selectedDate, { ...calCtx, full: dateFull });

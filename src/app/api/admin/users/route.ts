@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { normalizeRole } from "@/lib/roles";
+import { MONTHLY_ENTRY_EXEMPT_FIELD, isMonthlyEntryExempt } from "@/lib/monthlyEntryExempt";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -135,6 +136,8 @@ export async function GET(req: NextRequest) {
         lineUserId: d.lineUserId ?? null,
         active: d.active,
         role: normalizeRole(d.role),
+        // 月1回のゲーム参加制限の免除（4種目共通・src/lib/monthlyEntryExempt.ts）
+        monthlyEntryExempt: isMonthlyEntryExempt(d),
         profileComplete: !!d.profileComplete,
         profile: d.profile ?? null,
         pictureUrl: lineData?.pictureUrl ?? null,
@@ -160,11 +163,14 @@ export async function GET(req: NextRequest) {
 
 /**
  * PATCH /api/admin/users
- * ユーザーのステータス変更（有効化/無効化）・パスワードリセット・会員昇格。
- * Body: { id, active?, newPassword?, role? }
+ * ユーザーのステータス変更（有効化/無効化）・パスワードリセット・会員昇格・月1回制限の免除。
+ * Body: { id, active?, newPassword?, role?, monthlyEntryExempt? }
  *
  * role を "member" にするとゲストを会員に昇格できる（同一 lineUserId のレコードを更新する
  * ため、過去のリーグ戦績は lineUserId 起点でそのまま継承される）。
+ *
+ * monthlyEntryExempt=true で「ゲーム参加は同じ月に1回まで」を**そのユーザーだけ**解除する
+ * （4種目共通・`src/lib/monthlyEntryExempt.ts`）。定員・受付締切・参加費は免除しない。
  */
 export async function PATCH(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
@@ -172,7 +178,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, active, newPassword, role } = await req.json();
+    const { id, active, newPassword, role, monthlyEntryExempt } = await req.json();
     if (!id) {
       return NextResponse.json({ error: "id は必須です" }, { status: 400 });
     }
@@ -187,6 +193,10 @@ export async function PATCH(req: NextRequest) {
     const updates: Record<string, unknown> = {};
     if (active !== undefined) updates.active = active;
     if (role === "member" || role === "guest" || role === "staff") updates.role = role;
+    // 月1回制限の免除。boolean 以外は無視する（誤った値で恒久的に免除されないように）。
+    if (typeof monthlyEntryExempt === "boolean") {
+      updates[MONTHLY_ENTRY_EXEMPT_FIELD] = monthlyEntryExempt;
+    }
     if (newPassword) {
       const salt = crypto.randomBytes(16).toString("hex");
       updates.salt = salt;

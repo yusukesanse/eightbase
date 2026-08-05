@@ -116,6 +116,20 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - 回帰テスト: `__tests__/unit/lib/gameEntryPayment.test.ts`（未入金は paid にしない／
   返金済み注文は拒否／当日名簿へ反映／冪等）。
 
+### 「参加は同じ月に1回まで」と、その解除（管理者が特定ユーザーだけ免除）
+- 制限の実体は各種目の `POST /api/{game}/entries` と月ロック `{game}MonthlyLocks/{seasonId}_{userId}_{YYYY-MM}`。
+  ロックが指す**別日の entry が実在するときだけ** 409（`monthlyLimit: true`）＝stale ロックは自己回復する。
+- 免除は `authorizedUsers.monthlyEntryExempt`（boolean）。**4種目共通の1フラグ**（`src/lib/monthlyEntryExempt.ts`）。
+  管理画面 → ユーザー詳細 → 「ゲーム参加の月1回制限」で ON/OFF（`PATCH /api/admin/users` に
+  `{ id, monthlyEntryExempt }`。boolean 以外は無視する）。
+- ⚠️ 免除するのは**月1回だけ**。定員・受付締切・参加費・支払い要否は免除しない。
+- ⚠️ **免除ユーザーでも月ロックは今までどおり書く。** 書かないと、免除を後から外したときに
+  その月が無制限のまま残る。ロックは「最後に参加した日」を指すだけで判定には実在確認が入るため壊れない。
+- 判定は必ずサーバー。`GET /api/{game}/entries?mine=1` が返す `monthlyExempt` は
+  **UIの出し分け専用**（麻雀は `mahjongJoinCalendar` の `canJoinDate`／他3種目は案内文のみ）。
+- 回帰テスト: `__tests__/unit/api/gameEntryMonthlyExempt.test.ts`（同月2日目が通る／定員は免除しない／
+  免除を外すと戻る）・`__tests__/unit/lib/monthlyEntryExempt.test.ts`。
+
 ### 参加受付の締切 ← 種目で違うので注意
 - **麻雀**: 従来どおり **GMが「ゲーム開始」を押した瞬間が締切**（`entryClosedAt`）。
   日程の開始/終了時刻は**設定できるが締切には効かない**（表示・目安）。
