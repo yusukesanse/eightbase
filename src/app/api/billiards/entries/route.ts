@@ -37,9 +37,11 @@ export async function GET(req: NextRequest) {
     if (!auth) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     const { lineUserId: userId, role } = auth;
     const paymentRequired = gamePaymentRequired(role);
+    // 管理者が個別に付与する月1回制限の免除。UIの出し分け用（可否の判定は POST 側が正）。
+    const monthlyExempt = auth.monthlyEntryExempt;
 
     if (req.nextUrl.searchParams.get("mine") === "1") {
-      if (!season) return NextResponse.json({ entries: [], paymentRequired });
+      if (!season) return NextResponse.json({ entries: [], paymentRequired, monthlyExempt });
       const snap = await getDb()
         .collection("billiardsEntries")
         .where("seasonId", "==", season.seasonId)
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest) {
       const my = snap.docs
         .map((d) => d.data() as BilliardsEntry)
         .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
-      return NextResponse.json({ entries: my, paymentRequired });
+      return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
@@ -102,6 +104,8 @@ export async function POST(req: NextRequest) {
     const auth = await requireGameUserWithRole(req);
     if (!auth) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     const userId = auth.lineUserId;
+    // 管理者が個別に付与した「月1回制限の免除」（4種目共通・src/lib/monthlyEntryExempt.ts）。
+    const monthlyExempt = auth.monthlyEntryExempt;
     const status: "reserved" | "paid" = gamePaymentRequired(auth.role) ? "reserved" : "paid";
 
     const body = await req.json().catch(() => null);
@@ -157,7 +161,8 @@ export async function POST(req: NextRequest) {
           );
           if (dateSnap.size >= BILLIARDS_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         }
-        if (!entrySnap.exists && lockSnap.exists) {
+        // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
+        if (!entrySnap.exists && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             const otherRef = db.collection("billiardsEntries").doc(buildBilliardsEntryId(season.seasonId, lockedDate, userId));

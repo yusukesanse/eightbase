@@ -42,10 +42,12 @@ export async function GET(req: NextRequest) {
     if (!auth) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     const { lineUserId: userId, role } = auth;
     const paymentRequired = gamePaymentRequired(role);
+    // 管理者が個別に付与する月1回制限の免除。UIの出し分け用（可否の判定は POST 側が正）。
+    const monthlyExempt = auth.monthlyEntryExempt;
 
     // mine=1: 自分の参加一覧（開催日＋支払い状態）。カレンダー・月1回制御用。
     if (req.nextUrl.searchParams.get("mine") === "1") {
-      if (!season) return NextResponse.json({ entries: [], paymentRequired });
+      if (!season) return NextResponse.json({ entries: [], paymentRequired, monthlyExempt });
       const snap = await getDb()
         .collection("dartsEntries")
         .where("seasonId", "==", season.seasonId)
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest) {
       const my = snap.docs
         .map((d) => d.data() as DartsEntry)
         .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
-      return NextResponse.json({ entries: my, paymentRequired });
+      return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }
 
     const eventDate = req.nextUrl.searchParams.get("eventDate");
@@ -119,6 +121,8 @@ export async function POST(req: NextRequest) {
     const auth = await requireGameUserWithRole(req);
     if (!auth) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     const userId = auth.lineUserId;
+    // 管理者が個別に付与した「月1回制限の免除」（4種目共通・src/lib/monthlyEntryExempt.ts）。
+    const monthlyExempt = auth.monthlyEntryExempt;
     // staff は参加時点で paid（免除）。会員/ゲストは reserved → Square 決済で paid。
     const status: "reserved" | "paid" = gamePaymentRequired(auth.role) ? "reserved" : "paid";
 
@@ -211,7 +215,8 @@ export async function POST(req: NextRequest) {
             .where("eventDate", "==", eventDate)
         );
         if (dateSnap.size >= DARTS_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
-        if (lockSnap.exists) {
+        // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
+        if (lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             const otherRef = db

@@ -24,6 +24,7 @@ export function UserDetailPanel({
   onReissuePasscode,
   onDelete,
   onSetRole,
+  onToggleMonthlyExempt,
 }: {
   user: User;
   onClose: () => void;
@@ -31,6 +32,7 @@ export function UserDetailPanel({
   onReissuePasscode: (user: User) => void;
   onDelete: (user: User) => void;
   onSetRole: (user: User, role: UserRole) => void;
+  onToggleMonthlyExempt: (user: User) => void;
 }) {
   const p = user.profile;
   const mp = user.memberProfile;
@@ -278,6 +280,25 @@ export function UserDetailPanel({
             </div>
             <p className="text-xs text-[#231714]/75 mt-2">
               会員=全機能／ゲスト・エイト社員=ゲームのみ。麻雀の戦績は区分を変えても引き継がれます（会員化時はプロフィール登録が別途必要）。
+            </p>
+          </div>
+
+          {/* ゲーム参加の月1回制限（このユーザーだけ解除できる。4種目共通） */}
+          <div className="pt-3">
+            <p className="text-xs font-bold text-[#231714]/85 mb-1.5">ゲーム参加の月1回制限</p>
+            <button
+              onClick={() => onToggleMonthlyExempt(user)}
+              className={`w-full py-2.5 text-sm rounded-xl border transition-colors ${
+                user.monthlyEntryExempt
+                  ? "border-[#b48f13]/40 bg-[#fdf4e3] text-[#8a6a12]"
+                  : "border-[#231714]/15 text-[#231714] hover:bg-[#231714]/5"
+              }`}
+            >
+              {user.monthlyEntryExempt ? "解除中：制限を元に戻す（月1回）" : "このユーザーの月1回制限を解除する"}
+            </button>
+            <p className="text-xs text-[#231714]/75 mt-2">
+              解除すると麻雀・ダーツ・ビリヤード・ポーカーすべてで、同じ月に何回でも参加表明できます。
+              定員・受付締切・参加費は今までどおりです。
             </p>
           </div>
 

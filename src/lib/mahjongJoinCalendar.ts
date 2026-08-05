@@ -19,8 +19,17 @@ export function isPastSaturday(dateStr: string, today: string): boolean {
   return isSaturdayDate(dateStr) && dateStr < today;
 }
 
-/** 当月に別日で参加確定済みか（月1回制限）。当日自身は除外する。 */
-export function isMonthlyBlocked(dateStr: string, enteredDates: Set<string>): boolean {
+/**
+ * 当月に別日で参加確定済みか（月1回制限）。当日自身は除外する。
+ * monthlyExempt=true（管理者が月1回制限を解除したユーザー）は常に false＝制限なし。
+ * ※ これは表示の出し分けだけ。実際の可否は POST /api/mahjong/entries が判定する。
+ */
+export function isMonthlyBlocked(
+  dateStr: string,
+  enteredDates: Set<string>,
+  monthlyExempt = false
+): boolean {
+  if (monthlyExempt) return false;
   const ym = dateStr.slice(0, 7);
   return Array.from(enteredDates).some((e) => e !== dateStr && e.slice(0, 7) === ym);
 }
@@ -36,6 +45,8 @@ export interface JoinCalendarCtx {
   cancelledDates: Set<string>;
   /** 管理者が登録した開催日（mahjongSchedule）。1件でもあればスケジュール駆動（曜日不問）。 */
   scheduledDates?: Set<string>;
+  /** 管理者が月1回制限を解除したユーザーか（`GET /api/mahjong/entries?mine=1` の monthlyExempt）。 */
+  monthlyExempt?: boolean;
 }
 
 /**
@@ -81,6 +92,6 @@ export function canJoinDate(dateStr: string, ctx: JoinabilityCtx): boolean {
   if (ctx.cancelledDates.has(dateStr)) return false;
   if (ctx.enteredDates.has(dateStr)) return false;
   if (ctx.full) return false;
-  if (isMonthlyBlocked(dateStr, ctx.enteredDates)) return false;
+  if (isMonthlyBlocked(dateStr, ctx.enteredDates, ctx.monthlyExempt)) return false;
   return true;
 }

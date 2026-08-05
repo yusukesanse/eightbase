@@ -56,6 +56,8 @@ export interface User {
   lineUserId: string | null;
   active: boolean;
   role: UserRole;
+  /** ゲーム参加の月1回制限を解除されているか（4種目共通） */
+  monthlyEntryExempt: boolean;
   profileComplete: boolean;
   profile: UserProfile | null;
   memberProfile: MemberProfileData | null;

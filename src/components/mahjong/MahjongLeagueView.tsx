@@ -34,6 +34,8 @@ export function MahjongLeagueView() {
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
   // 参加費（3,000円）の支払い要否（member/guest=要, staff=不要）と開催日ごとの自分の支払い状態
   const [paymentRequired, setPaymentRequired] = useState(false);
+  // 管理者が個別に解除した「月1回制限」の免除（表示の出し分けのみ。可否の判定はサーバー）。
+  const [monthlyExempt, setMonthlyExempt] = useState(false);
   const [paymentStatusByDate, setPaymentStatusByDate] = useState<
     Record<string, MahjongPaymentStatus | null>
   >({});
@@ -127,6 +129,7 @@ export function MahjongLeagueView() {
       }
       setEnteredDates(entered);
       setPaymentRequired(!!eData.paymentRequired);
+      setMonthlyExempt(!!eData.monthlyExempt);
       setPaymentStatusByDate(payByDate);
     } catch {
       /* noop */
@@ -234,6 +237,7 @@ export function MahjongLeagueView() {
           cancelledDates={cancelledDates}
           scheduledDates={scheduledDates}
           paymentRequired={paymentRequired}
+          monthlyExempt={monthlyExempt}
           paymentStatusByDate={paymentStatusByDate}
           onChanged={() => loadCore(true)}
         />

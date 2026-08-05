@@ -22,6 +22,8 @@ export function PokerLeagueView() {
 
   const [enteredDates, setEnteredDates] = useState<Set<string>>(new Set());
   const [paymentRequired, setPaymentRequired] = useState(false);
+  // 管理者が個別に解除した「月1回制限」の免除（表示の出し分けのみ。可否の判定はサーバー）。
+  const [monthlyExempt, setMonthlyExempt] = useState(false);
   const [paymentStatusByDate, setPaymentStatusByDate] = useState<Record<string, PokerPaymentStatus | null>>({});
   const [scheduleDates, setScheduleDates] = useState<Set<string>>(new Set());
   // 開催時刻は管理画面の設定（日程docの startTime/endTime）を表示に使う。ハードコードしない。
@@ -53,6 +55,7 @@ export function PokerLeagueView() {
       }
       setEnteredDates(entered);
       setPaymentRequired(!!data.paymentRequired);
+      setMonthlyExempt(!!data.monthlyExempt);
       setPaymentStatusByDate(payByDate);
     } catch {
       /* noop */
@@ -128,6 +131,7 @@ export function PokerLeagueView() {
           scheduleTimes={scheduleTimes}
           cancelledDates={new Set()}
           paymentRequired={paymentRequired}
+          monthlyExempt={monthlyExempt}
           paymentStatusByDate={paymentStatusByDate}
           onChanged={() => loadCore(true)}
         />
