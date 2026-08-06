@@ -7,6 +7,7 @@ import {
   getBlockingLockedSlots,
   intervalsOverlap,
 } from "@/lib/reservations";
+import { getCalendarBusySlotsSafe } from "@/lib/calendarBusy";
 import { timeToMin } from "@/lib/date";
 import type { AvailabilityResponse, UnavailableReason } from "@/types";
 import dayjs from "dayjs";
@@ -46,9 +47,15 @@ export async function GET(req: NextRequest) {
 
   const nowIso = dayjs().toISOString();
 
-  // 空きの真実の源は Firestore の reservationLocks（confirmed ＋ 未失効 pending）。
-  // これにより「空き表示 == 確定予約(Firestore)」が必ず一致する（Google Calendar は表示ミラー）。
-  const booked = await getBlockingLockedSlots(getDb(), facilityId, date, nowIso);
+  // 空きは Firestore の reservationLocks（confirmed ＋ 未失効 pending）と、
+  // **Google カレンダーに直接入れられた予定**の両方で塞ぐ。
+  // GCal 側を見ないと、カレンダーから入れた予約がミニアプリでは空きに見える（2026-08-06 の不具合）。
+  // GCal が読めないときは Firestore ぶんだけ返す（表示は止めない）。確定時は必ずサーバーが再検証する。
+  const [locked, gcalByDate] = await Promise.all([
+    getBlockingLockedSlots(getDb(), facilityId, date, nowIso),
+    getCalendarBusySlotsSafe(facility.calendarId, [date]),
+  ]);
+  const booked = [...locked, ...(gcalByDate[date] ?? [])];
 
   // startTime/endTime が省略された場合は予約済みスロット一覧だけ返す（タイムスロット画面の初期ロード用）
   if (!startTime || !endTime) {

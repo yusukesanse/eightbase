@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { requireMember } from "@/lib/auth";
 import { getBlockingLockedSlots } from "@/lib/reservations";
+import { getCalendarBusySlotsSafe } from "@/lib/calendarBusy";
 import { dayOfWeek } from "@/lib/date";
 import dayjs from "dayjs";
 
@@ -49,21 +50,31 @@ export async function GET(req: NextRequest) {
   try {
     // 月曜起点の7日分を並列取得（利用不可曜日は空配列）
     const result: Record<string, { start: string; end: string }[]> = {};
-
-    await Promise.all(
-      Array.from({ length: 7 }, (_, i) => {
-        const date = dayjs(weekStart).add(i, "day").format("YYYY-MM-DD");
-        // 曜日判定は UTC 正午基準（本番 TZ=UTC 対策・CLAUDE.md）。
-        if (!availableDays.includes(dayOfWeek(date))) {
-          result[date] = [];
-          return Promise.resolve();
-        }
-        // 空きの源は Firestore の reservationLocks（confirmed ＋ 未失効 pending）に一本化。
-        return getBlockingLockedSlots(db, facilityId, date, nowIso).then((slots) => {
-          result[date] = slots;
-        });
-      })
+    const dates = Array.from({ length: 7 }, (_, i) =>
+      dayjs(weekStart).add(i, "day").format("YYYY-MM-DD")
     );
+    // 曜日判定は UTC 正午基準（本番 TZ=UTC 対策・CLAUDE.md）。
+    const openDates = dates.filter((d) => availableDays.includes(dayOfWeek(d)));
+
+    // Firestore のロックに加えて、**Google カレンダーに直接入れられた予定**でも塞ぐ
+    // （カレンダーから入れた予約がミニアプリで空きに見えていた・2026-08-06 修正）。
+    // GCal は7日ぶんを1リクエストで取る（日ごとに叩かない）。読めなければ Firestore ぶんだけで続行する。
+    const [, gcalByDate] = await Promise.all([
+      Promise.all(
+        openDates.map((date) =>
+          getBlockingLockedSlots(db, facilityId, date, nowIso).then((slots) => {
+            result[date] = slots;
+          })
+        )
+      ),
+      getCalendarBusySlotsSafe(facility.calendarId, openDates),
+    ]);
+
+    for (const date of dates) {
+      if (!result[date]) result[date] = []; // 利用不可曜日
+      const gcal = gcalByDate[date];
+      if (gcal?.length) result[date] = [...result[date], ...gcal];
+    }
 
     // 空き状況は常に最新を返す（HTTPキャッシュ禁止）
     return NextResponse.json(result, {

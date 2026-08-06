@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
-import { checkAvailability, createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
+import { createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
+import { assertCalendarSlotFree } from "@/lib/calendarBusy";
 import { sendReservationConfirmed } from "@/lib/line";
 import { requireMember, requireMemberProfileComplete } from "@/lib/auth";
 import {
@@ -172,19 +173,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 二重予約防止: 直前に再度空き確認（Google Calendar は補助。最終判定は下の transaction）
-    const available = await checkAvailability(
-      facility.calendarId,
-      date,
-      startTime,
-      endTime
-    );
-    if (!available) {
-      return NextResponse.json(
-        { error: "ALREADY_BOOKED", message: "この時間帯はすでに予約済みです。" },
-        { status: 409 }
-      );
-    }
+    // 二重予約防止（1）: GCal に人が直接入れた予定と重なっていないか（transaction の外・ネットワーク待ち）。
+    // GCal が読めなければ ALREADY_BOOKED ではなく CALENDAR_UNAVAILABLE で**通さない**（下の catch で 503）。
+    // 最終判定は下の transaction（Firestore ロック）。
+    await assertCalendarSlotFree(facility.calendarId, { date, startTime, endTime });
 
     // Firestore からユーザー情報取得（存在しない場合は自動作成）
     const userRef = db.collection("users").doc(userId);
@@ -308,6 +300,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "ALREADY_BOOKED", message: "この時間帯はすでに予約済みです。" },
         { status: 409 }
+      );
+    }
+    // GCal を確認できないときは予約を通さない（確認できないまま通すとダブルブッキングになる）。
+    if (message === "CALENDAR_UNAVAILABLE") {
+      return NextResponse.json(
+        {
+          error: "CALENDAR_UNAVAILABLE",
+          message: "空き状況を確認できませんでした。時間をおいてお試しください。",
+        },
+        { status: 503 }
       );
     }
     console.error("[reservations] POST error:", message, err);

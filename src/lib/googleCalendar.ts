@@ -20,21 +20,25 @@ function getCalendar(): ReturnType<typeof google.calendar> {
   return _calendar;
 }
 
-// ─── 空きスロット取得 ─────────────────────────────────────────────────────────
+// ─── イベント取得（低レベル） ─────────────────────────────────────────────────
 /**
- * 指定日の予約済み時間帯を取得する。
- * @returns { start: string; end: string }[] の配列（HH:MM 形式）
+ * 指定期間のイベントを取得する（繰り返しは展開済み）。
+ * 期間の解釈・終日予定の扱いは `src/lib/calendarBusy.ts` 側に集約するため、ここでは生のまま返す。
  */
-export async function getBookedSlots(
+export async function listCalendarEvents(
   calendarId: string,
-  date: string // YYYY-MM-DD
-): Promise<{ start: string; end: string }[]> {
+  timeMin: string, // ISO8601
+  timeMax: string // ISO8601
+): Promise<
+  {
+    id?: string | null;
+    status?: string | null;
+    transparency?: string | null;
+    start?: { dateTime?: string | null; date?: string | null } | null;
+    end?: { dateTime?: string | null; date?: string | null } | null;
+  }[]
+> {
   const calendar = getCalendar();
-
-  // JST（+09:00）で日付範囲を指定する
-  const timeMin = dayjs(`${date}T00:00:00+09:00`).toISOString();
-  const timeMax = dayjs(`${date}T23:59:59+09:00`).toISOString();
-
   const res = await calendar.events.list({
     calendarId,
     timeMin,
@@ -42,42 +46,14 @@ export async function getBookedSlots(
     singleEvents: true,
     orderBy: "startTime",
   });
-
-  const events = res.data.items ?? [];
-
-  return events
-    .filter((e: { status?: string | null }) => e.status !== "cancelled")
-    .map((e: { start?: { dateTime?: string | null; date?: string | null } | null; end?: { dateTime?: string | null; date?: string | null } | null }) => ({
-      // UTC→JST（+9h）に変換してから HH:mm を取得する
-      start: dayjs(e.start?.dateTime ?? e.start?.date).utc().add(9, "hour").format("HH:mm"),
-      end:   dayjs(e.end?.dateTime   ?? e.end?.date  ).utc().add(9, "hour").format("HH:mm"),
-    }));
+  return res.data.items ?? [];
 }
 
-// ─── 空き確認 ─────────────────────────────────────────────────────────────────
-/**
- * 指定時間帯に空きがあるか確認する。
- */
-export async function checkAvailability(
-  calendarId: string,
-  date: string,
-  startTime: string, // HH:MM
-  endTime: string    // HH:MM
-): Promise<boolean> {
-  const booked = await getBookedSlots(calendarId, date);
-
-  const reqStart = timeToMinutes(startTime);
-  const reqEnd   = timeToMinutes(endTime);
-
-  for (const slot of booked) {
-    const sStart = timeToMinutes(slot.start);
-    const sEnd   = timeToMinutes(slot.end);
-    // 重複チェック: 両端を含まない（隣接は OK）
-    if (reqStart < sEnd && reqEnd > sStart) return false;
-  }
-
-  return true;
-}
+// ─── 空きスロット取得・空き確認 ───────────────────────────────────────────────
+// ⚠️ 旧 `getBookedSlots` / `checkAvailability` は削除した（2026-08-06）。
+//    終日予定（`start.date` のみ）を 00:00〜00:00 の長さゼロとして扱っており、
+//    GCal から入れた終日の予約を素通りさせていた。判定は `src/lib/calendarBusy.ts` に一本化する
+//    （終日・日跨ぎ・transparent の扱いを純関数にまとめ、回帰テストで固定）。
 
 // ─── 予約作成 ─────────────────────────────────────────────────────────────────
 /**

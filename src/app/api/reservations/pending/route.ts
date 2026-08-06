@@ -7,6 +7,7 @@ import {
   assertSlotFreeInTx,
   buildReservationSlotKey,
 } from "@/lib/reservations";
+import { assertCalendarSlotFree } from "@/lib/calendarBusy";
 import { createReservationPaymentLink } from "@/lib/square";
 import { getFacilitySquareCredentials } from "@/lib/facilitySecrets";
 import { liffUrl } from "@/lib/liffUrl";
@@ -96,6 +97,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GCal に人が直接入れた予定（＝アプリを通さない手動予約）と重なっていないか。
+    // ⚠️ この経路は以前 GCal を一切見ておらず、カレンダーから入れたトレーラーの予約があっても
+    //    ミニアプリから予約できてしまっていた（2026-08-06 修正）。決済リンクを作る前・transaction の外で確認する。
+    await assertCalendarSlotFree(facility.calendarId, { date, startTime, endTime });
+
     const nowIso = dayjs().toISOString();
     const expiresAt = dayjs().add(PENDING_TTL_MIN, "minute").toISOString();
     const slotRef = db
@@ -177,6 +183,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "ALREADY_BOOKED", message: "この時間帯はすでに予約済みです。" },
         { status: 409 }
+      );
+    }
+    // GCal を確認できないときは仮押さえも作らない（決済させてから重複が判明する事故を防ぐ）。
+    if (message === "CALENDAR_UNAVAILABLE") {
+      return NextResponse.json(
+        {
+          error: "CALENDAR_UNAVAILABLE",
+          message: "空き状況を確認できませんでした。時間をおいてお試しください。",
+        },
+        { status: 503 }
       );
     }
     console.error("[reservations/pending] POST error:", message, err);

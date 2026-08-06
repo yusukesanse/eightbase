@@ -197,7 +197,7 @@ async function resolveCalendarId(
   if (fromEnv) return { calendarId: fromEnv, source: "env" };
 
   // 既存施設から借りる。GCal を共有するので、その施設の予約とサウナの予約が
-  // 互いの空きを塞ぐ（予約 POST の事前 checkAvailability が GCal を見るため）。
+  // 互いの空きを塞ぐ（予約 POST の事前チェック assertCalendarSlotFree が GCal を見るため）。
   // 検証を止めないための最後の手段で、専用カレンダーを用意するのが本来。
   const snap = await db.collection("facilities").get();
   for (const doc of snap.docs) {
@@ -375,8 +375,8 @@ export async function seedSaunaDemo(
  *
  * 投入した1件（demoDummy）だけでなく、**検証中に実際に予約した分も消す**。
  * 施設ごと消すのに予約だけ残すと、施設のない予約とロックが残って空きが永久に塞がるため。
- * 実予約は GCal にイベントがあるので、そちらも best-effort で消す（残すと事前 checkAvailability が
- * その枠を予約済みと判定し続ける）。
+ * 実予約は GCal にイベントがあるので、そちらも best-effort で消す（残すと事前チェック
+ * assertCalendarSlotFree がその枠を予約済みと判定し続ける）。
  */
 async function clearSaunaReservations(
   db: FirebaseFirestore.Firestore
