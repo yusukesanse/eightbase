@@ -377,10 +377,31 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
 
 #### 予約↔Google Calendar 同期（SoT = Firestore）
 - **真実の源は Firestore（`reservations` + `reservationLocks`）**。Google Calendar は表示・運用用のミラー。
-- **空き状況API（`availability`/`week-availability`）は `getBlockingLockedSlots()`（confirmed ＋ 未失効pending の全ロック）を正とする** → 空き表示は必ず Firestore の予約と一致する。GCal は読まない。
+- **空き状況API（`availability`/`week-availability`）は `getBlockingLockedSlots()`（confirmed ＋ 未失効pending の全ロック）＋ **GCal に人が直接入れた予定**（`getCalendarBusySlotsSafe`）の**両方**で塞ぐ。アプリ発の予約は Firestore が正、カレンダー直の予定は GCal が正。
 - 予約作成は confirmed ロックを、管理キャンセル(DELETE)はロック削除を行う。**管理の日時変更(PATCH)は transaction で「空き再検証（自分の旧ロックは除外）→ 旧ロック削除＋新ロック作成 → 予約更新」を原子化し、その後 GCal を `updateCalendarEvent()`（無ければ `createCalendarEvent`）で追随**。GCal 更新失敗時は Firestore を旧状態へ巻き戻す（不整合を残さない）。
 - GCal 書き込みは作成・更新とも `+09:00`/`Asia/Tokyo`（`googleCalendar.ts`）。
-- **GCal を人が直接編集した手動予定の取り込み（双方向同期・webhook/syncToken/cron）は Phase 2（未実装）**。現状の空き表示は手動GCal予定を反映しない。
+
+##### GCal に直接入れた予定を「予約済み」として扱う（2026-08-06 の不具合対応）
+起きたこと: **Googleカレンダーから入れたトレーラーの予約が、ミニアプリでは空きに見えて予約できてしまった。**
+原因は2つあり、両方直さないと塞がらなかった。
+1. トレーラーの経路 `POST /api/reservations/pending`（決済つき仮押さえ）が **GCal を一度も見ていなかった**
+   （通常の `POST /api/reservations` だけが見ていた）。
+2. 旧 `getBookedSlots` が **終日予定（`start.date` のみ）を 00:00〜00:00 の長さゼロ**として扱い、
+   終日で入れた予約を素通りさせていた。
+- 判定は `src/lib/calendarBusy.ts` に一本化（**種目別・経路別にコピーしない**）。
+  `busyIntervalsForDate()` が終日・日跨ぎ・`cancelled`・`transparency: transparent` を正規化する。
+  旧 `getBookedSlots` / `checkAvailability` は削除済み。
+- 呼ぶ場所: 空き状況API 2本（表示）＋ `POST /api/reservations`・`POST /api/reservations/pending`（確定前ガード）。
+- ⚠️ **判定の向きは意図的に非対称**。予約側は GCal が読めなければ **503 `CALENDAR_UNAVAILABLE` で通さない**
+  （読めないまま通すのが今回の事故）。表示側は読めなければ Firestore ぶんだけ出す（画面を止めない）。
+- ⚠️ `assertCalendarSlotFree()` は **transaction の外**で呼ぶ（ネットワーク待ちを tx に入れない）。
+  ⚠️ `calendarId` 未設定の施設は GCal 連携なし＝スキップする（従来どおり Firestore のみ）。
+- ⚠️ 週表示は7日ぶんを **GCal 1リクエスト**で取る（日ごとに叩くと7倍のAPIコール）。
+- 回帰テスト: `__tests__/unit/lib/calendarBusy.test.ts` /
+  `__tests__/unit/api/reservationCalendarConflict.test.ts`（終日予定で 409・決済リンクを作らない）。
+- 残っている未対応: **管理画面の予約日時変更(PATCH)は GCal の手動予定を見ない**（自分のミラーを除外する
+  必要があるため別対応）。GCal→Firestore の取り込み（webhook/syncToken/cron）も引き続き未実装＝
+  手動予定は `reservations` に入らない（空き判定には効くが、管理画面の予約一覧には出ない）。
 
 #### 直前予約の禁止（「利用日の N 日前までに予約」）
 - 施設設定 `Facility.minAdvanceDays`（**0/未設定 = 制限なし**＝当日も予約可。既存施設は無影響）。

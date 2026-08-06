@@ -8,7 +8,9 @@
  *
  * 重なり防止の最終判断は、予約APIが Firestore transaction 内で
  * reservationLocks を facilityId+date 単位に読み、ここの intervalsOverlap で
- * 判定して行う（Google Calendar の checkAvailability は補助）。
+ * 判定して行う。
+ * ⚠️ ただし Firestore のロックだけでは **GCal に人が直接入れた予定**を捕まえられない。
+ *    その突き合わせは `src/lib/calendarBusy.ts`（空き状況API・予約POSTの両方で呼ぶ）が担当する。
  */
 
 import type { Facility } from "@/types";
@@ -72,7 +74,7 @@ export function buildReservationSlotKey(
 /**
  * 決済前の仮押さえ（pending_payment）でブロック中のスロットを返す（空き表示への反映用）。
  * これらは Google Calendar にイベントを作らない（確定時に作る）ため、別途取得して空き表示に足す。
- * confirmed のロックは Calendar 側に出るのでここには含めない（getBookedSlots と二重計上しない）。
+ * confirmed のロックは Calendar 側にも出るのでここには含めない（二重計上しない）。
  */
 export async function getPendingLockedSlots(
   db: FirebaseFirestore.Firestore,
