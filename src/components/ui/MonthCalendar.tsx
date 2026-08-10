@@ -18,6 +18,7 @@ export default function MonthCalendar({
   marked,
   accent = "#2f7d57",
   size = "sm",
+  minMonth,
 }: {
   value: string | null;
   onSelect: (dateStr: string) => void;
@@ -27,11 +28,19 @@ export default function MonthCalendar({
   accent?: string;
   /** sm=コンパクト（既定）/ lg=大きめ（管理カレンダー用） */
   size?: "sm" | "lg";
+  /**
+   * 遡れる下限の月（"YYYY-MM"）。未指定なら当月＝過去へ戻れない（従来どおり）。
+   * ゲームの参加タブが「過去の開催日の成績」を見せるために使う（`calendarMinMonth()`）。
+   */
+  minMonth?: string;
 }) {
   const lg = size === "lg";
   const today = dayjs().format("YYYY-MM-DD");
   const [month, setMonth] = useState(() => (value ? dayjs(value) : dayjs()).startOf("month"));
-  const atCurrentMonth = month.isSame(dayjs().startOf("month"), "month");
+  // 下限は当月と minMonth の古い方。minMonth が未来でも当月より前には行けないよう当月で頭打ちにする。
+  const currentMonth = dayjs().format("YYYY-MM");
+  const floorMonth = minMonth && minMonth < currentMonth ? minMonth : currentMonth;
+  const atFloorMonth = month.format("YYYY-MM") <= floorMonth;
 
   const days = useMemo(() => {
     const first = month.startOf("month");
@@ -49,10 +58,11 @@ export default function MonthCalendar({
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={() => setMonth((m) => m.subtract(1, "month"))}
-          disabled={atCurrentMonth}
+          disabled={atFloorMonth}
+          aria-label="前の月"
           className={clsx(
             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-            atCurrentMonth ? "text-gray-400" : "text-[#231714] hover:bg-gray-50"
+            atFloorMonth ? "text-gray-400" : "text-[#231714] hover:bg-gray-50"
           )}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
@@ -60,6 +70,7 @@ export default function MonthCalendar({
         <h2 className="text-sm font-bold text-[#231714]">{month.format("YYYY年 M月")}</h2>
         <button
           onClick={() => setMonth((m) => m.add(1, "month"))}
+          aria-label="次の月"
           className="w-8 h-8 rounded-full flex items-center justify-center text-[#231714] hover:bg-gray-50 transition-colors"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>

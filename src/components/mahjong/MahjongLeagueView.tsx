@@ -236,6 +236,8 @@ export function MahjongLeagueView() {
           closedDates={closedDates}
           cancelledDates={cancelledDates}
           scheduledDates={scheduledDates}
+          // 参加タブはアクティブシーズン固定。カレンダーを遡れる下限に使う（成績閲覧用）。
+          seasonStartDate={seasons.find((s) => s.active)?.startDate}
           paymentRequired={paymentRequired}
           monthlyExempt={monthlyExempt}
           paymentStatusByDate={paymentStatusByDate}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import MonthCalendar from "@/components/ui/MonthCalendar";
+import { calendarMinMonth, canBrowsePastMonths } from "@/lib/gameCalendarRange";
 import { isDevLoginEnabled } from "@/lib/env";
 import { startDartsEntryPayment, cancelDartsEntryPayment } from "@/lib/dartsPayment";
 import { DARTS_ENTRY_FEE, DARTS_MAX_ENTRIES_PER_DATE, type DartsPaymentStatus } from "@/types/darts";
@@ -145,6 +146,8 @@ export function DartsJoinTab({
   }
 
   const enteredArr = Array.from(enteredDates).sort();
+  // カレンダーを遡れる下限の月（過去の開催日の成績を見るため）。undefined なら当月止まり＝案内も出さない。
+  const minMonth = calendarMinMonth(scheduleDates, enteredDates);
 
   return (
     <div className="flex flex-col gap-3">
@@ -165,7 +168,13 @@ export function DartsJoinTab({
           isSelectable={(d) => scheduleDates.has(d)}
           marked={(d) => enteredDates.has(d)}
           accent={DARTS_ACCENT}
+          minMonth={minMonth}
         />
+        {canBrowsePastMonths(minMonth, today) && (
+          <p className="text-[11px] text-[#231714]/70 mt-2 px-0.5 leading-relaxed">
+            「‹」で前の月に戻れます。過去の開催日を選ぶと、その日の対戦結果（順位）を確認できます。
+          </p>
+        )}
       </div>
 
       {/* あなたの参加状況 */}
