@@ -6,6 +6,7 @@ import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
 import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS, MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import MonthCalendar from "@/components/ui/MonthCalendar";
+import { calendarMinMonth, canBrowsePastMonths } from "@/lib/gameCalendarRange";
 import {
   isViewableDate,
   isMonthlyBlocked,
@@ -29,6 +30,7 @@ export function JoinTab({
   closedDates,
   cancelledDates,
   scheduledDates,
+  seasonStartDate,
   paymentRequired,
   monthlyExempt = false,
   paymentStatusByDate,
@@ -38,6 +40,11 @@ export function JoinTab({
   closedDates: Set<string>;
   cancelledDates: Set<string>;
   scheduledDates?: Set<string>;
+  /**
+   * アクティブシーズンの開始日（"YYYY-MM-DD"）。カレンダーを遡れる下限に使う。
+   * 日程未登録（毎週土曜フォールバック）のシーズンでも過去の開催日まで戻れるようにするため。
+   */
+  seasonStartDate?: string;
   paymentRequired: boolean;
   /** 管理者が月1回制限を解除したユーザーか（表示の出し分けのみ。可否の判定はサーバー）。 */
   monthlyExempt?: boolean;
@@ -209,6 +216,8 @@ export function JoinTab({
   const enteredArr = Array.from(effectiveEntered);
   // カレンダー判定は純関数 mahjongJoinCalendar に集約（過去土曜も閲覧可・参加は未来のみ）。
   const calCtx = { today, enteredDates: effectiveEntered, closedDates, cancelledDates, scheduledDates, monthlyExempt };
+  // カレンダーを遡れる下限の月（過去の開催日の成績を見るため）。undefined なら当月止まり＝案内も出さない。
+  const minMonth = calendarMinMonth(scheduledDates, effectiveEntered, seasonStartDate);
 
   return (
     <div className="flex flex-col gap-3">
@@ -232,7 +241,13 @@ export function JoinTab({
           isSelectable={(d) => isViewableDate(d, calCtx)}
           marked={(d) => effectiveEntered.has(d)}
           accent={ACCENT}
+          minMonth={minMonth}
         />
+        {canBrowsePastMonths(minMonth, today) && (
+          <p className="text-[11px] text-[#231714]/70 mt-2 px-0.5 leading-relaxed">
+            「‹」で前の月に戻れます。過去の開催日を選ぶと、その日の対戦結果（順位）を確認できます。
+          </p>
+        )}
       </div>
 
       {/* あなたの参加状況（カレンダー下） */}
