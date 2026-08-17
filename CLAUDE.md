@@ -511,6 +511,24 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - 回帰テスト: `__tests__/unit/api/adminReservationRefund.test.ts`（未返金は 409／force は未照合フラグつきで記録／
   取消前・未入金は 409／冪等）。
 
+#### Square へ辿る導線（「Square で開く」「照合」・2026-08-17 追加）
+**Square 管理画面は注文ID(orderId)で検索できない**（orderId は API 用の識別子）。一覧から Square の取引へ
+辿るには「決済ID(paymentId)」か「レシートURL」が要る。そこを埋めるのが `POST /api/admin/billing/verify`。
+- ⚠️ **verify は読み取り専用**。`orders.get → payments.get` で状態を取り、**保存してよいのは参照情報だけ**
+  （`squarePaymentId` / `squareReceiptUrl` / `squareVerifiedAt`）。
+  **`paymentStatus` / `status` は絶対に書き換えない**（未払いを paid にする入口は `markGameEntryPaid` だけ）。
+  未完了(APPROVED 等)でも参照情報は保存し、状態は画面に出して判断させる。
+- ⚠️ **書く側と読む側のフィールドを必ず一致させる**（実際にズレて「照合したのにリンクが出ない」が発生）:
+  - 予約は決済時に `paymentId`、旧データには無い → 読む側は **`paymentId ?? squarePaymentId`**
+    （一覧 `reservationToBilling` と `POST /api/admin/reservations/[id]/refund` の両方）。
+  - **参加費エントリーは決済IDを持たない。`squareOrders/{orderId}.paymentId` に complete が書いている**ので
+    一覧側で補う（`applyOrderPaymentIds`）。ここを使わないと入金済でも1件ずつ Square を叩くまで開けない。
+    `squareOrders` の読み取りは「未入金 or 決済ID未解決」の注文IDだけ `getAll`（全件スキャン・無駄読みをしない）。
+- ⚠️ **URL のドメインは環境で違う**（`squareupsandbox.com` / `squareup.com`）。施設は `facilitySecrets` の
+  environment、参加費は `SQUARE_{GAME}_ENVIRONMENT ＞ SQUARE_ENVIRONMENT`。**未設定を黙って本番へ向けない。**
+- 回帰テスト: `__tests__/unit/api/adminBillingList.test.ts`（squarePaymentId/squareOrders からリンクが出る・
+  サンドボックスのドメイン）・`adminBillingVerify.test.ts`（支払い状態不変・既存 paymentId を壊さない）。
+
 ### 決済（現状すべて無効）
 - `/api/payments`・`/api/payments/config` は先頭で `501 PAYMENT_DISABLED` を返す。
 - 予約APIは `paymentId` を受け付けず、`requirePayment=true` 施設はオンライン予約不可。

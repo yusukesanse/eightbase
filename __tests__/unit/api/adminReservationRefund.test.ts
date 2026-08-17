@@ -93,6 +93,25 @@ describe("POST /api/admin/reservations/[id]/refund", () => {
     expect(saved.refundVerified).toBe(false);
   });
 
+  it("⚠️ 旧データ: 照合で入った squarePaymentId でも Square を照合できる", async () => {
+    // 決済時の paymentId が無い旧予約。請求管理の「照合」は squarePaymentId に書くので、
+    // ここで見ないと返金確認ができず force 記録に落ちてしまう。
+    const { db, store } = makeDb({
+      facilityId: "trailer",
+      paymentAmount: 20000,
+      paymentStatus: "completed",
+      squarePaymentId: "PAY-FROM-VERIFY",
+      status: "cancelled",
+    });
+    (getDb as jest.Mock).mockReturnValue(db);
+    (getSquarePayment as jest.Mock).mockResolvedValue({ refundedMoney: { amount: BigInt(20000) } });
+
+    const res = await POST(req({}), { params });
+    expect(res.status).toBe(200);
+    expect(getSquarePayment).toHaveBeenCalledWith("PAY-FROM-VERIFY", "reservation", undefined);
+    expect((store.get("r1") as Data).refundVerified).toBe(true);
+  });
+
   it("取消されていない予約は 409（先にキャンセルさせる）", async () => {
     const { db, store } = makeDb({ ...PAID_CANCELLED, status: "confirmed" });
     (getDb as jest.Mock).mockReturnValue(db);

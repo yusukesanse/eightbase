@@ -208,6 +208,43 @@ export async function verifySquareOrderPayment({
 }
 
 /**
+ * 注文IDから紐づく決済を取得する（照合・突き合わせ表示用）。
+ *
+ * `verifySquareOrderPayment` と違い **検証しない**（未完了でも金額違いでも投げない）。
+ * 請求管理の「Square照合」のように、状態をそのまま見せたいときに使う。
+ * @throws 注文が見つからない / 決済が紐づいていない / API 失敗
+ */
+export async function fetchSquareOrderPayment({
+  orderId,
+  purpose = "reservation",
+  credentials,
+}: {
+  orderId: string;
+  purpose?: SquarePurpose;
+  credentials?: SquareCredentialsOverride;
+}): Promise<{
+  orderId: string;
+  paymentId: string;
+  payment: {
+    status?: string | null;
+    amountMoney?: { amount?: bigint | number | null; currency?: string | null } | null;
+    refundedMoney?: { amount?: bigint | number | null } | null;
+    receiptUrl?: string | null;
+    createdAt?: string | null;
+  };
+}> {
+  const client = credentials ? clientFromOverride(credentials) : getSquareClient(purpose);
+  const orderRes = await client.orders.get({ orderId });
+  const order = orderRes.order;
+  if (!order) throw new Error("注文が見つかりません");
+  const paymentId = order.tenders?.find((t) => t.paymentId)?.paymentId;
+  if (!paymentId) throw new Error("注文に決済が紐づいていません（未決済の可能性があります）");
+  const payment = await getSquarePayment(paymentId, purpose, credentials);
+  if (!payment) throw new Error("決済情報が見つかりません");
+  return { orderId, paymentId, payment };
+}
+
+/**
  * 用途ごとの Square Payment Link（動的リンク）を生成する。
  *
  * 静的リンクと異なり redirect_url に識別子(`?rid=...`/`?mjpay=...`)を埋め込めるため、決済後に

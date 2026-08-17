@@ -3,6 +3,7 @@
  * TZ=UTC で実行（package.json）＝本番 Vercel と同じ条件。JST 前提の日付処理を固定する。
  */
 import {
+  applyOrderPaymentIds,
   applyOrderRefundFlags,
   billingDate,
   evaluateSquareRefund,
@@ -12,7 +13,10 @@ import {
   jstDayStartIso,
   monthRange,
   reservationToBilling,
+  resolveSquareUrl,
+  squareTransactionUrl,
   summarizeBilling,
+  summarizeSquarePayment,
   yearRange,
   type BillingRecord,
 } from "@/lib/billing";
@@ -200,6 +204,8 @@ describe("summarizeBilling", () => {
     orderId: null,
     paymentId: null,
     expired: false,
+    receiptUrl: null,
+    squareUrl: null,
     refundNeeded: false,
     note: null,
     ...over,
@@ -241,7 +247,7 @@ describe("applyOrderRefundFlags（Square で課金済み＝要返金の検出）
     id: "1", source: "mahjong", refId: "e1", itemName: "麻雀 参加費", seasonId: "s1", seasonName: null,
     useDate: "2026-08-08", paidAt: null, amount: 3000, status: "unpaid",
     lineUserId: "U", displayName: "名", orderId: "ORDER1", paymentId: null, expired: true,
-    refundNeeded: false, note: null,
+    receiptUrl: null, squareUrl: null, refundNeeded: false, note: null,
   };
 
   it("⚠️ 失効した未入金でも Square で課金が成立していれば要返金として立てる", () => {
@@ -274,6 +280,33 @@ describe("applyOrderRefundFlags（Square で課金済み＝要返金の検出）
   });
 });
 
+describe("applyOrderPaymentIds（squareOrders から決済IDを補う）", () => {
+  const base: BillingRecord = {
+    id: "1", source: "mahjong", refId: "e1", itemName: "麻雀 参加費", seasonId: "s1", seasonName: null,
+    useDate: "2026-08-08", paidAt: "2026-08-01T02:00:00.000Z", amount: 3000, status: "paid",
+    lineUserId: "U", displayName: "名", orderId: "ORDER1", paymentId: null,
+    receiptUrl: null, squareUrl: null, expired: false, refundNeeded: false, note: null,
+  };
+
+  it("⚠️ 参加費は決済IDを持たないので squareOrders から補う（無いと Square へ辿れない）", () => {
+    const out = applyOrderPaymentIds([base], new Map([["ORDER1", { paymentId: "PAY1" }]]));
+    expect(out[0].paymentId).toBe("PAY1");
+  });
+
+  it("決済時に入った決済IDは上書きしない（そちらが正）", () => {
+    const out = applyOrderPaymentIds(
+      [{ ...base, paymentId: "PAY-ORIGINAL" }],
+      new Map([["ORDER1", { paymentId: "PAY-OTHER" }]]),
+    );
+    expect(out[0].paymentId).toBe("PAY-ORIGINAL");
+  });
+
+  it("注文IDが無い・該当注文が無いときは何もしない", () => {
+    expect(applyOrderPaymentIds([{ ...base, orderId: null }], new Map([["ORDER1", { paymentId: "PAY1" }]]))[0].paymentId).toBeNull();
+    expect(applyOrderPaymentIds([base], new Map([["OTHER", { paymentId: "PAY1" }]]))[0].paymentId).toBeNull();
+  });
+});
+
 describe("evaluateSquareRefund（予約を返金済にする前の照合）", () => {
   it("返金なしは none（＝管理者操作だけで返金済にはしない）", () => {
     expect(evaluateSquareRefund({ refundedMoney: { amount: 0 } }, 20000)).toEqual({ state: "none", refundedAmount: 0 });
@@ -293,12 +326,67 @@ describe("evaluateSquareRefund（予約を返金済にする前の照合）", ()
   });
 });
 
+describe("Square を開くURL", () => {
+  it("⚠️ サンドボックスは別ドメイン（demo の決済を本番ドメインで開いても見つからない）", () => {
+    expect(squareTransactionUrl("PAY1", "production")).toBe(
+      "https://squareup.com/dashboard/sales/transactions/PAY1",
+    );
+    expect(squareTransactionUrl("PAY1", "sandbox")).toBe(
+      "https://squareupsandbox.com/dashboard/sales/transactions/PAY1",
+    );
+  });
+
+  it("レシートURLを最優先し、無ければ決済IDから組み立て、どちらも無ければ null（＝要照合）", () => {
+    expect(resolveSquareUrl({ receiptUrl: "https://squareup.com/receipt/x", paymentId: "PAY1" }, "production"))
+      .toBe("https://squareup.com/receipt/x");
+    expect(resolveSquareUrl({ receiptUrl: null, paymentId: "PAY1" }, "production"))
+      .toBe("https://squareup.com/dashboard/sales/transactions/PAY1");
+    // 参加費は決済IDを持たないので、照合するまでリンクは出せない。
+    expect(resolveSquareUrl({ receiptUrl: null, paymentId: null }, "production")).toBeNull();
+  });
+});
+
+describe("summarizeSquarePayment（Square照合の結果）", () => {
+  it("金額・返金額・レシートURLを取り出し、記録額との一致を判定する", () => {
+    const s = summarizeSquarePayment(
+      "PAY1",
+      {
+        status: "COMPLETED",
+        amountMoney: { amount: BigInt(3000), currency: "JPY" },
+        refundedMoney: { amount: BigInt(1000) },
+        receiptUrl: "https://squareup.com/receipt/x",
+        createdAt: "2026-08-01T02:00:00Z",
+      },
+      3000,
+    );
+    expect(s).toMatchObject({
+      paymentId: "PAY1",
+      status: "COMPLETED",
+      amount: 3000,
+      refundedAmount: 1000,
+      receiptUrl: "https://squareup.com/receipt/x",
+      matchesExpected: true,
+      completed: true,
+    });
+  });
+
+  it("⚠️ 記録額と Square の課金額がズレていたら matchesExpected=false（画面で警告する）", () => {
+    const s = summarizeSquarePayment("PAY2", { status: "COMPLETED", amountMoney: { amount: 1000 } }, 3000);
+    expect(s.matchesExpected).toBe(false);
+  });
+
+  it("未完了の決済は completed=false（返金額・レシートが無くても壊れない）", () => {
+    const s = summarizeSquarePayment("PAY3", { status: "APPROVED" }, 3000);
+    expect(s).toMatchObject({ completed: false, amount: 0, refundedAmount: 0, receiptUrl: null });
+  });
+});
+
 describe("billingDate（集計基準）", () => {
   const r: BillingRecord = {
     id: "1", source: "reservation", refId: "1", itemName: "トレーラー", seasonId: null, seasonName: null,
     useDate: "2026-09-05", paidAt: "2026-08-31T15:30:00.000Z", amount: 20000, status: "paid",
     lineUserId: "U", displayName: "名", orderId: null, paymentId: null, expired: false,
-    refundNeeded: false, note: null,
+    receiptUrl: null, squareUrl: null, refundNeeded: false, note: null,
   };
 
   it("利用日基準は利用日、入金日基準は JST の入金日", () => {

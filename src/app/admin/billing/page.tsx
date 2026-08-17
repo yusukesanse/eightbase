@@ -11,6 +11,7 @@ import {
   type BillingRecord,
   type BillingSource,
   type BillingStatus,
+  type SquarePaymentSummary,
 } from "@/lib/billing";
 import type { Season } from "@/types";
 
@@ -69,6 +70,10 @@ export default function AdminBillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // Square照合の結果（行ID → 結果 or エラー）。再読込しても消えないよう別に持つ。
+  const [verified, setVerified] = useState<
+    Record<string, { payment?: SquarePaymentSummary; error?: string }>
+  >({});
 
   useEffect(() => {
     fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
@@ -77,8 +82,13 @@ export default function AdminBillingPage() {
       .catch(() => {});
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  /**
+   * 一覧を取得する。
+   * `silent` は照合・返金記録の直後の再取得用。ここでスピナーに切り替えると
+   * 表が丸ごと消えて、いま見ていた行と照合結果を見失う。
+   */
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     const params = new URLSearchParams({ mode, basis, source });
     if (mode === "month") params.set("month", `${year}-${month}`);
@@ -164,7 +174,7 @@ export default function AdminBillingPage() {
               ? `返金済として記録しました（Square の返金 ${yen(json.refundedAmount ?? 0)} を確認）。`
               : "返金済として記録しました（Square では未確認のため、記録のみです）。",
         });
-        await load();
+        await load(true);
       }
     } catch {
       setMessage({ ok: false, text: "通信に失敗しました" });
@@ -173,10 +183,39 @@ export default function AdminBillingPage() {
     }
   }
 
+  /**
+   * Square に問い合わせて実際の決済（金額・状態・返金額・レシートURL）を確認する。
+   * 読み取り専用＝支払い状態は変わらない。取得したレシートURLは保存されるので、
+   * 次回以降はこの行から直接 Square を開ける。
+   */
+  async function verifySquare(r: BillingRecord) {
+    if (busy) return;
+    setBusy(r.id);
+    try {
+      const res = await fetch("/api/admin/billing/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ source: r.source, refId: r.refId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setVerified((p) => ({ ...p, [r.id]: { error: json.error ?? "照合できませんでした" } }));
+      } else {
+        setVerified((p) => ({ ...p, [r.id]: { payment: json.payment } }));
+        await load(true); // 保存されたレシートURLを一覧へ反映（「Square で開く」が出る）
+      }
+    } catch {
+      setVerified((p) => ({ ...p, [r.id]: { error: "通信に失敗しました" } }));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function downloadCsv() {
     const header = [
       "計上日", "利用日/開催日", "入金日時", "種別", "内容", "シーズン",
-      "利用者", "金額", "状態", "備考", "Square注文ID", "Square決済ID",
+      "利用者", "金額", "状態", "備考", "Square注文ID", "Square決済ID", "レシートURL",
     ];
     const rows = records.map((r) => [
       billingDate(r, basis),
@@ -191,6 +230,7 @@ export default function AdminBillingPage() {
       r.note ?? "",
       r.orderId ?? "",
       r.paymentId ?? "",
+      r.receiptUrl ?? "",
     ]);
     const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const csv = [header, ...rows].map((line) => line.map(escape).join(",")).join("\r\n");
@@ -420,7 +460,7 @@ export default function AdminBillingPage() {
                       <th className="py-2 pr-3 font-medium text-right whitespace-nowrap">金額</th>
                       <th className="py-2 pr-3 font-medium whitespace-nowrap">状態</th>
                       <th className="py-2 pr-3 font-medium whitespace-nowrap">入金日時</th>
-                      <th className="py-2 pr-3 font-medium whitespace-nowrap">Square 注文ID</th>
+                      <th className="py-2 pr-3 font-medium whitespace-nowrap">Square</th>
                       <th className="py-2 pr-3 font-medium whitespace-nowrap">返金対応</th>
                     </tr>
                   </thead>
@@ -453,17 +493,56 @@ export default function AdminBillingPage() {
                           {r.note && <span className="block text-[11px] text-[#231714]/60 max-w-[220px]">{r.note}</span>}
                         </td>
                         <td className="py-2 pr-3 whitespace-nowrap text-[#231714]/80">{fmtDateTime(r.paidAt)}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">
-                          {r.orderId ? (
-                            <button
-                              onClick={() => navigator.clipboard?.writeText(r.orderId as string)}
-                              title="クリックでコピー"
-                              className="font-mono text-xs text-[#231714]/70 hover:text-[#231714] underline decoration-dotted"
-                            >
-                              {r.orderId.slice(0, 10)}…
-                            </button>
-                          ) : (
+                        <td className="py-2 pr-3">
+                          {!r.orderId ? (
                             <span className="text-[#231714]/40">-</span>
+                          ) : (
+                            <div className="flex flex-col gap-1 items-start min-w-[150px]">
+                              <div className="flex items-center gap-1.5">
+                                {/* 注文IDは Square の検索窓では引けないので、開けるリンクを優先して出す */}
+                                {r.squareUrl && (
+                                  <a
+                                    href={r.squareUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2 py-1 text-xs border border-[#231714]/15 rounded-lg text-[#231714]/80 hover:bg-gray-50"
+                                  >
+                                    Square で開く ↗
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => verifySquare(r)}
+                                  disabled={busy === r.id}
+                                  title="Square に問い合わせて実際の決済を確認します（状態は変更しません）"
+                                  className="px-2 py-1 text-xs border border-[#231714]/15 rounded-lg text-[#231714]/80 hover:bg-gray-50 disabled:opacity-40"
+                                >
+                                  {busy === r.id ? "照合中..." : "照合"}
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => navigator.clipboard?.writeText(r.orderId as string)}
+                                title="注文IDをコピー"
+                                className="font-mono text-[11px] text-[#231714]/60 hover:text-[#231714] underline decoration-dotted"
+                              >
+                                {r.orderId.slice(0, 12)}…
+                              </button>
+                              {verified[r.id]?.error && (
+                                <span className="text-[11px] text-[#d8533a] max-w-[220px]">{verified[r.id].error}</span>
+                              )}
+                              {verified[r.id]?.payment && (
+                                <span className="text-[11px] text-[#231714]/70 max-w-[240px]">
+                                  {verified[r.id].payment?.completed ? "決済完了" : `状態: ${verified[r.id].payment?.status ?? "不明"}`}
+                                  {" / "}
+                                  {yen(verified[r.id].payment?.amount ?? 0)}
+                                  {!verified[r.id].payment?.matchesExpected && (
+                                    <span className="text-[#d8533a] font-bold">（記録と不一致）</span>
+                                  )}
+                                  {(verified[r.id].payment?.refundedAmount ?? 0) > 0 && (
+                                    <> / 返金 {yen(verified[r.id].payment?.refundedAmount ?? 0)}</>
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                         <td className="py-2 pr-3 whitespace-nowrap">
@@ -509,6 +588,9 @@ export default function AdminBillingPage() {
             ※ ゲーム参加費の「返金対応待ち／返金済」は「参加費・返金」タブと同じ記録です（このページは表示のみ）。<br />
             ※ <strong>Square の返金操作そのものはアプリからは行いません。</strong>
             Square 管理画面で返金してから、この画面（予約）または「参加費・返金」タブ（ゲーム）で記録してください。<br />
+            ※ Square の注文ID は API 用の識別子で、Square 管理画面の検索窓では引けません。
+            「照合」を押すと注文ID → 決済ID → レシートURL を解決し、以後は「Square で開く」で直接開けます
+            （照合は読み取りのみで、支払い状態は変わりません）。<br />
             ※ Googleカレンダーに直接入れた予定は課金対象外のため、この一覧には出ません（仕様）。
           </p>
         </>

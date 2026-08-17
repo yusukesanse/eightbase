@@ -97,8 +97,16 @@ export interface BillingRecord {
   displayName: string;
   /** Square 注文ID（Square 管理画面での突き合わせ用）。 */
   orderId: string | null;
-  /** Square 決済ID（予約のみ保存している）。 */
+  /** Square 決済ID（予約は決済時に保存。参加費は「Square照合」で解決して保存する）。 */
   paymentId: string | null;
+  /** Square のレシートURL（照合したときに保存される）。 */
+  receiptUrl: string | null;
+  /**
+   * Square 側をそのまま開くURL。レシートURLがあればそれ、無ければ決済IDから作る取引詳細URL。
+   * 注文ID(orderId)は API 用の識別子で、Square 管理画面の検索窓では引けないため
+   * 「開けるリンク」をサーバー側で用意する。
+   */
+  squareUrl: string | null;
   /** 未入金のうち仮押さえTTLを過ぎたもの＝利用者側では確定できない。 */
   expired: boolean;
   /**
@@ -166,6 +174,9 @@ export interface GameEntryDoc {
   paidAt?: string;
   pendingExpiresAt?: string;
   cancelReason?: string;
+  /** 「Square照合」で解決して保存した値（参加費は決済IDを持たないため）。 */
+  squarePaymentId?: string;
+  squareReceiptUrl?: string;
 }
 
 /**
@@ -218,7 +229,9 @@ export function gameEntryToBilling(
     lineUserId: doc.lineUserId ?? "",
     displayName: doc.displayName || doc.lineUserId || "",
     orderId: doc.paymentTransactionId ?? null,
-    paymentId: null,
+    paymentId: doc.squarePaymentId ?? null,
+    receiptUrl: doc.squareReceiptUrl ?? null,
+    squareUrl: null, // 環境（本番/サンドボックス）を解決してから API 側で埋める
     expired,
     refundNeeded: false, // squareOrders と突き合わせてから立てる（applyOrderRefundFlags）
     note,
@@ -241,6 +254,13 @@ export interface ReservationDoc {
   createdAt?: string;
   updatedAt?: string;
   paidAt?: string;
+  /**
+   * 「Square照合」で解決して保存した値。
+   * ⚠️ 予約は決済時に `paymentId` を書くが、旧データには無い。照合は `squarePaymentId` に書くので、
+   *    読む側は**必ず両方を見る**こと（片方だけ見ると「照合したのにリンクが出ない」になる）。
+   */
+  squarePaymentId?: string;
+  squareReceiptUrl?: string;
 }
 
 /**
@@ -297,21 +317,103 @@ export function reservationToBilling(
     lineUserId: doc.lineUserId ?? "",
     displayName: displayName || doc.lineUserId || "",
     orderId: doc.paymentTransactionId ?? null,
-    paymentId: doc.paymentId ?? null,
+    // 決済時に書かれた paymentId が正。無い旧データは照合で入る squarePaymentId を使う。
+    paymentId: doc.paymentId ?? doc.squarePaymentId ?? null,
+    receiptUrl: doc.squareReceiptUrl ?? null,
+    squareUrl: null,
     expired,
     refundNeeded: false,
     note,
   };
 }
 
+/* ── Square を開くURL ─────────────────────────────────────────────── */
+
+export type SquareEnvName = "production" | "sandbox";
+
+/**
+ * Square 管理画面の取引詳細URL（決済ID＝paymentId で開く）。
+ * ⚠️ サンドボックスは別ドメイン。demo 環境の決済を本番ドメインで開いても見つからない。
+ */
+export function squareTransactionUrl(paymentId: string, env: SquareEnvName): string {
+  const host = env === "sandbox" ? "https://squareupsandbox.com" : "https://squareup.com";
+  return `${host}/dashboard/sales/transactions/${paymentId}`;
+}
+
+/**
+ * 一覧から開くURLを決める。レシートURL（Square が返す実URL）を最優先し、
+ * 無ければ決済IDから取引詳細URLを組み立てる。どちらも無ければ null（＝照合が必要）。
+ */
+export function resolveSquareUrl(
+  rec: Pick<BillingRecord, "receiptUrl" | "paymentId">,
+  env: SquareEnvName,
+): string | null {
+  if (rec.receiptUrl) return rec.receiptUrl;
+  if (rec.paymentId) return squareTransactionUrl(rec.paymentId, env);
+  return null;
+}
+
+/* ── Square照合の結果 ─────────────────────────────────────────────── */
+
+export interface SquarePaymentSummary {
+  paymentId: string;
+  /** Square 上の決済状態（COMPLETED / APPROVED / CANCELED / FAILED など）。 */
+  status: string | null;
+  /** 実際に課金された金額（円）。 */
+  amount: number;
+  currency: string | null;
+  /** 返金済みの累計（円）。 */
+  refundedAmount: number;
+  receiptUrl: string | null;
+  createdAt: string | null;
+  /** アプリ側に記録している金額と一致するか。ズレていたら要確認。 */
+  matchesExpected: boolean;
+  /** 完了済み（COMPLETED）か。 */
+  completed: boolean;
+}
+
+/** Square の payment を画面表示用に整える純関数。 */
+export function summarizeSquarePayment(
+  paymentId: string,
+  payment: {
+    status?: string | null;
+    amountMoney?: { amount?: bigint | number | null; currency?: string | null } | null;
+    refundedMoney?: { amount?: bigint | number | null } | null;
+    receiptUrl?: string | null;
+    createdAt?: string | null;
+  },
+  expectedAmount: number,
+): SquarePaymentSummary {
+  const toNum = (v: bigint | number | null | undefined) =>
+    v === undefined || v === null ? 0 : Number(v);
+  const amount = toNum(payment.amountMoney?.amount);
+  return {
+    paymentId,
+    status: payment.status ?? null,
+    amount,
+    currency: payment.amountMoney?.currency ?? null,
+    refundedAmount: toNum(payment.refundedMoney?.amount),
+    receiptUrl: payment.receiptUrl ?? null,
+    createdAt: payment.createdAt ?? null,
+    matchesExpected: amount === expectedAmount,
+    completed: payment.status === "COMPLETED",
+  };
+}
+
 /* ── Square 注文との突き合わせ（要返金の検出） ─────────────────────── */
 
-/** `squareOrders/{orderId}` のうち請求管理が見るフラグ。 */
+/** `squareOrders/{orderId}` のうち請求管理が見る項目。 */
 export interface SquareOrderFlags {
   /** 仮押さえ失効後に決済が成立した等で、返金が必要なまま残っている注文。 */
   refundPending?: boolean;
   /** 失効した仮押さえに対する決済（返金対象）。 */
   expiredRefund?: boolean;
+  /**
+   * 決済確定時に complete ルートが書いている決済ID。
+   * ⚠️ 参加費エントリーは決済IDを持たない（`squareOrders` にだけある）。ここを使わないと
+   *    入金済の参加費が「1件ずつ Square に照合するまでリンクが出ない」になる。
+   */
+  paymentId?: string;
 }
 
 /**
@@ -335,6 +437,25 @@ export function applyOrderRefundFlags(
       refundNeeded: true,
       note: "Square で課金が成立しています（席を渡せていないため要返金）",
     };
+  });
+}
+
+/**
+ * `squareOrders` に記録済みの決済IDをレコードへ補う。
+ *
+ * 参加費エントリーは決済IDを持たず、注文ID(orderId)だけを持つ。Square 管理画面は
+ * 注文IDで検索できないため、これを補わないと入金済でも一覧から Square へ辿れない
+ * （行ごとに Square API を叩かないと開けない＝無駄なAPI呼び出しになる）。
+ * 既に決済IDを持つレコードは触らない（決済時に書かれた値が正）。
+ */
+export function applyOrderPaymentIds(
+  records: BillingRecord[],
+  flagsByOrderId: Map<string, SquareOrderFlags>,
+): BillingRecord[] {
+  return records.map((r) => {
+    if (r.paymentId || !r.orderId) return r;
+    const paymentId = flagsByOrderId.get(r.orderId)?.paymentId;
+    return paymentId ? { ...r, paymentId } : r;
   });
 }
 

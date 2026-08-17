@@ -4,6 +4,7 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { GAME_PAYMENT_CONFIG } from "@/lib/gameEntryPayment";
 import { todayJst } from "@/lib/date";
 import {
+  applyOrderPaymentIds,
   applyOrderRefundFlags,
   BILLING_GAMES,
   billingDate,
@@ -14,6 +15,7 @@ import {
   jstDayStartIso,
   monthRange,
   reservationToBilling,
+  resolveSquareUrl,
   sortBillingRecords,
   summarizeBilling,
   yearRange,
@@ -22,8 +24,10 @@ import {
   type BillingSource,
   type GameEntryDoc,
   type ReservationDoc,
+  type SquareEnvName,
   type SquareOrderFlags,
 } from "@/lib/billing";
+import { getFacilitySquareStatusMap } from "@/lib/facilitySecrets";
 import type { ScoreboardGameId, Season } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -91,12 +95,21 @@ async function mergeQueries(
   return Array.from(map, ([id, data]) => ({ id, data }));
 }
 
+/**
+ * 取得結果。`envById` は「Square を開くURL」をどのドメイン（本番/サンドボックス）で
+ * 組み立てるかの対応表。URL は決済IDが確定してから作るので、ここでは環境だけ返す。
+ */
+interface FetchResult {
+  records: BillingRecord[];
+  envById: Map<string, SquareEnvName>;
+}
+
 async function fetchGameRecords(
   game: ScoreboardGameId,
   range: RangeSpec,
   basis: BillingBasis,
   now: string,
-): Promise<BillingRecord[]> {
+): Promise<FetchResult> {
   const cfg = GAME_PAYMENT_CONFIG[game];
   const col = getDb().collection(cfg.entries);
 
@@ -113,14 +126,25 @@ async function fetchGameRecords(
   }
 
   const docs = await mergeQueries(queries);
-  return docs.map((d) => gameEntryToBilling(game, d.id, d.data as GameEntryDoc, cfg.fee, now));
+  // 種目ごとの Square 環境（SQUARE_{GAME}_ENVIRONMENT ＞ SQUARE_ENVIRONMENT）。
+  // 参加費は施設と違い環境変数だけで決まるので追加の読み取りは不要。
+  const env: SquareEnvName =
+    (process.env[`SQUARE_${game.toUpperCase()}_ENVIRONMENT`] ?? process.env.SQUARE_ENVIRONMENT) ===
+    "production"
+      ? "production"
+      : "sandbox";
+
+  const records = docs.map((d) =>
+    gameEntryToBilling(game, d.id, d.data as GameEntryDoc, cfg.fee, now),
+  );
+  return { records, envById: new Map(records.map((r) => [r.id, env])) };
 }
 
 async function fetchReservationRecords(
   range: RangeSpec,
   basis: BillingBasis,
   now: string,
-): Promise<BillingRecord[]> {
+): Promise<FetchResult> {
   const db = getDb();
   const col = db.collection("reservations");
 
@@ -150,37 +174,66 @@ async function fetchReservationRecords(
     }
   }
 
-  return docs
+  const records = docs
     .map((d) => {
-      const doc = d.data as ReservationDoc;
-      return reservationToBilling(d.id, doc, nameById.get(doc.lineUserId ?? "") ?? "", now);
+      const doc = d.data as ReservationDoc & { facilityId?: string };
+      const rec = reservationToBilling(d.id, doc, nameById.get(doc.lineUserId ?? "") ?? "", now);
+      return rec ? { rec, facilityId: doc.facilityId ?? "" } : null;
     })
-    .filter((r): r is BillingRecord => r !== null);
+    .filter((v): v is { rec: BillingRecord; facilityId: string } => v !== null);
+
+  // Square を開くURLは環境（本番/サンドボックス）でドメインが違う。
+  // 施設ごとにSquare設定を持てるので、施設の環境を優先し、未設定は環境変数にフォールバックする。
+  const envDefault: SquareEnvName =
+    process.env.SQUARE_ENVIRONMENT === "production" ? "production" : "sandbox";
+  const facilityIds = Array.from(new Set(records.map((v) => v.facilityId).filter(Boolean)));
+  const statusMap = facilityIds.length > 0 ? await getFacilitySquareStatusMap(facilityIds) : {};
+
+  return {
+    records: records.map((v) => v.rec),
+    envById: new Map(
+      records.map(({ rec, facilityId }) => {
+        const st = statusMap[facilityId];
+        return [rec.id, st?.configured ? st.environment ?? envDefault : envDefault] as const;
+      }),
+    ),
+  };
 }
 
 /**
- * 「Square では課金済みなのに席/枠を渡せていない」注文を拾う。
- * 未入金として残っているレコードの注文IDだけを `squareOrders`（docId=orderId）で引く
- * （全件スキャンしない・件数は通常ごくわずか）。
+ * `squareOrders`（docId=orderId）から、請求管理が必要とする2つを拾う。
+ *   1. 返金フラグ（refundPending / expiredRefund）＝「課金済みなのに席を渡せていない」
+ *   2. 決済ID（paymentId）＝ 参加費エントリーが持っていないので、ここから補う
+ *
+ * 引くのは「未入金（返金フラグを見たい）」と「決済IDが未解決」のレコードの注文IDだけ。
+ * 決済時に paymentId が入っている予約は読まない（全件スキャンも無駄読みもしない）。
  */
-async function fetchOrderRefundFlags(records: BillingRecord[]): Promise<Map<string, SquareOrderFlags>> {
+async function fetchSquareOrderInfo(records: BillingRecord[]): Promise<Map<string, SquareOrderFlags>> {
   const db = getDb();
   const ids = Array.from(
-    new Set(records.filter((r) => r.status === "unpaid" && r.orderId).map((r) => r.orderId as string)),
+    new Set(
+      records
+        .filter((r) => r.orderId && (r.status === "unpaid" || !r.paymentId))
+        .map((r) => r.orderId as string),
+    ),
   );
-  const flags = new Map<string, SquareOrderFlags>();
+  const info = new Map<string, SquareOrderFlags>();
   for (let i = 0; i < ids.length; i += 200) {
     const refs = ids.slice(i, i + 200).map((id) => db.collection("squareOrders").doc(id));
     const snaps = await db.getAll(...refs);
     for (const s of snaps) {
       if (!s.exists) continue;
       const d = s.data() as SquareOrderFlags;
-      if (d.refundPending || d.expiredRefund) {
-        flags.set(s.id, { refundPending: d.refundPending, expiredRefund: d.expiredRefund });
+      if (d.refundPending || d.expiredRefund || d.paymentId) {
+        info.set(s.id, {
+          refundPending: d.refundPending,
+          expiredRefund: d.expiredRefund,
+          paymentId: d.paymentId,
+        });
       }
     }
   }
-  return flags;
+  return info;
 }
 
 export async function GET(req: NextRequest) {
@@ -205,19 +258,33 @@ export async function GET(req: NextRequest) {
     // シーズン指定はゲーム参加費だけの概念（施設予約はシーズンに属さない）。
     const wantReservation = !range.seasonId && (source === "all" || source === "reservation");
 
-    const [reservations, ...games] = await Promise.all([
-      wantReservation ? fetchReservationRecords(range, basis, now) : Promise.resolve([]),
+    const empty: FetchResult = { records: [], envById: new Map() };
+    const results = await Promise.all([
+      wantReservation ? fetchReservationRecords(range, basis, now) : Promise.resolve(empty),
       ...BILLING_GAMES.map((g) =>
-        wantGame(g) ? fetchGameRecords(g, range, basis, now) : Promise.resolve([] as BillingRecord[]),
+        wantGame(g) ? fetchGameRecords(g, range, basis, now) : Promise.resolve(empty),
       ),
     ]);
+    const envById = new Map(results.flatMap((r) => Array.from(r.envById)));
 
-    let records = [...reservations, ...games.flat()]
+    let records = results
+      .flatMap((r) => r.records)
       // 計上日（基準日）で最終的に期間へ収める。クエリは基準ごとに広めに取っているのでここで揃える。
       .filter((r) => isWithinRange(billingDate(r, basis), range.from, range.to));
 
-    // Square 側で課金が成立している「要返金」を明示する（未入金・失効に埋もれさせない）。
-    records = applyOrderRefundFlags(records, await fetchOrderRefundFlags(records));
+    // squareOrders と1回だけ突き合わせる。
+    //  - 返金フラグ … Square 側で課金が成立している「要返金」を未入金・失効に埋もれさせない
+    //  - 決済ID    … 参加費は決済IDを持たないので補う（無いと Square へ辿れない）
+    const orderInfo = await fetchSquareOrderInfo(records);
+    records = applyOrderPaymentIds(applyOrderRefundFlags(records, orderInfo), orderInfo);
+
+    // Square を開くURLは決済ID/レシートURLが確定してから作る（環境でドメインが変わる）。
+    const envDefault: SquareEnvName =
+      process.env.SQUARE_ENVIRONMENT === "production" ? "production" : "sandbox";
+    records = records.map((r) => ({
+      ...r,
+      squareUrl: resolveSquareUrl(r, envById.get(r.id) ?? envDefault),
+    }));
 
     // シーズン名を付ける（表示用。seasons は件数が少ないので1回読む）。
     if (records.some((r) => r.seasonId)) {

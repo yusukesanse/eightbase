@@ -52,8 +52,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       paymentAmount?: number;
       paymentStatus?: string;
       paymentId?: string;
+      squarePaymentId?: string;
       status?: string;
     };
+    // 決済時に書かれた paymentId が正。旧データは請求管理の「照合」が squarePaymentId に入れる。
+    // 片方しか見ないと、照合済みでも Square 返金を確認できず force 記録に落ちてしまう。
+    const paymentId = r.paymentId ?? r.squarePaymentId;
 
     const amount = r.paymentAmount ?? 0;
     if (amount <= 0) {
@@ -79,12 +83,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let verified = false;
     let refundedAmount = 0;
     let checkError: string | null = null;
-    if (r.paymentId) {
+    if (paymentId) {
       try {
         const credentials = r.facilityId
           ? (await getFacilitySquareCredentials(r.facilityId)) ?? undefined
           : undefined;
-        const payment = await getSquarePayment(r.paymentId, "reservation", credentials);
+        const payment = await getSquarePayment(paymentId, "reservation", credentials);
         const check = evaluateSquareRefund(payment, amount);
         verified = check.state !== "none";
         refundedAmount = check.refundedAmount;
