@@ -101,6 +101,12 @@ export interface BillingRecord {
   paymentId: string | null;
   /** 未入金のうち仮押さえTTLを過ぎたもの＝利用者側では確定できない。 */
   expired: boolean;
+  /**
+   * Square では課金が成立しているのに席/枠を渡せていない＝**要返金**。
+   * `squareOrders/{orderId}` に `refundPending` / `expiredRefund` が記録されているもの。
+   * 未入金・失効として黙って埋もれると返金漏れになるため明示する。
+   */
+  refundNeeded: boolean;
   /** 備考（返金対応が要る理由など）。 */
   note: string | null;
 }
@@ -214,6 +220,7 @@ export function gameEntryToBilling(
     orderId: doc.paymentTransactionId ?? null,
     paymentId: null,
     expired,
+    refundNeeded: false, // squareOrders と突き合わせてから立てる（applyOrderRefundFlags）
     note,
   };
 }
@@ -292,8 +299,70 @@ export function reservationToBilling(
     orderId: doc.paymentTransactionId ?? null,
     paymentId: doc.paymentId ?? null,
     expired,
+    refundNeeded: false,
     note,
   };
+}
+
+/* ── Square 注文との突き合わせ（要返金の検出） ─────────────────────── */
+
+/** `squareOrders/{orderId}` のうち請求管理が見るフラグ。 */
+export interface SquareOrderFlags {
+  /** 仮押さえ失効後に決済が成立した等で、返金が必要なまま残っている注文。 */
+  refundPending?: boolean;
+  /** 失効した仮押さえに対する決済（返金対象）。 */
+  expiredRefund?: boolean;
+}
+
+/**
+ * 「Square では課金済みなのに席/枠を渡せていない」注文を明示する。
+ *
+ * ⚠️ これを出さないと、失効した仮押さえは画面上ただの「未入金・失効」に見えるが、
+ *    実際にはお金を預かったままになる（返金漏れ）。
+ */
+export function applyOrderRefundFlags(
+  records: BillingRecord[],
+  flagsByOrderId: Map<string, SquareOrderFlags>,
+): BillingRecord[] {
+  return records.map((r) => {
+    if (!r.orderId) return r;
+    const f = flagsByOrderId.get(r.orderId);
+    if (!f?.refundPending && !f?.expiredRefund) return r;
+    // 既に返金済／返金対応待ちとして扱われているものは二重に立てない。
+    if (r.status === "refunded" || r.status === "refundRequested") return r;
+    return {
+      ...r,
+      refundNeeded: true,
+      note: "Square で課金が成立しています（席を渡せていないため要返金）",
+    };
+  });
+}
+
+/* ── Square の返金照合（予約の「返金済」記録に使う） ───────────────── */
+
+export type SquareRefundState = "full" | "partial" | "none";
+
+export interface SquareRefundCheck {
+  state: SquareRefundState;
+  /** Square 上で返金済みの金額（円）。 */
+  refundedAmount: number;
+}
+
+/**
+ * Square の payment から「返金されているか」を判定する純関数。
+ * Square の Refund は payment とは別オブジェクトなので、`refundedMoney`（返金累計）で見る。
+ */
+export function evaluateSquareRefund(
+  payment:
+    | { refundedMoney?: { amount?: bigint | number | null } | null }
+    | null
+    | undefined,
+  expectedAmount: number,
+): SquareRefundCheck {
+  const raw = payment?.refundedMoney?.amount;
+  const refundedAmount = raw === undefined || raw === null ? 0 : Number(raw);
+  if (refundedAmount <= 0) return { state: "none", refundedAmount: 0 };
+  return { state: refundedAmount >= expectedAmount ? "full" : "partial", refundedAmount };
 }
 
 /* ── 集計 ─────────────────────────────────────────────────────────── */
@@ -310,6 +379,8 @@ export interface BillingTotals {
   unpaidAmount: number;
   /** 仮押さえ失効の金額（回収見込みなし）。 */
   expiredAmount: number;
+  /** Square では課金済みで返金が要る金額（expiredAmount の内数）。 */
+  refundNeededAmount: number;
 }
 
 export interface BillingSummary extends BillingTotals {
@@ -324,6 +395,7 @@ function emptyTotals(): BillingTotals {
     refundedAmount: 0,
     unpaidAmount: 0,
     expiredAmount: 0,
+    refundNeededAmount: 0,
   };
 }
 
@@ -338,6 +410,7 @@ function addTo(t: BillingTotals, r: BillingRecord): void {
     if (r.expired) t.expiredAmount += r.amount;
     else t.unpaidAmount += r.amount;
   }
+  if (r.refundNeeded) t.refundNeededAmount += r.amount;
   // cancelled / exempt は金額を計上しない（件数のみ）。
 }
 

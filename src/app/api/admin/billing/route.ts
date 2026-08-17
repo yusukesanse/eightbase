@@ -4,6 +4,7 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { GAME_PAYMENT_CONFIG } from "@/lib/gameEntryPayment";
 import { todayJst } from "@/lib/date";
 import {
+  applyOrderRefundFlags,
   BILLING_GAMES,
   billingDate,
   gameEntryToBilling,
@@ -21,6 +22,7 @@ import {
   type BillingSource,
   type GameEntryDoc,
   type ReservationDoc,
+  type SquareOrderFlags,
 } from "@/lib/billing";
 import type { ScoreboardGameId, Season } from "@/types";
 
@@ -156,6 +158,31 @@ async function fetchReservationRecords(
     .filter((r): r is BillingRecord => r !== null);
 }
 
+/**
+ * 「Square では課金済みなのに席/枠を渡せていない」注文を拾う。
+ * 未入金として残っているレコードの注文IDだけを `squareOrders`（docId=orderId）で引く
+ * （全件スキャンしない・件数は通常ごくわずか）。
+ */
+async function fetchOrderRefundFlags(records: BillingRecord[]): Promise<Map<string, SquareOrderFlags>> {
+  const db = getDb();
+  const ids = Array.from(
+    new Set(records.filter((r) => r.status === "unpaid" && r.orderId).map((r) => r.orderId as string)),
+  );
+  const flags = new Map<string, SquareOrderFlags>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const refs = ids.slice(i, i + 200).map((id) => db.collection("squareOrders").doc(id));
+    const snaps = await db.getAll(...refs);
+    for (const s of snaps) {
+      if (!s.exists) continue;
+      const d = s.data() as SquareOrderFlags;
+      if (d.refundPending || d.expiredRefund) {
+        flags.set(s.id, { refundPending: d.refundPending, expiredRefund: d.expiredRefund });
+      }
+    }
+  }
+  return flags;
+}
+
 export async function GET(req: NextRequest) {
   if (!(await checkAdminAuth(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -188,6 +215,9 @@ export async function GET(req: NextRequest) {
     let records = [...reservations, ...games.flat()]
       // 計上日（基準日）で最終的に期間へ収める。クエリは基準ごとに広めに取っているのでここで揃える。
       .filter((r) => isWithinRange(billingDate(r, basis), range.from, range.to));
+
+    // Square 側で課金が成立している「要返金」を明示する（未入金・失効に埋もれさせない）。
+    records = applyOrderRefundFlags(records, await fetchOrderRefundFlags(records));
 
     // シーズン名を付ける（表示用。seasons は件数が少ないので1回読む）。
     if (records.some((r) => r.seasonId)) {
