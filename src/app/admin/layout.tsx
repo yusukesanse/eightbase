@@ -59,6 +59,16 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: "/admin/billing",
+    label: "請求管理",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 2.5h12v15l-2.5-1.5L11 17.5 8 16l-2.5 1.5L4 17.5v-15Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M7.5 6.5h5M7.5 9.5h5M7.5 12.5h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
   // DEV-ONLY（develop 専用 / main へ入れない）
   // demo 環境をアプリ全体で整える単一の入口。非本番のみ表示（APIも本番では404）。
   ...(process.env.NEXT_PUBLIC_APP_ENV !== "production"
