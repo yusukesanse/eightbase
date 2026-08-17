@@ -469,6 +469,29 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - 同伴者へのLINE通知は**なし**（2026-07-29 決定）。
 - テスト: `__tests__/unit/lib/{kana,companions,companionResolve}.test.ts` / `__tests__/unit/api/myReservationsCompanion.test.ts`。
 
+### 請求管理（管理画面 `/admin/billing`・2026-08-17 実装）
+施設予約（トレーラー等）とゲーム参加費4種目の入金を**1つの表**で見る画面。月別／年別／シーズン別に集計する。
+- 正規化と集計は `src/lib/billing.ts`（純関数）。API は `GET /api/admin/billing`。**種目別にコピーしない。**
+- **元データは Firestore（`reservations` + `{game}Entries`）。Square API は一覧に使わない。**
+  理由: ①Square は「誰が・どの予約/開催日に払ったか」を持たない（紐付けは Firestore にしかない）
+  ②Square のアカウント/店舗は用途別に分かれうる（`SQUARE_*` / `SQUARE_{GAME}_*` / 施設ごとの `facilitySecrets`）で、
+  一覧のたびに最大5系統を叩くのは重く未設定環境では画面ごと落ちる ③予約の SoT は Firestore。
+  → **突き合わせは注文ID(`paymentTransactionId`)／決済ID(`paymentId`)で行う**（一覧に表示・クリックでコピー）。
+- 「課金済みなのに未払いのまま」の復旧は既存の**入金確認待ち**（`src/lib/gameEntryPayment.ts`・Square照合つき）が担当。
+  請求管理は閲覧・集計に徹する（お金を動かす入り口を二重に作らない）。
+- ステータスは予約とゲームで別々の語彙を1つに寄せる: `unpaid / paid / refundRequested / refunded / cancelled / exempt`。
+  - ⚠️ **staff の参加表明は `status="paid"` なのに決済フィールドを持たない**。参加費で数えると売上が水増しされるので
+    「paid かつ決済の痕跡なし」＝ `exempt`（金額0）に落とす。
+  - ⚠️ **予約はキャンセルしても `paymentStatus` は `completed` のまま残る**（admin DELETE）。
+    入金済のまま取消された予約は `refundRequested`（返金対応待ち）にして返金漏れを見えるようにする。
+- 集計基準は「利用日/開催日」と「入金日」を切替。⚠️ 本番は TZ=UTC なので入金日は必ず `jstDateFromIso()` で JST 暦日に直す。
+- ⚠️ **期間を絞ってからクエリする**（全コレクションスキャン禁止・既定は今月）。範囲は単一フィールドの不等号だけで組み、
+  seasonId・種別・ステータスの絞り込みはメモリ側で行う（複合インデックスを増やさない）。
+- 予約の入金日は `reservations.paidAt`（`/api/reservations/complete` で記録）。**旧データは `updatedAt`→`createdAt` で代用**
+  （`updatedAt` は日時変更 PATCH で上書きされるため単独では信用しない）。
+- 画面の数字と明細を一致させるため、**サマリーは絞り込み後のレコードから `summarizeBilling()` で再計算**する。
+- 回帰テスト: `__tests__/unit/lib/billing.test.ts`（免除・取消後の返金対応・失効・月末/JST境界・二重計上なし）。
+
 ### 決済（現状すべて無効）
 - `/api/payments`・`/api/payments/config` は先頭で `501 PAYMENT_DISABLED` を返す。
 - 予約APIは `paymentId` を受け付けず、`requirePayment=true` 施設はオンライン予約不可。

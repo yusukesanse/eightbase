@@ -200,6 +200,8 @@ export async function POST(req: NextRequest) {
           paymentStatus: "completed",
           paymentId: verified.paymentId,
           paymentTransactionId: verified.orderId,
+          // 入金日。請求管理の月次集計に使う（updatedAt は日時変更 PATCH で上書きされるため別に持つ）。
+          paidAt: nowIso,
           googleEventId,
           updatedAt: nowIso,
         });

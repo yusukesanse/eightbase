@@ -26,8 +26,11 @@ import { DARTS_ENTRY_FEE } from "@/types/darts";
 import { BILLIARDS_ENTRY_FEE } from "@/types/billiards";
 import { POKER_ENTRY_FEE } from "@/types/poker";
 
-/** 種目ごとのコレクション名・参加費・Square purpose。complete ルートと一致させること。 */
-const GAME_PAYMENT_CONFIG = {
+/**
+ * 種目ごとのコレクション名・参加費・Square purpose。complete ルートと一致させること。
+ * 請求管理（`/api/admin/billing`）もこの1箇所を参照する（コレクション名と参加費を二重に持たない）。
+ */
+export const GAME_PAYMENT_CONFIG = {
   mahjong: { entries: "mahjongEntries", dayState: "mahjongDayState", fee: MAHJONG_ENTRY_FEE },
   darts: { entries: "dartsEntries", dayState: "dartsDayState", fee: DARTS_ENTRY_FEE },
   billiards: { entries: "billiardsEntries", dayState: "billiardsDayState", fee: BILLIARDS_ENTRY_FEE },
