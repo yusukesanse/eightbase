@@ -67,6 +67,8 @@ export default function AdminBillingPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/scoreboard/seasons", { credentials: "same-origin" })
@@ -116,6 +118,60 @@ export default function AdminBillingPage() {
   }, [data, status, keyword]);
 
   const summary = useMemo(() => summarizeBilling(records), [records]);
+
+  /**
+   * 入金済のまま取消された予約を「返金済」として記録する。
+   * ⚠️ Square の返金操作そのものはここでは行わない（Square 管理画面で返金してから記録する）。
+   *    サーバーが Square に返金があるか照合し、見つからなければ 409。現金対応などで
+   *    どうしても記録が必要なときだけ、明示的な確認のうえ force で記録する。
+   */
+  async function markReservationRefunded(r: BillingRecord, force = false) {
+    if (busy) return;
+    if (!force && !confirm(
+      `${r.displayName} さんの予約を「返金済」として記録します。\n` +
+      `（${r.itemName} / ${r.useDate} / ${yen(r.amount)}）\n\n` +
+      `先に Square 管理画面で返金を済ませてください。\n` +
+      `Square 側で返金が確認できた場合のみ記録します。`
+    )) return;
+
+    setBusy(r.id);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/reservations/${r.refId}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ force }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (json.code === "REFUND_NOT_FOUND" && !force) {
+          // 現金返金・別アカウントでの返金など、Square から確認できないケースの逃げ道。
+          if (confirm(`${json.error}\n\nSquare では確認できませんでしたが、返金済として記録しますか？`)) {
+            setBusy(null);
+            return markReservationRefunded(r, true);
+          }
+          setBusy(null);
+          return;
+        }
+        setMessage({ ok: false, text: json.error ?? "記録できませんでした" });
+      } else {
+        setMessage({
+          ok: true,
+          text: json.alreadyRefunded
+            ? "すでに返金済として記録されています。"
+            : json.verified
+              ? `返金済として記録しました（Square の返金 ${yen(json.refundedAmount ?? 0)} を確認）。`
+              : "返金済として記録しました（Square では未確認のため、記録のみです）。",
+        });
+        await load();
+      }
+    } catch {
+      setMessage({ ok: false, text: "通信に失敗しました" });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   function downloadCsv() {
     const header = [
@@ -263,12 +319,31 @@ export default function AdminBillingPage() {
         </div>
       )}
 
+      {message && (
+        <div className={`mb-4 rounded-xl px-4 py-3 text-sm font-bold border ${
+          message.ok
+            ? "bg-[#eef6f0] border-[#cfe6d8] text-[#2f7d57]"
+            : "bg-[#fdece8] border-[#f4c9bd] text-[#d8533a]"
+        }`}>
+          {message.text}
+        </div>
+      )}
+
       {loading ? (
         <div className="p-10 flex justify-center">
           <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <>
+          {/* Square では課金が成立しているのに席/枠を渡せていないもの＝放置すると返金漏れ。 */}
+          {summary.refundNeededAmount > 0 && (
+            <div className="mb-4 rounded-xl px-4 py-3 text-sm border bg-[#fdece8] border-[#f4c9bd] text-[#b4291f]">
+              <span className="font-bold">要返金 {yen(summary.refundNeededAmount)}</span>
+              ：Square で課金が成立しているのに席・枠を渡せていない決済があります（下表の「要返金」バッジ）。
+              Square 管理画面で返金してください。
+            </div>
+          )}
+
           {/* ── サマリー ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             {[
@@ -346,6 +421,7 @@ export default function AdminBillingPage() {
                       <th className="py-2 pr-3 font-medium whitespace-nowrap">状態</th>
                       <th className="py-2 pr-3 font-medium whitespace-nowrap">入金日時</th>
                       <th className="py-2 pr-3 font-medium whitespace-nowrap">Square 注文ID</th>
+                      <th className="py-2 pr-3 font-medium whitespace-nowrap">返金対応</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -369,6 +445,11 @@ export default function AdminBillingPage() {
                           >
                             {BILLING_STATUS_LABEL[r.status]}
                           </span>
+                          {r.refundNeeded && (
+                            <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold text-[#b4291f] bg-[#fdece8]">
+                              要返金
+                            </span>
+                          )}
                           {r.note && <span className="block text-[11px] text-[#231714]/60 max-w-[220px]">{r.note}</span>}
                         </td>
                         <td className="py-2 pr-3 whitespace-nowrap text-[#231714]/80">{fmtDateTime(r.paidAt)}</td>
@@ -385,6 +466,35 @@ export default function AdminBillingPage() {
                             <span className="text-[#231714]/40">-</span>
                           )}
                         </td>
+                        <td className="py-2 pr-3 whitespace-nowrap">
+                          {/* 予約: 返金の記録先が他に無いのでここで記録する（Square の返金は手動）。 */}
+                          {r.source === "reservation" && r.status === "refundRequested" && (
+                            <button
+                              onClick={() => markReservationRefunded(r)}
+                              disabled={busy === r.id}
+                              className="px-2.5 py-1.5 text-xs border border-[#231714]/15 rounded-lg text-[#231714]/80 hover:bg-gray-50 disabled:opacity-40"
+                            >
+                              {busy === r.id ? "処理中..." : "返金済にする"}
+                            </button>
+                          )}
+                          {/* ゲーム参加費: 返金の実体は「参加費・返金」タブ。二重の入口を作らず誘導する。 */}
+                          {r.source !== "reservation" && r.status === "refundRequested" && r.seasonId && (
+                            <a
+                              href={`/admin/games/seasons/${r.seasonId}/refunds`}
+                              className="px-2.5 py-1.5 text-xs border border-[#231714]/15 rounded-lg text-[#231714]/80 hover:bg-gray-50 inline-block"
+                            >
+                              返金タブへ
+                            </a>
+                          )}
+                          {r.refundNeeded && r.status === "unpaid" && r.seasonId && (
+                            <a
+                              href={`/admin/games/seasons/${r.seasonId}/refunds`}
+                              className="px-2.5 py-1.5 text-xs border border-[#f4c9bd] bg-[#fdece8] rounded-lg text-[#b4291f] hover:opacity-80 inline-block"
+                            >
+                              返金タブへ
+                            </a>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -396,6 +506,9 @@ export default function AdminBillingPage() {
           <p className="text-xs text-[#231714]/60 mt-4 leading-relaxed">
             ※ 「入金済」は Square で課金が確認できた記録です。課金済みなのに未入金のまま残った参加費は
             管理 → ゲーム → シーズン → 「参加費・返金」タブから Square 照合のうえ復旧できます。<br />
+            ※ ゲーム参加費の「返金対応待ち／返金済」は「参加費・返金」タブと同じ記録です（このページは表示のみ）。<br />
+            ※ <strong>Square の返金操作そのものはアプリからは行いません。</strong>
+            Square 管理画面で返金してから、この画面（予約）または「参加費・返金」タブ（ゲーム）で記録してください。<br />
             ※ Googleカレンダーに直接入れた予定は課金対象外のため、この一覧には出ません（仕様）。
           </p>
         </>

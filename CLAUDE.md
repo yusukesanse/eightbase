@@ -492,6 +492,25 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - 画面の数字と明細を一致させるため、**サマリーは絞り込み後のレコードから `summarizeBilling()` で再計算**する。
 - 回帰テスト: `__tests__/unit/lib/billing.test.ts`（免除・取消後の返金対応・失効・月末/JST境界・二重計上なし）。
 
+#### 返金まわりの連携（2026-08-17 追加）
+- **ゲーム参加費の「返金対応待ち／返金済」は「参加費・返金」タブと同じ記録**（`{game}Entries.status`）。
+  請求管理は表示のみで、操作は返金タブへリンクする。**返金の入口を二重に作らない。**
+- **予約（トレーラー）には返金の記録先が無かった**（`Reservation.paymentStatus: "refunded"` は型にあるだけで
+  どこからも書かれていなかった＝入金済のまま取消された予約が永久に「返金対応待ち」で残る）。
+  そのため `POST /api/admin/reservations/[id]/refund` を追加し、請求管理から記録できるようにした。
+  - ⚠️ **Square の返金操作自体はアプリからは行わない**（4種目と同じ「実返金は Square 管理画面で手動・アプリは記録」方式）。
+    実返金APIを足すなら**予約と4種目を一緒に設計する**こと。片側だけ増やすと運用が食い違う。
+  - ⚠️ **記録前に Square の `refundedMoney` で返金を照合する**（`evaluateSquareRefund()`）。
+    確認できなければ 409 `REFUND_NOT_FOUND`。現金対応など例外は `force: true` でのみ記録し、
+    予約に `refundVerified: false` を残す（あとから「照合できていない記録」を洗い出せるように）。
+  - 対象は「決済額あり × `paymentStatus=completed` × `status=cancelled`」だけ。利用中の予約は返金済にできない。
+  - 監査は `reservationAuditLogs` の `payment.refunded`（実行者つき）。
+- **`squareOrders` の `refundPending` / `expiredRefund` を突き合わせて「要返金」を出す**（`applyOrderRefundFlags()`）。
+  仮押さえ失効後に課金が成立した決済は、これが無いと画面上ただの「未入金・失効」に見えて**返金漏れになる**。
+  読み取りは未入金レコードの注文IDだけ `getAll`（全件スキャンしない）。
+- 回帰テスト: `__tests__/unit/api/adminReservationRefund.test.ts`（未返金は 409／force は未照合フラグつきで記録／
+  取消前・未入金は 409／冪等）。
+
 ### 決済（現状すべて無効）
 - `/api/payments`・`/api/payments/config` は先頭で `501 PAYMENT_DISABLED` を返す。
 - 予約APIは `paymentId` を受け付けず、`requirePayment=true` 施設はオンライン予約不可。

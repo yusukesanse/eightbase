@@ -3,7 +3,9 @@
  * TZ=UTC で実行（package.json）＝本番 Vercel と同じ条件。JST 前提の日付処理を固定する。
  */
 import {
+  applyOrderRefundFlags,
   billingDate,
+  evaluateSquareRefund,
   gameEntryToBilling,
   jstDateFromIso,
   jstDayEndIso,
@@ -198,6 +200,7 @@ describe("summarizeBilling", () => {
     orderId: null,
     paymentId: null,
     expired: false,
+    refundNeeded: false,
     note: null,
     ...over,
   });
@@ -233,11 +236,69 @@ describe("summarizeBilling", () => {
   });
 });
 
+describe("applyOrderRefundFlags（Square で課金済み＝要返金の検出）", () => {
+  const base: BillingRecord = {
+    id: "1", source: "mahjong", refId: "e1", itemName: "麻雀 参加費", seasonId: "s1", seasonName: null,
+    useDate: "2026-08-08", paidAt: null, amount: 3000, status: "unpaid",
+    lineUserId: "U", displayName: "名", orderId: "ORDER1", paymentId: null, expired: true,
+    refundNeeded: false, note: null,
+  };
+
+  it("⚠️ 失効した未入金でも Square で課金が成立していれば要返金として立てる", () => {
+    // ここを出さないと「未入金・失効」に見えるだけで、預かったままの金が埋もれる。
+    const out = applyOrderRefundFlags([base], new Map([["ORDER1", { expiredRefund: true }]]));
+    expect(out[0].refundNeeded).toBe(true);
+    expect(out[0].note).toContain("要返金");
+
+    const pending = applyOrderRefundFlags([base], new Map([["ORDER1", { refundPending: true }]]));
+    expect(pending[0].refundNeeded).toBe(true);
+  });
+
+  it("フラグの無い注文・注文IDなしは何も変えない", () => {
+    expect(applyOrderRefundFlags([base], new Map()) [0].refundNeeded).toBe(false);
+    expect(applyOrderRefundFlags([base], new Map([["OTHER", { expiredRefund: true }]]))[0].refundNeeded).toBe(false);
+    expect(applyOrderRefundFlags([{ ...base, orderId: null }], new Map([["ORDER1", { expiredRefund: true }]]))[0].refundNeeded).toBe(false);
+  });
+
+  it("すでに返金済／返金対応待ちのものには二重に立てない", () => {
+    const flags = new Map([["ORDER1", { refundPending: true }]]);
+    expect(applyOrderRefundFlags([{ ...base, status: "refunded" }], flags)[0].refundNeeded).toBe(false);
+    expect(applyOrderRefundFlags([{ ...base, status: "refundRequested" }], flags)[0].refundNeeded).toBe(false);
+  });
+
+  it("要返金の金額は集計に出る（失効の内数）", () => {
+    const out = applyOrderRefundFlags([base], new Map([["ORDER1", { expiredRefund: true }]]));
+    const s = summarizeBilling(out);
+    expect(s.expiredAmount).toBe(3000);
+    expect(s.refundNeededAmount).toBe(3000);
+  });
+});
+
+describe("evaluateSquareRefund（予約を返金済にする前の照合）", () => {
+  it("返金なしは none（＝管理者操作だけで返金済にはしない）", () => {
+    expect(evaluateSquareRefund({ refundedMoney: { amount: 0 } }, 20000)).toEqual({ state: "none", refundedAmount: 0 });
+    expect(evaluateSquareRefund({}, 20000).state).toBe("none");
+    expect(evaluateSquareRefund(null, 20000).state).toBe("none");
+  });
+
+  it("全額返金は full / 一部返金は partial（bigint でも数値化する）", () => {
+    expect(evaluateSquareRefund({ refundedMoney: { amount: BigInt(20000) } }, 20000)).toEqual({
+      state: "full",
+      refundedAmount: 20000,
+    });
+    expect(evaluateSquareRefund({ refundedMoney: { amount: 5000 } }, 20000)).toEqual({
+      state: "partial",
+      refundedAmount: 5000,
+    });
+  });
+});
+
 describe("billingDate（集計基準）", () => {
   const r: BillingRecord = {
     id: "1", source: "reservation", refId: "1", itemName: "トレーラー", seasonId: null, seasonName: null,
     useDate: "2026-09-05", paidAt: "2026-08-31T15:30:00.000Z", amount: 20000, status: "paid",
-    lineUserId: "U", displayName: "名", orderId: null, paymentId: null, expired: false, note: null,
+    lineUserId: "U", displayName: "名", orderId: null, paymentId: null, expired: false,
+    refundNeeded: false, note: null,
   };
 
   it("利用日基準は利用日、入金日基準は JST の入金日", () => {
