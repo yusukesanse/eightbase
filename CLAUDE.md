@@ -116,6 +116,25 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - 回帰テスト: `__tests__/unit/lib/gameEntryPayment.test.ts`（未入金は paid にしない／
   返金済み注文は拒否／当日名簿へ反映／冪等）。
 
+#### 管理者が参加者を「支払い済み」で追加する（麻雀・2026-08-22）
+参加費を受け取り済みの人を、管理画面から**その開催日の参加者（支払い済み）として足せる**。
+場所: 管理 → シーズン（麻雀）→ **参加者タブ**（`MahjongEntryAdminPanel`）。
+API は `POST /api/admin/mahjong/entries`（`{ seasonId, eventDate, lineUserId, markPaid }`。既定 `markPaid=true`）。
+- **作った理由**: 支払い済みの人がミニアプリでキャンセルすると entry は `cancelRequested`/`refunded` になるが、
+  Square 側で返金していなければ**入金は成立したまま**。この人を卓に戻す手段が利用者にも管理者にも無かった
+  （締切後は再表明できない／既存の「入金確認待ち」は `paymentStatus="pending"` ＋注文ID がある人しか救えない）。
+- ⚠️ **意図的にチェックしないもの**: 受付締切（`entryClosedAt`）・定員8名・月1回制限。
+  例外対応そのものなので管理者判断で押し切れるようにしている。締切後に足しても
+  GM の卓振り分けプールは毎回 `mahjongEntries` から作り直すので**次の半荘から着席できる**。
+- ⚠️ **Square の入金照合はしない**（現金・振替も足せるようにするため）。代わりに監査ログ
+  `entry.adminAdded` / `entry.adminRemoved` に実行者・前後の状態を必ず残す。
+  入金照合が要るケース（決済リンク発行済みで未確定）は従来どおり「参加費・返金」タブを使う。
+- entry の docId は利用者側と同じ `buildMahjongEntryId()`。**独自形式にしないこと**（同じ人が二重に載る）。
+  再追加時は `enteredAt` を保つ（卓振り分けの FIFO 順が入れ替わる）。`merge: true` なので
+  `paymentTransactionId` は消さない。月ロックは今までどおり書く。
+- アクティブシーズン以外には追加できない（body の `seasonId` 不一致は 409）。当日進行がアクティブ基準のため。
+- 回帰テスト: `__tests__/unit/api/adminMahjongEntryAdd.test.ts`。
+
 ### 「参加は同じ月に1回まで」と、その解除（管理者が特定ユーザーだけ免除）
 - 制限の実体は各種目の `POST /api/{game}/entries` と月ロック `{game}MonthlyLocks/{seasonId}_{userId}_{YYYY-MM}`。
   ロックが指す**別日の entry が実在するときだけ** 409（`monthlyLimit: true`）＝stale ロックは自己回復する。

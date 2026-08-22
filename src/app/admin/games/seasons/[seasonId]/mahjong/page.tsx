@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import MahjongDayResultForm from "@/components/admin/MahjongDayResultForm";
+import MahjongEntryAdminPanel from "@/components/admin/MahjongEntryAdminPanel";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import type {
@@ -88,7 +89,7 @@ export default function SeasonMahjongPage() {
   const [editTable, setEditTable] = useState<MahjongTable | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [viewAssignment, setViewAssignment] = useState<MahjongLeagueAssignment | null>(null);
-  const [tab, setTab] = useState<"standings" | "tables" | "rotation" | "history">("standings");
+  const [tab, setTab] = useState<"standings" | "entries" | "tables" | "rotation" | "history">("standings");
   // 卓一覧タブ: 選択中の開催日（月・日プルダウン）。月=シーズン開催期間、日=日程の開催日と連携。
   const [tableDate, setTableDate] = useState<string | null>(null);
   const [selMonth, setSelMonth] = useState<string | null>(null);
@@ -284,6 +285,7 @@ export default function SeasonMahjongPage() {
 
   const TABS = [
     { id: "standings" as const, label: "通算アベレージ順位表" },
+    { id: "entries" as const, label: "参加者" },
     { id: "tables" as const, label: "卓一覧" },
     { id: "rotation" as const, label: "当日進行（抜け番）" },
     { id: "history" as const, label: "リーグ確定履歴" },
@@ -371,6 +373,41 @@ export default function SeasonMahjongPage() {
             </table>
           </div>
         )}
+      </section>
+
+      {/* ───── 参加者（支払い済みでの追加・削除） ───── */}
+      <section className={tab === "entries" ? "" : "hidden"}>
+        <h2 className="text-sm font-bold text-[#231714] mb-3">参加者（開催日ごと）</h2>
+        {/* 開催日セレクタは卓一覧タブと同じ状態（selMonth / tableDate）を共有する。 */}
+        <div className="mb-4">
+          <div className="text-[11px] font-bold text-[#231714]/85 mb-1.5">開催日</div>
+          <div className="flex items-center gap-2">
+            <select
+              value={selMonth ?? ""}
+              onChange={(e) => changeMonth(e.target.value)}
+              className="px-3 py-2 text-sm border border-[#231714]/15 rounded-lg bg-white"
+            >
+              {monthOptions.length === 0 && <option value="">-</option>}
+              {monthOptions.map((ym) => (
+                <option key={ym} value={ym}>{formatYm(ym)}</option>
+              ))}
+            </select>
+            <select
+              value={tableDate && tableDate.slice(0, 7) === selMonth ? tableDate : ""}
+              onChange={(e) => setTableDate(e.target.value || null)}
+              className="px-3 py-2 text-sm border border-[#231714]/15 rounded-lg bg-white"
+            >
+              {dayOptions.length === 0 ? (
+                <option value="">開催日なし</option>
+              ) : (
+                dayOptions.map((d) => (
+                  <option key={d} value={d}>{formatEventDate(d)}</option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
+        <MahjongEntryAdminPanel seasonId={seasonId} eventDate={tableDate} />
       </section>
 
       {/* ───── 卓一覧（日付を選ぶとその日の卓だけ表示） ───── */}
