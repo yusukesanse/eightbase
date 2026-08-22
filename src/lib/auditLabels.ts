@@ -11,6 +11,8 @@ export interface AuditEventLabel { text: string; color: string; desc: string }
 export const AUDIT_EVENT_LABEL: Record<string, AuditEventLabel> = {
   "payment.cancelRequested": { text: "キャンセル依頼", color: "#a1502c", desc: "利用者が支払い済みの参加費をキャンセル依頼" },
   "payment.markedPaid": { text: "支払い済みに戻した", color: "#2f7d57", desc: "Squareの入金を照合し、確定漏れのエントリーを支払い済みにした" },
+  "entry.adminAdded": { text: "参加者を追加", color: "#2f7d57", desc: "管理者が参加者を追加（既定は支払い済み扱い・Square照合なし）" },
+  "entry.adminRemoved": { text: "参加者を削除", color: "#c0563c", desc: "管理者が参加者を名簿から削除" },
   "day.participant_removed": { text: "参加者を外した", color: "#c0563c", desc: "当日GMが参加者を名簿から外した（未払い/不参加）" },
   "day.gm_claimed": { text: "GMを選出", color: "#1172a5", desc: "参加者が「GMをやる」で自己選出（交代も含む）" },
   "refund.refunded": { text: "返金 完了", color: "#2f7d57", desc: "管理者が Square で返金し「返金済」にした" },
