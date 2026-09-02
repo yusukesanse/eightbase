@@ -5,7 +5,8 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { buildMahjongEntryId } from "@/lib/mahjongEntryValidation";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
 import { writeAuditLog } from "@/lib/auditLog";
-import { MAHJONG_ENTRY_FEE, type MahjongEntry } from "@/types";
+import { addGameEntryByAdmin } from "@/lib/adminGameEntry";
+import type { MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -87,85 +88,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "lineUserId が不正です" }, { status: 400 });
     }
 
-    const season = await getActiveSeason();
-    if (!season) {
-      return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-    }
-    // 参加者はアクティブシーズンにしか足せない（当日進行・卓振り分けがアクティブ基準のため）。
-    // 管理画面は過去シーズンのページも開けるので、取り違えを 409 で弾く。
-    if (typeof body?.seasonId === "string" && body.seasonId !== season.seasonId) {
-      return NextResponse.json(
-        { error: "開催中のシーズン以外には追加できません" },
-        { status: 409 }
-      );
-    }
-
-    const db = getDb();
-    // 表示名・アイコンはサーバーが解決する（クライアント値を信用しない）。
-    // LINE 連携済みの利用者は users doc を持つが、無い場合は authorizedUsers 側で補う。
-    const [userDoc, authSnap] = await Promise.all([
-      db.collection("users").doc(lineUserId).get(),
-      db.collection("authorizedUsers").where("lineUserId", "==", lineUserId).limit(1).get(),
-    ]);
-    if (!userDoc.exists && authSnap.empty) {
-      return NextResponse.json({ error: "ユーザーが存在しません" }, { status: 400 });
-    }
-    const u = userDoc.data() || {};
-    const au = authSnap.docs[0]?.data() || {};
-    const displayName = (u.displayName as string) || (au.displayName as string) || "ユーザー";
-
-    // 利用者側と同じ決定的ID（形式がズレると同じ人のエントリーが二重にできる）。
-    const entryId = buildMahjongEntryId(season.seasonId, eventDate, lineUserId);
-    const ref = db.collection("mahjongEntries").doc(entryId);
-    const existing = await ref.get();
-    const prev = existing.exists ? (existing.data() as MahjongEntry) : null;
-    const before = prev ? deriveStatus(prev) : null;
-
-    const nowIso = new Date().toISOString();
-    const entry: Partial<MahjongEntry> = {
-      seasonId: season.seasonId,
+    const result = await addGameEntryByAdmin({
+      game: "mahjong",
+      seasonId: typeof body?.seasonId === "string" ? body.seasonId : undefined,
       eventDate,
       lineUserId,
-      displayName,
-      pictureUrl: (u.pictureUrl as string) || "",
-      // 再追加のときは最初の参加時刻を保つ（卓振り分けの FIFO 順が入れ替わらないように）。
-      enteredAt: prev?.enteredAt || nowIso,
-      status: markPaid ? "paid" : "reserved",
-    };
-    if (markPaid) {
-      entry.paymentStatus = "paid";
-      entry.paymentAmount = prev?.paymentAmount ?? MAHJONG_ENTRY_FEE;
-      entry.paidAt = prev?.paidAt || nowIso;
+      markPaid,
+      admin,
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
-
-    // 月ロックは管理者追加でも今までどおり書く（書かないとその月が無制限のまま残る）。
-    const lockRef = db
-      .collection("mahjongMonthlyLocks")
-      .doc(`${season.seasonId}_${lineUserId}_${eventDate.slice(0, 7)}`);
-
-    const batch = db.batch();
-    batch.set(ref, entry, { merge: true });
-    batch.set(lockRef, {
-      seasonId: season.seasonId,
-      lineUserId,
-      ym: eventDate.slice(0, 7),
-      eventDate,
-      updatedAt: nowIso,
-    });
-    await batch.commit();
-
-    await writeAuditLog({
-      eventType: "entry.adminAdded",
-      gameCategory: "mahjong",
-      actor: `admin:${admin}`,
-      target: { date: eventDate, entryId, lineUserId },
-      beforeStatus: before,
-      afterStatus: markPaid ? "paid" : "reserved",
-      meta: { markPaid, displayName },
-    });
 
     return NextResponse.json(
-      { entry: { ...entry, entryId }, previousStatus: before },
+      { entry: result.entry, previousStatus: result.previousStatus },
       { status: 201 }
     );
   } catch (error) {

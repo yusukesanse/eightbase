@@ -135,6 +135,18 @@ API は `POST /api/admin/mahjong/entries`（`{ seasonId, eventDate, lineUserId, 
 - アクティブシーズン以外には追加できない（body の `seasonId` 不一致は 409）。当日進行がアクティブ基準のため。
 - 回帰テスト: `__tests__/unit/api/adminMahjongEntryAdd.test.ts`。
 
+#### 日程タブから4種目共通で参加者を追加する（2026-09-02）
+上記の麻雀の処理を **`src/lib/adminGameEntry.ts`（`addGameEntryByAdmin`）に1本化**し、
+`POST /api/admin/games/entries`（`{ gameCategory, seasonId, eventDate, lineUserId, markPaid }`）から4種目で使える。
+麻雀の `POST /api/admin/mahjong/entries` もこれを呼ぶ薄い皮（**種目別にコピーしない**）。
+UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参加者一覧下「＋ 参加者を追加」。
+- ⚠️ **当日名簿の扱いが種目で違う。** 麻雀は卓振り分けプールを毎回 entries から作るので締切後も追加可（従来どおり）。
+  ダーツ/ビリヤード/ポーカーは「ゲーム開始」で `{game}DayState.participants` が確定し順位ptがその名簿基準なので、
+  **開始後に名簿にいない人は 409 `DAY_STARTED`**（GM の参加剥奪が確定後に不可なのと同じ理由）。
+  名簿に**未払いで載っている人**だけは `paid=true` に立てる（支払い完了APIと同じ扱い）。`finishedAt` があれば 409 `DAY_FINISHED`。
+- 入金照合はしない・月ロックは書く・監査 `entry.adminAdded`（`meta.rosterUpdated` 付き）は麻雀と同じ。
+- 回帰テスト: `__tests__/unit/api/adminGamesEntryAdd.test.ts`。
+
 ### 「参加は同じ月に1回まで」と、その解除（管理者が特定ユーザーだけ免除）
 - 制限の実体は各種目の `POST /api/{game}/entries` と月ロック `{game}MonthlyLocks/{seasonId}_{userId}_{YYYY-MM}`。
   ロックが指す**別日の entry が実在するときだけ** 409（`monthlyLimit: true`）＝stale ロックは自己回復する。
