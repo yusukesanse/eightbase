@@ -37,6 +37,10 @@ function makeDb() {
     id,
     get: async () => ({ exists: col(c).has(id), id, data: () => col(c).get(id) }),
     set: async (d: Data) => { col(c).set(id, { ...d }); },
+    update: async (d: Data) => {
+      const cur = col(c).get(id) ?? {};
+      col(c).set(id, { ...cur, ...d });
+    },
     delete: async () => { col(c).delete(id); },
   });
   const query = (c: string, conds: [string, unknown][], lim?: number) => ({
@@ -51,6 +55,24 @@ function makeDb() {
     },
   });
   return {
+    runTransaction: async (fn: (tx: {
+      get: (ref: ReturnType<typeof docRef>) => ReturnType<ReturnType<typeof docRef>["get"]>;
+      set: (ref: ReturnType<typeof docRef>, d: Data, opt?: { merge?: boolean }) => void;
+      update: (ref: ReturnType<typeof docRef>, d: Data) => void;
+    }) => Promise<void>) => {
+      const tx = {
+        get: (ref: ReturnType<typeof docRef>) => ref.get(),
+        set: (ref: ReturnType<typeof docRef>, d: Data, opt?: { merge?: boolean }) => {
+          const cur = opt?.merge ? (col(ref.__c).get(ref.id) ?? {}) : {};
+          col(ref.__c).set(ref.id, { ...cur, ...d });
+        },
+        update: (ref: ReturnType<typeof docRef>, d: Data) => {
+          const cur = col(ref.__c).get(ref.id) ?? {};
+          col(ref.__c).set(ref.id, { ...cur, ...d });
+        },
+      };
+      await fn(tx);
+    },
     batch: () => {
       const ops: [string, string, Data, boolean][] = [];
       return {

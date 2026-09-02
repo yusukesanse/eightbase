@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
     .map((e) => {
       const status = DERIVE[game](e);
       return {
+        lineUserId: (e.lineUserId as string) || "",
         displayName: (e.displayName as string) || "ユーザー",
         pictureUrl: (e.pictureUrl as string) || "",
         status, // paid | reserved | cancelRequested | refunded

@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import TimePicker from "@/components/ui/TimePicker";
 import type { Season } from "@/types";
 import MonthCalendar from "@/components/ui/MonthCalendar";
 import DatePicker from "@/components/ui/DatePicker";
+import { kanaIncludes } from "@/lib/kana";
+import { ROLE_LABELS, type UserRole } from "@/lib/roles";
 
 /**
  * 全ゲーム共通の日程カレンダー（管理）。開催日をカレンダーのクリックで選択し、右パネルで追加/削除/休催を行う。
@@ -31,8 +33,9 @@ const INTERVALS = [
   { v: 4, label: "4週に1回" },
 ];
 
-type Participant = { displayName: string; pictureUrl: string; status: string; paid: boolean; refundable: boolean };
+type Participant = { lineUserId: string; displayName: string; pictureUrl: string; status: string; paid: boolean; refundable: boolean };
 type DayInfo = { closed: boolean; participants: Participant[]; counts: { total: number; paid: number; refundable: number } };
+type Candidate = { lineUserId: string; displayName: string; role: string; pictureUrl: string };
 const STATUS_LABEL: Record<string, { text: string; color: string; bg: string }> = {
   paid: { text: "支払い済み", color: "#2f7d57", bg: "#eef6f0" },
   reserved: { text: "未払い", color: "#5f6266", bg: "#f1f2f3" },
@@ -63,6 +66,14 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   const [dayInfo, setDayInfo] = useState<DayInfo | null>(null);
   const [dayLoading, setDayLoading] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [addQuery, setAddQuery] = useState("");
+  const [markPaid, setMarkPaid] = useState(true);
+  const [addBusyId, setAddBusyId] = useState<string | null>(null);
+  const [addMessage, setAddMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const today = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(() => {
@@ -137,6 +148,9 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   function select(date: string) {
     setSelected(date);
     setConfirmClose(false);
+    setAddOpen(false);
+    setAddQuery("");
+    setAddMessage(null);
     setMsg(null);
     if (dates.has(date)) fetchDay(date);
     else setDayInfo(null);
@@ -189,6 +203,80 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
     } finally { setBusy(false); }
   }
 
+  async function toggleAddParticipants() {
+    const nextOpen = !addOpen;
+    setAddOpen(nextOpen);
+    setAddMessage(null);
+    if (!nextOpen || candidatesLoaded || candidatesLoading) return;
+
+    setCandidatesLoading(true);
+    setCandidatesLoaded(true);
+    try {
+      const res = await fetch("/api/admin/games/participants", { credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddMessage({ ok: false, text: data.error ?? "候補の取得に失敗しました" });
+        return;
+      }
+      setCandidates(Array.isArray(data.participants) ? data.participants : []);
+    } catch {
+      setAddMessage({ ok: false, text: "候補の取得に失敗しました" });
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }
+
+  async function addParticipant(candidate: Candidate) {
+    if (!selected) return;
+    const current = dayInfo?.participants.find((participant) => participant.lineUserId === candidate.lineUserId);
+    if (current?.status === "paid") return;
+
+    const currentLabel = current
+      ? (STATUS_LABEL[current.status] ?? { text: current.status }).text
+      : null;
+    const paymentLabel = markPaid ? "支払い済み" : "未払い";
+    const confirmation = current
+      ? `${candidate.displayName} さんは現在「${currentLabel}」です。\n「${paymentLabel}」として参加者に戻しますか？`
+      : markPaid
+        ? `${candidate.displayName} さんを「支払い済み」として追加しますか？\n（参加費を受け取り済みであることを確認してください）`
+        : `${candidate.displayName} さんを「未払い」として追加しますか？`;
+    if (!window.confirm(confirmation)) return;
+
+    setAddBusyId(candidate.lineUserId);
+    setAddMessage(null);
+    try {
+      const res = await fetch("/api/admin/games/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          gameCategory,
+          seasonId,
+          eventDate: selected,
+          lineUserId: candidate.lineUserId,
+          markPaid,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddMessage({ ok: false, text: data.error ?? "追加に失敗しました" });
+        return;
+      }
+
+      const rosterMessage = data.rosterUpdated ? "。当日名簿の支払い状態も更新しました" : "";
+      setAddMessage({
+        ok: true,
+        text: `${candidate.displayName} さんを「${paymentLabel}」として追加しました${rosterMessage}`,
+      });
+      setAddQuery("");
+      fetchDay(selected);
+    } catch {
+      setAddMessage({ ok: false, text: "追加に失敗しました" });
+    } finally {
+      setAddBusyId(null);
+    }
+  }
+
   async function generate() {
     if (!rangeStart || !rangeEnd) { setMsg({ ok: false, text: "期間（開始日・終了日）を設定してください" }); return; }
     setBusy(true); setMsg(null);
@@ -223,6 +311,12 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   const selScheduled = selected ? dates.has(selected) : false;
   const selClosed = selected ? closedDates.has(selected) : false;
   const selPast = selected ? selected < today : false;
+  const candidateResults = useMemo(() => {
+    if (!addQuery.trim()) return [];
+    return candidates
+      .filter((candidate) => kanaIncludes(candidate.displayName, addQuery))
+      .slice(0, 8);
+  }, [addQuery, candidates]);
 
   return (
     <div className="p-4 flex flex-col gap-4 max-w-5xl">
@@ -395,6 +489,104 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
                       </ul>
                     )}
                   </div>
+
+                  {!selClosed && (
+                    <div className="rounded-xl border border-gray-100 p-3 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleAddParticipants}
+                        className="self-start rounded-lg px-3 py-1.5 text-xs font-bold text-white"
+                        style={{ background: ACCENT }}
+                      >
+                        ＋ 参加者を追加
+                      </button>
+
+                      {addOpen && (
+                        <div className="flex flex-col gap-2">
+                          <p className="text-[11px] leading-relaxed text-[#231714]/70">
+                            参加費を受け取り済みの人をこの開催日の参加者として追加します。入金の自動照合は行いません（実行内容は監査ログに残ります）。
+                            {(gameCategory === "darts" || gameCategory === "billiards" || gameCategory === "poker") && (
+                              <>
+                                <br />
+                                ゲーム開始後は新しい参加者を追加できません（名簿に未払いで載っている人を支払い済みにすることはできます）。
+                              </>
+                            )}
+                          </p>
+
+                          <input
+                            type="text"
+                            value={addQuery}
+                            onChange={(event) => setAddQuery(event.target.value)}
+                            placeholder="名前で検索（ひらがな・カタカナ可）"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-[#231714]"
+                          />
+
+                          <label className="flex items-center gap-2 text-[12px] font-bold text-[#231714]/80">
+                            <input
+                              type="checkbox"
+                              checked={!markPaid}
+                              onChange={(event) => setMarkPaid(!event.target.checked)}
+                            />
+                            未払い（参加費未受領）として追加する
+                          </label>
+
+                          {candidatesLoading ? (
+                            <div className="py-3 text-center text-[12px] text-[#231714]/60">候補を読み込み中…</div>
+                          ) : candidateResults.length > 0 ? (
+                            <ul className="rounded-lg border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+                              {candidateResults.map((candidate) => {
+                                const current = dayInfo?.participants.find(
+                                  (participant) => participant.lineUserId === candidate.lineUserId
+                                );
+                                const status = current
+                                  ? STATUS_LABEL[current.status] ?? { text: current.status, color: "#5f6266", bg: "#f1f2f3" }
+                                  : null;
+                                const alreadyPaid = current?.status === "paid";
+                                return (
+                                  <li key={candidate.lineUserId} className="flex items-center gap-2 px-2 py-2">
+                                    {candidate.pictureUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={candidate.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover bg-gray-100" />
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-full bg-gray-200 shrink-0" />
+                                    )}
+                                    <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-sm font-bold text-[#231714] truncate">{candidate.displayName}</span>
+                                      {status && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: status.bg, color: status.color }}>
+                                          {status.text}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-[#231714]/60 shrink-0">
+                                      {ROLE_LABELS[candidate.role as UserRole]}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => addParticipant(candidate)}
+                                      disabled={alreadyPaid || addBusyId !== null}
+                                      className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-40 shrink-0"
+                                      style={{ background: ACCENT }}
+                                    >
+                                      {addBusyId === candidate.lineUserId ? "追加中…" : "追加"}
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : addQuery.trim() ? (
+                            <div className="py-3 text-center text-[12px] text-[#231714]/60">該当する候補はいません。</div>
+                          ) : null}
+
+                          {addMessage && (
+                            <div className={`rounded-lg px-3 py-2 text-[12px] font-bold ${addMessage.ok ? "bg-[#eef6f0] text-[#2f7d57]" : "bg-[#fdece8] text-[#d8533a]"}`}>
+                              {addMessage.text}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {selClosed ? (
                     <div className="rounded-xl px-3 py-2.5 text-[12px] font-bold leading-relaxed" style={{ background: "#fdece8", color: "#c0563c" }}>
