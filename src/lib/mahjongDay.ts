@@ -6,6 +6,7 @@
 import { getDb } from "@/lib/firebaseAdmin";
 import { computeNextRound, type RankedTable, type RotPlayer } from "@/lib/mahjongRotation";
 import { writeAuditLog } from "@/lib/auditLog";
+import { deriveStatus } from "@/lib/mahjongEntryStatus";
 import type { MahjongDayState, MahjongDaySwap, MahjongEntry, MahjongTable, MahjongTableMember } from "@/types";
 
 const LABELS = "ABCDEFGH".split("");
@@ -53,8 +54,11 @@ async function fetchPaidParticipants(
     .get();
   return snap.docs
     .map((d) => d.data() as MahjongEntry)
-    .filter((e) => e.paymentStatus === "paid")
-    .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
+    // ⚠️ 判定は deriveStatus（day/assignment・day/assign・mahjongForfeit と同じ）。
+    // 社員（参加費免除）は `status:"paid"` だけで `paymentStatus` が無いため、
+    // `paymentStatus === "paid"` で数えると画面は「支払い済み4名」なのに開始できない（2026-09-04 本番）。
+    .filter((e) => deriveStatus(e) === "paid")
+    .sort((a, b) => (a.enteredAt ?? "").localeCompare(b.enteredAt ?? ""))
     .map((e) => ({
       lineUserId: e.lineUserId,
       displayName: e.displayName,
