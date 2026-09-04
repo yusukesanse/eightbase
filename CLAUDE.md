@@ -63,8 +63,15 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - 新しい画面でキャッシュを足すときも、これらの破棄経路（`clearAllCache` 対象 = `swr:` プレフィックス）に乗ること。
 
 ## ブランチ運用
-- `develop` で作業 → 確認後 `main` に反映（fast-forward）。
+- `develop` で作業 → 確認後 `main` に反映（**fast-forward のみ**）。
 - 本番は `main`（Vercel 本番デプロイ）。
+- ⚠️ **cherry-pick で `main` に写さない。** 2026-09-04 まで「develop 専用の検証データ投入を除いて main へ cherry-pick」
+  していたため履歴が分岐し、LINE 配信失敗の検出や請求管理の照合など**本物の修正が本番に届いていなかった**。
+  同日に `main` を `develop` と同じ位置へ揃えた（旧 main は tag `archive/main-2026-09-04`）。
+- 「develop に入れたものは本番に行く」前提。**まだ本番に出せないもの（お金が動く機能など）は feature ブランチに留める**
+  （例: `feature/square-refund` はサンドボックスで通してから develop へ）。
+- develop 専用の検証ツール（`/admin/demo-data` 等）は `isProduction()`（`NEXT_PUBLIC_APP_ENV=production`）で
+  非表示・API 404 にしてあるので main に入っていてよい。新しく足すときも同じガードを必ず入れる。
 
 ## 麻雀リーグ（現行仕様の要点）
 - シーズンは**種目別**（`Season.gameCategory`）。麻雀の処理は `getActiveSeason("mahjong")`。

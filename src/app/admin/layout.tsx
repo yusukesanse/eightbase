@@ -69,8 +69,9 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
-  // DEV-ONLY（develop 専用 / main へ入れない）
-  // demo 環境をアプリ全体で整える単一の入口。非本番のみ表示（APIも本番では404）。
+  // DEV-ONLY: demo 環境をアプリ全体で整える単一の入口。
+  // 非本番のみ表示（APIも本番では404）。本番判定で隠しているので main に入っていてよい
+  //（2026-09-04 に develop→main を fast-forward 運用へ戻したため。cherry-pick で除外しない）。
   ...(process.env.NEXT_PUBLIC_APP_ENV !== "production"
     ? [
         {
