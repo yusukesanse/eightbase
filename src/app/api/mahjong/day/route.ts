@@ -3,8 +3,9 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { todayJst } from "@/lib/date";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
-import { getActiveSeason, toPublicMahjongTable, isManualAssignmentSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason, toPublicMahjongTable, isManualAssignmentSeason } from "@/lib/mahjong";
 import { startDay } from "@/lib/mahjongDay";
+import { getMahjongDayGmAccess } from "@/lib/mahjongDayGm";
 import { advanceDemoDay, reportOneDemoDummy } from "@/dev-only/mahjongDemo";
 import type { MahjongDayState, MahjongTable } from "@/types";
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   // 手動（GM）シーズン: 未確定 round は一般参加者に卓を見せない（GM の振り分け待ち）。
   const manualSeason = isManualAssignmentSeason(season);
-  const gm = isGameMaster(season, userId);
+  const access = await getMahjongDayGmAccess(season, eventDate, userId);
   const awaitingAssignment = manualSeason ? (day?.awaitingAssignment ?? true) : false;
 
   const tables = manualSeason && awaitingAssignment
@@ -71,7 +72,15 @@ export async function GET(req: NextRequest) {
     lastSwap: sw ? { round: sw.round, out: sw.out.map(pub), in: sw.in.map(pub), shrunk: sw.shrunk, reason: sw.reason ?? null } : null,
     tables,
     manualSeason,
-    isGameMaster: gm,
+    isGameMaster: access.isGm,
+    dayGm: {
+      eligible: access.eligible,
+      needsClaim: access.needsClaim,
+      implicit: access.implicit,
+      gmDisplayName: access.gmDisplayName,
+      isMe: access.gmUserId === userId,
+      candidates: access.candidates.map((c) => c.displayName),
+    },
     awaitingAssignment,
     // GM が「本日の対局を終了」した日（以降この日の卓は組まれない）。
     finished: !!day?.finishedAt,

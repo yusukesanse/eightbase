@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { requireMahjongDayGm } from "@/lib/mahjongDayGm";
 import { ASSIGN_VALID_LABELS } from "@/lib/mahjongAssign";
 import { advanceDayIfRoundComplete } from "@/lib/mahjongDay";
 import { writeAuditLog } from "@/lib/auditLog";
@@ -14,6 +15,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * DELETE /api/mahjong/day/table
  * GM 専用: いまの半荘の指定卓を取り消す。
+ * 認可は当日GM（`requireMahjongDayGm`＝`getMahjongDayGmAccess().isGm`）で判定する。
  * body: { eventDate, label: "A" | "B" }
  *
  * 欠員が出たのに気づかず3名で始めてしまった等のやり直し用。
@@ -28,9 +30,6 @@ export async function DELETE(req: NextRequest) {
 
   const season = await getActiveSeason("mahjong");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
@@ -38,6 +37,8 @@ export async function DELETE(req: NextRequest) {
   if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
   }
+  const gate = await requireMahjongDayGm(season, eventDate, userId);
+  if (!gate.ok) return gate.response;
   if (typeof label !== "string" || !ASSIGN_VALID_LABELS.includes(label)) {
     return NextResponse.json({ error: "卓の指定が不正です" }, { status: 400 });
   }

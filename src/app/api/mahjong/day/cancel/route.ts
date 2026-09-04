@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { requireMahjongDayGm } from "@/lib/mahjongDayGm";
 import { cancelDay } from "@/lib/mahjongForfeit";
 import { writeAuditLog } from "@/lib/auditLog";
 
@@ -11,6 +12,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * POST /api/mahjong/day/cancel
  * GM 専用: この開催日を中止（流会）にする。
+ * 認可は当日GM（`requireMahjongDayGm`＝`getMahjongDayGmAccess().isGm`）で判定する。
  * body: { eventDate }
  *
  * 人数不足が主用途だが、雨天・設備トラブル等でも中止できるよう人数の下限は設けない。
@@ -23,15 +25,14 @@ export async function POST(req: NextRequest) {
 
   const season = await getActiveSeason("mahjong");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
   }
+  const gate = await requireMahjongDayGm(season, eventDate, userId);
+  if (!gate.ok) return gate.response;
 
   try {
     const result = await cancelDay(season.seasonId, eventDate, userId);

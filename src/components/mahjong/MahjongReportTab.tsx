@@ -9,6 +9,7 @@ import { upcomingSaturdayJst } from "@/lib/date";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/LineContact";
 import { MahjongGmAssignPanel } from "@/components/mahjong/MahjongGmAssignPanel";
+import { MahjongDayGmBanner } from "@/components/mahjong/MahjongDayGmBanner";
 
 /* ───────── 申告タブ ───────── */
 
@@ -166,6 +167,14 @@ interface DayResp {
   // 手動卓振り分け（GM）シーズン用
   manualSeason?: boolean;
   isGameMaster?: boolean;
+  dayGm?: {
+    eligible: boolean;
+    needsClaim: boolean;
+    implicit: boolean;
+    gmDisplayName: string | null;
+    isMe: boolean;
+    candidates: string[];
+  };
   awaitingAssignment?: boolean;
   /** GM が「本日の対局を終了」した日。 */
   finished?: boolean;
@@ -259,6 +268,10 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
     );
   }
 
+  const gmBanner = day?.manualSeason && day.dayGm ? (
+    <MahjongDayGmBanner eventDate={eventDate} dayGm={day.dayGm} finished={!!day.finished} onChanged={load} />
+  ) : null;
+
   // GM（手動シーズン）: 卓振り分けパネルを常時上部に表示（自己申告UIとは別セクション）。
   const gmPanel = day?.manualSeason && day.isGameMaster ? (
     <MahjongGmAssignPanel eventDate={eventDate} onChanged={load} />
@@ -273,6 +286,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
         : "まだ卓が組まれていません。";
     return (
       <div className="flex flex-col gap-4">
+        {gmBanner}
         {gmPanel}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">
           {msg}
@@ -285,6 +299,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {gmBanner}
       {gmPanel}
       <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
         <div>

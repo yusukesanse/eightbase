@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { writeAuditLog } from "@/lib/auditLog";
+import { MAHJONG_DAY_GM_COLLECTION, mahjongDayGmDocId } from "@/lib/mahjongDayGm";
 import type { MahjongDayState, MahjongTable } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export async function DELETE(req: NextRequest) {
   const db = getDb();
   const batch = db.batch();
   batch.delete(db.collection("mahjongDayState").doc(`${seasonId}_${eventDate}`));
+  // 当日GM（mahjongDayGm）も一緒に消す。残すと前回の担当だけが操作できる状態がリセット後も続く。
+  batch.delete(db.collection(MAHJONG_DAY_GM_COLLECTION).doc(mahjongDayGmDocId(seasonId, eventDate)));
   const tbl = await db.collection("mahjongTables").where("seasonId", "==", seasonId).get();
   let removed = 0;
   tbl.docs.forEach((d) => {

@@ -212,6 +212,32 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   - ポーカー … 試合ごとにディーラーを自己選出（GMの概念なし）。
 - 以下は**麻雀の**GM仕様。GM は `Season.gameMasterIds`（管理画面のシーズン編集で複数選択）。**空 = 従来どおりの自動進行**（後方互換）。
 - **⚠️ 本番のアクティブな麻雀シーズンには GM を1名以上設定すること。** 未設定だと受付が締まらず、流会もできない。
+
+#### 麻雀の「当日GM」（登録GMが複数いる日は1名に絞る・2026-09-04）
+- 起きたこと: 登録GMが2名同じ日に参加し、**両方の画面にGMパネルが出て想定していない人が進行した**。
+  麻雀には「今日は誰がGMか」の概念が無く、登録GM全員が常に同じ権限だった。
+- 仕組みは `src/lib/mahjongDayGm.ts` に1本化。進行API 6本（`day/start` `assign` `assignment` `cancel` `finish` `table`）の
+  認可は **`getMahjongDayGmAccess().isGm`**。`isGameMaster()` 単体で認可しない。
+  - **資格者 = 登録GM ∩ その日の参加表明者**（`mahjongEntries`。cancelRequested / refunded は除く）。
+    登録GMでも参加表明していなければ操作できない → 進行だけしてほしい人は管理画面の日程タブで参加者に追加する。
+  - 資格者 **1名** → 暗黙にその人が当日GM（追加操作なし＝従来どおり）。「ゲーム開始」時に `mahjongDayGm` へ明示的に記録する。
+  - 資格者 **2名以上** → 誰かが「GMをやる」（`POST /api/mahjong/day/gm`）を押すまで**誰も進行できない**。他の資格者は「交代する」で引き継げる（本日終了後は不可）。
+  - 資格者 **0名** → 誰も進行できない。
+  - 当日GMに決まった人が **GM登録を外された／参加をキャンセルした**ら権限を失い、残りの資格者で再判定する（gm doc の値を無条件に信用しない）。
+- 当日GMの保存先は **専用コレクション `mahjongDayGm/{seasonId}_{eventDate}`**。⚠️ `mahjongDayState` に混ぜないこと
+  （`startDay()` は dayState が存在すると初期化を飛ばすので、開始前に GM だけ書くと round 等が入らない日ができる）。
+  管理者の「当日進行リセット」（`DELETE /api/admin/mahjong/day-states`）はこの doc も一緒に消す。
+- 「GMをやる」バナー（`MahjongDayGmBanner`・対戦記録タブ）は**資格者にだけ**出す。当日GET `/api/mahjong/day` の
+  `dayGm` はそのための表示用で、登録GMでない人には Firestore を読まずに返す（12秒ポーリングの読み取りを増やさない）。
+- 回帰テスト: `__tests__/unit/lib/mahjongDayGm.test.ts` / `__tests__/unit/api/mahjongDayGmRoute.test.ts`。
+
+#### ⚠️ 「ゲーム開始」の人数判定は `deriveStatus` で数える（2026-09-04 本番）
+社員1名＋会員3名の4名で「ゲーム開始」を押せなかった。社員（staff）は参加費免除で entry に `status:"paid"` だけが書かれ
+`paymentStatus` が無い。GM画面のプール・卓振り分け・流会は `deriveStatus()` で数えて社員を含むのに、
+開始判定の `fetchPaidParticipants`（`src/lib/mahjongDay.ts`）だけが `paymentStatus === "paid"` で数えていた
+＝画面は「支払い済み4名」なのにサーバーは3名と判定して「当日はまだ開始できません」。
+**「支払い済み」の判定は必ず `deriveStatus(e) === "paid"`**。`paymentStatus` を直接見ない。
+回帰テスト: `__tests__/unit/lib/mahjongDayStart.test.ts`。
 - 当日の流れ:
   1. GM が「ゲーム開始（受付を締め切る）」→ `mahjongDayState.entryClosedAt` を打刻。**押した瞬間が締切**で、以降は参加表明も参加費の支払いも不可（`POST /api/mahjong/day/start`）。支払い済み4名未満は開始できない。
   2. GM が半荘ごとに卓を手動振り分け（`POST /api/mahjong/day/assign`）。**卓はちょうど4名**、余りは待機（抜け番）。

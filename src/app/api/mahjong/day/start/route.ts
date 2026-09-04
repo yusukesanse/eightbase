@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
 import { startDay, startGameDay } from "@/lib/mahjongDay";
+import { claimMahjongDayGm, requireMahjongDayGm } from "@/lib/mahjongDayGm";
 import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * POST /api/mahjong/day/start
  * GM 専用: この開催日の**受付を締め切って**ゲームを開始する。
+ * 認可は当日GM（`requireMahjongDayGm`＝`getMahjongDayGmAccess().isGm`）で判定する。
  * body: { eventDate }
  *
  * 押した瞬間が締切。以降は参加表明も参加費の支払いもできず、その時点の支払い済みメンバーが
@@ -23,14 +25,26 @@ export async function POST(req: NextRequest) {
 
   const season = await getActiveSeason("mahjong");
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+  }
+
+  const gate = await requireMahjongDayGm(season, eventDate, userId);
+  if (!gate.ok) return gate.response;
+  const access = gate.access;
+
+  if (access.isGm && !access.gmUserId) {
+    try {
+      const claimResult = await claimMahjongDayGm(season, eventDate, userId);
+      if (!claimResult.ok) {
+        console.warn("[mahjong/day/start] implicit GM claim failed:", claimResult.error);
+      }
+    } catch (error) {
+      console.warn("[mahjong/day/start] implicit GM claim error:", error);
+    }
   }
 
   try {

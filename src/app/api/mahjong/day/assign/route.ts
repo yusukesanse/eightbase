@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { requireMahjongDayGm } from "@/lib/mahjongDayGm";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
 import { validateGmAssignment, ASSIGN_VALID_LABELS, ASSIGN_MAX_SEATS, type AssignTable } from "@/lib/mahjongAssign";
 import { writeAuditLog } from "@/lib/auditLog";
@@ -14,11 +15,12 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * POST /api/mahjong/day/assign
  * GM 専用: 「いまの半荘」の卓（A/B）と待機を手動確定する。
+ * 認可は当日GM（`requireMahjongDayGm`＝`getMahjongDayGmAccess().isGm`）で判定する。
  * body: { eventDate, tables: [{ label, memberIds }], waiting: [lineUserId] }
  *
  * - 対象の半荘は**サーバーの dayState.round**（クライアントは指定できない）。
  *   GM は順位や前半荘の結果に関係なく、いつでも現半荘を自由に組める。
- * - 認可: requireGameUser ＋ アクティブシーズンの gameMasterIds に含まれること。
+ * - 認可: requireGameUser ＋ 当日GMであること。
  * - 検証: paid のみ・重複なし・卓は4名ちょうど・全 paid を過不足なく配置（8名=待機0 を含む）。
  * - 二重確定不可: awaitingAssignment=true の間だけ確定できる（確定済みは 409）。
  *   全員の申告が済んで次 round に進むと再び true に戻る。
@@ -30,9 +32,6 @@ export async function POST(req: NextRequest) {
 
   const season = await getActiveSeason();
   if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
 
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
@@ -42,6 +41,8 @@ export async function POST(req: NextRequest) {
   if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
   }
+  const gate = await requireMahjongDayGm(season, eventDate, userId);
+  if (!gate.ok) return gate.response;
   if (!Array.isArray(tablesIn) || !Array.isArray(waitingIn)) {
     return NextResponse.json({ error: "tables / waiting は配列で指定してください" }, { status: 400 });
   }

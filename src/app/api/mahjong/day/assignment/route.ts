@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { todayJst } from "@/lib/date";
 import { requireGameUser } from "@/lib/auth";
-import { getActiveSeason, isGameMaster } from "@/lib/mahjong";
+import { getActiveSeason } from "@/lib/mahjong";
+import { requireMahjongDayGm } from "@/lib/mahjongDayGm";
 import { startDay, buildInitialDay } from "@/lib/mahjongDay";
 import { isAssignmentLocked } from "@/lib/mahjongAssign";
 import { deriveStatus } from "@/lib/mahjongEntryStatus";
@@ -15,21 +16,22 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * GET /api/mahjong/day/assignment?eventDate=YYYY-MM-DD
  * GM（ゲームマスター）専用: 当日の支払い済みプール・現 round・下書き（既存 or FIFO 提案）・
  * ロック状態（申告開始済みか）を返す。非 GM は 403。
+ * 認可は当日GM（`requireMahjongDayGm`＝`getMahjongDayGmAccess().isGm`）で判定する。
  */
 export async function GET(req: NextRequest) {
   const userId = await requireGameUser(req);
   if (!userId) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+
+  const season = await getActiveSeason();
+  if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
 
   const eventDate = req.nextUrl.searchParams.get("eventDate");
   if (!eventDate || !DATE_RE.test(eventDate)) {
     return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
   }
 
-  const season = await getActiveSeason();
-  if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-  if (!isGameMaster(season, userId)) {
-    return NextResponse.json({ error: "ゲームマスターのみ利用できます" }, { status: 403 });
-  }
+  const gate = await requireMahjongDayGm(season, eventDate, userId);
+  if (!gate.ok) return gate.response;
 
   // 開催日を迎えていれば dayState を用意（GM シーズンは卓を作らず awaiting 初期化）。
   if (eventDate <= todayJst()) {
