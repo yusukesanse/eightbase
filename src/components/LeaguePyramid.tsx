@@ -26,7 +26,7 @@ const HERO_HEIGHT = 280;
 /** 左ラベルの縦位置（上端からの割合・旧 3D 版と同じ定数）。画像を差し替えたらここを合わせる。 */
 const LABEL_TOP = [0.07, 0.37, 0.645] as const;
 /** 自分のアバターの縦位置（各段の面の中心・上端からの割合）。画像を差し替えたらここを合わせる。 */
-const AVATAR_TOP = [0.21, 0.47, 0.73] as const;
+const AVATAR_TOP = [0.12, 0.46, 0.73] as const;
 /** ピラミッド画像を中央から右へずらす量（px）。左のラベルと重ならないようにする。 */
 const PYRAMID_OFFSET_X = 22;
 /** 左ラベルのキッカー（段位置で固定・旧 3D 版と同じ）。 */
@@ -66,7 +66,7 @@ export function LeaguePyramid({
       <div
         className="relative overflow-hidden rounded-[20px]"
         style={{
-          background: "radial-gradient(120% 80% at 50% 10%, #16181b, #050607)",
+          background: "#000000",
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(20,41,31,.12)",
           height: HERO_HEIGHT,
         }}
