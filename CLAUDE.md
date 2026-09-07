@@ -618,6 +618,13 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - 共通処理 `runLiffServerLogin()`（`src/lib/liff.ts`）を両画面で使用。
 - 環境判定 `detectEnv()`: `?env` 優先、無ければホスト名（localhost→dev / *.vercel.app→review / その他→prod）。**prodで dev LIFF ID にフォールバックしない**。
 - 連携成功時は `clearAuthCache()`＋`profileComplete` で分岐（未完了は `/setup-profile` 直行で往復を防止）。
+- **ログイン後の行き先は `loginDestination()`（`src/lib/loginDestination.ts`）の1箇所**（2026-09-07 の不具合対応）。
+  ゲストは profileComplete に関係なく `/games`。会員・社員は profileComplete で `/reservation` か `/setup-profile`。決済戻りのクエリは引き継ぐ。
+  - 起きたこと: QR から入ったゲストが、ログイン後に画面がチカチカして進まない。原因は `profileComplete=false` のゲストを
+    `/setup-profile` へ送り、そこで会員専用の `/api/auth/profile`（`requireMember`）が 401 → `/login` → 再ログイン → `/setup-profile` … の往復。
+  - 直したこと: 行き先を上の関数に一本化／`/setup-profile` を `AuthGuard` の保護対象にしてゲストは `/games` へ／
+    **認証失敗時に自動で `/login` へ飛ばさない**（`AuthRecovery` で再試行ボタンを出す＝往復を構造的に断つ）／LIFF 初期化とブートの多重実行を防ぐ。
+  - 回帰テスト: `__tests__/unit/components/authNavigation.test.tsx`（jsdom・往復を6回で打ち切って検出）。**自動リダイレクトを足すときはこのテストを先に見る。**
 - 利用申請（`AccessRequestForm`）: **ゲストは会社名が任意**（API も `requestedRole==="guest"` のみ空を許可・2026-09-07）。
   申請後に再度ミニアプリを開いた人には「現在申請中です」を出す（`liff-login` が未連携時に `accessRequests` の pending を1件返し、
   `runLiffServerLogin` が `kind:"pending-request"` を返す）。`/login` では needs-linking と同じ扱い。
