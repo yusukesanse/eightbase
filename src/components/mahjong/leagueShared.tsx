@@ -6,6 +6,7 @@
  */
 
 import { Avatar } from "@/components/ui/LineContact";
+import { StatusPill } from "@/components/ui/eb";
 import type { PublicMahjongTable, PublicMahjongTableMember } from "@/types";
 export { todayJst } from "@/lib/date";
 
@@ -36,14 +37,16 @@ export function formatJpDate(d: string): string {
 export function PointsSignToggle({
   sign,
   onChange,
-  accent = ACCENT,
+  accent,
 }: {
   sign: 1 | -1;
   onChange: (s: 1 | -1) => void;
+  /** @deprecated 見た目は固定（選択中は白＋影）。互換のため受け取るが使わない。 */
   accent?: string;
 }) {
+  void accent;
   return (
-    <div className="inline-flex rounded-xl overflow-hidden shrink-0" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
+    <div className="inline-flex gap-1 rounded-2xl p-1 shrink-0" style={{ background: "var(--eb-tint)" }}>
       {([1, -1] as const).map((s) => {
         const active = sign === s;
         return (
@@ -53,8 +56,12 @@ export function PointsSignToggle({
             onClick={() => onChange(s)}
             aria-pressed={active}
             aria-label={s === 1 ? "プラス" : "マイナス"}
-            className="w-10 py-2.5 text-[20px] font-black leading-none transition-all"
-            style={active ? { background: accent, color: "#fff" } : { background: "#f6f8f9", color: "#3f4247" }}
+            className="w-12 h-[50px] rounded-xl text-[22px] font-black leading-none transition-all"
+            style={
+              active
+                ? { background: "#fff", color: "var(--eb-ink)", boxShadow: "0 2px 8px rgba(20,41,31,.15)" }
+                : { background: "transparent", color: "var(--eb-ink-muted)" }
+            }
           >
             {s === 1 ? "＋" : "−"}
           </button>
@@ -80,57 +87,62 @@ export function ChevronRight({ color = "#fff", size = 14 }: { color?: string; si
   );
 }
 
-/* 緑フェルトの卓ボード（席グリッド）。申告タブと参加タブの卓確定表示で共用 */
+/** 卓内並び順から付与する仮の席風（東南西北）。サーバーは席順を持たないので表示専用。 */
+const SEAT_WINDS = ["東", "南", "西", "北"] as const;
+
+/* 卓ボード（席の一覧）。申告タブの卓確定表示で共用 */
 export function TableBoard({ table }: { table: PublicMahjongTable }) {
   return (
     <div
-      className="rounded-[20px] p-4"
-      style={{
-        background: "radial-gradient(120% 90% at 50% 30%, #2f7d57, #1c4d36)",
-        boxShadow: "inset 0 0 0 1px rgba(255,255,255,.08), inset 0 0 50px rgba(0,0,0,.28)",
-      }}
+      className="rounded-2xl p-3 border-[1.5px]"
+      style={{ background: "rgba(35,147,94,.10)", borderColor: "rgba(35,147,94,.35)" }}
     >
-      {table.tableLabel && (
-        <div className="text-center text-white/90 text-[12px] font-extrabold tracking-[0.1em] mb-3">{table.tableLabel}卓</div>
-      )}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="flex flex-col gap-2">
         {table.members.map((m, i) => (
-          <Seat key={i} m={m} me={m.isCurrentUser} />
+          <Seat key={i} m={m} me={m.isCurrentUser} wind={SEAT_WINDS[i] ?? ""} />
         ))}
       </div>
     </div>
   );
 }
 
-/* 緑フェルト上の席 */
-function Seat({ m, me }: { m: PublicMahjongTableMember; me: boolean }) {
+/* 卓の1席分の行 */
+function Seat({ m, me, wind }: { m: PublicMahjongTableMember; me: boolean; wind: string }) {
   const done = m.points !== null;
   return (
     <div
-      className="rounded-[14px] p-3 relative"
+      className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
       style={
         me
-          ? { background: "rgba(255,255,255,.96)", boxShadow: "0 4px 12px rgba(0,0,0,.25)" }
-          : { background: "rgba(255,255,255,.1)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.16)" }
+          ? { background: "rgba(255,255,255,.95)", border: "2px solid var(--eb-green)" }
+          : { background: "rgba(255,255,255,.6)" }
       }
     >
-      <div className="flex items-center gap-2">
-        <Avatar src={m.pictureUrl} name={m.displayName} size={30} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-extrabold truncate" style={{ color: me ? "#1c1f21" : "#fff" }}>{m.displayName}</div>
-          <div className="text-[10.5px] font-bold" style={{ color: me ? "#3f4247" : "rgba(255,255,255,.92)" }}>
-            {me ? "あなた" : done ? "申告済み" : "申告待ち"}
-          </div>
+      <span
+        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-[14px] font-bold"
+        style={{ background: "var(--eb-ink)" }}
+      >
+        {wind}
+      </span>
+      <Avatar src={m.pictureUrl} name={m.displayName} size={30} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[14px] font-bold truncate text-[color:var(--eb-ink)]">
+          {m.displayName}
+          {me && <span className="ml-1 text-[11px] font-bold text-[color:var(--eb-green-text)]">（あなた）</span>}
         </div>
       </div>
-      {done && (
-        <div className="flex items-baseline justify-between mt-2">
-          <span className="text-[16px] font-black tabular-nums" style={{ color: me ? "#1c1f21" : "#fff" }}>
-            {m.points!.toLocaleString()}
-          </span>
-          <span className="text-[11px] font-extrabold" style={{ color: me ? "#3f4247" : "rgba(255,255,255,.95)" }}>{m.rank}着</span>
-        </div>
-      )}
+      <div className="shrink-0 flex flex-col items-end gap-1">
+        {done ? (
+          <>
+            <span className="text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">
+              {m.points!.toLocaleString()}<span className="text-[11px] font-bold text-[color:var(--eb-ink-muted)]"> ・{m.rank}着</span>
+            </span>
+            <StatusPill tone="green">申告済み</StatusPill>
+          </>
+        ) : (
+          <StatusPill tone="muted">未申告</StatusPill>
+        )}
+      </div>
     </div>
   );
 }

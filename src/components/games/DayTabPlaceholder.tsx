@@ -1,5 +1,7 @@
 "use client";
 
+import { GlassCard } from "@/components/ui/eb";
+
 /**
  * 「対戦記録」タブの共通プレースホルダ（4種目で同一）。
  *
@@ -14,13 +16,13 @@
  */
 export function DayTabPlaceholder() {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-8 text-center">
-      <div className="text-[14px] font-extrabold text-[#231714]">参加当日に表示されます</div>
-      <p className="text-[12px] text-[#3c4f54] mt-2 leading-relaxed">
+    <GlassCard className="px-4 py-8 text-center">
+      <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">参加当日に表示されます</div>
+      <p className="text-[15px] text-[color:var(--eb-ink-muted)] mt-2 leading-relaxed">
         「参加」タブから開催日にお申し込みいただくと、当日この画面に
         <br className="hidden sm:inline" />
         進行状況（ゲームマスターの選出・スコア申告）が表示されます。
       </p>
-    </div>
+    </GlassCard>
   );
 }

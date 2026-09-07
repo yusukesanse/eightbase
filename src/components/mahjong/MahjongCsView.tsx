@@ -6,6 +6,7 @@ import { BottomSheet } from "@/components/ui/Sheet";
 import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { PointsSignToggle } from "@/components/mahjong/leagueShared";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 
 /** 公開DTO（サーバーで lineUserId を除去し isMe/seed を付与）。 */
 interface PubCsPlayer { displayName: string; pictureUrl?: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }
@@ -30,9 +31,6 @@ interface PubCsEvent {
  */
 
 const MEDAL: Record<number, string> = { 1: "#d8a526", 2: "#b9c0c6", 3: "#c97b3c" };
-const SUCCESS = "#8aab36";
-const SUCCESS_INK = "#6f9023";
-const M1 = "#a2125a";
 const LINE = "#d5dadd";
 const CARD_W = 158;
 const GAP = 12;
@@ -119,15 +117,15 @@ export function MahjongCsView() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 rounded-full animate-spin border-2 border-t-transparent" style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }} />
       </div>
     );
   }
   if (!event) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">
-        チャンピオンシップはまだ開催されていません
-      </div>
+      <GlassCard className="text-center py-10">
+        <p className="text-[15px] text-[color:var(--eb-ink-muted)]">チャンピオンシップはまだ開催されていません</p>
+      </GlassCard>
     );
   }
 
@@ -138,14 +136,13 @@ export function MahjongCsView() {
   return (
     <div className="flex flex-col gap-4">
       {/* イベントヘッダー */}
-      <div className="rounded-2xl px-4 py-3 text-center" style={{ background: "radial-gradient(120% 90% at 50% 0%, #2b2f31, #16191b)" }}>
-        <div className="text-[13px] font-black text-white tracking-[0.06em]">{event.name}</div>
-        <div className="text-[11px] text-white/55 mt-0.5">{event.eventDate}</div>
-      </div>
-
-      <p className="text-[11px] text-[#231714]/85 leading-relaxed px-0.5">
-        M1リーグ所属者は<b style={{ color: M1 }}>準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
-      </p>
+      <GlassCard className="text-center">
+        <div className="text-[20px] font-bold text-[color:var(--eb-ink)]">{event.name}</div>
+        <div className="text-[14px] text-[color:var(--eb-ink-muted)] mt-0.5">{event.eventDate}</div>
+        <p className="text-[14px] text-[color:var(--eb-ink-muted)] leading-relaxed mt-3">
+          M1リーグ所属者は<b className="text-[color:var(--eb-ink)]">準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
+        </p>
+      </GlassCard>
 
       {/* WP6: 受付中（トーナメント未生成）は誰でも自己エントリー可 */}
       {event.status === "setup" && (
@@ -159,9 +156,9 @@ export function MahjongCsView() {
       )}
 
       {event.rounds.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">
-          トーナメント表はまだ公開されていません
-        </div>
+        <GlassCard className="text-center py-10">
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">トーナメント表はまだ公開されていません</p>
+        </GlassCard>
       ) : (
         <div className="overflow-x-auto -mx-4 px-4 pb-1">
           <div className="flex flex-col items-center mx-auto" style={{ width: "max-content", minWidth: "100%" }}>
@@ -173,9 +170,9 @@ export function MahjongCsView() {
               const gold = round.type === "final";
               return (
                 <div key={i} className="flex flex-col items-center">
-                  <div className="flex items-baseline gap-1.5 mb-1.5">
-                    <span className="text-[11.5px] font-black" style={{ color: gold ? MEDAL[1] : "#5f6266" }}>{round.label}</span>
-                    <span className="text-[9.5px] text-[#3f4247]">1着通過</span>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
+                    <StatusPill tone="muted">1着通過</StatusPill>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
                     {round.matches.map((m) => (
@@ -231,44 +228,27 @@ function CsEntryPanel({
   onToggle: (join: boolean) => void;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+    <GlassCard className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[13px] font-black text-[#231714]">チャンピオンシップに参加</div>
-          <div className="text-[11px] text-[#231714]/85 mt-0.5">
+          <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">チャンピオンシップに参加</div>
+          <div className="text-[15px] text-[color:var(--eb-ink-muted)] mt-0.5">
             どなたでも参加できます（現在 {count} 名エントリー中）
           </div>
         </div>
-        {entered && (
-          <span
-            className="text-[10px] font-black px-2 py-1 rounded-full"
-            style={{ color: SUCCESS_INK, background: `color-mix(in srgb, ${SUCCESS} 14%, #fff)` }}
-          >
-            参加中
-          </span>
-        )}
+        {entered && <StatusPill tone="green" className="shrink-0">参加中</StatusPill>}
       </div>
-      {error && <div className="text-[11px] font-bold text-[#c0563c]">{error}</div>}
+      {error && <div className="text-[13px] font-bold text-[color:var(--eb-coral-text)]">{error}</div>}
       {entered ? (
-        <button
-          onClick={() => onToggle(false)}
-          disabled={busy}
-          className="w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl disabled:opacity-50"
-          style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-        >
+        <Button variant="secondary" onClick={() => onToggle(false)} disabled={busy}>
           エントリーを取り消す
-        </button>
+        </Button>
       ) : (
-        <button
-          onClick={() => onToggle(true)}
-          disabled={busy}
-          className="w-full py-3 text-sm font-black text-white rounded-2xl disabled:opacity-50"
-          style={{ background: M1 }}
-        >
+        <Button variant="primary" onClick={() => onToggle(true)} disabled={busy}>
           CSに参加する
-        </button>
+        </Button>
       )}
-    </div>
+    </GlassCard>
   );
 }
 
@@ -284,7 +264,7 @@ function ChampCrown({ champ }: { champ?: { displayName: string; pictureUrl?: str
           <div className="text-[9px] font-extrabold tracking-wide" style={{ color: MEDAL[1] }}>WINNER</div>
         </div>
       ) : (
-        <div className="mt-0.5 text-[10.5px] text-[#3f4247]">優勝者 未定</div>
+        <div className="mt-0.5 text-[16px]" style={{ color: "rgba(26,29,27,.7)" }}>優勝者 未定</div>
       )}
     </div>
   );
@@ -331,16 +311,13 @@ function MatchCard({
   const done = match.status === "completed";
   const iAmIn = match.players.some((p) => p.isMe);
   return (
-    <div
-      className="rounded-xl bg-white border border-gray-100 shadow-sm p-2"
-      style={gold ? { borderLeft: `3px solid ${MEDAL[1]}` } : undefined}
-    >
-      <div className="flex items-center justify-between mb-1.5 px-0.5">
-        <span className="text-[10.5px] font-bold text-[#40434a]">{match.label}</span>
+    <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
         {done ? (
-          <span className="text-[9px] font-black px-1 py-0.5 rounded" style={{ color: SUCCESS_INK, background: `color-mix(in srgb, ${SUCCESS} 14%, #fff)` }}>確定</span>
+          <StatusPill tone="green">確定</StatusPill>
         ) : (
-          <span className="text-[9px] font-bold text-[#c0563c]">結果待ち</span>
+          <StatusPill tone="gold">結果待ち</StatusPill>
         )}
       </div>
       <div className="flex flex-col gap-1">
@@ -358,20 +335,17 @@ function MatchCard({
           ))}
       </div>
       {/* 自分の卓は本番でも申告可。デモは他卓を自動で進められる。 */}
-      {!done && (iAmIn || demo) && (
-        <button
-          onClick={onInput}
-          className="mt-1.5 w-full py-1.5 rounded-lg text-[11px] font-extrabold text-white active:scale-[0.98] transition-transform"
-          style={{ background: iAmIn ? "#2f7d57" : "#8a9298" }}
-        >
-          {iAmIn
-            ? match.players.find((p) => p.isMe)?.points != null
-              ? "申告を修正"
-              : "結果を申告"
-            : "この卓を進める（デモ）"}
-        </button>
+      {!done && iAmIn && (
+        <Button variant="primary" onClick={onInput} className="mt-1.5 h-10 text-[13px]">
+          {match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
+        </Button>
       )}
-    </div>
+      {!done && !iAmIn && demo && (
+        <Button variant="ghost" onClick={onInput} className="mt-1.5 h-10 text-[13px]">
+          この卓を進める（デモ）
+        </Button>
+      )}
+    </GlassCard>
   );
 }
 
@@ -393,29 +367,27 @@ function BracketSlot({
       className="flex items-center gap-1 px-1.5 py-1 rounded-lg"
       style={
         advanced
-          ? { background: `color-mix(in srgb, ${SUCCESS} 12%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${SUCCESS}` }
+          ? { background: "rgba(35,147,94,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
           : me
-            ? { background: "#eef4f5", boxShadow: "inset 0 0 0 1px #dde9eb" }
-            : { background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #f1f3f4" }
+            ? { background: "var(--eb-tint)", boxShadow: "inset 0 0 0 1px var(--eb-line)" }
+            : { background: "transparent" }
       }
     >
-      <span className="flex-1 min-w-0 text-[11px] font-bold text-[#1c1f21] truncate">
+      <span className="flex-1 min-w-0 text-[13px] font-bold text-[color:var(--eb-ink)] truncate">
         {p.displayName}
-        {me && <span className="ml-0.5 text-[9px] font-extrabold text-[#3c4f54]">(あなた)</span>}
+        {me && <span className="ml-0.5 text-[11px] font-bold text-[color:var(--eb-ink-muted)]">(あなた)</span>}
       </span>
       {seed && (
-        <span className="text-[8px] font-black px-1 py-0.5 rounded shrink-0" style={{ color: M1, background: `color-mix(in srgb, ${M1} 12%, #fff)` }}>
-          S
-        </span>
+        <StatusPill tone="gold" className="shrink-0 px-1.5 py-0.5 text-[10px]">S</StatusPill>
       )}
       {advanced ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SUCCESS_INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       ) : pending ? (
-        <span className="text-[9px] text-[#3f4247] shrink-0">—</span>
+        <span className="text-[11px] text-[color:var(--eb-ink-muted)] shrink-0">—</span>
       ) : (
-        <span className="text-[9px] text-[#3f4247] tabular-nums shrink-0">{p.rank != null ? `${p.rank}着` : "—"}</span>
+        <span className="text-[11px] text-[color:var(--eb-ink-muted)] tabular-nums shrink-0">{p.rank != null ? `${p.rank}着` : "—"}</span>
       )}
     </div>
   );
@@ -453,12 +425,12 @@ function CsInputSheet({
     <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
       {iAmIn ? (
         <>
-          <p className="text-[11px] text-[#231714]/85 mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
+          <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
 
-          <label className="block text-[11px] font-extrabold text-[#3f4247] mb-2">最終持ち点</label>
+          <label className="block text-[14px] font-bold text-[color:var(--eb-ink)] mb-2">最終持ち点</label>
           <div className="flex items-center gap-2.5">
-            <PointsSignToggle sign={sign} onChange={setSign} accent="#2f7d57" />
-            <div className="flex flex-1 items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${points ? "#2f7d57" : "#e4e7e9"}` }}>
+            <PointsSignToggle sign={sign} onChange={setSign} />
+            <div className="flex flex-1 items-center h-14 rounded-2xl bg-white px-4 border border-[color:var(--eb-line)]">
               <input
                 type="text"
                 inputMode="numeric"
@@ -466,69 +438,63 @@ function CsInputSheet({
                 value={points}
                 onChange={(e) => setPoints(e.target.value.replace(/[^\d]/g, ""))}
                 placeholder="25000"
-                className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-                style={{ fontSize: "28px" }}
+                className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-bold text-right text-[color:var(--eb-ink)] tabular-nums text-[26px]"
               />
-              <span className="text-[13px] font-bold text-[#3f4247]">点</span>
+              <span className="ml-2 shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">点</span>
             </div>
           </div>
-          {n === 4 && <div className="text-[11px] text-[#3f4247] mt-1.5">100点単位（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>}
+          {n === 4 && <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-1.5">100点単位（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>}
 
-          <label className="block text-[11px] font-extrabold text-[#3f4247] mt-5 mb-2">卓内順位</label>
+          <label className="block text-[14px] font-bold text-[color:var(--eb-ink)] mt-5 mb-2">卓内順位</label>
           <div className="flex gap-2">
             {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
               <button
                 key={r}
                 onClick={() => setRank(r)}
-                className="flex-1 py-3 rounded-xl text-[15px] font-black transition-all"
+                className="flex-1 h-14 rounded-2xl text-[16px] font-bold transition-all"
                 style={
                   rank === r
-                    ? { background: "#2f7d57", color: "#fff", boxShadow: "0 3px 10px color-mix(in srgb, #2f7d57 40%, transparent)" }
-                    : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+                    ? { background: "var(--eb-green)", color: "#fff" }
+                    : { background: "var(--eb-tint)", color: "var(--eb-ink)" }
                 }
               >
-                {r}<span className="text-[10px]">着</span>
+                {r}<span className="text-[12px]">着</span>
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-[#3f4247] mt-2.5">1着のみ次のラウンドへ進出します。</p>
+          <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-2.5">1着のみ次のラウンドへ進出します。</p>
 
-          {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+          {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
 
           <div className="mt-6 flex gap-2">
-            <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
+            <Button variant="ghost" onClick={onClose}>
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => onReport({ points: signedPoints, rank: rank! })}
               disabled={!canSubmit}
-              className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
-              style={{ background: "#2f7d57" }}
+              loading={busy}
             >
-              {busy ? "送信中..." : "申告する"}
-            </button>
+              申告する
+            </Button>
           </div>
         </>
       ) : (
         <>
-          <p className="text-[11px] text-[#231714]/85 mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
+          <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
           <div className="flex flex-col gap-1.5 mb-4">
             {match.players.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#f6f8f9]">
+              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--eb-tint)" }}>
                 <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
-                <span className="text-[13px] font-bold text-[#1c1f21]">{p.displayName}</span>
+                <span className="text-[14px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</span>
               </div>
             ))}
           </div>
-          {error && <p className="mb-3 text-xs text-red-500">{error}</p>}
-          <button
-            onClick={() => onReport({ auto: true })}
-            disabled={busy}
-            className="w-full py-3 rounded-xl text-[14px] font-extrabold text-white disabled:opacity-50"
-            style={{ background: "#2f7d57" }}
-          >
-            {busy ? "反映中..." : "この卓を自動で進める（デモ）"}
-          </button>
+          {error && <p className="mb-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
+          <Button variant="ghost" onClick={() => onReport({ auto: true })} loading={busy}>
+            この卓を自動で進める（デモ）
+          </Button>
         </>
       )}
     </BottomSheet>
