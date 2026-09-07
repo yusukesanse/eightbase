@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { MahjongStanding, MahjongLeagueTier } from "@/types";
 import { Avatar } from "@/components/ui/LineContact";
+import { GlassCard, StatusPill } from "@/components/ui/eb";
 
 /**
  * 麻雀リーグ ピラミッド表示（TILES 案）
@@ -17,9 +18,9 @@ const LeaguePyramid3D = dynamic(
 );
 
 const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
-  M1: { color: "#a2125a", desc: "PREMIER ・ 1〜4位" },
-  M2: { color: "#1172a5", desc: "CHALLENGER ・ 5〜8位" },
-  M3: { color: "#b48f13", desc: "CONTENDER ・ 9位〜" },
+  M1: { color: "var(--eb-league-m1)", desc: "PREMIER ・ 1〜4位" },
+  M2: { color: "var(--eb-league-m2)", desc: "CHALLENGER ・ 5〜8位" },
+  M3: { color: "var(--eb-league-m3)", desc: "CONTENDER ・ 9位〜" },
 };
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
@@ -60,25 +61,29 @@ export function LeaguePyramid({
       </div>
 
       {/* 順位リスト */}
-      <div className="space-y-[18px]">
+      <div className="space-y-4">
         {TIER_ORDER.map((t) => {
           const members = byTier[t];
           if (members.length === 0) return null;
           const col = TIER_META[t].color;
           return (
-            <div key={`list-${t}`}>
+            <GlassCard key={`list-${t}`}>
               {/* セクション見出し */}
-              <div className="flex items-center gap-2 mx-0.5 mb-2">
-                <span className="text-[13px] font-black tracking-wide" style={{ color: col }}>{t}</span>
-                <span className="text-[11px] text-[#3f4247]">{TIER_META[t].desc}</span>
-                <span className="flex-1 h-px bg-[#eceff1]" />
-                <span className="text-[11px] text-[#3f4247]">{members.length}名</span>
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className="inline-flex items-center rounded-lg px-2 py-1 text-[13px] font-bold text-white"
+                  style={{ background: col }}
+                >
+                  {t}
+                </span>
+                <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{TIER_META[t].desc}</span>
+                <span className="flex-1" />
+                <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{members.length}名</span>
               </div>
 
               <div className="flex flex-col gap-2">
                 {members.map((s) => {
                   const isMe = s.lineUserId === currentUserId;
-                  const top3 = s.rank <= 3;
                   return (
                     <button
                       key={s.lineUserId}
@@ -87,57 +92,50 @@ export function LeaguePyramid({
                       className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-[14px] active:scale-[0.99] transition-transform"
                       style={
                         isMe
-                          ? { background: `color-mix(in srgb, ${col} 8%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${col}` }
-                          : { background: "#fff", boxShadow: "0 1px 2px rgba(28,31,33,.05), inset 0 0 0 1px #f1f3f4" }
+                          ? { background: "rgba(35,147,94,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
+                          : { background: "transparent" }
                       }
                     >
                       <div className="w-[26px] text-center shrink-0">
                         <span
-                          className="font-black tabular-nums"
-                          style={{ fontSize: top3 ? 19 : 16, color: top3 ? col : "#3f4247", letterSpacing: "-.03em" }}
+                          className="text-[17px] font-bold tabular-nums"
+                          style={{ color: "rgba(26,29,27,.6)", letterSpacing: "-.03em" }}
                         >
                           {s.rank}
                         </span>
                       </div>
-                      <Avatar src={s.pictureUrl} name={s.displayName} size={36} />
+                      <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-[14.5px] font-bold text-[#1c1f21] truncate">
+                        <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
                           {s.displayName}
-                          {isMe && (
-                            <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: col }}>YOU</span>
-                          )}
+                          {isMe && <StatusPill tone="green">YOU</StatusPill>}
                         </div>
-                        <div className="flex gap-2.5 mt-0.5 text-[11px] text-[#3f4247] tabular-nums">
+                        <div className="flex gap-2.5 mt-0.5 text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">
                           <span>{s.gamesPlayed}戦</span>
                           <span>1位 {s.firstCount}</span>
                           <span>連対 {pct(s.top2Rate)}</span>
                         </div>
                       </div>
                       <div className="text-right shrink-0 min-w-[64px]">
-                        <div className="text-[16.5px] font-black text-[#1c1f21] tabular-nums leading-none">
+                        <div className="text-[17px] font-bold text-[color:var(--eb-ink)] tabular-nums leading-none">
                           {byTotal
                             ? s.totalPoints.toLocaleString()
                             : Math.round(s.average).toLocaleString()}
                         </div>
-                        <div className="text-[9.5px] font-bold text-[#3f4247] mt-0.5">
+                        <div className="text-[10px] font-bold text-[color:var(--eb-ink-muted)] mt-0.5">
                           {byTotal ? "合計点" : "AVG"}
-                        </div>
-                        <div className="text-[10px] text-[#3f4247] tabular-nums mt-0.5">
-                          {byTotal
-                            ? `AVG ${Math.round(s.average).toLocaleString()}`
-                            : `計 ${s.totalPoints.toLocaleString()}`}
                         </div>
                       </div>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </GlassCard>
           );
         })}
       </div>
 
-      <p className="text-[11px] text-[#3f4247] leading-relaxed px-1">
+      <p className="text-[12px] text-[color:var(--eb-ink-muted)] leading-relaxed px-1">
         順位はシーズン通算{byTotal ? "合計点" : "アベレージ"}順。同点の場合は 連対率 → 試合数 → 名前順。毎月のリーグ戦後にリーグの入れ替えがあります。
       </p>
     </div>

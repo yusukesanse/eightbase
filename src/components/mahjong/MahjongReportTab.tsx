@@ -4,10 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { PublicMahjongTable, MahjongDaySwap } from "@/types";
 import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { ACCENT, todayJst, CheckIcon, TableBoard, PointsSignToggle } from "@/components/mahjong/leagueShared";
+import { todayJst, TableBoard, PointsSignToggle, CheckIcon } from "@/components/mahjong/leagueShared";
 import { upcomingSaturdayJst } from "@/lib/date";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/LineContact";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 import { MahjongGmAssignPanel } from "@/components/mahjong/MahjongGmAssignPanel";
 import { MahjongDayGmBanner } from "@/components/mahjong/MahjongDayGmBanner";
 
@@ -75,21 +76,20 @@ function ReportModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 pb-8 safe-area-pb max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[28px] p-5 pb-8 safe-area-pb max-h-[90vh] overflow-y-auto"
+        style={{ background: "rgba(255,255,255,.96)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-bold text-[#1c1f21]">スコアを申告</h3>
-        <p className="text-[11px] text-[#231714]/85 mt-1 mb-5">
+        <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-[color:var(--eb-line)]" />
+        <h3 className="text-[22px] font-bold text-[color:var(--eb-ink)]">スコアを申告</h3>
+        <p className="text-[14px] text-[color:var(--eb-ink-muted)] mt-1 mb-5">
           同卓4人の合計が100,000点になると自動で確定します。
         </p>
 
-        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mb-2">最終持ち点</label>
+        <label className="block text-[14px] font-bold text-[color:var(--eb-ink)] mb-2">最終持ち点</label>
         <div className="flex items-center gap-2.5">
-          <PointsSignToggle sign={sign} onChange={setSign} accent={ACCENT} />
-          <div
-            className="flex flex-1 items-baseline gap-2 pb-1.5"
-            style={{ borderBottom: `2px solid ${points ? ACCENT : "#e4e7e9"}` }}
-          >
+          <PointsSignToggle sign={sign} onChange={setSign} />
+          <div className="flex flex-1 items-center h-14 rounded-2xl bg-white px-4 border border-[color:var(--eb-line)]">
             <input
               ref={pointsRef}
               type="text"
@@ -101,50 +101,40 @@ function ReportModal({
                 if (e.key === "Enter") pointsRef.current?.blur();
               }}
               placeholder="25000"
-              className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-              style={{ fontSize: "30px" }}
+              className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-bold text-right text-[color:var(--eb-ink)] tabular-nums text-[26px]"
             />
-            <span className="text-[14px] font-bold text-[#3f4247]">点</span>
+            <span className="ml-2 shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">点</span>
           </div>
         </div>
-        <div className="text-[11px] text-[#3f4247] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-1.5">100点単位で入力（同卓4人の合計が100,000点）。マイナス（箱下）は左の「−」を選択。</div>
 
-        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mt-5 mb-2">卓内順位</label>
+        <label className="block text-[14px] font-bold text-[color:var(--eb-ink)] mt-5 mb-2">卓内順位</label>
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((n) => (
             <button
               key={n}
               onClick={() => setRank(n)}
-              className="flex-1 py-3 rounded-xl text-[16px] font-black transition-all"
+              className="flex-1 h-14 rounded-2xl text-[16px] font-bold transition-all"
               style={
                 rank === n
-                  ? { background: ACCENT, color: "#fff", boxShadow: `0 3px 10px color-mix(in srgb, ${ACCENT} 40%, transparent)` }
-                  : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }
+                  ? { background: "var(--eb-green)", color: "#fff" }
+                  : { background: "var(--eb-tint)", color: "var(--eb-ink)" }
               }
             >
-              {n}<span className="text-[11px]">着</span>
+              {n}<span className="text-[12px]">着</span>
             </button>
           ))}
         </div>
 
-        {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
 
         <div className="mt-6 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
-            style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-          >
+          <Button variant="ghost" onClick={onClose}>
             キャンセル
-          </button>
-          <button
-            onClick={submit}
-            disabled={busy}
-            className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
-            style={{ background: ACCENT }}
-          >
-            {busy ? "送信中..." : "申告する"}
-          </button>
+          </Button>
+          <Button variant="primary" onClick={submit} loading={busy}>
+            申告する
+          </Button>
         </div>
       </div>
     </div>
@@ -263,7 +253,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 rounded-full animate-spin border-2 border-t-transparent" style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }} />
       </div>
     );
   }
@@ -279,18 +269,36 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
 
   if (!day || day.tables.length === 0) {
     // 本日終了 ＞ 手動シーズンの「GM の振り分け待ち」 ＞ 通常の未生成メッセージ。
-    const msg = day?.finished
-      ? "本日の対局はすべて終了しました。おつかれさまでした。"
-      : day?.manualSeason && day.awaitingAssignment
-        ? "卓はまだ確定していません（ゲームマスターの振り分け待ち）。"
-        : "まだ卓が組まれていません。";
     return (
       <div className="flex flex-col gap-4">
         {gmBanner}
         {gmPanel}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">
-          {msg}
-        </div>
+        {day?.finished ? (
+          <GlassCard className="text-center py-8">
+            <div
+              className="mx-auto mb-3 flex items-center justify-center rounded-full"
+              style={{ width: 64, height: 64, background: "rgba(35,147,94,.14)" }}
+            >
+              <CheckIcon color="var(--eb-green-text)" size={28} />
+            </div>
+            <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">本日の対局はすべて終了しました</div>
+            <p className="text-[15px] text-[color:var(--eb-ink-muted)] mt-1">
+              おつかれさまでした。結果は「リーグ」タブの順位に反映されます。
+            </p>
+          </GlassCard>
+        ) : day?.manualSeason && day.awaitingAssignment ? (
+          <GlassCard className="text-center py-8">
+            <div className="mx-auto mb-3 h-7 w-7 rounded-full animate-spin border-[3px] border-t-transparent" style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "var(--eb-green)" }} />
+            <div className="text-[17px] font-bold text-[color:var(--eb-ink)]">卓はまだ確定していません</div>
+            <p className="text-[15px] text-[color:var(--eb-ink-muted)] mt-1">
+              ゲームマスターの振り分け待ちです。決まると自動でこの画面に卓が表示されます。
+            </p>
+          </GlassCard>
+        ) : (
+          <GlassCard className="text-center py-8">
+            <p className="text-[15px] text-[color:var(--eb-ink-muted)]">まだ卓が組まれていません。</p>
+          </GlassCard>
+        )}
       </div>
     );
   }
@@ -301,93 +309,82 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
     <div className="flex flex-col gap-4">
       {gmBanner}
       {gmPanel}
-      <div className="rounded-xl bg-[#eef4f5] px-3.5 py-2.5 flex items-center justify-between">
+      <div className="flex items-center justify-between px-1">
         <div>
-          <div className="text-[12px] font-extrabold text-[#40434a]">第{day.round}半荘・抜け番あり</div>
-          <div className="text-[10.5px] text-[#3c4f54] mt-0.5">半荘ごとに自動で卓を組み直します</div>
+          <div className="text-[17px] font-bold text-[color:var(--eb-ink)]">第{day.round}半荘・抜け番あり</div>
+          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">半荘ごとに自動で卓を組み直します</div>
         </div>
-        <span className="text-[12px] font-black" style={{ color: myTable ? ACCENT : "#c0563c" }}>{myTable ? "対戦中" : "待機中"}</span>
+        <StatusPill tone={myTable ? "green" : "coral"}>{myTable ? "対戦中" : "待機中"}</StatusPill>
       </div>
 
       {myTable ? (
-        <div className="flex flex-col gap-3">
+        <GlassCard className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-extrabold text-[#231714]">{myTable.tableLabel}卓</span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#eef4f5", color: "#3c4f54" }}>第{day.round}半荘</span>
+            <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">{myTable.tableLabel}卓</span>
+            <StatusPill tone="muted">第{day.round}半荘</StatusPill>
           </div>
           <TableBoard table={myTable} />
-          <button
-            onClick={() => setReportTable(myTable)}
-            className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5"
-            style={{ background: ACCENT }}
-          >
-            <CheckIcon size={17} />スコアを申告する
-          </button>
-        </div>
+          <Button variant="primary" onClick={() => setReportTable(myTable)}>
+            スコアを申告する
+          </Button>
+        </GlassCard>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <div className="text-[13px] font-extrabold text-[#231714]">今回は待機（抜け番）です</div>
-          <div className="text-[11px] text-[#231714]/85 mt-1 mb-3">
+        <GlassCard className="text-center">
+          <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">今回は待機（抜け番）です</div>
+          <div className="text-[15px] text-[color:var(--eb-ink-muted)] mt-1 mb-3">
             {demo ? "この半荘を進めると、次の卓で交代・INします" : "対戦中の卓が終わると、次の半荘で交代・INします"}
           </div>
           {demo && (
-            <button
-              onClick={() => advance()}
-              disabled={busy}
-              className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white disabled:opacity-50"
-              style={{ background: ACCENT }}
-            >
-              {busy ? "進行中..." : "この半荘を進める（デモ）"}
-            </button>
+            <Button variant="primary" onClick={() => advance()} loading={busy}>
+              この半荘を進める（デモ）
+            </Button>
           )}
-        </div>
+        </GlassCard>
       )}
 
       {/* デモ操作: ダミーは自己申告しないため、代行申告で実運用の流れ（1人ずつ申告→卓確定→次半荘）を再現する。 */}
       {demo && day.tables.length > 0 && (
-        <div className="bg-white rounded-2xl border border-dashed border-[#9db3a6] p-3.5 flex flex-col gap-2">
-          <div className="text-[11px] font-extrabold text-[#3d6650]">デモ操作（ダミーの申告を代行）</div>
+        <div className="rounded-2xl border-[1.5px] border-dashed p-3.5 flex flex-col gap-2" style={{ borderColor: "rgba(35,147,94,.4)", background: "var(--eb-tint)" }}>
+          <div className="text-[12px] font-bold text-[color:var(--eb-green-text)]">デモ操作（ダミーの申告を代行）</div>
           <div className="flex gap-2">
-            <button
-              onClick={stepOne}
-              disabled={busy}
-              className="flex-1 py-2.5 rounded-xl text-[12.5px] font-bold bg-white disabled:opacity-50"
-              style={{ boxShadow: `inset 0 0 0 1px ${ACCENT}`, color: ACCENT }}
-            >
+            <Button variant="ghost" onClick={stepOne} disabled={busy} className="text-[13px]">
               ダミー1名分を申告
-            </button>
-            <button
-              onClick={() => advance()}
-              disabled={busy}
-              className="flex-1 py-2.5 rounded-xl text-[12.5px] font-bold text-white disabled:opacity-50"
-              style={{ background: ACCENT }}
-            >
+            </Button>
+            <Button variant="primary" onClick={() => advance()} disabled={busy} className="text-[13px]">
               残り全員分を一括申告
-            </button>
+            </Button>
           </div>
-          {stepMsg && <p className="text-[11px] font-bold text-[#3d6650]">{stepMsg}</p>}
+          {stepMsg && <p className="text-[12px] font-bold text-[color:var(--eb-green-text)]">{stepMsg}</p>}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5">
-        <div className="text-[11px] font-extrabold text-[#3f4247] mb-2">待機順（先頭が次にIN）</div>
+      <GlassCard padding="md">
+        <div className="text-[13px] font-bold text-[color:var(--eb-ink)] mb-2">待機順（先頭が次にIN）</div>
         {day.waiting.length === 0 ? (
-          <div className="text-[11px] text-[#231714]/80">待機者はいません</div>
+          <div className="text-[13px] text-[color:var(--eb-ink-muted)]">待機者はいません</div>
         ) : (
-          <ol className="flex flex-col gap-1.5">
+          <ol className="flex flex-wrap gap-2">
             {day.waiting.map((w, i) => (
-              <li key={i} className="flex items-center gap-2 text-[12.5px]">
-                <span className="w-5 text-[#3f4247] font-bold tabular-nums">{i + 1}</span>
-                <Avatar src={w.pictureUrl} name={w.displayName} size={22} />
-                <span className="font-bold text-[#1c1f21]">
+              <li
+                key={i}
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5"
+                style={
+                  w.isMe
+                    ? { background: "rgba(255,255,255,.9)", border: "2px solid var(--eb-green)" }
+                    : { background: "var(--eb-tint)" }
+                }
+              >
+                <span className="text-[11px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">{i + 1}</span>
+                <Avatar src={w.pictureUrl} name={w.displayName} size={20} />
+                <span className="text-[14px] font-bold text-[color:var(--eb-ink)]">
                   {w.displayName}
-                  {w.isMe && <span className="ml-1 text-[10px] text-[#3c4f54]">（あなた）</span>}
+                  {w.isMe && <span className="ml-1 text-[12px] font-bold text-[color:var(--eb-green-text)]">（あなた）</span>}
                 </span>
               </li>
             ))}
           </ol>
         )}
-      </div>
+      </GlassCard>
 
       {/* 自分の申告はデモでも本番と同じ report API に送る（デモの差し替えは廃止。
           ダミー分は上の「デモ操作」で代行し、実運用と同じ経路・流れを再現する）。 */}
@@ -415,16 +412,16 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
   const inNames = new Set(swap.in.map((p) => p.displayName));
   return (
     <BottomSheet open title="次の卓はこちらです" onClose={onClose} dismissible={false} closeButton={false}>
-      <p className="text-[12px] text-[#231714]/80 mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
+      <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">第{swap.round}半荘が確定。抜け番で卓を組み直しました。下の卓に着席してください。</p>
       {swap.reason && (
-        <div className="mb-3 rounded-xl bg-[#fdf4e3] px-3 py-2 text-[12px] font-bold text-[#b48f13]">{swap.reason}</div>
+        <div className="mb-3 rounded-xl px-3 py-2 text-[13px] font-bold text-[color:var(--eb-gold-text)]" style={{ background: "rgba(217,169,58,.18)" }}>{swap.reason}</div>
       )}
       <div className="flex flex-col gap-2.5">
         {tables.map((t) => (
-          <div key={t.tableId} className="rounded-xl border border-gray-100 p-3">
+          <GlassCard key={t.tableId} padding="md">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[13px] font-extrabold text-[#231714]">{t.tableLabel}卓</span>
-              <span className="text-[10px] text-[#3f4247]">{t.members.length}名</span>
+              <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">{t.tableLabel}卓</span>
+              <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{t.members.length}名</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {t.members.map((m, i) => {
@@ -432,24 +429,24 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
                 return (
                   <div key={i} className="flex items-center gap-1.5 min-w-0">
                     <Avatar src={m.pictureUrl} name={m.displayName} size={22} />
-                    <span className={`text-[12px] font-bold truncate ${m.isCurrentUser ? "text-[#2f7d57]" : "text-[#1c1f21]"}`}>{m.displayName}</span>
-                    {m.isCurrentUser && <span className="shrink-0 text-[9px] font-black text-[#2f7d57]">あなた</span>}
-                    {isNew && !m.isCurrentUser && <span className="shrink-0 text-[9px] font-black px-1 rounded" style={{ color: "#6f9023", background: "#eef4dd" }}>IN</span>}
+                    <span className={`text-[13px] font-bold truncate ${m.isCurrentUser ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink)]"}`}>{m.displayName}</span>
+                    {m.isCurrentUser && <span className="shrink-0 text-[11px] font-bold text-[color:var(--eb-green-text)]">あなた</span>}
+                    {isNew && !m.isCurrentUser && <StatusPill tone="green" className="shrink-0 px-1.5 py-0.5 text-[10px]">IN</StatusPill>}
                   </div>
                 );
               })}
             </div>
-          </div>
+          </GlassCard>
         ))}
       </div>
       {swap.out.length > 0 && (
-        <div className="mt-3 text-[11px] text-[#c0563c]">
-          <span className="font-extrabold">退席（抜け番）:</span> {swap.out.map((p) => p.displayName).join("、")}
+        <div className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">
+          <span className="font-bold">退席（抜け番）:</span> {swap.out.map((p) => p.displayName).join("、")}
         </div>
       )}
-      <button onClick={onClose} className="mt-5 w-full py-3 rounded-2xl text-sm font-extrabold text-white" style={{ background: ACCENT }}>
+      <Button variant="primary" onClick={onClose} className="mt-5">
         次の卓へ
-      </button>
+      </Button>
     </BottomSheet>
   );
 }
