@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import {
   type CachedPost as Post,
   readPostsCache,
@@ -10,6 +11,7 @@ import {
 import { openExternalUrl } from "@/lib/liff";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar, SheetButton } from "@/components/ui/LineContact";
+import { Button, GlassCard, PageBg, PageHeading, SegmentedTabs, StatusPill, inputClass, type EbStatusTone } from "@/components/ui/eb";
 
 /**
  * 掲示板（できます/探してます）本体。E-1 で /timeline ページと Info の「掲示板」タブの両方から使う。
@@ -21,6 +23,11 @@ const TABS = [
   { id: "offer", label: "できます" },
   { id: "request", label: "探してます" },
 ] as const;
+
+const TYPE_CONFIG: Record<"offer" | "request", { tone: EbStatusTone; label: string }> = {
+  offer: { tone: "green", label: "できます" },
+  request: { tone: "gold", label: "探してます" },
+};
 
 export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
@@ -196,43 +203,39 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
     <>
       {/* 見出し（スタンドアロン /timeline のみ。Info タブ内では省略） */}
       {!embedded && (
-        <div className="px-5 pt-12 pb-2.5">
-          <h1 className="text-[22px] font-bold text-[#1c1f21]">掲示板</h1>
+        <div className="px-5 pt-[52px]">
+          <PageHeading title="掲示板" subtitle="できます・探してます" />
         </div>
       )}
 
-      {/* タブ（下線）。埋め込み時は Info のタブバーと二重 sticky を避けるため sticky を外す。 */}
-      <div className={`flex gap-5 px-5 border-b border-[#eceff1] bg-[#f3f5f6] ${embedded ? "" : "sticky top-0 z-10"}`}>
-        {TABS.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              aria-current={active ? "page" : undefined}
-              className={`relative py-3 text-[14px] transition-colors ${
-                active ? "text-[#33636e] font-bold" : "text-[#3f4247] font-medium"
-              }`}
-            >
-              {tab.label}
-              {active && <span className="absolute left-0 right-0 bottom-0 h-[3px] rounded-full bg-[#33636e]" />}
-            </button>
-          );
-        })}
+      {/* タブ。埋め込み時は Info のタブバーと二重 sticky を避けるため sticky を外す。 */}
+      <div
+        className={clsx("px-5", embedded ? "pt-4" : "sticky top-0 z-10 pt-4 pb-1")}
+        style={!embedded ? { background: "var(--eb-bg)" } : undefined}
+      >
+        <SegmentedTabs
+          items={TABS.map((t) => ({ id: t.id, label: t.label }))}
+          value={activeTab}
+          onChange={setActiveTab}
+          size="md"
+        />
       </div>
 
       {/* 一覧 */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-[#a5c1c7] border-t-transparent rounded-full animate-spin" />
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+          />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-[14px] text-[#3f4247]">まだ投稿がありません</p>
-          <p className="text-[12px] text-[#c3c7cc] mt-1">最初の投稿をしてみましょう</p>
+          <p className="text-[15px] text-[color:var(--eb-ink)]">まだ投稿がありません</p>
+          <p className="mt-1 text-[13px] text-[color:var(--eb-ink-muted)]">最初の投稿をしてみましょう</p>
         </div>
       ) : (
-        <div className="px-5 pt-4 pb-7 flex flex-col gap-3">
+        <div className="flex flex-col gap-3 px-5 pb-7 pt-4">
           {filtered.map((post) => (
             <PostCard
               key={post.postId}
@@ -255,8 +258,12 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
           setComposeOpen(true);
         }}
         aria-label="投稿する"
-        className="fixed right-5 w-14 h-14 rounded-full text-white flex items-center justify-center z-20 active:scale-[0.92] transition-transform"
-        style={{ bottom: "calc(var(--bottom-nav-height) + 16px)", background: "#a5c1c7", boxShadow: "0 6px 16px rgba(28,31,33,.18)" }}
+        className="fixed right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-[0.92]"
+        style={{
+          bottom: "calc(var(--bottom-nav-height) + 16px)",
+          background: "var(--eb-green)",
+          boxShadow: "0 6px 16px rgba(20,41,31,.24)",
+        }}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
@@ -278,21 +285,31 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
         }
       >
         <div className="flex flex-col gap-3.5">
-          <div className="flex gap-1 p-1 rounded-xl bg-[#f6f8f9]">
+          <div className="flex gap-2">
             {([
               { id: "offer", label: "できます" },
               { id: "request", label: "探してます" },
-            ] as const).map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setDraftType(s.id)}
-                className={`flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                  draftType === s.id ? "bg-white text-[#1c1f21] shadow-sm" : "text-[#45484d]"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+            ] as const).map((s) => {
+              const selected = draftType === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setDraftType(s.id)}
+                  className={clsx(
+                    "h-12 flex-1 rounded-[14px] text-[14px] font-bold transition-colors",
+                    selected ? "border-2 text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
+                  )}
+                  style={
+                    selected
+                      ? { background: "var(--eb-green)", borderColor: "var(--eb-green)" }
+                      : { borderColor: "var(--eb-line)" }
+                  }
+                >
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
           <textarea
             rows={3}
@@ -301,24 +318,24 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
             maxLength={500}
             placeholder="いまできること・探していることを書こう"
             style={{ fontSize: "16px" }}
-            className="w-full px-3 py-2.5 text-[15px] leading-relaxed text-[#1c1f21] bg-white rounded-[10px] border border-[#e4e7e9] focus:outline-none focus:border-[#a5c1c7] resize-none"
+            className="h-40 w-full resize-none rounded-2xl border border-[color:var(--eb-line)] bg-white px-4 py-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)] focus:outline-none focus:border-2 focus:border-[color:var(--eb-green)]"
           />
 
           {/* タグ（最大5個） */}
           <div>
-            <p className="text-[12px] text-[#45484d] mb-2">タグ（最大5個）</p>
+            <p className="mb-2 text-[12px] text-[color:var(--eb-ink-muted)]">タグ（最大5個）</p>
             {draftTags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="mb-2 flex flex-wrap gap-2">
                 {draftTags.map((t) => (
                   <button
                     key={t}
+                    type="button"
                     onClick={() => removeTag(t)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] rounded-full bg-[#eef4f5] text-[#3c4f54]"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold"
+                    style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}
                   >
                     #{t}
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="#3c4f54" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
                   </button>
                 ))}
               </div>
@@ -336,15 +353,18 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
                     }
                   }}
                   placeholder="タグを入力"
-                  className="flex-1 px-3 py-2 text-[13px] bg-white rounded-[10px] border border-[#e4e7e9] focus:outline-none focus:border-[#a5c1c7]"
+                  className={clsx("flex-1", inputClass)}
                 />
-                <button
-                  onClick={addTag}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  fullWidth={false}
+                  className="w-20"
                   disabled={!tagInput.trim()}
-                  className="px-3.5 py-2 text-[12px] rounded-[10px] bg-[#f6f8f9] text-[#40434a] disabled:opacity-40"
+                  onClick={addTag}
                 >
                   追加
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -372,19 +392,19 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
         {open && (
           <div className="flex flex-col gap-3.5">
             <PostHeader post={open} large />
-            <div className="text-[15px] text-[#40434a] leading-[1.75] whitespace-pre-wrap">{open.content}</div>
+            <div className="whitespace-pre-wrap text-[15px] leading-[1.75] text-[color:var(--eb-ink)]">{open.content}</div>
             {open.tags.length > 0 && (
               <div className="flex flex-wrap gap-2.5">
                 {open.tags.map((t) => (
-                  <span key={t} className="text-[13px] font-medium text-[#3f7c98]">#{t}</span>
+                  <span key={t} className="text-[13px] font-bold text-[color:var(--eb-green-text)]">#{t}</span>
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-[18px] pt-3 border-t border-[#eceff1]">
+            <div className="flex items-center gap-[18px] border-t border-[color:var(--eb-line)] pt-3">
               <LikeStat count={open.likes.length} active={open.likes.includes(currentUserId)} />
             </div>
             {!open.authorLineUrl && (
-              <p className="text-[12px] text-[#3f4247] leading-relaxed">
+              <p className="text-[12px] leading-relaxed text-[color:var(--eb-ink-muted)]">
                 投稿者がLINE連絡先（友だち追加URL）を未登録のため、「LINEで連絡」はご利用いただけません。
               </p>
             )}
@@ -392,7 +412,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
             {currentUserId && open.authorId === currentUserId && (
               <button
                 onClick={() => handleDelete(open.postId)}
-                className="self-start text-[12px] text-[#d82328] mt-1"
+                className="mt-1 self-start text-[12px] text-[color:var(--eb-coral-text)]"
               >
                 この投稿を削除
               </button>
@@ -404,39 +424,23 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
   );
 
   if (embedded) return <div className="pb-20">{inner}</div>;
-  return (
-    <div className="min-h-screen pb-20" style={{ background: "#f3f5f6" }}>
-      {inner}
-    </div>
-  );
+  return <PageBg>{inner}</PageBg>;
 }
 
 /* ── 投稿ヘッダー（アバター + 氏名 + 状態バッジ + 時刻） ── */
 function PostHeader({ post, large }: { post: Post; large?: boolean }) {
+  const cfg = TYPE_CONFIG[post.type];
   return (
     <div className="flex items-center gap-2.5">
       <Avatar src={post.authorPictureUrl} name={post.authorName} size={large ? "md" : "sm"} />
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className={`font-bold text-[#1c1f21] ${large ? "text-[16px]" : "text-[15px]"}`}>{post.authorName}</span>
-          <StatusBadge type={post.type} />
+          <span className={clsx("font-bold text-[color:var(--eb-ink)]", large ? "text-[16px]" : "text-[15px]")}>{post.authorName}</span>
+          <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
         </div>
-        <div className="text-[12px] text-[#3f4247]">{getRelativeTime(post.createdAt)}</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)]">{getRelativeTime(post.createdAt)}</div>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ type }: { type: "offer" | "request" }) {
-  const offer = type === "offer";
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold"
-      style={offer ? { background: "#eef4dd", color: "#6f9023" } : { background: "#eef4f5", color: "#3c4f54" }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: offer ? "#8aab36" : "#a5c1c7" }} />
-      {offer ? "できます" : "探してます"}
-    </span>
   );
 }
 
@@ -454,46 +458,94 @@ function PostCard({
 }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      className="bg-white rounded-[18px] p-4 cursor-pointer active:scale-[0.99] transition-transform"
-      style={{ boxShadow: "0 1px 3px rgba(28,31,33,.05), 0 6px 16px rgba(28,31,33,.05)" }}
+      onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }}
+      className="cursor-pointer active:opacity-90"
     >
-      <PostHeader post={post} />
-      <div className="text-[15px] text-[#40434a] leading-[1.7] mt-2.5 whitespace-pre-wrap line-clamp-4">
-        {post.content}
-      </div>
-      {post.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2.5 mt-2">
-          {post.tags.map((t) => (
-            <span key={t} className="text-[13px] font-medium text-[#3f7c98]">#{t}</span>
-          ))}
+      <GlassCard>
+        <PostHeader post={post} />
+        <div className="mt-2.5 line-clamp-4 whitespace-pre-wrap text-[15px] leading-[1.7] text-[color:var(--eb-ink)]">
+          {post.content}
         </div>
-      )}
-      <div className="flex items-center gap-[18px] mt-3">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onLike();
-          }}
-        >
-          <LikeStat count={post.likes.length} active={liked} />
-        </button>
-        <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-[#3f4247]">
-          詳細
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-        </span>
-      </div>
+        {post.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2.5">
+            {post.tags.map((t) => (
+              <span key={t} className="text-[13px] font-bold text-[color:var(--eb-green-text)]">#{t}</span>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex items-center gap-3">
+          <LikeButton
+            count={post.likes.length}
+            active={liked}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLike();
+            }}
+          />
+          <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-[color:var(--eb-ink-muted)]">
+            詳細
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </span>
+        </div>
+      </GlassCard>
     </div>
   );
 }
 
-function LikeStat({ count, active }: { count: number; active?: boolean }) {
-  const color = active ? "#e5484d" : "#45484d";
+/** カード上のいいね（44px 丸ボタン＋件数）。 */
+function LikeButton({
+  count,
+  active,
+  onClick,
+}: {
+  count: number;
+  active: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "#e5484d" : "none"} stroke={active ? "#e5484d" : "#3f4247"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={active ? "いいねを取り消す" : "いいね"}
+        aria-pressed={active}
+        className="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90"
+        style={{ background: active ? "rgba(217,72,58,.14)" : "var(--eb-tint)" }}
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill={active ? "var(--eb-coral)" : "none"}
+          stroke={active ? "var(--eb-coral)" : "var(--eb-ink-muted)"}
+          strokeWidth={active ? 2.2 : 1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.5 1.2 5.5 3.5 2-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z" />
+        </svg>
+      </button>
+      <span
+        className="text-[13px] font-bold tabular-nums"
+        style={{ color: active ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
+/** 詳細シートの静的ないいね表示（タップ不可）。 */
+function LikeStat({ count, active }: { count: number; active?: boolean }) {
+  const color = active ? "var(--eb-coral-text)" : "var(--eb-ink-muted)";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13px] font-bold" style={{ color }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? "var(--eb-coral)" : "none"} stroke={active ? "var(--eb-coral)" : "var(--eb-ink-muted)"} strokeWidth={active ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5.5 6.5 5.5c2 0 3.5 1.2 5.5 3.5 2-2.3 3.5-3.5 5.5-3.5C21 5.5 23 9 21.5 12.5 19 16.65 12 21 12 21z" />
       </svg>
       <span>{count}</span>

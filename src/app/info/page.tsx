@@ -6,6 +6,7 @@ import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NufEvent, NewsItem } from "@/types";
 import { TimelineBoard } from "@/components/TimelineBoard";
 import { paymentReturnSearch, GAME_PAYMENT_RETURN_BASE } from "@/lib/gamePaymentReturn";
+import { GlassCard, PageBg, PageHeading, SegmentedTabs, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -61,39 +62,29 @@ export default function InfoPage() {
   const loading = eventsLoading && newsLoading;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white pt-12 pb-0 px-5">
-        <h1 className="text-[17px] font-medium text-[#231714]">Info</h1>
-      </header>
-
-      {/* タブバー */}
-      <div className="bg-white border-b border-gray-100 flex sticky top-0 z-10">
-        {visibleTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            aria-current={activeTab === tab.id ? "page" : undefined}
-            className={`flex-1 py-3 text-xs text-center relative transition-colors ${
-              activeTab === tab.id
-                ? "text-[#33636e] font-bold"
-                : "text-gray-700 font-medium hover:text-gray-700"
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-[18%] right-[18%] h-[3px] bg-[#33636e] rounded-full" />
-            )}
-          </button>
-        ))}
+    <PageBg>
+      <div className="px-5 pt-[52px]">
+        <PageHeading title="INFO" subtitle="お知らせ・イベント・掲示板" />
+        <div className="mt-4">
+          <SegmentedTabs
+            items={visibleTabs.map((t) => ({ id: t.id, label: t.label }))}
+            value={activeTab}
+            onChange={(id) => setActiveTab(id as TabId)}
+            size="lg"
+          />
+        </div>
       </div>
 
       {/* コンテンツ */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+          />
         </div>
       ) : (
-        <div className="p-4">
+        <div className="px-5 pt-5 pb-10">
           {activeTab === "events" && (
             <EventsTab events={events} router={router} />
           )}
@@ -103,7 +94,7 @@ export default function InfoPage() {
           {activeTab === "timeline" && <TimelineBoard embedded />}
         </div>
       )}
-    </div>
+    </PageBg>
   );
 }
 
@@ -125,18 +116,21 @@ const EVENT_CATEGORY_LABELS: Record<string, string> = {
   info: "お知らせ",
 };
 
-const EVENT_CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  "ワークショップ": { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]" },
-  "セミナー":       { bg: "bg-blue-100", text: "text-blue-700" },
-  "カンファレンス": { bg: "bg-purple-100", text: "text-purple-700" },
-  "ミートアップ":   { bg: "bg-amber-100", text: "text-amber-700" },
-  "交流会":         { bg: "bg-[#B0E401]/15", text: "text-[#231714]" },
-  // 旧カテゴリ（後方互換）
-  networking: { bg: "bg-blue-100", text: "text-blue-700" },
-  workshop:   { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]" },
-  social:     { bg: "bg-[#B0E401]/15", text: "text-[#231714]" },
-  info:       { bg: "bg-gray-100", text: "text-[#231714]" },
+const EVENT_CATEGORY_TONES: Record<string, EbStatusTone> = {
+  "ワークショップ": "green",
+  "セミナー": "gold",
+  "カンファレンス": "coral",
+  "ミートアップ": "gold",
+  "交流会": "green",
+  networking: "gold",
+  workshop: "green",
+  social: "green",
+  info: "muted",
 };
+
+function eventCategoryTone(category: string): EbStatusTone {
+  return EVENT_CATEGORY_TONES[category] ?? "muted";
+}
 
 type TimeFilter = "all" | "upcoming" | "past";
 
@@ -195,65 +189,36 @@ function EventsTab({
   }
 
   return (
-    <div className="space-y-4">
-      {/* フィルタバー */}
-      <div className="space-y-2">
-        {/* 時期フィルタ */}
-        <div className="flex gap-2">
-          {([
-            { id: "upcoming", label: "今後" },
-            { id: "past", label: "過去" },
-            { id: "all", label: "すべて" },
-          ] as { id: TimeFilter; label: string }[]).map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setTimeFilter(f.id)}
-              className={clsx(
-                "text-[11px] px-3 py-1.5 rounded-full font-medium transition-colors",
-                timeFilter === f.id
-                  ? "bg-[#4f757e] text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              )}
-            >
-              {f.label}
-            </button>
+    <div className="flex flex-col gap-4">
+      {/* 時期フィルタ */}
+      <SegmentedTabs
+        items={[
+          { id: "upcoming", label: "今後" },
+          { id: "past", label: "過去" },
+          { id: "all", label: "すべて" },
+        ]}
+        value={timeFilter}
+        onChange={(id) => setTimeFilter(id as TimeFilter)}
+        size="md"
+      />
+
+      {/* カテゴリフィルタ */}
+      {categories.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <CategoryChip label="すべて" selected={categoryFilter === "all"} onClick={() => setCategoryFilter("all")} />
+          {categories.map((cat) => (
+            <CategoryChip
+              key={cat}
+              label={EVENT_CATEGORY_LABELS[cat] || cat}
+              selected={categoryFilter === cat}
+              onClick={() => setCategoryFilter(cat)}
+            />
           ))}
         </div>
-
-        {/* カテゴリフィルタ */}
-        {categories.length > 1 && (
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-            <button
-              onClick={() => setCategoryFilter("all")}
-              className={clsx(
-                "text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition-colors flex-shrink-0",
-                categoryFilter === "all"
-                  ? "bg-[#231714] text-white"
-                  : "bg-gray-100 text-gray-700"
-              )}
-            >
-              すべて
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={clsx(
-                  "text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap transition-colors flex-shrink-0",
-                  categoryFilter === cat
-                    ? "bg-[#231714] text-white"
-                    : "bg-gray-100 text-gray-700"
-                )}
-              >
-                {EVENT_CATEGORY_LABELS[cat] || cat}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ソート説明 */}
-      <p className="text-[10px] text-gray-700">
+      <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
         {timeFilter === "upcoming"
           ? "直近のイベントから表示"
           : timeFilter === "past"
@@ -261,102 +226,72 @@ function EventsTab({
           : "新しい順に表示"}
       </p>
 
-      {/* タイムライン */}
+      {/* 一覧 */}
       {grouped.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-sm text-gray-700">
-            {timeFilter === "upcoming"
+        <EmptyState
+          message={
+            timeFilter === "upcoming"
               ? "今後のイベントはありません"
               : timeFilter === "past"
               ? "過去のイベントはありません"
-              : "該当するイベントはありません"}
-          </p>
-        </div>
+              : "該当するイベントはありません"
+          }
+        />
       ) : (
-        <div className="space-y-5">
+        <div className="flex flex-col gap-5">
           {grouped.map(([month, items]) => (
             <div key={month}>
               {/* 月ヘッダー */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-bold text-[#231714]">{month}</span>
-                <span className="text-[10px] text-gray-700">{items.length}件</span>
+              <div className="mb-2 flex items-center gap-2 px-0.5">
+                <span className="text-[13px] font-bold text-[color:var(--eb-ink)]">{month}</span>
+                <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{items.length}件</span>
               </div>
 
-              {/* タイムラインリスト */}
-              <div className="relative pl-5">
-                {/* 縦線 */}
-                <div className="absolute left-[5px] top-2 bottom-2 w-[1.5px] bg-gray-200" />
+              <div className="flex flex-col gap-2.5">
+                {items.map((ev) => {
+                  const start = dayjs(ev.startAt);
+                  const end = dayjs(ev.endAt);
+                  const isPastEvent = start.format("YYYY-MM-DD") < dayjs().format("YYYY-MM-DD");
 
-                <div className="space-y-3">
-                  {items.map((ev, idx) => {
-                    const start = dayjs(ev.startAt);
-                    const end = dayjs(ev.endAt);
-                    const isPastEvent = start.format("YYYY-MM-DD") < dayjs().format("YYYY-MM-DD");
-                    const catLabel = EVENT_CATEGORY_LABELS[ev.category] || ev.category;
-                    const catColor = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.info;
-
-                    return (
-                      <div key={ev.eventId} className="relative">
-                        {/* ドット */}
-                        <div
-                          className={clsx(
-                            "absolute -left-5 top-3 w-[11px] h-[11px] rounded-full border-2 border-white z-10",
-                            isPastEvent ? "bg-gray-300" : "bg-[#A5C1C8]"
+                  return (
+                    <button
+                      key={ev.eventId}
+                      type="button"
+                      onClick={() => router.push(`/events/${ev.eventId}`)}
+                      className="block w-full text-left active:opacity-80"
+                    >
+                      <GlassCard padding="md" className={clsx(isPastEvent && "opacity-60")}>
+                        <div className="flex gap-3">
+                          {ev.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={ev.imageUrl}
+                              alt=""
+                              className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                            />
                           )}
-                        />
-
-                        {/* カード */}
-                        <div
-                          onClick={() => router.push(`/events/${ev.eventId}`)}
-                          className={clsx(
-                            "bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer",
-                            isPastEvent && "opacity-60"
-                          )}
-                        >
-                          <div className="flex">
-                            {ev.imageUrl ? (
-                              <div className="w-20 flex-shrink-0 overflow-hidden bg-gray-100">
-                                <img src={ev.imageUrl} alt="" className="w-full h-full object-cover" />
-                              </div>
-                            ) : (
-                              <div className="w-20 flex-shrink-0 bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
-                                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                                  <path d="M16 2v4M8 2v4M3 10h18" />
-                                </svg>
-                              </div>
-                            )}
-                            <div className="flex-1 p-2.5 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className={clsx("text-[9px] px-1.5 py-0.5 rounded-full font-bold", catColor.bg, catColor.text)}>
-                                  {catLabel}
-                                </span>
-                                <span className="text-[10px] text-gray-700">
-                                  {start.format("M/D（ddd）")}
-                                </span>
-                              </div>
-                              <h3 className="text-[13px] font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
-                                {ev.title}
-                              </h3>
-                              <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-700">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10" />
-                                  <path d="M12 6v6l4 2" />
-                                </svg>
-                                <span>{start.format("HH:mm")}〜{end.format("HH:mm")}</span>
-                              </div>
-                              {ev.location && (
-                                <p className="text-[10px] text-gray-700 mt-0.5 truncate">
-                                  {ev.location}
-                                </p>
-                              )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <StatusPill tone={eventCategoryTone(ev.category)}>
+                                {EVENT_CATEGORY_LABELS[ev.category] || ev.category}
+                              </StatusPill>
+                              <span className="text-[13px] text-[color:var(--eb-ink-muted)]">
+                                {start.format("M/D（ddd）")}
+                              </span>
                             </div>
+                            <h3 className="mt-1.5 text-[17px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-2">
+                              {ev.title}
+                            </h3>
+                            <p className="mt-1 truncate text-[13px] text-[color:var(--eb-ink-muted)]">
+                              {start.format("HH:mm")}〜{end.format("HH:mm")}
+                              {ev.location && ` ・ ${ev.location}`}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      </GlassCard>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -366,15 +301,40 @@ function EventsTab({
   );
 }
 
+function CategoryChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors",
+        selected
+          ? "text-white"
+          : "border border-[color:var(--eb-line)] bg-white/60 text-[color:var(--eb-ink-muted)]"
+      )}
+      style={selected ? { background: "var(--eb-green)" } : undefined}
+    >
+      {label}
+    </button>
+  );
+}
 
 /* ═══════════════════════════════════════════
    ニュースタブ
    ═══════════════════════════════════════════ */
 
-const NEWS_CATEGORY_CONFIG: Record<string, { dot: string; label: string }> = {
-  info: { dot: "bg-[#A5C1C8]", label: "お知らせ" },
-  facility: { dot: "bg-[#B0E401]", label: "施設" },
-  community: { dot: "bg-gray-400", label: "コミュニティ" },
+const NEWS_CATEGORY_CONFIG: Record<string, { tone: EbStatusTone; label: string }> = {
+  info: { tone: "muted", label: "お知らせ" },
+  facility: { tone: "green", label: "施設" },
+  community: { tone: "gold", label: "コミュニティ" },
 };
 
 function NewsTab({
@@ -389,39 +349,43 @@ function NewsTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2.5">
       {news.map((item) => {
         const cfg = NEWS_CATEGORY_CONFIG[item.category] ?? NEWS_CATEGORY_CONFIG.info;
         return (
-          <div
+          <button
             key={item.newsId}
+            type="button"
             onClick={() => router.push(`/news/${item.newsId}`)}
-            className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer"
+            className="block w-full text-left active:opacity-80"
           >
-            <div className="flex">
-              {item.imageUrl ? (
-                <div className="w-24 flex-shrink-0 overflow-hidden bg-gray-100">
-                  <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+            <GlassCard padding="md">
+              <div className="flex gap-3">
+                {item.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
+                    <span className="text-[13px] text-[color:var(--eb-ink-muted)]">
+                      {dayjs(item.publishedAt).format("M月D日")}
+                    </span>
+                  </div>
+                  <h3 className="mt-1.5 text-[17px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-2">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1 text-[13px] text-[color:var(--eb-ink-muted)] line-clamp-1">
+                    {item.body}
+                  </p>
                 </div>
-              ) : (
-                <div className="w-24 flex-shrink-0 bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
-                    <path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2" />
-                    <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6z" />
-                  </svg>
-                </div>
-              )}
-              <div className="flex-1 p-3 min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                  <span className="text-[10px] font-bold text-[#231714]">{cfg.label}</span>
-                  <span className="text-[10px] text-gray-700">{dayjs(item.publishedAt).format("M月D日")}</span>
-                </div>
-                <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">{item.title}</h3>
-                <p className="text-[11px] text-gray-700 mt-1 line-clamp-1">{item.body}</p>
               </div>
-            </div>
-          </div>
+            </GlassCard>
+          </button>
         );
       })}
     </div>
@@ -434,12 +398,14 @@ function NewsTab({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="mb-3 text-gray-400">
-        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="2" />
-        <path d="M20 14v8M20 26v0" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-      <p className="text-sm text-gray-700">{message}</p>
-    </div>
+    <GlassCard>
+      <div className="flex flex-col items-center gap-2 py-8 text-center">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="text-[color:var(--eb-ink-muted)]">
+          <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="2" />
+          <path d="M20 14v8M20 26v0" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+        <p className="text-[15px] text-[color:var(--eb-ink-muted)]">{message}</p>
+      </div>
+    </GlassCard>
   );
 }

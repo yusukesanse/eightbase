@@ -38,10 +38,10 @@ export function Avatar({
   }
   return (
     <div
-      className={`rounded-full bg-[#dde9eb] flex items-center justify-center shrink-0 ${className}`}
+      className={`rounded-full bg-[color:var(--eb-tint)] flex items-center justify-center shrink-0 ${className}`}
       style={{ width: px, height: px, ...style }}
     >
-      <svg width={px * 0.5} height={px * 0.5} viewBox="0 0 24 24" fill="none" stroke="#7fa0a6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <svg width={px * 0.5} height={px * 0.5} viewBox="0 0 24 24" fill="none" stroke="var(--eb-ink-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="8" r="4" />
         <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
       </svg>
@@ -110,13 +110,13 @@ export function SheetButton({
   fullWidth?: boolean;
 }) {
   const base =
-    "h-11 rounded-xl text-[14px] font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100";
+    "h-14 rounded-2xl text-[15px] font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100";
   const width = fullWidth ? "w-full" : "flex-1";
   const tone = line
     ? "text-white"
     : variant === "secondary"
-      ? "bg-white border border-[#e4e7e9] text-[#40434a]"
-      : "bg-[#4f757e] text-white";
+      ? "bg-white/60 border border-[color:var(--eb-line)] text-[color:var(--eb-ink)]"
+      : "bg-[color:var(--eb-green)] text-white";
   return (
     <button
       type="button"

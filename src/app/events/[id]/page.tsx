@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/LineContact";
 import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
 import { COMMENT_MAX_LENGTH } from "@/lib/eventComments";
 import type { NufEvent } from "@/types";
+import { Button, GlassCard, PageBg, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -21,6 +22,21 @@ interface Comment {
   body: string;
   createdAt: string;
   isMine: boolean;
+}
+
+const CATEGORY_CONFIG: Record<string, { tone: EbStatusTone; label: string }> = {
+  "ワークショップ": { tone: "green", label: "ワークショップ" },
+  "セミナー": { tone: "gold", label: "セミナー" },
+  "カンファレンス": { tone: "coral", label: "カンファレンス" },
+  "ミートアップ": { tone: "gold", label: "ミートアップ" },
+  "交流会": { tone: "green", label: "交流会" },
+  networking: { tone: "gold", label: "ネットワーキング" },
+  workshop: { tone: "green", label: "ワークショップ" },
+  social: { tone: "green", label: "交流" },
+  info: { tone: "muted", label: "お知らせ" },
+};
+function getCategoryConfig(cat: string) {
+  return CATEGORY_CONFIG[cat] ?? { tone: "muted" as EbStatusTone, label: cat };
 }
 
 function commentTimeAgo(iso: string): string {
@@ -154,35 +170,45 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
-      </div>
+      <PageBg className="flex items-center justify-center">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+          style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+        />
+      </PageBg>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
-        <p className="text-gray-700 text-sm">イベントが見つかりません</p>
-        <button onClick={() => router.back()} className="text-sm text-[#4f757e]">戻る</button>
-      </div>
+      <PageBg className="flex flex-col items-center justify-center gap-3">
+        <p className="text-[15px] text-[color:var(--eb-ink-muted)]">イベントが見つかりません</p>
+        <button onClick={() => router.back()} className="text-[15px] font-bold text-[color:var(--eb-green-text)]">
+          戻る
+        </button>
+      </PageBg>
     );
   }
 
   const start = dayjs(event.startAt);
   const end = dayjs(event.endAt);
+  const cfg = getCategoryConfig(event.category);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <PageBg>
       {/* ヘッダー画像 / カラーヒーロー */}
       <div className="relative">
         {event.imageUrl ? (
-          <div className="aspect-[16/9] w-full overflow-hidden bg-gray-100">
-            <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
+          <div className="aspect-[16/9] w-full overflow-hidden bg-[color:var(--eb-tint)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={event.imageUrl} alt={event.title} className="h-full w-full object-cover" />
           </div>
         ) : (
-          <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
+          <div
+            className="flex aspect-[16/9] w-full items-center justify-center"
+            style={{ background: "linear-gradient(135deg, rgba(35,147,94,.24), rgba(35,147,94,.06))" }}
+          >
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="1.5" opacity="0.6">
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M16 2v4M8 2v4M3 10h18" />
             </svg>
@@ -192,85 +218,78 @@ export default function EventDetailPage() {
         {/* 戻るボタン */}
         <button
           onClick={() => router.back()}
-          className="absolute top-3 left-3 w-9 h-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center"
+          className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm"
+          style={{ background: "rgba(0,0,0,.32)" }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
       </div>
 
       {/* コンテンツ */}
-      <div className="relative -mt-5 bg-white rounded-t-2xl px-5 pt-6 pb-24">
+      <div className="relative -mt-5 rounded-t-[28px] px-5 pb-24 pt-6" style={{ background: "var(--eb-bg)" }}>
         {/* カテゴリバッジ */}
-        <span className="inline-block text-[11px] px-3 py-1 rounded-full font-medium bg-[#A5C1C8]/25 text-[#231714]">
-          {event.category}
-        </span>
+        <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
 
         {/* タイトル */}
-        <h1 className="text-xl font-bold text-[#231714] mt-3 leading-tight">
+        <h1 className="mt-3 text-[22px] font-bold leading-tight text-[color:var(--eb-ink)]">
           {event.title}
         </h1>
 
         {/* メタ情報 */}
-        <div className="mt-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#A5C1C8]/20 flex items-center justify-center flex-shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
+        <GlassCard padding="md" className="mt-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--eb-tint)" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                  {start.format("YYYY年M月D日（ddd）")}
+                </p>
+                <p className="mt-0.5 text-[13px] text-[color:var(--eb-ink-muted)]">
+                  {start.format("HH:mm")} 〜 {end.format("HH:mm")}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-[#231714]">
-                {start.format("YYYY年M月D日（ddd）")}
-              </p>
-              <p className="text-xs text-gray-700 mt-0.5">
-                {start.format("HH:mm")} 〜 {end.format("HH:mm")}
-              </p>
+
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--eb-tint)" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="2">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                  <circle cx="12" cy="9" r="2.5" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-[color:var(--eb-ink)]">{event.location}</p>
+              </div>
             </div>
           </div>
-
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#A5C1C8]/20 flex items-center justify-center flex-shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                <circle cx="12" cy="9" r="2.5" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-[#231714]">{event.location}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 区切り */}
-        <hr className="my-5 border-gray-100" />
+        </GlassCard>
 
         {/* 説明文 */}
-        <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">詳細</h2>
+        <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">詳細</h2>
         <RichText
           text={event.description}
-          className="text-sm text-gray-700 leading-relaxed"
+          className="text-[15px] leading-[1.7] text-[color:var(--eb-ink)]"
         />
 
         {/* グッドボタン */}
-        <div className="mt-8 flex items-center gap-3">
-          <button
-            onClick={handleToggleGood}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-              liked
-                ? "bg-[#B0E401]/10 text-[#231714] border border-[#B0E401]/30"
-                : "bg-gray-50 text-gray-700 border border-gray-200"
-            }`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-            </svg>
-            いいね {event.goodCount}
-          </button>
+        <div className="mt-8">
+          <Button variant={liked ? "ghost" : "primary"} onClick={handleToggleGood}>
+            <span className="inline-flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+              </svg>
+              いいね {event.goodCount}
+            </span>
+          </Button>
         </div>
 
         {/* コメント（E-2・会員のみ・フラット一覧） */}
         <div className="mt-8">
-          <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">
+          <h2 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">
             コメント{comments.length > 0 && ` ${comments.length}`}
           </h2>
 
@@ -283,32 +302,33 @@ export default function EventDetailPage() {
                 maxLength={COMMENT_MAX_LENGTH}
                 rows={3}
                 placeholder="コメントを書く"
-                style={{ fontSize: "16px" }}
-                className="w-full px-3 py-2.5 text-[15px] leading-relaxed text-[#231714] bg-white rounded-xl border border-gray-200 focus:outline-none focus:border-[#A5C1C8] resize-none"
+                className="h-[100px] w-full resize-none rounded-2xl border border-[color:var(--eb-line)] bg-white px-4 py-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)] focus:outline-none focus:border-2 focus:border-[color:var(--eb-green)]"
               />
-              {commentError && <p className="mt-1.5 text-xs text-[#d8533a]">{commentError}</p>}
+              {commentError && <p className="mt-1.5 text-[13px] text-[color:var(--eb-coral-text)]">{commentError}</p>}
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-[11px] text-gray-400 tabular-nums">
+                <span className="text-[12px] tabular-nums text-[color:var(--eb-ink-muted)]">
                   {draft.trim().length}/{COMMENT_MAX_LENGTH}
                 </span>
-                <button
-                  onClick={handlePostComment}
+                <Button
+                  variant="ghost"
+                  fullWidth={false}
+                  className="h-11 w-auto px-5 text-[14px]"
                   disabled={!draft.trim() || posting}
-                  className="px-4 py-2 rounded-full text-sm font-medium text-white bg-[#231714] disabled:opacity-40 active:scale-[0.98] transition-transform"
+                  onClick={handlePostComment}
                 >
-                  {posting ? "投稿中…" : "投稿する"}
-                </button>
+                  {posting ? "投稿中…" : "送信"}
+                </Button>
               </div>
             </div>
           ) : (
-            <p className="mb-4 text-xs text-gray-500">
+            <p className="mb-4 text-[13px] text-[color:var(--eb-ink-muted)]">
               コメントの投稿にはプロフィール登録が必要です。
             </p>
           )}
 
           {/* 一覧（古い順） */}
           {comments.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-400">まだコメントはありません</p>
+            <p className="py-6 text-center text-[15px] text-[color:var(--eb-ink-muted)]">まだコメントはありません</p>
           ) : (
             <div className="flex flex-col gap-3">
               {comments.map((c) => {
@@ -316,20 +336,20 @@ export default function EventDetailPage() {
                 return (
                   <div key={c.commentId} className="flex gap-2.5">
                     <Avatar src={c.authorPictureUrl} name={c.authorName} size="sm" />
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-bold text-[#231714] truncate">{c.authorName}</span>
-                        <span className="text-[11px] text-gray-400 shrink-0">{commentTimeAgo(c.createdAt)}</span>
+                        <span className="truncate text-[13px] font-bold text-[color:var(--eb-ink)]">{c.authorName}</span>
+                        <span className="shrink-0 text-[11px] text-[color:var(--eb-ink-muted)]">{commentTimeAgo(c.createdAt)}</span>
                         {mine && (
                           <button
                             onClick={() => handleDeleteComment(c.commentId)}
-                            className="ml-auto text-[11px] text-[#d82328] shrink-0"
+                            className="ml-auto shrink-0 text-[11px] text-[color:var(--eb-coral-text)]"
                           >
                             削除
                           </button>
                         )}
                       </div>
-                      <p className="text-[14px] text-[#40434a] leading-relaxed mt-0.5 whitespace-pre-wrap break-words">
+                      <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-[color:var(--eb-ink)]">
                         {c.body}
                       </p>
                     </div>
@@ -340,6 +360,6 @@ export default function EventDetailPage() {
           )}
         </div>
       </div>
-    </div>
+    </PageBg>
   );
 }

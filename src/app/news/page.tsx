@@ -1,18 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { TopBar } from "@/components/ui/TopBar";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NewsItem, NewsCategory, NewsPriority } from "@/types";
-import clsx from "clsx";
+import { GlassCard, PageBg, PageHeading, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
 
-const CATEGORY_CONFIG: Record<NewsCategory, { bg: string; text: string; dot: string; label: string }> = {
-  info:      { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]", dot: "bg-[#A5C1C8]",   label: "お知らせ" },
-  facility:  { bg: "bg-[#B0E401]/10", text: "text-[#231714]", dot: "bg-[#B0E401]",   label: "施設" },
-  community: { bg: "bg-gray-100",     text: "text-[#231714]", dot: "bg-gray-400",     label: "コミュニティ" },
+const CATEGORY_CONFIG: Record<NewsCategory, { tone: EbStatusTone; label: string }> = {
+  info:      { tone: "muted", label: "お知らせ" },
+  facility:  { tone: "green", label: "施設" },
+  community: { tone: "gold",  label: "コミュニティ" },
 };
 
 export default function NewsPage() {
@@ -48,22 +47,29 @@ export default function NewsPage() {
   const rest = normalItems;
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <TopBar title="ニュース" subtitle="EIGHT BASE UNGA からのお知らせ" />
+    <PageBg>
+      <div className="px-5 pt-[52px]">
+        <PageHeading title="ニュース" subtitle="EIGHT BASE UNGA からのお知らせ" />
+      </div>
 
-      <div className="p-4">
+      <div className="px-5 pt-5 pb-10">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+              style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+            />
           </div>
         ) : news.length === 0 ? (
-          <div className="text-center py-16 text-sm text-gray-700">お知らせはありません</div>
+          <GlassCard>
+            <p className="py-6 text-center text-[15px] text-[color:var(--eb-ink-muted)]">お知らせはありません</p>
+          </GlassCard>
         ) : (
-          <div className="space-y-5">
+          <div className="flex flex-col gap-5">
             {/* 日付ヘッダー */}
             <div>
-              <p className="text-[11px] text-gray-700 font-medium">{today}</p>
-              <h2 className="text-lg font-black text-[#231714] mt-0.5">Breaking News</h2>
+              <p className="text-[12px] font-medium text-[color:var(--eb-ink-muted)]">{today}</p>
+              <h2 className="mt-0.5 text-[19px] font-bold text-[color:var(--eb-ink)]">Breaking News</h2>
             </div>
 
             {/* Featured (大カード) */}
@@ -74,8 +80,10 @@ export default function NewsPage() {
             {/* Top Stories 横スクロール */}
             {topStories.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Top Stories</h3>
-                <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+                <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">
+                  Top Stories
+                </h3>
+                <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-1">
                   {topStories.map(item => (
                     <TopStoryCard key={item.newsId} item={item} onClick={() => router.push(`/news/${item.newsId}`)} />
                   ))}
@@ -86,8 +94,10 @@ export default function NewsPage() {
             {/* 残りのニュース */}
             {rest.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Recent</h3>
-                <div className="space-y-3">
+                <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">
+                  Recent
+                </h3>
+                <div className="flex flex-col gap-2.5">
                   {rest.map(item => (
                     <CompactNewsCard key={item.newsId} item={item} onClick={() => router.push(`/news/${item.newsId}`)} />
                   ))}
@@ -97,7 +107,7 @@ export default function NewsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageBg>
   );
 }
 
@@ -106,28 +116,32 @@ function FeaturedNewsCard({ item, onClick }: { item: NewsItem; onClick: () => vo
   const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.info;
 
   return (
-    <div onClick={onClick} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer">
-      {item.imageUrl ? (
-        <div className="aspect-[16/9] overflow-hidden bg-gray-100">
-          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+    <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter") onClick(); }} className="cursor-pointer active:opacity-80">
+      <GlassCard className="overflow-hidden !p-0">
+        {item.imageUrl ? (
+          <div className="aspect-[16/9] overflow-hidden bg-[color:var(--eb-tint)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div
+            className="flex aspect-[16/9] items-end p-5"
+            style={{ background: "linear-gradient(135deg, rgba(35,147,94,.24), rgba(35,147,94,.06))" }}
+          >
+            <span className="text-[12px] font-medium text-[color:var(--eb-green-text)]">EIGHT BASE UNGA</span>
+          </div>
+        )}
+        <div className="p-4">
+          <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
+          <h3 className="mt-2 text-[17px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-2">
+            {item.title}
+          </h3>
+          <p className="mt-1 text-[13px] text-[color:var(--eb-ink-muted)] line-clamp-2">{item.body}</p>
+          <p className="mt-2 text-[12px] text-[color:var(--eb-ink-muted)]">
+            {dayjs(item.publishedAt).format("YYYY年M月D日")}
+          </p>
         </div>
-      ) : (
-        <div className="aspect-[16/9] bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-end p-5">
-          <span className="text-white/60 text-xs font-medium">EIGHT BASE UNGA</span>
-        </div>
-      )}
-      <div className="p-4">
-        <span className={clsx("text-[10px] px-2 py-0.5 rounded-full font-bold", cfg.bg, cfg.text)}>
-          {cfg.label}
-        </span>
-        <h3 className="text-base font-bold text-[#231714] mt-2 leading-snug line-clamp-2">
-          {item.title}
-        </h3>
-        <p className="text-xs text-gray-700 mt-1 line-clamp-2">{item.body}</p>
-        <p className="text-[10px] text-gray-700 mt-2">
-          {dayjs(item.publishedAt).format("YYYY年M月D日")}
-        </p>
-      </div>
+      </GlassCard>
     </div>
   );
 }
@@ -137,25 +151,35 @@ function TopStoryCard({ item, onClick }: { item: NewsItem; onClick: () => void }
   const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.info;
 
   return (
-    <div onClick={onClick} className="flex-shrink-0 w-44 bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.97] transition-transform cursor-pointer">
-      {item.imageUrl ? (
-        <div className="aspect-[4/3] overflow-hidden bg-gray-100">
-          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+      className="w-44 shrink-0 cursor-pointer active:opacity-80"
+    >
+      <GlassCard className="overflow-hidden !p-0">
+        {item.imageUrl ? (
+          <div className="aspect-[4/3] overflow-hidden bg-[color:var(--eb-tint)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div
+            className="aspect-[4/3]"
+            style={{ background: "linear-gradient(135deg, rgba(35,147,94,.24), rgba(35,147,94,.06))" }}
+          />
+        )}
+        <div className="p-2.5">
+          <StatusPill tone={cfg.tone} className="px-2 py-1 text-[10px]">{cfg.label}</StatusPill>
+          <h3 className="mt-1.5 text-[13px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-3">
+            {item.title}
+          </h3>
+          <p className="mt-1 text-[11px] text-[color:var(--eb-ink-muted)]">
+            {dayjs(item.publishedAt).format("M月D日")}
+          </p>
         </div>
-      ) : (
-        <div className="aspect-[4/3] bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF]" />
-      )}
-      <div className="p-2.5">
-        <span className={clsx("text-[9px] px-1.5 py-0.5 rounded font-bold", cfg.bg, cfg.text)}>
-          {cfg.label}
-        </span>
-        <h3 className="text-xs font-bold text-[#231714] mt-1 leading-snug line-clamp-3">
-          {item.title}
-        </h3>
-        <p className="text-[10px] text-gray-700 mt-1">
-          {dayjs(item.publishedAt).format("M月D日")}
-        </p>
-      </div>
+      </GlassCard>
     </div>
   );
 }
@@ -165,31 +189,29 @@ function CompactNewsCard({ item, onClick }: { item: NewsItem; onClick: () => voi
   const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.info;
 
   return (
-    <div onClick={onClick} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 flex active:scale-[0.98] transition-transform cursor-pointer">
-      {item.imageUrl ? (
-        <div className="w-24 flex-shrink-0 overflow-hidden bg-gray-100">
-          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+    <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter") onClick(); }} className="cursor-pointer active:opacity-80">
+      <GlassCard padding="md">
+        <div className="flex gap-3">
+          {item.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imageUrl} alt={item.title} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+          ) : (
+            <div
+              className="h-14 w-14 shrink-0 rounded-xl"
+              style={{ background: "linear-gradient(135deg, rgba(35,147,94,.24), rgba(35,147,94,.06))" }}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
+            <h3 className="mt-1.5 text-[15px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-2">
+              {item.title}
+            </h3>
+            <p className="mt-1 text-[12px] text-[color:var(--eb-ink-muted)]">
+              {dayjs(item.publishedAt).format("M月D日")}
+            </p>
+          </div>
         </div>
-      ) : (
-        <div className="w-24 flex-shrink-0 bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
-            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
-            <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z" />
-          </svg>
-        </div>
-      )}
-      <div className="flex-1 p-3 min-w-0">
-        <div className="flex items-center gap-2">
-          <div className={clsx("w-1.5 h-1.5 rounded-full", cfg.dot)} />
-          <span className={clsx("text-[10px] font-bold", cfg.text)}>{cfg.label}</span>
-        </div>
-        <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
-          {item.title}
-        </h3>
-        <p className="text-[10px] text-gray-700 mt-1">
-          {dayjs(item.publishedAt).format("M月D日")}
-        </p>
-      </div>
+      </GlassCard>
     </div>
   );
 }
