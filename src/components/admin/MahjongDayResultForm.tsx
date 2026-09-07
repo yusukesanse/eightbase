@@ -112,6 +112,17 @@ export default function MahjongDayResultForm({
       if (next < prev.length) return prev.slice(0, next);      // 入力済みは前から残す
       return [...prev, ...Array.from({ length: next - prev.length }, emptyTable)];
     });
+    setTableMeta((prev) => {
+      if (next === prev.length) return prev;
+      if (next < prev.length) return prev.slice(0, next);
+      return [...prev, ...Array.from({ length: next - prev.length }, () => ({ round: "", label: "" }))];
+    });
+  }
+
+  /** 卓ごとの「第n半荘」「A〜D 卓」（任意）。空なら半荘番号はサーバーが続きを振り、ラベルなし。 */
+  const [tableMeta, setTableMeta] = useState<{ round: string; label: string }[]>([{ round: "", label: "" }]);
+  function setMeta(ti: number, patch: Partial<{ round: string; label: string }>) {
+    setTableMeta((prev) => prev.map((m, i) => (i === ti ? { ...m, ...patch } : m)));
   }
 
   /* ───────── ③ 卓ごとの入力 ───────── */
@@ -141,6 +152,7 @@ export default function MahjongDayResultForm({
   function reset() {
     setParticipants([]);
     setTables([emptyTable()]);
+    setTableMeta([{ round: "", label: "" }]);
     setQuery("");
   }
 
@@ -158,7 +170,11 @@ export default function MahjongDayResultForm({
           eventDate,
           tables: sendIndexes.map((i) => {
             const ranks = ranksFromPoints(tables[i]);
+            const meta = tableMeta[i] ?? { round: "", label: "" };
+            const round = Number.parseInt(meta.round, 10);
             return {
+              ...(Number.isInteger(round) && round >= 1 ? { round } : {}),
+              ...(meta.label ? { tableLabel: meta.label } : {}),
               members: tables[i].map((s, si) => ({
                 lineUserId: s.lineUserId,
                 points: Number(s.points),
@@ -326,8 +342,33 @@ export default function MahjongDayResultForm({
               const st = tableStats[ti];
               return (
                 <div key={ti} className="rounded-lg border border-[#231714]/10 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[#231714]">{ti + 1}卓目</span>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-[#231714]">{ti + 1}卓目</span>
+                      {/* 第n半荘（空なら続きの番号を自動）と A〜D 卓（同じ半荘に2卓立つ日のため） */}
+                      <span className="text-[11px] text-[#231714]/70">第</span>
+                      <input
+                        value={tableMeta[ti]?.round ?? ""}
+                        onChange={(e) => setMeta(ti, { round: e.target.value.replace(/[^\d]/g, "").slice(0, 2) })}
+                        inputMode="numeric"
+                        placeholder="自動"
+                        aria-label={`${ti + 1}卓目の半荘番号`}
+                        className="w-12 px-1.5 py-1 text-xs text-center border border-[#231714]/15 rounded-md tabular-nums"
+                      />
+                      <span className="text-[11px] text-[#231714]/70">半荘</span>
+                      <select
+                        value={tableMeta[ti]?.label ?? ""}
+                        onChange={(e) => setMeta(ti, { label: e.target.value })}
+                        aria-label={`${ti + 1}卓目の卓ラベル`}
+                        className="px-1.5 py-1 text-xs border border-[#231714]/15 rounded-md bg-white"
+                      >
+                        <option value="">卓ラベルなし</option>
+                        <option value="A">A卓</option>
+                        <option value="B">B卓</option>
+                        <option value="C">C卓</option>
+                        <option value="D">D卓</option>
+                      </select>
+                    </div>
                     {st.empty ? (
                       <span className="text-[11px] text-[#231714]/50">未入力（保存されません）</span>
                     ) : (

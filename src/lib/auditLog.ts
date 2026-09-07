@@ -24,6 +24,7 @@ export type AuditEventType =
   | "cs.reset" // CSブラケットの管理者リセット
   | "table.completed" // 卓の集計確定（利用者申告が揃った）
   | "table.adminCreated" // 管理者が卓を新規作成（紙で付けた結果の後入力など）
+  | "table.adminForceConfirmed" // 管理者が合計100,000点不一致のまま卓を確定（2026-09-07・合計点は meta.total に残す）
   | "day.advanced" // 抜け番で次半荘へ進行（システム）
   | "day.participant_removed" // 当日GMが参加者を外した（未払い/不参加）
   | "day.gm_claimed" // 当日GMの自己選出「GMをやる」（ダーツ/ビリヤード。交代もこれ）

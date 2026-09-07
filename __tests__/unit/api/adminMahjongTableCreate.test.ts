@@ -304,3 +304,57 @@ describe("入力チェック", () => {
     expect(db.__store.get("mahjongTables")?.size ?? 0).toBe(0);
   });
 });
+
+describe("半荘番号と卓ラベル（2026-09-07: 同じ半荘に A/B 卓が立つ日を後入力できる）", () => {
+  const t = (ids: string[], extra: Record<string, unknown> = {}) => ({
+    members: [
+      { lineUserId: ids[0], points: 45000, rank: 1 },
+      { lineUserId: ids[1], points: 28000, rank: 2 },
+      { lineUserId: ids[2], points: 18000, rank: 3 },
+      { lineUserId: ids[3], points: 9000, rank: 4 },
+    ],
+    ...extra,
+  });
+
+  test("round と tableLabel を指定すると、その値で保存される", async () => {
+    db.__set("authorizedUsers", "auth-4", { lineUserId: "U5", displayName: "会員E", role: "member", active: true });
+    db.__set("authorizedUsers", "auth-5", { lineUserId: "U6", displayName: "会員F", role: "member", active: true });
+    db.__set("authorizedUsers", "auth-6", { lineUserId: "U7", displayName: "会員G", role: "member", active: true });
+    db.__set("authorizedUsers", "auth-7", { lineUserId: "U8", displayName: "会員H", role: "member", active: true });
+    const json = await (await call({
+      seasonId: "s1", eventDate: "2026-08-01",
+      tables: [t(["U1","U2","U3","U4"], { round: 2, tableLabel: "A" }), t(["U5","U6","U7","U8"], { round: 2, tableLabel: "B" })],
+    })).json();
+    expect(json.success).toBe(true);
+    const saved = [...db.__store.get("mahjongTables")!.values()];
+    expect(saved.map((x) => [x.round, x.tableLabel]).sort()).toEqual([[2, "A"], [2, "B"]]);
+  });
+
+  test("round を省略した卓は、指定した卓を数えずに続きの番号になる", async () => {
+    db.__set("mahjongTables", "existing", { seasonId: "s1", eventDate: "2026-08-01", round: 3 });
+    const json = await (await call({
+      seasonId: "s1", eventDate: "2026-08-01",
+      tables: [t(["U1","U2","U3","U4"], { round: 9 }), t(["U1","U2","U3","U4"])],
+    })).json();
+    expect(json.created.map((c: { round: number }) => c.round)).toEqual([9, 4]);
+  });
+
+  test("tableLabel を省略した卓には tableLabel フィールドを書かない", async () => {
+    await call(okBody());
+    const saved = [...db.__store.get("mahjongTables")!.values()][0];
+    expect("tableLabel" in saved).toBe(false);
+  });
+
+  test("tableLabel が A〜D 以外なら 400（何卓目かを示す）", async () => {
+    const res = await call({ seasonId: "s1", eventDate: "2026-08-01", tables: [t(["U1","U2","U3","U4"], { tableLabel: "X" })] });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/1卓目/);
+  });
+
+  test("round が 0 や小数なら 400", async () => {
+    for (const round of [0, 1.5, -1, 100]) {
+      const res = await call({ seasonId: "s1", eventDate: "2026-08-01", tables: [t(["U1","U2","U3","U4"], { round })] });
+      expect(res.status).toBe(400);
+    }
+  });
+});

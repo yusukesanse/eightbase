@@ -249,18 +249,31 @@ export default function SeasonMahjongPage() {
    * （2026-08-01 の5卓が点数と着順の逆転で集計対象外になっていた）。
    * 検証に通らない卓は申告待ちのまま理由を出す（順位を壊さない）。
    */
-  async function confirmTable(tableId: string) {
+  async function confirmTable(tableId: string, force = false) {
     const res = await fetch(`/api/admin/mahjong/tables/${tableId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ action: "confirm" }),
+      body: JSON.stringify({ action: "confirm", ...(force ? { force: true } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       alert(data.error ?? "確定に失敗しました");
     } else if (data.tableStatus !== "completed") {
-      alert(`確定できませんでした: ${data.validation?.error ?? "検証に通りませんでした"}`);
+      // 合計が 100,000 点でないだけ（4名の持ち点は入っている）なら、管理者権限で確定できる。
+      if (!force && data.validation?.allReported) {
+        const total = typeof data.validation?.total === "number" ? data.validation.total.toLocaleString() : "?";
+        if (
+          confirm(
+            `合計が ${total} 点で 100,000 点ではありません。\n管理者権限でこのまま確定しますか？（順位は持ち点から決まり、通算順位に反映されます）`
+          )
+        ) {
+          await confirmTable(tableId, true);
+          return;
+        }
+      } else {
+        alert(`確定できませんでした: ${data.validation?.error ?? "検証に通りませんでした"}`);
+      }
     }
     fetchAll();
   }
@@ -748,12 +761,19 @@ function EditTableModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tableLabel, setTableLabel] = useState(table.tableLabel ?? "");
+
+  const scoresChanged = rows.some((r, i) => {
+    const m = table.members[i];
+    return (r.points === "" ? null : Number(r.points) * r.sign) !== m.points ||
+      (r.rank === "" ? null : Number(r.rank)) !== m.rank;
+  });
 
   const total = rows.reduce((sum, r) => sum + (Number(r.points) || 0) * r.sign, 0);
 
   async function save() {
     setError(null);
-    for (const r of rows) {
+    for (const r of scoresChanged ? rows : []) {
       if (r.points === "" || r.rank === "") {
         setError("全員の点数と順位を入力してください");
         return;
@@ -766,17 +786,18 @@ function EditTableModal({
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          members: rows.map((r) => ({
+          tableLabel,
+          ...(scoresChanged ? { members: rows.map((r) => ({
             lineUserId: r.lineUserId,
             points: Number(r.points) * r.sign, // 絶対値 × 符号（マイナス対応）
             rank: Number(r.rank),
-          })),
+          })) } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "更新に失敗しました");
-      } else if (!data.validation?.ok) {
+      } else if (data.validation && !data.validation.ok) {
         setError(`保存しましたが検証未通過です: ${data.validation?.error ?? ""}`);
         onSaved();
       } else {
@@ -797,8 +818,22 @@ function EditTableModal({
       >
         <h3 className="text-base font-bold text-[#231714] mb-1">申告内容の修正</h3>
         <p className="text-xs text-[#231714]/85 mb-4">
-          {table.eventDate} の卓 / 合計は 100,000 点になる必要があります
+          {table.eventDate} の卓 / 合計が100,000点と異なる場合は、保存後に卓一覧の「確定」から管理者確定できます。
         </p>
+
+        <label className="flex items-center gap-2 mb-4 text-sm text-[#231714]">
+          卓
+          <select
+            value={tableLabel}
+            onChange={(e) => setTableLabel(e.target.value)}
+            className="px-3 py-2 border border-[#231714]/10 rounded-lg bg-white"
+          >
+            <option value="">卓ラベルなし</option>
+            {["A", "B", "C", "D"].map((label) => (
+              <option key={label} value={label}>{label}卓</option>
+            ))}
+          </select>
+        </label>
 
         <div className="space-y-3">
           {rows.map((r, i) => (

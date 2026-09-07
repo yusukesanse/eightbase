@@ -48,6 +48,11 @@ const TABLE_SIZE = 4;
 const MAX_TABLES_PER_REQUEST = 30;
 
 type SeatInput = { lineUserId: string; points: number; rank: number };
+/** 1卓分の入力（席4つ＋任意の半荘番号・卓ラベル）。 */
+type TableInput = { seats: SeatInput[]; round?: number; tableLabel?: string };
+/** 卓ラベルは A〜D の1文字（当日進行の A/B 卓と同じ語彙）。 */
+const TABLE_LABEL_RE = /^[A-D]$/;
+const MAX_ROUND = 99;
 
 /** 1卓分の入力が形として妥当か。中身（合計点・順位の重複）は validateTableReports が見る。 */
 function invalidSeat(m: unknown): boolean {
@@ -62,7 +67,10 @@ function invalidSeat(m: unknown): boolean {
 
 /**
  * POST /api/admin/mahjong/tables
- * body: { seasonId, eventDate, tables: { members: { lineUserId, points, rank }[] }[] }
+ * body: { seasonId, eventDate, tables: { members: { lineUserId, points, rank }[], round?, tableLabel? }[] }
+ *
+ * round / tableLabel（2026-09-07 追加）: 同じ半荘に A 卓・B 卓が立つ日を後入力できるように、
+ * 卓ごとに「第n半荘」と「A〜D」を指定できる。省略時は従来どおり続きの半荘番号・ラベルなし。
  *
  * 管理者が**その日の対戦結果をまとめて作成**する（アプリを通さず紙で付けた結果の後入力）。
  * 2026-08-01 はゲストが参加できない不具合でアプリに点数を入れられず紙運用になった。
@@ -104,9 +112,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tablesInput: SeatInput[][] = [];
+    const tablesInput: TableInput[] = [];
     for (const [i, t] of input.entries()) {
       const members: unknown = (t as { members?: unknown })?.members;
+      const roundRaw: unknown = (t as { round?: unknown })?.round;
+      const labelRaw: unknown = (t as { tableLabel?: unknown })?.tableLabel;
+      if (roundRaw !== undefined && roundRaw !== null && (typeof roundRaw !== "number" || !Number.isInteger(roundRaw) || roundRaw < 1 || roundRaw > MAX_ROUND)) {
+        return NextResponse.json({ error: `${i + 1}卓目: 半荘番号は1〜${MAX_ROUND}の整数で指定してください` }, { status: 400 });
+      }
+      if (labelRaw !== undefined && labelRaw !== null && labelRaw !== "" && (typeof labelRaw !== "string" || !TABLE_LABEL_RE.test(labelRaw))) {
+        return NextResponse.json({ error: `${i + 1}卓目: 卓ラベルは A〜D で指定してください` }, { status: 400 });
+      }
       if (!Array.isArray(members) || members.length !== TABLE_SIZE) {
         return NextResponse.json(
           { error: `${i + 1}卓目: メンバーはちょうど${TABLE_SIZE}名で指定してください` },
@@ -126,7 +142,11 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      tablesInput.push(seats);
+      tablesInput.push({
+        seats,
+        ...(typeof roundRaw === "number" ? { round: roundRaw } : {}),
+        ...(typeof labelRaw === "string" && labelRaw ? { tableLabel: labelRaw } : {}),
+      });
     }
 
     const db = getDb();
@@ -140,7 +160,7 @@ export async function POST(req: NextRequest) {
 
     // 表示名・アイコンはサーバーで解決する（クライアントの申告値を信用しない）。
     // 身分の正は authorizedUsers、アイコンは users(docId=lineUserId)。
-    const allIds = Array.from(new Set(tablesInput.flat().map((m) => m.lineUserId)));
+    const allIds = Array.from(new Set(tablesInput.flatMap((t) => t.seats).map((m) => m.lineUserId)));
     const authSnap = await db.collection("authorizedUsers").where("active", "==", true).get();
     const nameById = new Map<string, string>();
     for (const doc of authSnap.docs) {
@@ -176,7 +196,9 @@ export async function POST(req: NextRequest) {
     const batch = db.batch();
     const created: { tableId: string; round: number; status: string; error?: string }[] = [];
 
-    tablesInput.forEach((seats, i) => {
+    // 半荘番号を省略した卓には続きの番号を振る（指定した卓は数えない）。
+    let nextAutoRound = maxRound;
+    tablesInput.forEach(({ seats, round: givenRound, tableLabel }) => {
       const members: MahjongTableMember[] = seats.map((m) => ({
         lineUserId: m.lineUserId,
         displayName: nameById.get(m.lineUserId) || "",
@@ -187,7 +209,7 @@ export async function POST(req: NextRequest) {
       }));
       const validation = validateTableReports(members);
       const status = validation.ok ? "completed" : "reporting";
-      const round = maxRound + i + 1;
+      const round = givenRound ?? ++nextAutoRound;
       const ref = db.collection("mahjongTables").doc();
       const table: MahjongTable = {
         tableId: ref.id,
@@ -199,6 +221,7 @@ export async function POST(req: NextRequest) {
         members,
         status,
         round,
+        ...(tableLabel ? { tableLabel } : {}),
         // 管理者が意図して入れた値なので自己申告の異常検知フラグは立てない。
         needsReview: false,
         reviewReason: null,
