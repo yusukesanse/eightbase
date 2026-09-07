@@ -73,7 +73,12 @@ export function GamePlayerHistorySheet({
   return (
     <BottomSheet open onClose={onClose}>
       {loading ? (
-        <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>
+        <div className="flex justify-center py-12">
+          <div
+            className="w-6 h-6 rounded-full animate-spin border-2 border-t-transparent"
+            style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }}
+          />
+        </div>
       ) : !data || !data.player ? (
         <div className="py-10 text-center text-sm text-[#231714]/80">戦歴を取得できませんでした</div>
       ) : (
@@ -118,14 +123,17 @@ export function GamePlayerHistorySheet({
 
               <div className="mt-4">
                 <div className="text-[11px] font-extrabold text-[#3f4247] mb-1.5">戦歴（{data.games.length}戦）</div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   {data.games.map((g, i) => (
-                    <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={{ background: "#fff", boxShadow: "inset 0 0 0 1px #f1f3f4" }}>
-                      <span className="text-[12px] font-bold text-[#1c1f21] tabular-nums w-[70px]">{fmtDate(g.date)}</span>
-                      <span className="text-[11px] font-bold" style={{ color: g.isFirst ? accent : "#3f4247" }}>{g.label}</span>
+                    <div
+                      key={i}
+                      className="eb-glass flex min-h-[56px] items-center gap-2.5 rounded-2xl px-3 py-2"
+                    >
+                      <span className="text-[13px] font-bold text-[color:var(--eb-ink)] tabular-nums w-[70px]">{fmtDate(g.date)}</span>
+                      <span className="text-[12px] font-bold" style={{ color: g.isFirst ? accent : "var(--eb-ink-muted)" }}>{g.label}</span>
                       <span className="flex-1" />
-                      <span className="text-[14px] font-black tabular-nums text-[#1c1f21]">{g.pt.toLocaleString()}</span>
-                      <span className="text-[10px] font-bold text-[#97999d]">pt</span>
+                      <span className="text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">{g.pt.toLocaleString()}</span>
+                      <span className="text-[11px] font-bold text-[color:var(--eb-ink-muted)]">pt</span>
                     </div>
                   ))}
                 </div>

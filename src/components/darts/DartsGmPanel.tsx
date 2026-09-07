@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { DARTS_ACCENT } from "@/components/darts/dartsShared";
+import { Button, GlassCard } from "@/components/ui/eb";
 import {
   DARTS_EVENT_LABEL,
   DARTS_MIN_PARTICIPANTS,
@@ -98,9 +99,9 @@ const Chip = memo(function Chip({
       className={`inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white border select-none ${dragging ? "opacity-30" : ""} cursor-grab active:cursor-grabbing`}
       style={{
         touchAction: "none",
-        borderColor: selected ? DARTS_ACCENT : "#e4e7e9",
-        color: "#231714",
-        boxShadow: selected ? `0 0 0 2px ${DARTS_ACCENT}` : "0 1px 2px rgba(35,23,20,.06)",
+        borderColor: selected ? DARTS_ACCENT : "var(--eb-line)",
+        color: "var(--eb-ink)",
+        boxShadow: selected ? `0 0 0 2px ${DARTS_ACCENT}` : "0 1px 2px rgba(20,41,31,.06)",
       }}
     >
       {name}
@@ -126,17 +127,17 @@ const DropZone = memo(function DropZone({
     <div
       data-zone={zone}
       onClick={() => onZoneClick(zone)}
-      className={`rounded-2xl border border-dashed p-2.5 transition-colors ${isPool ? "min-h-[56px]" : "min-h-[64px]"} ${armed ? "cursor-pointer" : ""}`}
+      className={`rounded-[14px] border-[1.5px] border-dashed p-2.5 transition-colors ${isPool ? "min-h-[56px]" : "min-h-[72px]"} ${armed ? "cursor-pointer" : ""}`}
       style={{
-        borderColor: over ? "#d8533a" : lit ? DARTS_ACCENT : isPool ? "#e4e7e9" : "#c9d6cf",
-        background: lit ? `color-mix(in srgb, ${DARTS_ACCENT} 10%, #fff)` : isPool ? "#fff" : "#f7faf8",
+        borderColor: over ? "var(--eb-coral)" : lit ? DARTS_ACCENT : "var(--eb-line)",
+        background: lit ? `color-mix(in srgb, ${DARTS_ACCENT} 10%, var(--eb-tint))` : "var(--eb-tint)",
       }}
     >
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] font-extrabold" style={{ color: over ? "#d8533a" : "#3f4247" }}>
+        <span className="text-[12px] font-bold" style={{ color: over ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}>
           {label}{cap != null ? `（${count}/${cap}）` : `（${count}）`}
         </span>
-        {lit && <span className="text-[10px] font-bold" style={{ color: DARTS_ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>}
+        {lit && <span className="text-[11px] font-bold" style={{ color: DARTS_ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>}
       </div>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
@@ -163,9 +164,14 @@ export function DartsGmPanel({ eventDate, onChanged }: { eventDate: string; onCh
 
   if (loading) {
     return (
-      <div className="rounded-2xl border-2 p-4" style={{ borderColor: DARTS_ACCENT }}>
-        <div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>
-      </div>
+      <GlassCard tone="green" padding="md">
+        <div className="flex justify-center py-4">
+          <div
+            className="w-5 h-5 rounded-full animate-spin border-2 border-t-transparent"
+            style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }}
+          />
+        </div>
+      </GlassCard>
     );
   }
   if (!day) return null;
@@ -189,7 +195,7 @@ export function DartsGmPanel({ eventDate, onChanged }: { eventDate: string; onCh
 
   const header =
     phase === "start" ? "ゲーム開始（GM）"
-    : phase === "finished" ? "本日の対局は終了しました"
+    : phase === "finished" ? "本日の対局は終了しました（GM）"
     : phase === "variant" ? "①ゼロワン 種別選択（GM）"
     : phase === "report:zeroOne" ? "①ゼロワン 申告"
     : phase === "report:countUp" ? "②カウントアップ 申告"
@@ -198,9 +204,13 @@ export function DartsGmPanel({ eventDate, onChanged }: { eventDate: string; onCh
     : "本日終了（GM）";
 
   return (
-    <div className="rounded-2xl border-2 p-4 flex flex-col gap-3" style={{ borderColor: DARTS_ACCENT, background: `color-mix(in srgb, ${DARTS_ACCENT} 5%, #fff)` }}>
-      <div className="text-[13px] font-black" style={{ color: DARTS_ACCENT }}>{header}</div>
-      {error && <div className="text-[11px] font-bold text-[#d8533a] bg-[#fdece8] rounded-lg px-3 py-2">{error}</div>}
+    <GlassCard tone="green" padding="md" className="flex flex-col gap-3">
+      <div className="text-[15px] font-bold text-[color:var(--eb-green-text)]">{header}</div>
+      {error && (
+        <div className="text-[13px] font-bold text-[color:var(--eb-coral-text)] rounded-lg px-3 py-2" style={{ background: "rgba(217,72,58,.10)" }}>
+          {error}
+        </div>
+      )}
 
       {phase === "start" && <StartPhase day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
       {phase === "variant" && <VariantPhase eventDate={eventDate} onDone={refresh} setError={setError} />}
@@ -211,11 +221,11 @@ export function DartsGmPanel({ eventDate, onChanged }: { eventDate: string; onCh
       {phase === "report:cricket" && <CricketReportPhase day={day} ev={cricket!} eventDate={eventDate} onDone={refresh} setError={setError} />}
       {phase === "finish" && <FinishPhase eventDate={eventDate} onDone={refresh} setError={setError} />}
       {phase === "finished" && (
-        <p className="text-[12px] text-[#231714]/80 leading-relaxed">
+        <p className="text-[13px] text-[color:var(--eb-ink-muted)] leading-relaxed">
           3種目すべて終了しました。結果は「リーグ」タブの順位に反映されます。おつかれさまでした。
         </p>
       )}
-    </div>
+    </GlassCard>
   );
 }
 
@@ -243,43 +253,43 @@ function StartPhase({ day, eventDate, onDone, setError }: { day: DayDto; eventDa
 
   return (
     <>
-      <p className="text-[11px] text-[#231714]/80 leading-relaxed">
-        「ゲーム開始」を押すと<b>受付を締め切ります</b>。以降は参加表明・参加費の支払いはできません。
+      <p className="text-[14px] text-[color:var(--eb-ink-muted)] leading-relaxed">
+        「ゲーム開始」を押すと<b className="text-[color:var(--eb-ink)]">受付を締め切ります</b>。以降は参加表明・参加費の支払いはできません。
         そのときの支払い済みメンバーで進めます。
       </p>
-      <div className="rounded-2xl border border-dashed p-2.5" style={{ borderColor: "#e4e7e9", background: "#fff" }}>
-        <div className="text-[11px] font-extrabold text-[#3f4247] mb-1.5">支払い済み（{day.paidCount}名）</div>
+      <div className="rounded-[14px] border-[1.5px] border-dashed p-2.5" style={{ borderColor: "var(--eb-line)", background: "var(--eb-tint)" }}>
+        <div className="text-[13px] font-bold text-[color:var(--eb-ink)] mb-1.5">支払い済み（{day.paidCount}名）</div>
         <div className="flex flex-wrap gap-1.5">
           {day.participants.length === 0 ? (
-            <span className="text-[11px] text-[#231714]/75">まだいません</span>
+            <span className="text-[12px] text-[color:var(--eb-ink-muted)]">まだいません</span>
           ) : (
             day.participants.map((m) => (
-              <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border" style={{ borderColor: "#e4e7e9", color: "#231714" }}>
+              <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border border-[color:var(--eb-line)] text-[color:var(--eb-ink)]">
                 {m.displayName}
               </span>
             ))
           )}
         </div>
       </div>
-      <button onClick={start} disabled={starting || day.paidCount < DARTS_MIN_PARTICIPANTS} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
-        {starting ? "開始中…" : "ゲーム開始（受付を締め切る）"}
-      </button>
+      <Button variant="primary" onClick={start} loading={starting} disabled={day.paidCount < DARTS_MIN_PARTICIPANTS}>
+        ゲーム開始（受付を締め切る）
+      </Button>
       {day.paidCount < DARTS_MIN_PARTICIPANTS && (
-        <p className="text-[10.5px] text-[#231714]/85 text-center">支払い済みが{DARTS_MIN_PARTICIPANTS}名以上になると開始できます。</p>
+        <p className="text-[12px] text-[color:var(--eb-ink-muted)] text-center">支払い済みが{DARTS_MIN_PARTICIPANTS}名以上になると開始できます。</p>
       )}
 
       {!confirmCancel ? (
-        <button onClick={() => setConfirmCancel(true)} className="text-[10.5px] font-bold text-[#c0563c] underline underline-offset-2 self-center">
+        <Button variant="ghost" onClick={() => setConfirmCancel(true)} className="text-[13px]">
           この開催日を中止（流会）にする
-        </button>
+        </Button>
       ) : (
-        <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#e9b7ab", background: "#fdece8" }}>
-          <p className="text-[11px] font-bold text-[#c0563c] leading-relaxed">
+        <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "rgba(217,72,58,.35)", background: "rgba(217,72,58,.08)" }}>
+          <p className="text-[13px] font-bold text-[color:var(--eb-coral-text)] leading-relaxed">
             この開催日を中止します。支払い済みの{day.paidCount}名は<b>返金対象</b>になり、管理者に返金依頼が飛びます。取り消せません。
           </p>
           <div className="flex gap-2">
-            <button onClick={() => setConfirmCancel(false)} disabled={cancelling} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}>やめる</button>
-            <button onClick={cancel} disabled={cancelling} className="flex-1 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40" style={{ background: "#c0563c" }}>{cancelling ? "中止中…" : "中止する"}</button>
+            <Button variant="ghost" onClick={() => setConfirmCancel(false)} disabled={cancelling}>やめる</Button>
+            <Button variant="danger" onClick={cancel} loading={cancelling}>中止する</Button>
           </div>
         </div>
       )}
@@ -304,28 +314,36 @@ function VariantPhase({ eventDate, onDone, setError }: { eventDate: string; onDo
 
   return (
     <>
-      <p className="text-[11px] text-[#231714]/80">ゼロワンの元数とアウト条件を選び、申告受付を開始します。</p>
-      <div className="text-[11px] font-extrabold text-[#3f4247]">元数</div>
+      <p className="text-[14px] text-[color:var(--eb-ink-muted)]">ゼロワンの元数とアウト条件を選び、申告受付を開始します。</p>
+      <div className="text-[13px] font-bold text-[color:var(--eb-ink)]">元数</div>
       <div className="flex gap-2">
         {START_OPTIONS.map((s) => (
-          <button key={s} onClick={() => setStart(s)} className="flex-1 py-2.5 rounded-xl text-[15px] font-black transition-all"
-            style={start === s ? { background: DARTS_ACCENT, color: "#fff" } : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
+          <button
+            key={s}
+            onClick={() => setStart(s)}
+            className="flex-1 py-2.5 rounded-xl text-[15px] font-bold transition-all"
+            style={start === s ? { background: "var(--eb-green)", color: "#fff" } : { background: "var(--eb-tint)", color: "var(--eb-ink)" }}
+          >
             {s}
           </button>
         ))}
       </div>
-      <div className="text-[11px] font-extrabold text-[#3f4247]">アウト条件</div>
+      <div className="text-[13px] font-bold text-[color:var(--eb-ink)]">アウト条件</div>
       <div className="flex gap-2">
         {(["single", "double", "master"] as DartsZeroOneOut[]).map((o) => (
-          <button key={o} onClick={() => setOut(o)} className="flex-1 py-2.5 rounded-xl text-[12px] font-bold transition-all"
-            style={out === o ? { background: DARTS_ACCENT, color: "#fff" } : { background: "#f6f8f9", color: "#40434a", boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
+          <button
+            key={o}
+            onClick={() => setOut(o)}
+            className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
+            style={out === o ? { background: "var(--eb-green)", color: "#fff" } : { background: "var(--eb-tint)", color: "var(--eb-ink)" }}
+          >
             {OUT_LABEL[o]}
           </button>
         ))}
       </div>
-      <button onClick={submit} disabled={busy} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
-        {busy ? "設定中…" : "この種別で申告を開始"}
-      </button>
+      <Button variant="primary" onClick={submit} loading={busy}>
+        この種別で申告を開始
+      </Button>
     </>
   );
 }
@@ -361,34 +379,46 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
   return (
     <>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold text-[#3c4f54]">{DARTS_EVENT_LABEL[ev.kind]}{hint}</span>
-        <span className="text-[10px] font-bold text-[#3c4f54] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
+        <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">{DARTS_EVENT_LABEL[ev.kind]}{hint}</span>
+        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
-      <p className="text-[10.5px] text-[#231714]/80">各自がアプリで申告します。GM も自分の分を申告し、代理入力・修正もできます。{label}。全員そろったら「確定」を押すと次に進みます。</p>
+      <p className="text-[13px] text-[color:var(--eb-ink-muted)]">各自がアプリで申告します。GM も自分の分を申告し、代理入力・修正もできます。{label}。全員そろったら「確定」を押すと次に進みます。</p>
       <div className="flex flex-col gap-1.5">
         {playing(day).map((m) => {
           const done = m.lineUserId in reported;
           return (
-            <div key={m.lineUserId} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: done ? DARTS_ACCENT : "#e4e7e9", background: done ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff" }}>
-              <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{m.displayName}</span>
-              {done && <span className="text-[11px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[m.lineUserId] ?? "棄権"}</span>}
+            <div
+              key={m.lineUserId}
+              className="flex items-center gap-2 rounded-2xl border px-2.5 py-2"
+              style={{
+                borderColor: done ? DARTS_ACCENT : "var(--eb-line)",
+                background: done ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff",
+              }}
+            >
+              <span className="text-[13px] font-bold text-[color:var(--eb-ink)] flex-1 min-w-0 truncate">{m.displayName}</span>
+              {done && <span className="text-[12px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[m.lineUserId] ?? "棄権"}</span>}
               <input
                 type="text" inputMode="numeric" placeholder={done ? "修正" : "入力"}
                 value={draft[m.lineUserId] ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, [m.lineUserId]: e.target.value.replace(/[^\d]/g, "") }))}
-                className="w-16 text-right border-b outline-none bg-transparent text-[14px] font-black tabular-nums text-[#1c1f21] py-0.5"
-                style={{ borderColor: draft[m.lineUserId] ? DARTS_ACCENT : "#e4e7e9" }}
+                className="w-16 text-right border-b outline-none bg-transparent text-[14px] font-bold tabular-nums text-[color:var(--eb-ink)] py-0.5"
+                style={{ borderColor: draft[m.lineUserId] ? DARTS_ACCENT : "var(--eb-line)" }}
               />
-              <button onClick={() => submit(m.lineUserId)} disabled={busy === m.lineUserId || !draft[m.lineUserId]} className="shrink-0 text-[11px] font-black px-2.5 py-1.5 rounded-lg text-white disabled:opacity-30" style={{ background: DARTS_ACCENT }}>
+              <button
+                onClick={() => submit(m.lineUserId)}
+                disabled={busy === m.lineUserId || !draft[m.lineUserId]}
+                className="shrink-0 text-[12px] font-bold px-2.5 py-1.5 rounded-lg text-white disabled:opacity-30"
+                style={{ background: DARTS_ACCENT }}
+              >
                 登録
               </button>
             </div>
           );
         })}
       </div>
-      <button onClick={confirmEvent} disabled={!allReported || confirming} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
-        {confirming ? "確定中…" : allReported ? "全員のスコアを確定して次へ" : `あと${ev.total - ev.reportedCount}名の申告待ち`}
-      </button>
+      <Button variant="primary" onClick={confirmEvent} disabled={!allReported} loading={confirming}>
+        {allReported ? "全員のスコアを確定して次へ" : `あと${ev.total - ev.reportedCount}名の申告待ち`}
+      </Button>
     </>
   );
 }
@@ -511,12 +541,12 @@ function CricketAssignPhase({ day, eventDate, onDone, setError }: { day: DayDto;
 
   return (
     <>
-      <p className="text-[10.5px] text-[#231714]/85">
+      <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
         {selectedId ? "置きたいチームをタップしてください。" : "参加者を指でつまんでチームへ運びます（2人1組・奇数のみ1人チーム1組）。タップで選んでチームをタップしても移動できます。"}
       </p>
 
       <DropZone zone="pool" label="未配置" count={inZone("pool").length} lit={isLit("pool")} over={false} armed={isArmed("pool")} onZoneClick={onZoneClick}>
-        {inZone("pool").length === 0 ? <span className="text-[11px] text-[#231714]/75">全員配置済み</span> : inZone("pool").map((m) => renderChip(m.lineUserId))}
+        {inZone("pool").length === 0 ? <span className="text-[12px] text-[color:var(--eb-ink-muted)]">全員配置済み</span> : inZone("pool").map((m) => renderChip(m.lineUserId))}
       </DropZone>
 
       <div className="grid grid-cols-1 gap-2.5">
@@ -525,24 +555,33 @@ function CricketAssignPhase({ day, eventDate, onDone, setError }: { day: DayDto;
           const members = inZone(z);
           return (
             <DropZone key={z} zone={z} label={`チーム${i + 1}`} count={members.length} cap={2} lit={isLit(z)} over={members.length > 2 || (members.length === 1 && n % 2 === 0)} armed={isArmed(z)} onZoneClick={onZoneClick}>
-              {members.length === 0 ? <span className="text-[11px] text-[#231714]/75">空き</span> : members.map((m) => renderChip(m.lineUserId))}
+              {members.length === 0 ? <span className="text-[12px] text-[color:var(--eb-ink-muted)]">空き</span> : members.map((m) => renderChip(m.lineUserId))}
             </DropZone>
           );
         })}
       </div>
 
-      <button onClick={confirm} disabled={!valid || busy} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
-        {busy ? "確定中…" : "この編成で申告を開始"}
-      </button>
+      <Button variant="primary" onClick={confirm} disabled={!valid} loading={busy}>
+        この編成で申告を開始
+      </Button>
       {!valid && (
-        <p className="text-[10.5px] text-[#231714]/85 text-center">
+        <p className="text-[12px] text-[color:var(--eb-ink-muted)] text-center">
           {unplaced > 0 ? "全員をチームに配置してください。" : n % 2 === 0 ? "偶数人のため全員2人チームにしてください。" : "奇数人のため1人チームは1組だけにしてください。"}
         </p>
       )}
 
       {drag && (
-        <div ref={ghostRef} className="fixed left-0 top-0 z-50 pointer-events-none inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white"
-          style={{ willChange: "transform", transform: `translate3d(${point.current.x}px, ${point.current.y}px, 0) translate(-50%, -50%) scale(1.06)`, border: `2px solid ${DARTS_ACCENT}`, color: "#231714", boxShadow: "0 8px 20px rgba(35,23,20,.18)" }}>
+        <div
+          ref={ghostRef}
+          className="fixed left-0 top-0 z-50 pointer-events-none inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white"
+          style={{
+            willChange: "transform",
+            transform: `translate3d(${point.current.x}px, ${point.current.y}px, 0) translate(-50%, -50%) scale(1.06)`,
+            border: `2px solid ${DARTS_ACCENT}`,
+            color: "var(--eb-ink)",
+            boxShadow: "0 8px 20px rgba(20,41,31,.18)",
+          }}
+        >
           {dragName}
         </div>
       )}
@@ -581,33 +620,49 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
   return (
     <>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold text-[#3c4f54]">クリケット（15R・チーム最終ポイント）</span>
-        <span className="text-[10px] font-bold text-[#3c4f54] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
+        <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">クリケット（15R・チーム最終ポイント）</span>
+        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
-      <p className="text-[10.5px] text-[#231714]/80">各チームが申告します。GM は代理入力・修正もできます。全チームそろったら「確定」を押すと本日終了へ進みます。</p>
+      <p className="text-[13px] text-[color:var(--eb-ink-muted)]">各チームが申告します。GM は代理入力・修正もできます。全チームそろったら「確定」を押すと本日終了へ進みます。</p>
       <div className="flex flex-col gap-1.5">
         {(day.cricketTeams ?? []).map((team, i) => {
           const isReported = team.teamId in reported;
           return (
-            <div key={team.teamId} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: isReported ? DARTS_ACCENT : "#e4e7e9", background: isReported ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff" }}>
+            <div
+              key={team.teamId}
+              className="flex items-center gap-2 rounded-2xl border px-2.5 py-2"
+              style={{
+                borderColor: isReported ? DARTS_ACCENT : "var(--eb-line)",
+                background: isReported ? `color-mix(in srgb, ${DARTS_ACCENT} 6%, #fff)` : "#fff",
+              }}
+            >
               <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-extrabold text-[#3c4f54]">チーム{i + 1}</div>
-                <div className="text-[12.5px] font-bold text-[#1c1f21] truncate">{team.members.map((m) => m.displayName).join("・")}</div>
+                <div className="text-[11px] font-bold text-[color:var(--eb-ink-muted)]">チーム{i + 1}</div>
+                <div className="text-[13px] font-bold text-[color:var(--eb-ink)] truncate">{team.members.map((m) => m.displayName).join("・")}</div>
               </div>
-              {isReported && <span className="text-[11px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[team.teamId] ?? "棄権"}</span>}
-              <input type="text" inputMode="numeric" placeholder={isReported ? "修正" : "入力"}
+              {isReported && <span className="text-[12px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[team.teamId] ?? "棄権"}</span>}
+              <input
+                type="text" inputMode="numeric" placeholder={isReported ? "修正" : "入力"}
                 value={draft[team.teamId] ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, [team.teamId]: e.target.value.replace(/[^\d]/g, "") }))}
-                className="w-16 text-right border-b outline-none bg-transparent text-[14px] font-black tabular-nums text-[#1c1f21] py-0.5"
-                style={{ borderColor: draft[team.teamId] ? DARTS_ACCENT : "#e4e7e9" }} />
-              <button onClick={() => submit(team)} disabled={busy === team.teamId || !draft[team.teamId]} className="shrink-0 text-[11px] font-black px-2.5 py-1.5 rounded-lg text-white disabled:opacity-30" style={{ background: DARTS_ACCENT }}>登録</button>
+                className="w-16 text-right border-b outline-none bg-transparent text-[14px] font-bold tabular-nums text-[color:var(--eb-ink)] py-0.5"
+                style={{ borderColor: draft[team.teamId] ? DARTS_ACCENT : "var(--eb-line)" }}
+              />
+              <button
+                onClick={() => submit(team)}
+                disabled={busy === team.teamId || !draft[team.teamId]}
+                className="shrink-0 text-[12px] font-bold px-2.5 py-1.5 rounded-lg text-white disabled:opacity-30"
+                style={{ background: DARTS_ACCENT }}
+              >
+                登録
+              </button>
             </div>
           );
         })}
       </div>
-      <button onClick={confirmEvent} disabled={!allReported || confirming} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>
-        {confirming ? "確定中…" : allReported ? "全チームのスコアを確定して次へ" : `あと${ev.total - ev.reportedCount}チームの申告待ち`}
-      </button>
+      <Button variant="primary" onClick={confirmEvent} disabled={!allReported} loading={confirming}>
+        {allReported ? "全チームのスコアを確定して次へ" : `あと${ev.total - ev.reportedCount}チームの申告待ち`}
+      </Button>
     </>
   );
 }
@@ -626,15 +681,17 @@ function FinishPhase({ eventDate, onDone, setError }: { eventDate: string; onDon
   };
   return (
     <>
-      <p className="text-[12px] font-bold text-[#231714] leading-relaxed">3種目すべての申告が確定しました。</p>
+      <p className="text-[15px] font-bold text-[color:var(--eb-ink)] leading-relaxed">3種目すべての申告が確定しました。</p>
       {!confirm ? (
-        <button onClick={() => setConfirm(true)} className="w-full py-3 rounded-2xl text-sm font-black text-white" style={{ background: DARTS_ACCENT }}>本日の対局を終了する</button>
+        <Button variant="primary" onClick={() => setConfirm(true)}>
+          本日の対局を終了する
+        </Button>
       ) : (
-        <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#c9d6cf", background: "#f7faf8" }}>
-          <p className="text-[11px] font-bold leading-relaxed" style={{ color: DARTS_ACCENT }}>本日終了で3種目の順位ポイントを合算し、順位を確定します。以降この日の申告はできません。</p>
+        <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "var(--eb-line)", background: "var(--eb-tint)" }}>
+          <p className="text-[13px] font-bold leading-relaxed text-[color:var(--eb-green-text)]">本日終了で3種目の順位ポイントを合算し、順位を確定します。以降この日の申告はできません。</p>
           <div className="flex gap-2">
-            <button onClick={() => setConfirm(false)} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}>やめる</button>
-            <button onClick={finish} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40" style={{ background: DARTS_ACCENT }}>{busy ? "確定中…" : "終了する"}</button>
+            <Button variant="ghost" onClick={() => setConfirm(false)} disabled={busy}>やめる</Button>
+            <Button variant="danger" onClick={finish} loading={busy}>終了する</Button>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
+import { PageBg, PageHeading } from "@/components/ui/eb";
 
 /**
  * ダーツリーグ画面（利用者・RichMenu / ディープリンク主導線）。
@@ -19,22 +20,20 @@ export default function DartsLeaguePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="bg-white px-5 pt-12 pb-3">
-        <div className="flex items-center gap-2">
-          <button onClick={goBack} aria-label="戻る" className="text-[#231714]/85 hover:text-[#231714]/90">
-            ←
-          </button>
-          <div>
-            <h1 className="text-[17px] font-medium text-[#231714]">ダーツリーグ</h1>
-            <p className="text-[11px] text-[#231714]/80 mt-0.5">DARTS LEAGUE</p>
-          </div>
-        </div>
+    <PageBg>
+      <header className="px-5 pt-[52px] pb-3 flex items-center gap-3">
+        <button
+          onClick={goBack}
+          aria-label="戻る"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+        </button>
+        <PageHeading title="DARTS" subtitle="ダーツリーグ" />
       </header>
-
-      <div className="px-4 pt-4">
+      <div className="px-4 pb-4">
         <DartsLeagueView />
       </div>
-    </div>
+    </PageBg>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Avatar } from "@/components/ui/LineContact";
+import { GlassCard, StatusPill } from "@/components/ui/eb";
 
 /**
  * 当日の参加者名簿（ダーツ / ビリヤード）。
@@ -66,23 +67,23 @@ export function DayRosterPanel({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
+    <GlassCard padding="md" className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-extrabold text-[#231714]">
+        <span className="text-[13px] font-bold text-[color:var(--eb-ink)]">
           本日の参加者 {members.length}名
         </span>
         {unpaid.length > 0 && (
-          <span className="text-[11px] font-bold text-[#a1702c]">未払い {unpaid.length}名</span>
+          <span className="text-[12px] font-bold text-[color:var(--eb-gold-text)]">未払い {unpaid.length}名</span>
         )}
       </div>
 
       {iAmUnpaid && (
-        <p className="text-[11.5px] font-bold text-[#a1702c] bg-[#fff6e5] rounded-xl px-3 py-2">
+        <p className="text-[12px] font-bold text-[color:var(--eb-gold-text)] rounded-xl px-3 py-2" style={{ background: "rgba(217,169,58,.14)" }}>
           参加費が未払いです。お支払いいただくと参加できます（「参加」タブからお支払いください）。
         </p>
       )}
       {isGameMaster && unpaid.length > 0 && (
-        <p className="text-[11.5px] text-[#3c4f54]">
+        <p className="text-[12px] text-[color:var(--eb-ink-muted)]">
           未払いの方は進行に参加できません。その場でお支払いいただくか、参加されない場合は「外す」でリストから除いてください。
         </p>
       )}
@@ -91,26 +92,17 @@ export function DayRosterPanel({
         {members.map((m, i) => (
           <li key={m.lineUserId ?? `${m.displayName}-${i}`} className="flex items-center gap-2.5">
             <Avatar src={m.pictureUrl} name={m.displayName} size={28} />
-            <span className="flex-1 min-w-0 text-[13px] font-bold text-[#1c1f21] truncate">
+            <span className="flex-1 min-w-0 text-[13px] font-bold text-[color:var(--eb-ink)] truncate">
               {m.displayName}
-              {m.isMe && <span className="ml-1.5 text-[10px] font-extrabold text-[#2f7d57]">YOU</span>}
+              {m.isMe && <span className="ml-1.5 text-[11px] font-bold text-[color:var(--eb-green-text)]">YOU</span>}
             </span>
-            <span
-              className="shrink-0 text-[10.5px] font-bold px-2 py-0.5 rounded-full"
-              style={
-                m.paid
-                  ? { background: "#eef6f0", color: "#2f7d57" }
-                  : { background: "#fff6e5", color: "#a1702c" }
-              }
-            >
-              {m.paid ? "支払い済み" : "未払い"}
-            </span>
+            <StatusPill tone={m.paid ? "green" : "gold"}>{m.paid ? "支払い済み" : "未払い"}</StatusPill>
             {isGameMaster && !finished && !m.isMe && m.lineUserId && (
               <button
                 type="button"
                 disabled={busyId === m.lineUserId}
                 onClick={() => remove(m)}
-                className="shrink-0 rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-bold text-[#d8533a] disabled:opacity-40"
+                className="shrink-0 rounded-lg border border-[color:var(--eb-line)] px-2.5 py-1 text-[11px] font-bold text-[color:var(--eb-coral-text)] disabled:opacity-40"
               >
                 {busyId === m.lineUserId ? "…" : "外す"}
               </button>
@@ -119,7 +111,7 @@ export function DayRosterPanel({
         ))}
       </ul>
 
-      {error && <p className="text-[11.5px] font-bold text-[#d8533a]">{error}</p>}
-    </div>
+      {error && <p className="text-[12px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
+    </GlassCard>
   );
 }
