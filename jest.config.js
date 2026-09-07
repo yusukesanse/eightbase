@@ -10,7 +10,7 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.json" }],
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: { ...require("./tsconfig.json").compilerOptions, jsx: "react-jsx" } }],
     [`node_modules/(${esModules})/.+\\.js$`]: ["ts-jest", { tsconfig: "tsconfig.json" }],
   },
   transformIgnorePatterns: [`<rootDir>/node_modules/(?!(${esModules})/)`],

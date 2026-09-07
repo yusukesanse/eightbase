@@ -7,6 +7,7 @@ import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
 import { lookupAddressByPostalCode } from "@/lib/address";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { normalizeRole, type UserRole } from "@/lib/roles";
+import { AuthRecovery } from "@/components/AuthRecovery";
 import { Button, Field, GlassCard, PageBg, PageHeading, inputClass } from "@/components/ui/eb";
 
 const PREFECTURES = [
@@ -97,6 +98,8 @@ export default function SetupProfilePage() {
   const router = useRouter();
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<"auth" | "network" | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(1);
@@ -105,12 +108,20 @@ export default function SetupProfilePage() {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function loadProfile() {
+      setLoading(true);
+      setLoadError(null);
       try {
-        const res = await fetch("/api/auth/profile", { credentials: "include" });
-        if (!res.ok) { router.replace("/login"); return; }
+        const res = await fetch("/api/auth/profile", { credentials: "include", cache: "no-store", signal: controller.signal });
+        if (controller.signal.aborted) return;
+        if (!res.ok) {
+          setLoadError(res.status === 401 || res.status === 403 ? "auth" : "network");
+          return;
+        }
         const data = await res.json();
-        if (data.profileComplete) { router.replace("/reservation"); return; }
+        if (controller.signal.aborted) return;
+        if (data.profileComplete) { clearAuthCache(); router.replace("/reservation"); return; }
         setRole(normalizeRole(data.role));
         if (data.profile) {
           const p = data.profile;
@@ -128,11 +139,12 @@ export default function SetupProfilePage() {
             socialLinks: { ...EMPTY_FORM.socialLinks, ...(p.socialLinks || {}) },
           });
         }
-      } catch { router.replace("/login"); }
-      finally { setLoading(false); }
+      } catch { if (!controller.signal.aborted) setLoadError("network"); }
+      finally { if (!controller.signal.aborted) setLoading(false); }
     }
     loadProfile();
-  }, [router]);
+    return () => controller.abort();
+  }, [router, loadAttempt]);
 
   async function lookupPostalCode() {
     const addr = await lookupAddressByPostalCode(form.postalCode);
@@ -257,6 +269,20 @@ export default function SetupProfilePage() {
       }
     } catch { setError("通信エラーが発生しました"); }
     finally { setSubmitting(false); }
+  }
+
+  if (loadError) {
+    return (
+      <AuthRecovery
+        title="プロフィールを読み込めませんでした"
+        message={loadError === "auth" ? "ログイン状態を確認できませんでした。もう一度ログインしてください。" : "通信状況を確認して、もう一度お試しください。"}
+        retryLabel={loadError === "auth" ? "ログインする" : "もう一度試す"}
+        onRetry={() => {
+          if (loadError === "auth") { clearAuthCache(); router.replace("/login"); }
+          else setLoadAttempt((value) => value + 1);
+        }}
+      />
+    );
   }
 
   if (loading) {

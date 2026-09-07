@@ -9,6 +9,7 @@ import { clearReservationDraft } from "@/lib/reservationDraft";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 import { paymentReturnSearch, GAME_PAYMENT_RETURN_BASE } from "@/lib/gamePaymentReturn";
 import { isDevLoginEnabled } from "@/lib/env";
+import { AuthRecovery } from "./AuthRecovery";
 
 /**
  * 認証チェックで判明した現在ユーザーと、キャッシュ所有者を突き合わせる。
@@ -26,7 +27,7 @@ function reconcileCacheOwner(userId: string) {
   setCacheOwner(userId);
 }
 
-const PUBLIC_PATHS = ["/login", "/", "/setup-profile", "/guest"];
+const PUBLIC_PATHS = ["/login", "/", "/guest"];
 const PUBLIC_PREFIXES = ["/admin"];
 
 /**
@@ -34,7 +35,8 @@ const PUBLIC_PREFIXES = ["/admin"];
  * DEV-ONLY 分岐（develop 専用）: 開発は `/` へ送り固定ロールで自動ログインさせる。
  */
 function loginPath(): string {
-  return isDevLoginEnabled() ? "/" : "/login";
+  const path = isDevLoginEnabled() ? "/" : "/login";
+  return `${path}${typeof window === "undefined" ? "" : paymentReturnSearch(window.location.search)}`;
 }
 
 /** ゲスト(role=guest)が閲覧できるのはゲーム機能のみ。会員専用ルート（/info・掲示板等）はブロック。 */
@@ -71,7 +73,9 @@ const CACHE_TTL = 60 * 1000; // 認証は短期のみ（60秒）
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [status, setStatus] = useState<"loading" | "authorized" | "unauthorized">(() => {
+  const [checkedPath, setCheckedPath] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<"loading" | "authorized" | "unauthorized" | "error">(() => {
     // キャッシュが有効ならloadingをスキップ
     if (authCache && Date.now() - authCache.checkedAt < CACHE_TTL && authCache.authorized) {
       return "authorized";
@@ -85,15 +89,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isPublicPath) {
+      // 同じ保護ページにログインから戻る場合も、以前の許可状態を再利用しない。
+      setCheckedPath(null);
       setStatus("authorized");
       return;
     }
+    setCheckedPath(pathname);
+    setStatus("loading");
 
     // キャッシュが有効なら即authorized（ゲスト/プロフィール未完了の分岐のみ）
     if (authCache && Date.now() - authCache.checkedAt < CACHE_TTL) {
       if (authCache.authorized) {
         if (isGamesOnlyRole(authCache.role)) {
-          // ゲスト/エイト社員はゲーム系のみ。setup-profile は強制しない。
+          // ゲストはゲーム系のみ。会員用プロフィール画面には入れない。
           if (!isGuestAllowedPath(pathname)) {
             router.replace(gamesOnlyRedirectTarget());
             return;
@@ -109,7 +117,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return;
       }
       setStatus("unauthorized");
-      router.replace(loginPath());
       return;
     }
 
@@ -118,11 +125,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     fetch("/api/auth/check", {
       credentials: "include",
+      cache: "no-store",
       signal: controller.signal,
     })
       .then(async (res) => {
+        if (controller.signal.aborted) return;
         if (res.ok) {
           const data = await res.json();
+          if (controller.signal.aborted) return;
           authCache = {
             authorized: !!data.authorized,
             profileComplete: !!data.profileComplete,
@@ -133,7 +143,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             // ユーザーIDが変わっていたら前ユーザーの表示キャッシュを破棄
             if (data.lineUserId) reconcileCacheOwner(data.lineUserId);
             if (isGamesOnlyRole(authCache.role)) {
-              // ゲスト/エイト社員はゲーム系のみ。setup-profile は強制しない。
+              // ゲストはゲーム系のみ。会員用プロフィール画面には入れない。
               if (!isGuestAllowedPath(pathname)) {
                 router.replace(gamesOnlyRedirectTarget());
                 return;
@@ -148,30 +158,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             setStatus("authorized");
           } else {
             setStatus("unauthorized");
-            router.replace(loginPath());
           }
         } else {
           authCache = null;
-          setStatus("unauthorized");
-          router.replace(loginPath());
+          setStatus(res.status === 401 || res.status === 403 ? "unauthorized" : "error");
         }
       })
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+      .catch(() => {
+        if (controller.signal.aborted) return;
         authCache = null;
-        setStatus("unauthorized");
-        router.replace(loginPath());
+        setStatus("error");
       });
 
     return () => {
       controller.abort();
     };
-  }, [isPublicPath, pathname, router]);
+  }, [isPublicPath, pathname, router, attempt]);
 
-  if (status === "loading" && !isPublicPath) {
+  if (!isPublicPath && (status === "loading" || checkedPath !== pathname)) {
     // 軽量なスケルトン（フルスクリーンスピナーではない）
     return (
-      <div className="min-h-screen bg-[#F3F6F4] animate-pulse">
+      <div className="min-h-screen bg-[#F3F6F4] animate-pulse" role="status" aria-label="認証を確認しています">
         <div className="h-14 bg-gray-100" />
         <div className="p-4 space-y-3">
           <div className="h-4 bg-gray-100 rounded w-1/3" />
@@ -182,7 +189,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (status === "unauthorized") return null;
+  if (!isPublicPath && (status === "unauthorized" || status === "error")) {
+    const needsLogin = status === "unauthorized";
+    return (
+      <AuthRecovery
+        title={needsLogin ? "ログインが必要です" : "接続を確認できませんでした"}
+        message={needsLogin
+          ? "ログイン状態を確認できませんでした。下のボタンからもう一度ログインしてください。"
+          : "通信状況を確認して、もう一度お試しください。"}
+        retryLabel={needsLogin ? "ログインする" : "もう一度試す"}
+        onRetry={() => {
+          clearAuthCache();
+          if (needsLogin) router.replace(loginPath());
+          else setAttempt((value) => value + 1);
+        }}
+      />
+    );
+  }
 
   return <>{children}</>;
 }

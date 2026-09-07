@@ -3,6 +3,7 @@ import { signSession, setSessionCookie } from "@/lib/session";
 import { getDb } from "@/lib/firebaseAdmin";
 import { verifyLineAccessToken, fetchLineProfile } from "@/lib/lineAuth";
 import { isReviewModeEnabled } from "@/lib/reviewMode";
+import { normalizeRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -172,6 +173,7 @@ export async function POST(req: NextRequest) {
       displayName: userData?.displayName || displayName,
       lineUserId,
       profileComplete,
+      role: normalizeRole(userData?.role),
     });
 
     setSessionCookie(res, token);

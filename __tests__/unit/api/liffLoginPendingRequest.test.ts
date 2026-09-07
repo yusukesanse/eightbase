@@ -88,6 +88,14 @@ beforeEach(() => {
 });
 
 describe("POST /api/auth/liff-login の pendingRequest", () => {
+  it.each(["guest", "member", "staff"])("%s の利用者区分をログイン後の振り分け用に返す", async (role) => {
+    db.__seed("authorizedUsers", "u1", {
+      lineUserId: LINE_ID, active: true, role, profileComplete: false,
+    });
+    const json = await (await POST(req())).json();
+    expect(json).toMatchObject({ success: true, role, profileComplete: false });
+  });
+
   it("未連携かつ pending 申請があれば pendingRequest を返す", async () => {
     db.__seed("accessRequests", "r1", {
       lineUserId: LINE_ID,
@@ -197,6 +205,7 @@ describe("POST /api/auth/liff-login の pendingRequest", () => {
     const json = await (await POST(req())).json();
 
     expect(json.success).toBe(true);
+    expect(json.role).toBe("member"); // role未設定の既存会員との互換
     expect(json.needsLinking).toBeUndefined();
     expect(json.pendingRequest).toBeUndefined();
   });

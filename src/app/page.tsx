@@ -5,7 +5,9 @@ import Image from "next/image";
 import AccessRequestForm from "@/components/AccessRequestForm";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { isDevLoginEnabled } from "@/lib/env";
-import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
+import { normalizeRole } from "@/lib/roles";
+import { loginDestination } from "@/lib/loginDestination";
+import { AuthRecovery } from "@/components/AuthRecovery";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { getStoredDevIdentity, setStoredDevIdentity } from "@/lib/devLogin";
 import type { LiffPendingRequest } from "@/lib/liff";
@@ -63,14 +65,6 @@ function devFixedRole(): "member" | "guest" {
   return "member";
 }
 
-function roleHome(role: string, profileComplete: boolean): string {
-  return isGamesOnlyRole(role)
-    ? "/games"
-    : profileComplete
-      ? "/reservation"
-      : "/setup-profile";
-}
-
 export default function HomePage() {
   const boot = useLiffBoot();
   const [phase, setPhase] = useState<
@@ -110,10 +104,16 @@ export default function HomePage() {
         setPhase("pending-request");
         return;
       case "needs-linking":
-      case "needs-line-login":
-      case "no-access":
         // 未連携/未招待は OTP を自動表示せず「利用申請」フォームを出す。
         setPhase("no-account");
+        return;
+      case "needs-line-login":
+        setStatusText("LINEアプリから開き直してください。");
+        setPhase("error");
+        return;
+      case "no-access":
+        setStatusText(result.error || "ログインを確認できませんでした。もう一度お試しください。");
+        setPhase("error");
         return;
     }
   }, [boot]);
@@ -141,8 +141,12 @@ export default function HomePage() {
           credentials: "include",
           body: JSON.stringify({ role }),
         })
-          .then((r) => r.json())
-          .then((res) => window.location.replace(res.home ?? "/info"))
+          .then(async (r) => {
+            if (!r.ok) throw new Error("Dev login failed");
+            const data = await r.json();
+            if (!data.success) throw new Error("Dev login failed");
+            window.location.replace(loginDestination(data.role, !!data.profileComplete, window.location.search));
+          })
           .catch(() => {
             setStatusText("ログインに失敗しました。ページを再読み込みしてください。");
             setPhase("error");
@@ -153,7 +157,7 @@ export default function HomePage() {
         .then((d) => {
           // 既にこのドメインの固定ロールでログイン済みならそのままホームへ。
           if (d?.authorized && normalizeRole(d.role) === role) {
-            window.location.replace(roleHome(d.role, d.profileComplete));
+            window.location.replace(loginDestination(d.role, d.profileComplete, window.location.search));
           } else {
             loginAs();
           }
@@ -280,10 +284,7 @@ export default function HomePage() {
   // ── エラー画面 ──
   if (phase === "error") {
     return (
-      <PageBg className="flex flex-col items-center justify-center px-6">
-        <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={72} height={72} priority className="mb-6" />
-        <p className="text-center text-[15px] text-[color:var(--eb-ink)]">{statusText}</p>
-      </PageBg>
+      <AuthRecovery title="ログインを確認できませんでした" message={statusText} onRetry={runBoot} />
     );
   }
 

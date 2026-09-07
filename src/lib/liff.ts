@@ -3,8 +3,10 @@
 import type { Liff } from "@line/liff";
 import { isDevLoginEnabled } from "@/lib/env";
 import { buildDevToken, getStoredDevIdentity } from "@/lib/devLogin";
+import { normalizeRole, type UserRole } from "@/lib/roles";
 
 let liffInstance: Liff | null = null;
+let liffInitialization: Promise<Liff> | null = null;
 
 /**
  * 本番の LIFF ID を返す。**LIFF は本番のみ使用**（開発環境は Dev ログインで LINE 非連携）。
@@ -25,12 +27,18 @@ function detectLiffId(): string {
 export async function initLiff(): Promise<Liff> {
   if (liffInstance) return liffInstance;
 
-  const liff = (await import("@line/liff")).default;
-  const liffId = detectLiffId();
-
-  await liff.init({ liffId });
-  liffInstance = liff;
-  return liff;
+  if (!liffInitialization) {
+    liffInitialization = (async () => {
+      const liff = (await import("@line/liff")).default;
+      await liff.init({ liffId: detectLiffId() });
+      liffInstance = liff;
+      return liff;
+    })().catch((error) => {
+      liffInitialization = null;
+      throw error;
+    });
+  }
+  return liffInitialization;
 }
 
 /** 未連携ユーザーが既に出している利用申請（「現在申請中です」画面の表示用）。 */
@@ -44,6 +52,7 @@ export interface LiffPendingRequest {
 /** /api/auth/liff-login のレスポンス形 */
 interface LiffLoginApiResponse {
   success?: boolean;
+  role?: UserRole;
   profileComplete?: boolean;
   needsLinking?: boolean;
   lineUserId?: string;
@@ -57,7 +66,7 @@ export type LiffLoginResult =
   | { kind: "redirecting" } // LINE ログインへリダイレクトした
   | { kind: "needs-line-login" } // 外部ブラウザ等でログイン不可
   | { kind: "needs-dev-login" } // Dev ログイン有効だがテストユーザー未選択（/dev-login へ）
-  | { kind: "linked"; profileComplete: boolean } // サーバーセッション発行済み
+  | { kind: "linked"; profileComplete: boolean; role: UserRole } // サーバーセッション発行済み
   // 未連携だが利用申請が pending（「現在申請中です」画面）。needs-linking より優先する。
   | {
       kind: "pending-request";
@@ -84,7 +93,7 @@ async function postLiffLogin(
   const data: LiffLoginApiResponse = await res.json().catch(() => ({}));
 
   if (res.ok && data.success) {
-    return { kind: "linked", profileComplete: !!data.profileComplete };
+    return { kind: "linked", profileComplete: !!data.profileComplete, role: normalizeRole(data.role) };
   }
   if (data.needsLinking && data.pendingRequest) {
     // 申請済みの人には OTP 入力ではなく「現在申請中です」を出す（needs-linking より優先）。

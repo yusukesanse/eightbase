@@ -8,6 +8,7 @@ import { clearAuthCache } from "@/components/AuthGuard";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
 import { Avatar } from "@/components/ui/LineContact";
 import { Button, GlassCard, PageBg } from "@/components/ui/eb";
+import { AuthRecovery } from "@/components/AuthRecovery";
 
 /**
  * ログインページ — LIFF + ワンタイムパスワード認証フロー
@@ -22,9 +23,10 @@ export default function LoginPage() {
   const router = useRouter();
   const boot = useLiffBoot();
   const [status, setStatus] = useState<
-    "loading" | "liff-login" | "needs-linking" | "linking" | "no-access"
+    "loading" | "liff-login" | "needs-linking" | "linking" | "no-access" | "error"
   >("loading");
   const [message, setMessage] = useState("読み込み中...");
+  const [attempt, setAttempt] = useState(0);
 
   // LINE 情報（未連携時に保持）
   const [lineInfo, setLineInfo] = useState<{
@@ -71,12 +73,14 @@ export default function LoginPage() {
     async function tryLiffLogin() {
       // `/` と共通の LIFF→サーバーセッション発行フロー（useLiffBoot）
       setMessage("認証中...");
+      setStatus("loading");
       const result = await boot();
       if (cancelled) return;
 
       // 例外（boot 内でログ済み）→ アクセス不可表示
       if (!result) {
-        setStatus("no-access");
+        setMessage("通信状況を確認して、もう一度お試しください。");
+        setStatus("error");
         return;
       }
 
@@ -108,8 +112,8 @@ export default function LoginPage() {
           setStatus("no-access");
           return;
         case "no-access":
-          if (result.error) setMessage(result.error);
-          setStatus("no-access");
+          setMessage(result.error || "ログインを確認できませんでした。もう一度お試しください。");
+          setStatus("error");
           return;
       }
     }
@@ -118,7 +122,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [boot]);
+  }, [boot, attempt]);
 
   // ワンタイムパスワードで認証 → LINE ID 連携
   async function handleLinkSubmit(e: React.FormEvent) {
@@ -159,6 +163,10 @@ export default function LoginPage() {
       setLinkError("通信エラーが発生しました。もう一度お試しください");
       setStatus("needs-linking");
     }
+  }
+
+  if (status === "error") {
+    return <AuthRecovery title="ログインを確認できませんでした" message={message} onRetry={() => setAttempt((value) => value + 1)} />;
   }
 
   // ── ローディング / LIFF ログイン中 ──
