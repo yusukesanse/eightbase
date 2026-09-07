@@ -12,8 +12,17 @@ import {
 } from "@/lib/mahjongEntryValidation";
 import { listMahjongScheduleDates } from "@/lib/mahjongSchedule";
 import { isScheduleDateBlockedInTx } from "@/lib/gameSchedule";
-import { MAHJONG_MAX_ENTRIES_PER_DATE, type MahjongEntry } from "@/types";
-import { deriveStatus } from "@/lib/mahjongEntryStatus";
+import {
+  MAHJONG_MAX_ENTRIES_PER_DATE,
+  type MahjongEntry,
+  type MahjongMyEntry,
+} from "@/types";
+import { deriveStatus, isActiveMahjongEntry } from "@/lib/mahjongEntryStatus";
+import {
+  issueMahjongEntryPaymentLink,
+  paymentLinkFailedResponse,
+  type MahjongEntryPaymentFields,
+} from "@/lib/mahjongEntryPayment";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +67,19 @@ export async function GET(req: NextRequest) {
         .where("seasonId", "==", season.seasonId)
         .where("lineUserId", "==", userId)
         .get();
-      const my = snap.docs
-        .map((d) => d.data() as MahjongEntry)
-        .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
+      // 期限切れの仮押さえ・旧 reserved は「未参加」として扱う（席を持たない＝WP2）。
+      // 自分の分だけなので entryId・決済URL・期限も返してよい（お支払い確認中UIに使う）。
+      const now = new Date();
+      const my: MahjongMyEntry[] = snap.docs
+        .map((d) => ({ ...(d.data() as MahjongEntry), entryId: d.id }))
+        .filter((e) => isActiveMahjongEntry(e, now))
+        .map((e) => ({
+          entryId: e.entryId,
+          eventDate: e.eventDate,
+          paymentStatus: e.paymentStatus ?? null,
+          pendingExpiresAt: e.pendingExpiresAt ?? null,
+          paymentUrl: e.paymentUrl ?? null,
+        }));
       return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }
 
@@ -83,8 +102,12 @@ export async function GET(req: NextRequest) {
       .where("eventDate", "==", eventDate)
       .get();
 
+    // 席を持っているエントリーだけを「この開催日の参加者」として扱う（WP2）。
+    // 期限切れの仮押さえ・旧 reserved は数えない＝定員も一覧も未参加として扱う。
+    const now = new Date();
     const rawEntries = snap.docs
       .map((d) => ({ ...(d.data() as MahjongEntry), entryId: d.id }))
+      .filter((e) => isActiveMahjongEntry(e, now))
       .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt));
 
     const myEntry = rawEntries.find((e) => e.lineUserId === userId);
@@ -95,11 +118,11 @@ export async function GET(req: NextRequest) {
 
     // 一覧は公開DTOのみ（内部lineUserId/entryId・決済照合情報は返さない）。
     // 他人へは表示名・アイコン・支払い状況だけ。自分の決済状態は下の me で返す。
-    // displayStatus は利用者向けラベル用: "paid"(支払い済み/社員免除) / "joined_unpaid"(参加済み・未払い)。
-    // ※「仮予約」は利用者向けに使わない。POST 時点で参加確定（枠・月ロック消費）。
+    // displayStatus は利用者向けラベル用: "paid"(支払い済み/社員免除) / "joined_unpaid"(お支払い確認中)。
+    // 参加タブは paid の人だけを出す（支払いが終わった人＝当日の卓に入る人）。
     const entries = rawEntries.map((e) => {
       const ds = deriveStatus(e);
-      const paid = ds !== "reserved" && ds !== "refunded";
+      const paid = ds === "paid";
       return {
         displayName: e.displayName,
         pictureUrl: e.pictureUrl ?? "",
@@ -127,10 +150,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** 自分のエントリーを返すときの DTO（決済照合用の注文IDは返さない）。 */
+function ownEntryDto(e: MahjongEntry) {
+  return {
+    entryId: e.entryId,
+    seasonId: e.seasonId,
+    eventDate: e.eventDate,
+    lineUserId: e.lineUserId,
+    displayName: e.displayName,
+    pictureUrl: e.pictureUrl ?? "",
+    enteredAt: e.enteredAt,
+    status: e.status,
+    paymentStatus: e.paymentStatus ?? null,
+    pendingExpiresAt: e.pendingExpiresAt ?? null,
+  };
+}
+
 /**
  * POST /api/mahjong/entries
- * 開催日への参加表明（自分）
+ * 開催日への参加表明（自分）＝ **そのまま参加費のお支払いへ進む**（WP2）
  * body: { eventDate: string }
+ *
+ * 会員/ゲスト: 参加表明トランザクションの**前に** Square 決済リンクを発行し、
+ *   entry を `paymentStatus:"pending"`（15分の仮押さえ）で作って `paymentUrl` を返す。
+ *   リンク発行に失敗したら entry を作らず 502（席だけ押さえて支払えない状態を作らない）。
+ * staff（参加費免除）: 従来どおり `status:"paid"` で即・参加確定（paymentUrl なし）。
  */
 export async function POST(req: NextRequest) {
   try {
@@ -142,9 +186,10 @@ export async function POST(req: NextRequest) {
     // 管理者が個別に付与した「月1回制限の免除」（4種目共通・src/lib/monthlyEntryExempt.ts）。
     // 免除するのは月1回だけで、定員・受付締切・参加費は従来どおり。
     const monthlyExempt = auth.monthlyEntryExempt;
-    // 会員/ゲストは参加確定（未払い・内部 reserved）、免除(staff)は参加時点で支払い済み扱い。
-    // ※ POST 時点で参加確定＝定員8名・月ロックを消費する（利用者向けに「仮予約」とは呼ばない）。
-    const status: "reserved" | "paid" = mahjongPaymentRequired(auth.role) ? "reserved" : "paid";
+    // 会員/ゲストは「お支払い確認中」（内部 reserved + paymentStatus:"pending"）、
+    // 免除(staff)は参加時点で支払い済み＝参加確定。
+    const paymentRequired = mahjongPaymentRequired(auth.role);
+    const status: "reserved" | "paid" = paymentRequired ? "reserved" : "paid";
 
     const body = await req.json().catch(() => null);
     const eventDate: unknown = body?.eventDate;
@@ -187,6 +232,37 @@ export async function POST(req: NextRequest) {
     const entryId = buildMahjongEntryId(season.seasonId, eventDate, userId);
     const ref = db.collection("mahjongEntries").doc(entryId);
 
+    // ── 既存エントリー（冪等）──────────────────────────────────────────────
+    // 席を保持しているか（支払い済み / 期限内の仮押さえ / 返金対応中）。
+    // 保持中なら定員・月1回を再判定せず、そのまま同じ結果を返す。
+    const now = new Date();
+    const existingSnap = await ref.get();
+    const existing = existingSnap.exists
+      ? ({ ...(existingSnap.data() as MahjongEntry), entryId })
+      : null;
+    if (existing && isActiveMahjongEntry(existing, now)) {
+      const ds = deriveStatus(existing);
+      // 参加確定済み（支払い済み・staff）→ 従来どおり冪等に 201（paymentUrl なし）。
+      if (ds === "paid") {
+        return NextResponse.json({ entry: ownEntryDto(existing) }, { status: 201 });
+      }
+      // 返金対応中に再参加させない（返金と参加の二重取りになる）。
+      if (ds === "cancelRequested") {
+        return NextResponse.json(
+          { error: "CANCEL_REQUESTED", message: "キャンセル依頼中のため参加できません。" },
+          { status: 409 }
+        );
+      }
+      // 期限内の仮押さえ → **新しいリンクを切らずに**同じ決済URLへ戻す（注文の二重発行を防ぐ）。
+      // paymentUrl を保存していない旧データのときだけ、下で発行し直す。
+      if (existing.paymentUrl) {
+        return NextResponse.json(
+          { entry: ownEntryDto(existing), paymentUrl: existing.paymentUrl },
+          { status: 201 }
+        );
+      }
+    }
+
     const userDoc = await db.collection("users").doc(userId).get();
     const u = userDoc.data() || {};
 
@@ -199,6 +275,26 @@ export async function POST(req: NextRequest) {
       enteredAt: new Date().toISOString(),
       status,
     };
+
+    // ── 決済リンクの発行（トランザクションの前）─────────────────────────────
+    // ⚠️ 順序を入れ替えないこと。entry を先に作ってからリンク発行に失敗すると、
+    //    「席を押さえているのに支払えないエントリー」が残る（＝満員の原因になる）。
+    //    docRef は決定的ID なので、entry を作る前でも戻り先URLを組み立てられる。
+    let paymentFields: MahjongEntryPaymentFields | null = null;
+    if (paymentRequired) {
+      try {
+        const issued = await issueMahjongEntryPaymentLink({
+          req,
+          entryRef: ref,
+          entryId,
+          // pending 化は下のトランザクションで entry と一緒に書く（中途半端な状態を作らない）。
+          persist: false,
+        });
+        paymentFields = issued.fields;
+      } catch (e) {
+        return paymentLinkFailedResponse(e);
+      }
+    }
 
     // 参加は「1ユーザー月1回」。月ロックdoc(mahjongMonthlyLocks)を transaction 内で
     // 読んで原子的に確保する（同一docへの並行書き込みは競合検知＝phantomすり抜けを防ぐ）。
@@ -215,6 +311,10 @@ export async function POST(req: NextRequest) {
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
         const cancelSnap = await tx.get(cancelRef);
+        // 席を保持中の再表明は定員・月1回を再判定しない（冪等）。
+        // 期限切れの仮押さえ・旧 reserved は「席なし」＝新規参加として judge し直す。
+        const heldSeat =
+          entrySnap.exists && isActiveMahjongEntry(entrySnap.data() as MahjongEntry, now);
         // 開催日削除（scheduleLocks の blocked）との競合を tx 内で閉じる＝ID指定の読み取りで競合検知。
         if (!entrySnap.exists && (await isScheduleDateBlockedInTx(tx, db, "mahjong", season.seasonId, eventDate))) {
           throw new Error("NOT_SCHEDULED");
@@ -226,18 +326,22 @@ export async function POST(req: NextRequest) {
           throw new Error("CANCELLED");
         }
         // 新規参加のときだけ定員を判定（既存の自分の再表明は席を増やさない＝冪等）。
-        // 開催日の予約数を等値2条件で数え、8名到達なら締切（トランザクション内なので競合時は自動リトライ）。
-        if (!entrySnap.exists && !allowByeSeats) {
+        // ⚠️ 数えるのは **席を保持しているエントリーだけ**（isActiveMahjongEntry）。
+        //    期限切れの仮押さえを数えると、誰も支払っていないのに満員になる。
+        if (!heldSeat && !allowByeSeats) {
           const dateSnap = await tx.get(
             db
               .collection("mahjongEntries")
               .where("seasonId", "==", season.seasonId)
               .where("eventDate", "==", eventDate)
           );
-          if (dateSnap.size >= MAHJONG_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
+          const active = dateSnap.docs.filter(
+            (d) => d.id !== entryId && isActiveMahjongEntry(d.data() as MahjongEntry, now)
+          ).length;
+          if (active >= MAHJONG_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         }
         // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
-        if (!entrySnap.exists && lockSnap.exists && !monthlyExempt) {
+        if (!heldSeat && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             // 別日ロックだが、その予約が実在するときだけ拒否（無ければstale＝上書き許可）。
@@ -245,11 +349,16 @@ export async function POST(req: NextRequest) {
               .collection("mahjongEntries")
               .doc(buildMahjongEntryId(season.seasonId, lockedDate, userId));
             const otherSnap = await tx.get(otherRef);
-            if (otherSnap.exists) throw new Error("MONTHLY_LIMIT");
+            // その別日の参加が **今も席を持っている** ときだけ拒否。
+            // 期限切れの仮押さえで放置された entry は月枠を塞がない。
+            if (otherSnap.exists && isActiveMahjongEntry(otherSnap.data() as MahjongEntry, now)) {
+              throw new Error("MONTHLY_LIMIT");
+            }
           }
         }
         tx.set(lockRef, { seasonId: season.seasonId, lineUserId: userId, ym, eventDate, updatedAt: new Date().toISOString() });
-        tx.set(ref, entry, { merge: true });
+        // 参加表明と仮押さえ（pending・注文ID・決済URL・失効時刻）を1回で書く。
+        tx.set(ref, { ...entry, ...(paymentFields ?? {}) }, { merge: true });
       });
     } catch (e) {
       if (e instanceof Error && e.message === "NOT_SCHEDULED") {
@@ -275,7 +384,14 @@ export async function POST(req: NextRequest) {
       }
       throw e;
     }
-    return NextResponse.json({ entry: { ...entry, entryId } }, { status: 201 });
+    return NextResponse.json(
+      {
+        entry: ownEntryDto({ ...entry, ...(paymentFields ?? {}), entryId }),
+        // 会員/ゲストはこの URL へ遷移してお支払い（staff は undefined＝そのまま参加確定）。
+        ...(paymentFields ? { paymentUrl: paymentFields.paymentUrl } : {}),
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("[mahjong/entries] POST error:", error);
     return NextResponse.json({ error: "参加表明に失敗しました" }, { status: 500 });
@@ -324,7 +440,10 @@ export async function DELETE(req: NextRequest) {
         { status: 409 }
       );
     }
-    // 未払いの参加確定はいつでも取消可（返金なし・枠と月ロックを解放）。取消後は別日を選べる。
+    // ここまで来るのは「お支払い確認中（pending・期限内/期限切れを問わず）」と staff の参加確定。
+    // どちらも入金は発生していないのでいつでも取消可（返金なし・席と月ロックを解放）。
+    // ※ pending を消せないと「支払いをやめたのに月枠が15分塞がる」になるので、
+    //    期限内でも削除できること（本番でも）を崩さない。
     await ref.delete();
     await releaseMonthlyLock(db, season.seasonId, userId, eventDate);
     return NextResponse.json({ success: true });

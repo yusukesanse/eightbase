@@ -3,19 +3,17 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { mahjongPaymentRequired } from "@/lib/roles";
-import { createReservationPaymentLink, squareErrorDetail } from "@/lib/square";
-import { liffUrl } from "@/lib/liffUrl";
-import { gamePaymentReturnPath } from "@/lib/gamePaymentReturn";
-import { isDevLoginEnabled, isProduction } from "@/lib/env";
+import {
+  issueMahjongEntryPaymentLink,
+  paymentLinkFailedResponse,
+} from "@/lib/mahjongEntryPayment";
 import { todayJst } from "@/lib/date";
 import { getDayState, isEntryClosed } from "@/lib/mahjongDay";
 import {
   buildMahjongEntryId,
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
-import { PENDING_TTL_MIN } from "@/lib/trailerPending";
-import { MAHJONG_ENTRY_FEE, type MahjongEntry } from "@/types";
-import dayjs from "dayjs";
+import { type MahjongEntry } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +24,10 @@ export const dynamic = "force-dynamic";
  *  2. 参加費専用の Square 決済リンクを生成（戻り先 /games?mjpay=エントリーID＝麻雀ハブ）
  *  3. エントリーを pending 化し注文ID(orderId)を保存 → 決済URLを返す
  *  戻りは /games?mjpay=... 経由で /api/mahjong/entries/complete が確定する。
+ *
+ *  ※ WP2 以降、通常の導線は `POST /api/mahjong/entries`（参加する＝支払いへ進む）が
+ *    リンクを発行する。このルートの役割は「お支払い画面に戻る」「期限切れ後にやり直す」＝**再発行**。
+ *    期限内の仮押さえがあるときは新しい注文を切らず、保存済みの決済URLをそのまま返す。
  */
 export async function POST(req: NextRequest) {
   try {
@@ -92,16 +94,18 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    // 二重リンク発行防止: 未失効の pending があれば新規リンクを発行しない。
+    // 二重リンク発行防止: 未失効の pending があれば **保存済みの決済URLをそのまま返す**。
+    // ⚠️ 以前はここで 409 PENDING_EXISTS を返していた。WP2 では参加した瞬間に pending になるため、
+    //    そのままだと「お支払い画面に戻る」が常に 409 になり支払いを再開できない。
+    //    新しい注文を切らないこと（同じ参加費で注文が二重に立つ）。
+    //    paymentUrl を保存していない旧データのときだけ、下で発行し直す。
     if (
       entry.paymentStatus === "pending" &&
       entry.pendingExpiresAt &&
-      new Date(entry.pendingExpiresAt) > new Date()
+      new Date(entry.pendingExpiresAt) > new Date() &&
+      entry.paymentUrl
     ) {
-      return NextResponse.json(
-        { error: "PENDING_EXISTS", message: "お支払いリンクを発行済みです。少し時間をおいて再度お試しください。" },
-        { status: 409 }
-      );
+      return NextResponse.json({ entryId, paymentUrl: entry.paymentUrl });
     }
 
     // 参加確定後はいつでも支払い可。締切は **GM が「ゲーム開始」を押した瞬間**。
@@ -122,48 +126,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 参加費専用の Square 決済リンクを生成（戻り先にエントリーIDを埋め込む）。
-    // 失敗時は pending 化する前に中断（不要な pending を残さない）。
-    // 戻り先は LINEミニアプリ(LIFF)。demo のブラウザ検証（Dev ログイン時）は Web URL。
-    // 戻り先は麻雀のハブ = /info（ゲームタブ）。?mjpay を検知して自動でゲーム/麻雀を開き確定する。
-    const completePath = gamePaymentReturnPath("mahjong", entryId);
-    const redirectUrl = isDevLoginEnabled()
-      ? `${req.headers.get("origin") || req.nextUrl.origin}${completePath}`
-      : liffUrl(completePath);
-    let paymentLink: { url: string; orderId: string };
+    // 参加費専用の Square 決済リンクを生成し、エントリーを pending 化する。
+    // 発行・保存の実体は src/lib/mahjongEntryPayment.ts（参加表明 POST と共通・種目内でコピーしない）。
+    // 失敗時は pending 化する前に中断する（不要な pending を残さない）。
+    let paymentUrl: string;
     try {
-      paymentLink = await createReservationPaymentLink({
-        amount: MAHJONG_ENTRY_FEE,
-        name: "麻雀リーグ参加費",
-        redirectUrl,
-        purpose: "mahjong",
-      });
+      ({ paymentUrl } = await issueMahjongEntryPaymentLink({ req, entryRef, entryId }));
     } catch (e) {
-      console.error("[mahjong/entries/pay] payment link failed:", e);
-      return NextResponse.json(
-        {
-          error: "PAYMENT_LINK_FAILED",
-          message: isProduction()
-            ? "決済リンクの生成に失敗しました。時間をおいてお試しください。"
-            : `決済リンク生成に失敗: ${squareErrorDetail(e)}`,
-        },
-        { status: 502 }
-      );
+      return paymentLinkFailedResponse(e);
     }
 
-    const expiresAt = dayjs().add(PENDING_TTL_MIN, "minute").toISOString();
-    await entryRef.set(
-      {
-        paymentStatus: "pending",
-        paymentAmount: MAHJONG_ENTRY_FEE,
-        // 決済後の照合に使う注文ID（この参加費専用リンクの注文）
-        paymentTransactionId: paymentLink.orderId,
-        pendingExpiresAt: expiresAt,
-      },
-      { merge: true }
-    );
-
-    return NextResponse.json({ entryId, paymentUrl: paymentLink.url });
+    return NextResponse.json({ entryId, paymentUrl });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[mahjong/entries/pay] POST error:", message, err);

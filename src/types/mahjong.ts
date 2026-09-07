@@ -109,8 +109,29 @@ export interface MahjongEntry {
   refundProcessedAt?: string;    // 返金/却下の処理時刻 ISO8601（監査用）
   refundProcessedBy?: string;    // 処理した管理者（監査用）
   pendingExpiresAt?: string;     // 決済リンクのTTL失効 ISO8601
+  /**
+   * 発行済みの Square 決済URL（本人以外へは返さない）。
+   * 「参加する」＝支払いへ進む（WP2）にしたため、戻りが届かなかった人を
+   * **同じリンク**へ戻せるように保存する（新しいリンクを切ると注文が二重になる）。
+   */
+  paymentUrl?: string;
   /** キャンセル/返金の理由。"forfeit"=人数不足による自動中止（流会）。返金管理UIの絞り込みに使う。 */
   cancelReason?: "forfeit";
+}
+
+/**
+ * `GET /api/mahjong/entries?mine=1` が返す「自分の参加」1件（利用者UI用）。
+ * 自分の分だけなので entryId・決済URL・仮押さえ期限を含めてよい。
+ * 期限切れの仮押さえ（席を持たない）はサーバー側で除外済み＝ここに現れるものは全て有効。
+ */
+export interface MahjongMyEntry {
+  entryId: string;
+  eventDate: string;
+  paymentStatus: MahjongPaymentStatus | null;
+  /** 仮押さえの失効時刻（ISO8601）。pending のときだけ入る。 */
+  pendingExpiresAt: string | null;
+  /** 発行済みの Square 決済URL。pending のときだけ入る。 */
+  paymentUrl: string | null;
 }
 
 /**

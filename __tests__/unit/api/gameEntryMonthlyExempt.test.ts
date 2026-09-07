@@ -27,6 +27,13 @@ jest.mock("@/lib/entryDeadline", () => ({
   ENTRY_DEADLINE_PASSED_MESSAGE: "受付を締め切りました",
 }));
 jest.mock("@/lib/gameSchedule", () => ({ isScheduleDateBlockedInTx: async () => false }));
+// WP2: 麻雀の「参加する」は Square 決済リンクの発行を伴う（参加＝支払い）。
+// 実際に Square を叩かせないためモックする。ここを外すと POST が 502 になる。
+jest.mock("@/lib/square", () => ({
+  createReservationPaymentLink: async () => ({ url: "https://square.link/pay", orderId: "ORDER" }),
+  squareErrorDetail: (e: unknown) => String(e),
+}));
+jest.mock("@/lib/liffUrl", () => ({ liffUrl: (p: string) => `https://liff.example${p}` }));
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
@@ -100,7 +107,12 @@ function makeDb() {
 let db: ReturnType<typeof makeDb>;
 
 function req(body: unknown): NextRequest {
-  return { json: async () => body } as unknown as NextRequest;
+  // headers / nextUrl は決済リンクの戻り先 URL 組み立て（Dev ログイン時）で参照される。
+  return {
+    json: async () => body,
+    headers: new Headers({ origin: "https://app.example" }),
+    nextUrl: { origin: "https://app.example", searchParams: new URLSearchParams() },
+  } as unknown as NextRequest;
 }
 
 function setUser(monthlyEntryExempt: boolean) {
@@ -153,8 +165,16 @@ describe("麻雀: 月1回の制限と免除", () => {
 
   test("免除しても定員は免除しない（満員なら 409）", async () => {
     setUser(true);
+    // WP2: 定員に数えるのは「席を持っている」エントリーだけ（isActiveMahjongEntry）。
+    // status 無しのダミーは旧 reserved 扱い＝席を持たないので、支払い済みで埋める。
     for (let i = 0; i < 8; i++) {
-      db.__set("mahjongEntries", `other-${i}`, { seasonId: SEASON, eventDate: DATE_B, lineUserId: `U_o${i}` });
+      db.__set("mahjongEntries", `other-${i}`, {
+        seasonId: SEASON,
+        eventDate: DATE_B,
+        lineUserId: `U_o${i}`,
+        status: "paid",
+        paymentStatus: "paid",
+      });
     }
     await mahjongPost(req({ eventDate: DATE_A }));
     const res = await mahjongPost(req({ eventDate: DATE_B }));

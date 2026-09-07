@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { MAHJONG_ENTRY_FEE, type MahjongPaymentStatus } from "@/types";
-import { startEntryPayment, cancelEntryPayment } from "@/lib/mahjongPayment";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { MAHJONG_ENTRY_FEE, type MahjongMyEntry } from "@/types";
+import { completeEntryPayment, cancelEntryPayment, startEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
-import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS, MAHJONG_CANCEL_POLICY } from "@/lib/date";
+import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS } from "@/lib/date";
 import MonthCalendar from "@/components/ui/MonthCalendar";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 import { calendarMinMonth, canBrowsePastMonths } from "@/lib/gameCalendarRange";
 import {
   isViewableDate,
@@ -14,29 +15,50 @@ import {
   canJoinDate,
 } from "@/lib/mahjongJoinCalendar";
 import { MahjongDayStandings, type DayStanding } from "@/components/mahjong/MahjongDayStandings";
-import {
-  ACCENT,
-  CONFIRM,
-  dateParts,
-  formatJpDate,
-  todayJst,
-  CheckIcon,
-} from "@/components/mahjong/leagueShared";
+import { dateParts, formatJpDate, todayJst } from "@/components/mahjong/leagueShared";
 
-/* ───────── 参加タブ ───────── */
+/**
+ * 麻雀リーグ 参加タブ（WP2: 参加＝支払い）。
+ *
+ * 利用者に見せる状態は3つだけ:
+ *   未参加 → 「参加する（お支払いへ進む）」で Square へ
+ *   お支払い確認中 → 15分の仮押さえ。支払いが終われば自動で参加確定
+ *   参加確定 → 支払い済み（staff は参加した時点で確定）
+ * 「参加確定（未払い）」は廃止した（席だけ押さえて払わない人が定員を埋めていたため）。
+ */
+
+/** 仮押さえの残り分数（切り上げ）。0以下は失効。 */
+function minutesLeft(expiresAt: string, nowMs: number): number {
+  return Math.ceil((new Date(expiresAt).getTime() - nowMs) / 60_000);
+}
+
+/** その entry が「お支払い確認中（期限内の仮押さえ）」か。 */
+function isPendingNow(e: MahjongMyEntry | undefined, nowMs: number): boolean {
+  return !!e && e.paymentStatus === "pending" && !!e.pendingExpiresAt && new Date(e.pendingExpiresAt).getTime() > nowMs;
+}
+
+/** キャンセルできる最終日（開催日の7日前）を「M月D日」で。※UTC基準で日付だけ扱う。 */
+function cancelDeadlineLabel(eventDate: string): string {
+  const d = new Date(
+    new Date(`${eventDate}T00:00:00Z`).getTime() - MAHJONG_CANCEL_DEADLINE_DAYS * 86_400_000
+  );
+  return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+}
 
 export function JoinTab({
   enteredDates,
+  myEntries,
   closedDates,
   cancelledDates,
   scheduledDates,
   seasonStartDate,
   paymentRequired,
   monthlyExempt = false,
-  paymentStatusByDate,
   onChanged,
 }: {
   enteredDates: Set<string>;
+  /** 自分の参加（開催日 → entry）。期限切れの仮押さえはサーバーが除外済み。 */
+  myEntries: Record<string, MahjongMyEntry>;
   closedDates: Set<string>;
   cancelledDates: Set<string>;
   scheduledDates?: Set<string>;
@@ -48,25 +70,21 @@ export function JoinTab({
   paymentRequired: boolean;
   /** 管理者が月1回制限を解除したユーザーか（表示の出し分けのみ。可否の判定はサーバー）。 */
   monthlyExempt?: boolean;
-  paymentStatusByDate: Record<string, MahjongPaymentStatus | null>;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  // 参加費のエラー表示／キャンセル確認対象日
-  const [payMsg, setPayMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const [cancelDate, setCancelDate] = useState<string | null>(null);
-  // カレンダーで選択中の開催日（土曜）
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  // 選択日の参加者一覧（支払い済み/未払いを区別して表示・内部IDは持たない）
+  // 残り時間の表示用に一定間隔で進める現在時刻。
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  // 選択日の参加者（支払い済みの人だけ表示する）。
   const [dateEntries, setDateEntries] = useState<
-    { displayName: string; status?: string; displayStatus?: "paid" | "joined_unpaid" }[]
+    { displayName: string; displayStatus?: "paid" | "joined_unpaid" }[]
   >([]);
-  // 選択日が満員か（抜け番許容OFFのシーズンで定員8名に達している）。未参加者の新規参加を止める。
   const [dateFull, setDateFull] = useState(false);
-  // 参加確定人数 / 定員（capacity=null は抜け番許容シーズン＝上限なし）。ヘッダー「n / 8名」に使う。
   const [dateCount, setDateCount] = useState(0);
   const [dateCapacity, setDateCapacity] = useState<number | null>(null);
-  // 当日順位（終了した過去土曜を選んだときだけ取得）。null=未取得/対象外。
   const [dayStandings, setDayStandings] = useState<{
     hasResults: boolean;
     standings: DayStanding[];
@@ -74,25 +92,25 @@ export function JoinTab({
   } | null>(null);
   const today = todayJst();
 
-  // 楽観的UI: 参加/キャンセルを即時反映（サーバー確定を待たず表示）。失敗時はロールバック。
-  const [optimistic, setOptimistic] = useState<Record<string, "joined" | "left">>({});
-  // サーバーの enteredDates に楽観差分を重ねた「実効の参加日集合」。
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 10_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // 楽観的UI: 参加取消を即時反映（サーバー確定を待たず表示）。失敗時はロールバック。
+  // ※「参加する」は Square へ遷移するので楽観更新しない（戻ってきたときサーバーが正）。
+  const [optimistic, setOptimistic] = useState<Record<string, "left">>({});
   const effectiveEntered = useMemo(() => {
     const s = new Set(enteredDates);
-    for (const [d, act] of Object.entries(optimistic)) {
-      if (act === "joined") s.add(d);
-      else s.delete(d);
-    }
+    for (const d of Object.keys(optimistic)) s.delete(d);
     return s;
   }, [enteredDates, optimistic]);
-  // サーバー値が楽観差分に追いついたら、その差分を破棄（サーバーを正とする）。
   useEffect(() => {
     setOptimistic((prev) => {
       let changed = false;
       const next = { ...prev };
-      for (const [d, act] of Object.entries(prev)) {
-        const has = enteredDates.has(d);
-        if ((act === "joined" && has) || (act === "left" && !has)) {
+      for (const d of Object.keys(prev)) {
+        if (!enteredDates.has(d)) {
           delete next[d];
           changed = true;
         }
@@ -113,22 +131,24 @@ export function JoinTab({
     fetch(`/api/mahjong/entries?eventDate=${selectedDate}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        if (alive) {
-          setDateEntries(d.entries ?? []);
-          setDateFull(!!d.full);
-          setDateCount(typeof d.count === "number" ? d.count : (d.entries ?? []).length);
-          setDateCapacity(typeof d.capacity === "number" ? d.capacity : null);
-        }
+        if (!alive) return;
+        setDateEntries(d.entries ?? []);
+        setDateFull(!!d.full);
+        setDateCount(typeof d.count === "number" ? d.count : (d.entries ?? []).length);
+        setDateCapacity(typeof d.capacity === "number" ? d.capacity : null);
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [selectedDate, enteredDates, paymentStatusByDate]);
+  }, [selectedDate, enteredDates, myEntries]);
 
-  // 当日順位: 終了した過去土曜を選んだときだけ取得（当日・未来は対象外）。
+  // 当日順位: 終了した過去の開催日を選んだときだけ取得（当日・未来は対象外）。
   useEffect(() => {
-    if (!selectedDate || !isPastEventDate(selectedDate, { today, enteredDates, closedDates, cancelledDates, scheduledDates })) {
+    if (
+      !selectedDate ||
+      !isPastEventDate(selectedDate, { today, enteredDates, closedDates, cancelledDates, scheduledDates })
+    ) {
       setDayStandings(null);
       return;
     }
@@ -151,30 +171,111 @@ export function JoinTab({
       alive = false;
     };
   }, [selectedDate, today, closedDates, cancelledDates, enteredDates, scheduledDates]);
+
   // DEV-ONLY（develop 専用 / main へ入れない）: 支払い済み/返金対応中からリセットする導線を出す。
   const demo = isDevLoginEnabled();
 
-  async function toggle(date: string, entered: boolean) {
+  /** 決済の確定を試す（戻りが届かなかったときの救済）。 */
+  const runComplete = useCallback(
+    async (entryId: string, silent: boolean) => {
+      const r = await completeEntryPayment(entryId);
+      if (r.ok) {
+        if (!silent) setMsg(null);
+        onChanged();
+        return true;
+      }
+      // 自動確認（silent）はまだ支払っていない人にも走るので、失敗を出さない
+      // （「お支払い確認中」カードに次の操作が残っている）。手動で押したときだけ知らせる。
+      if (!silent) {
+        setMsg(r.message ? `お支払いの確認ができませんでした：${r.message}` : "お支払いの確認ができませんでした");
+      }
+      return false;
+    },
+    [onChanged]
+  );
+
+  // 参加タブを開いたとき、期限内の仮押さえがあれば1回だけ確定を試す
+  // （Square から戻るときに ?mjpay= が届かなかった人の救済）。
+  const autoTried = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const e of Object.values(myEntries)) {
+      if (!isPendingNow(e, Date.now())) continue;
+      if (autoTried.current.has(e.entryId)) continue;
+      autoTried.current.add(e.entryId);
+      void runComplete(e.entryId, true);
+    }
+  }, [myEntries, runComplete]);
+
+  /** 「参加する」= 参加表明＋決済リンク発行 → Square のお支払い画面へ。 */
+  async function join(date: string) {
     setBusy(date);
-    setPayMsg(null);
-    // 楽観更新: 参加=joined / 取消=left を即時反映。
-    setOptimistic((p) => ({ ...p, [date]: entered ? "left" : "joined" }));
+    setMsg(null);
     try {
-      const res = await fetch(`/api/mahjong/entries${entered ? `?eventDate=${date}` : ""}`, {
-        method: entered ? "DELETE" : "POST",
+      const res = await fetch("/api/mahjong/entries", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: entered ? undefined : JSON.stringify({ eventDate: date }),
+        body: JSON.stringify({ eventDate: date }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data.message ?? data.error ?? "参加の受付に失敗しました");
+        setBusy(null);
+        return;
+      }
+      if (data.paymentUrl) {
+        // 同一 webview で Square へ。戻りは /games?mjpay=... で確定する。
+        window.location.href = data.paymentUrl;
+        return; // 遷移するので busy は解除しない
+      }
+      // staff（参加費免除）はこの時点で参加確定。
+      onChanged();
+    } catch {
+      setMsg("通信に失敗しました");
+    } finally {
+      setBusy((b) => (b === date ? null : b));
+    }
+  }
+
+  /**
+   * 「お支払い画面に戻る」。発行済みの決済URLがあればそこへ、
+   * 無い（＝URL を保存していない旧データ）なら pay API に再発行させてから遷移する。
+   * 期限内なら pay API も同じ URL を返すので、注文が二重に立つことはない。
+   */
+  async function resumePayment(date: string, url?: string | null) {
+    if (url) {
+      window.location.href = url;
+      return;
+    }
+    setBusy(date);
+    setMsg(null);
+    const r = await startEntryPayment(date);
+    if (r.ok) {
+      window.location.href = r.paymentUrl;
+      return;
+    }
+    setMsg(r.message);
+    setBusy(null);
+  }
+
+  /** 参加をやめる（お支払い確認中のみ）。席と月枠を解放する。 */
+  async function leave(date: string) {
+    setBusy(date);
+    setMsg(null);
+    setOptimistic((p) => ({ ...p, [date]: "left" }));
+    try {
+      const res = await fetch(`/api/mahjong/entries?eventDate=${date}`, {
+        method: "DELETE",
+        credentials: "include",
       });
       if (!res.ok) {
-        // 失敗したら楽観差分をロールバック。
         setOptimistic((p) => {
           const n = { ...p };
           delete n[date];
           return n;
         });
         const d = await res.json().catch(() => ({}));
-        setPayMsg(d.message ?? d.error ?? "処理に失敗しました");
+        setMsg(d.message ?? d.error ?? "取消に失敗しました");
       }
       onChanged();
     } finally {
@@ -182,30 +283,12 @@ export function JoinTab({
     }
   }
 
-  async function pay(date: string) {
-    setBusy(date);
-    setPayMsg(null);
-    try {
-      const r = await startEntryPayment(date);
-      if (r.ok) {
-        // Square 決済ページへ同一 webview で遷移（戻りは /games?mjpay=... で確定）
-        window.location.href = r.paymentUrl;
-      } else {
-        setPayMsg(r.message);
-        setBusy(null);
-      }
-    } catch {
-      setPayMsg("決済の開始に失敗しました");
-      setBusy(null);
-    }
-  }
-
   async function confirmCancel(date: string) {
     setBusy(date);
-    setPayMsg(null);
+    setMsg(null);
     try {
       const r = await cancelEntryPayment(date);
-      if (!r.ok) setPayMsg(r.message ?? "キャンセルに失敗しました");
+      if (!r.ok) setMsg(r.message ?? "キャンセルに失敗しました");
       setCancelDate(null);
       onChanged();
     } finally {
@@ -213,278 +296,163 @@ export function JoinTab({
     }
   }
 
-  const enteredArr = Array.from(effectiveEntered);
-  // カレンダー判定は純関数 mahjongJoinCalendar に集約（過去土曜も閲覧可・参加は未来のみ）。
-  const calCtx = { today, enteredDates: effectiveEntered, closedDates, cancelledDates, scheduledDates, monthlyExempt };
-  // カレンダーを遡れる下限の月（過去の開催日の成績を見るため）。undefined なら当月止まり＝案内も出さない。
+  const enteredArr = Array.from(effectiveEntered).sort();
+  const calCtx = {
+    today,
+    enteredDates: effectiveEntered,
+    closedDates,
+    cancelledDates,
+    scheduledDates,
+    monthlyExempt,
+  };
   const minMonth = calendarMinMonth(scheduledDates, effectiveEntered, seasonStartDate);
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-[12px] text-[#231714]/85 leading-relaxed px-0.5">
-        毎週土曜が開催日です。カレンダーから参加日を選んでください{monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）"}。
-        {paymentRequired && `　「参加する」で参加が確定します（定員8名）。参加費 ¥${MAHJONG_ENTRY_FEE.toLocaleString()} は別途お支払いください。`}
-        {`　${MAHJONG_CANCEL_POLICY}`}
+    <div className="flex flex-col gap-4">
+      <p className="px-0.5 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+        土曜日が開催日です。参加したい日を選んでください。
       </p>
-      {/* 懇親会の常時案内（ON/OFF 不要・費用は実費で参加費に含まない） */}
-      <div className="text-[12px] text-[#231714]/85 bg-[#f6f8f4] border border-[#e4ebe0] rounded-xl px-3 py-2 leading-relaxed">
-        ※ 参加当日は懇親会があります（費用は実費・参加費には含まれません）
-      </div>
-      {payMsg && (
-        <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>
+
+      {msg && (
+        <GlassCard tone="coral" padding="md">
+          <p className="text-[15px] font-bold text-[color:var(--eb-coral-text)]">{msg}</p>
+        </GlassCard>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <GlassCard>
         <MonthCalendar
           value={selectedDate}
           onSelect={setSelectedDate}
           isSelectable={(d) => isViewableDate(d, calCtx)}
           marked={(d) => effectiveEntered.has(d)}
-          accent={ACCENT}
           minMonth={minMonth}
+          variant="game"
         />
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[color:var(--eb-ink-muted)]">
+          <span>○ 開催日</span>
+          <span>◎ 参加確定</span>
+          <span>● 選んだ日</span>
+        </div>
         {canBrowsePastMonths(minMonth, today) && (
-          <p className="text-[11px] text-[#231714]/70 mt-2 px-0.5 leading-relaxed">
-            「‹」で前の月に戻れます。過去の開催日を選ぶと、その日の対戦結果（順位）を確認できます。
+          <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            「‹」で前の月に戻ると、その日の対戦結果を確認できます。
           </p>
         )}
-      </div>
+      </GlassCard>
 
-      {/* あなたの参加状況（カレンダー下） */}
+      {/* あなたの参加状況 */}
       {enteredArr.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#3f4247] mb-1">あなたの参加状況</div>
-          {/* 参加予定日ごとに1行（日付＝左 / 状態＝右）。タップで下の詳細に切替。 */}
-          <div className="flex flex-col divide-y divide-gray-100">
-            {[...enteredArr].sort().map((d) => {
+        <GlassCard padding="md">
+          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">あなたの参加状況</div>
+          <div className="flex flex-col divide-y divide-[color:var(--eb-line)]">
+            {enteredArr.map((d) => {
+              const e = myEntries[d];
               const cancelled = cancelledDates.has(d);
-              const st = paymentStatusByDate[d] ?? null;
-              // paidLike = 支払い済み or 社員（支払い不要）。それ以外は参加確定（未払い）。
-              const paidLike = !paymentRequired || st === "paid";
+              const pending = isPendingNow(e, nowMs);
               const label = cancelled
-                ? "中止（人数不足）"
-                : st === "cancelRequested"
+                ? "中止"
+                : e?.paymentStatus === "cancelRequested"
                   ? "返金対応中"
-                  : !paymentRequired
-                    ? "参加確定"
-                    : st === "paid"
-                      ? "支払い済み"
-                      : "参加確定（未払い）";
+                  : pending
+                    ? "お支払い確認中"
+                    : e?.paymentStatus === "pending"
+                      ? "仮押さえ解除"
+                      : "参加確定";
+              const tone =
+                cancelled ? "coral" : label === "参加確定" ? "green" : label === "仮押さえ解除" ? "muted" : "gold";
               const { md, wd } = dateParts(d);
-              const active = selectedDate === d;
               return (
                 <button
                   key={d}
                   onClick={() => setSelectedDate(d)}
-                  className={`flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70 ${active ? "" : ""}`}
+                  className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70"
                 >
-                  <span className="text-[13px] font-bold text-[#231714]">
-                    {md}（{wd}）{active && <span className="ml-1 text-[10px] text-[#4f757e]">▼</span>}
+                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                    {md}（{wd}）
                   </span>
-                  <span
-                    className="shrink-0 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full"
-                    style={
-                      cancelled
-                        ? { background: "#fdeede", color: "#a1502c" }
-                        : paidLike
-                          ? { background: "#eef4dd", color: "#6f9023" }
-                          : { background: "#fdf4e3", color: "#b48f13" }
-                    }
-                  >
-                    {label}
-                  </span>
+                  <StatusPill tone={tone}>{label}</StatusPill>
                 </button>
               );
             })}
           </div>
-        </div>
+        </GlassCard>
       )}
 
-      {selectedDate ? (
-        (() => {
-          const entered = effectiveEntered.has(selectedDate);
-          const payStatus = paymentStatusByDate[selectedDate] ?? null;
-          const needsPay = entered && paymentRequired;
-          // 参加確定・未払い（会員/ゲスト）→ 支払い促しの注意書きを表示。社員・支払い済みには出さない。
-          const unpaidNotice = needsPay && payStatus !== "paid" && payStatus !== "cancelRequested";
-          // 未参加日: この月に別日で参加確定済みなら新規参加不可（閲覧は可）。
-          const monthlyBlocked = !entered && isMonthlyBlocked(selectedDate, effectiveEntered, monthlyExempt);
-          // 終了した過去土曜は参加導線を出さない（閲覧・当日順位のみ）。参加可否は純関数で判定。
-          const isPast = isPastEventDate(selectedDate, calCtx);
-          const canJoin = canJoinDate(selectedDate, { ...calCtx, full: dateFull });
-          const { md, wd } = dateParts(selectedDate);
-          // 人数不足で自動中止（流会）になった日は、参加/決済導線を出さず中止の案内にする。
-          if (cancelledDates.has(selectedDate)) {
-            return (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3" style={{ boxShadow: "inset 0 0 0 1.5px #f0c9b0" }}>
-                <div className="w-[50px] text-center shrink-0">
-                  <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                  <div className="text-[11px] text-[#231714]/80 mt-0.5">{wd}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14.5px] font-extrabold text-[#a1502c]">中止（人数不足）</div>
-                  <div className="text-[12px] text-[#231714]/85 mt-0.5">
-                    参加者が規定人数に満たなかったため中止になりました。
-                    {entered && "お支払い済みの参加費は返金対応します（担当よりご連絡します）。"}
+      {!selectedDate ? (
+        <GlassCard>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            カレンダーの日にちを押すと、その日に参加できるか表示されます
+          </p>
+        </GlassCard>
+      ) : (
+        <SelectedDateCard
+          date={selectedDate}
+          entry={myEntries[selectedDate]}
+          entered={effectiveEntered.has(selectedDate)}
+          paymentRequired={paymentRequired}
+          cancelled={cancelledDates.has(selectedDate)}
+          isPast={isPastEventDate(selectedDate, calCtx)}
+          monthlyBlocked={
+            !effectiveEntered.has(selectedDate) &&
+            isMonthlyBlocked(selectedDate, effectiveEntered, monthlyExempt)
+          }
+          full={dateFull}
+          canJoin={canJoinDate(selectedDate, { ...calCtx, full: dateFull })}
+          busy={busy === selectedDate}
+          nowMs={nowMs}
+          demo={demo}
+          onJoin={() => join(selectedDate)}
+          onResume={() => resumePayment(selectedDate, myEntries[selectedDate]?.paymentUrl)}
+          onLeave={() => leave(selectedDate)}
+          onComplete={(entryId) => runComplete(entryId, false)}
+          onRequestCancel={() => setCancelDate(selectedDate)}
+          onClearSelection={() => setSelectedDate(null)}
+        />
+      )}
+
+      {/* この日の参加者（支払いが完了した人だけ）。終了した過去日は当日順位を出すので隠す。 */}
+      {selectedDate && !cancelledDates.has(selectedDate) && !isPastEventDate(selectedDate, calCtx) && (
+        <GlassCard>
+          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+            この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
+          </div>
+          {(() => {
+            const paidOnly = dateEntries.filter((e) => e.displayStatus === "paid");
+            return paidOnly.length === 0 ? (
+              <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ参加者がいません。</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {paidOnly.map((e, i) => (
+                  <div key={i} className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                    {e.displayName}
                   </div>
-                </div>
+                ))}
               </div>
             );
-          }
-          return (
-            <>
-            <div
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2.5 px-4 py-3"
-              style={{ boxShadow: `inset 0 0 0 1.5px ${entered ? ACCENT : "#eceff1"}` }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-[50px] text-center shrink-0">
-                  <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                  <div className="text-[11px] text-[#231714]/80 mt-0.5">{wd}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  {/* truncate で狭幅でも1行維持（折り返さない） */}
-                  <div className="text-[14.5px] font-extrabold text-[#231714] truncate">リーグ戦（土曜）</div>
-                  <div className="text-[12px] text-[#231714]/85 mt-0.5 truncate">
-                    {!entered
-                      ? isPast
-                        ? "この開催日は終了しました"
-                        : monthlyBlocked
-                          ? "今月は別の日に参加確定済みです"
-                          : dateFull
-                            ? "満員です（参加者を確認できます）"
-                            : "この日に参加できます"
-                      : !paymentRequired
-                          ? "参加確定"
-                          : payStatus === "paid"
-                            ? "支払い済み"
-                            : payStatus === "cancelRequested"
-                              ? "返金対応中"
-                              : "参加確定（未払い）"}
-                  </div>
-                </div>
-                {needsPay && payStatus === "paid" ? (
-                  <div className="shrink-0 flex flex-col items-end gap-1">
-                    <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2 whitespace-nowrap" style={{ background: "#eef4dd", color: "#6f9023" }}><CheckIcon color="#6f9023" size={13} />参加確定</span>
-                    {canCancelMahjong(selectedDate) ? (
-                      <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/80 underline underline-offset-2 whitespace-nowrap">支払いをキャンセル</button>
-                    ) : (
-                      <span className="text-[10px] text-[#3f4247] whitespace-nowrap">キャンセル期限切れ（{MAHJONG_CANCEL_DEADLINE_DAYS}日前まで）</span>
-                    )}
-                    {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
-                  </div>
-                ) : needsPay && payStatus === "cancelRequested" ? (
-                  <div className="shrink-0 flex flex-col items-end gap-1">
-                    <span className="text-[11px] font-bold text-[#b48f13] whitespace-nowrap">返金対応中</span>
-                    {demo && <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>}
-                  </div>
-                ) : needsPay ? (
-                  // 参加確定・未払いの操作は下の全幅ボタン行に出す（レスポンシブで折り返さない）。
-                  null
-                ) : entered ? (
-                  // 支払い不要（staff等）＝参加確定。いつでも解除可。
-                  <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/80 underline underline-offset-2 whitespace-nowrap">参加をやめる</button>
-                ) : dateFull ? (
-                  // 満員（定員8名・抜け番許容OFF）。未参加者は新規参加不可（閲覧は可）。
-                  <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/80">満員</span>
-                ) : monthlyBlocked ? (
-                  // 当月に別日で参加確定済み（月1回制限）。新規参加ボタンは出さない（閲覧のみ）。
-                  <span className="shrink-0 inline-flex items-center rounded-full text-[11px] font-bold px-3 py-2 bg-[#fdf4e3] text-[#b48f13] whitespace-nowrap">今月は参加済み</span>
-                ) : canJoin ? (
-                  <button onClick={() => toggle(selectedDate, false)} disabled={busy === selectedDate} className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform whitespace-nowrap" style={{ background: ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>
-                    {busy === selectedDate ? "..." : "参加する"}
-                  </button>
-                ) : null /* 過去日など参加不可: 参加ボタンは出さない（閲覧・当日順位のみ） */}
-              </div>
-
-              {/* 参加確定・未払い: 支払い/取消を全幅の押しやすいボタン行に（レスポンシブでも折り返さない） */}
-              {unpaidNotice && (
-                <div className="flex items-stretch gap-2">
-                  <button
-                    onClick={() => pay(selectedDate)}
-                    disabled={busy === selectedDate}
-                    className="flex-[3] inline-flex items-center justify-center gap-1 rounded-xl text-[13.5px] font-extrabold py-2.5 active:scale-[0.98] disabled:opacity-50 transition-transform text-white whitespace-nowrap"
-                    style={{ background: CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${CONFIRM} 40%, transparent)` }}
-                  >
-                    {busy === selectedDate ? "..." : `支払いする ¥${MAHJONG_ENTRY_FEE.toLocaleString()}`}
-                  </button>
-                  <button
-                    onClick={() => toggle(selectedDate, true)}
-                    disabled={busy === selectedDate}
-                    className="flex-[2] inline-flex items-center justify-center rounded-xl text-[12.5px] font-bold py-2.5 border border-[#231714]/15 text-[#231714]/75 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50 transition-transform whitespace-nowrap"
-                  >
-                    参加をやめる
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 参加確定・未払いのときの支払い促し（社員・支払い済みには出さない）。§4.4 の3文案を表示。 */}
-            {unpaidNotice && (
-              <div className="rounded-2xl border px-4 py-3 space-y-2" style={{ background: "#fff9ec", borderColor: "#f0d9a8" }}>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[13px] font-extrabold text-[#b48f13]">参加確定（未払い）</span>
-                </div>
-                <p className="text-[12.5px] font-bold text-[#8a6a12] leading-relaxed">
-                  参加枠を確保しました。当日の卓振り分けには、参加費（¥{MAHJONG_ENTRY_FEE.toLocaleString()}）のお支払いが完了している必要があります。開催日までにお支払いください。
-                </p>
-                <p className="text-[12px] text-[#8a6a12]/90 leading-relaxed">
-                  未払いのまま当日を迎えると、卓の振り分け対象外となります。
-                </p>
-                <p className="text-[12px] text-[#8a6a12]/80 leading-relaxed">
-                  参加するには参加費のお支払いが必要です。お早めに「支払いする」から決済を完了してください。
-                </p>
-              </div>
-            )}
-            </>
-          );
-        })()
-      ) : (
-        <div className="text-center text-[12px] text-[#231714]/80 py-4">参加する土曜日をカレンダーから選んでください</div>
+          })()}
+          <p className="mt-2 text-[13px] text-[color:var(--eb-ink-muted)]">
+            ※ 支払いが完了した人だけが表示されます
+          </p>
+        </GlassCard>
       )}
 
-      {/* この日の参加者（支払い済み / 参加済み・未払い）。0名でも空状態を表示。
-          終了した過去日は当日順位を出すので参加者一覧は隠す。 */}
-      {selectedDate && !cancelledDates.has(selectedDate) && !isPastEventDate(selectedDate, calCtx) && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#3f4247] mb-2">
-            この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
-            {dateFull && <span className="ml-1.5 text-[#b48f13]">満員</span>}
-          </div>
-          {dateEntries.length === 0 ? (
-            <div className="text-[12px] text-[#231714]/80 py-2">まだ参加者がいません。</div>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {dateEntries.map((e, i) => {
-                const paid = (e.displayStatus ?? (e.status === "paid" ? "paid" : "joined_unpaid")) === "paid";
-                return (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{e.displayName}</span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={paid ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>
-                      {paid ? "支払い済み" : "参加済み（未払い）"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 当日順位（終了した過去土曜のみ）。当日・未来では出さない。 */}
-      {selectedDate && isPastEventDate(selectedDate, calCtx) && dayStandings && (
-        dayStandings.hasResults ? (
+      {/* 当日順位（終了した過去の開催日のみ） */}
+      {selectedDate &&
+        isPastEventDate(selectedDate, calCtx) &&
+        dayStandings &&
+        (dayStandings.hasResults ? (
           <MahjongDayStandings
             eventDate={selectedDate}
             standings={dayStandings.standings}
             rankingMetric={dayStandings.rankingMetric}
           />
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-6 text-center text-[12px] text-[#231714]/80">
-            この日の成績はまだありません。
-          </div>
-        )
-      )}
+          <GlassCard>
+            <p className="text-center text-[15px] text-[color:var(--eb-ink-muted)]">
+              この日の成績はまだありません。
+            </p>
+          </GlassCard>
+        ))}
 
       {cancelDate && (
         <CancelPayModal
@@ -495,6 +463,262 @@ export function JoinTab({
         />
       )}
     </div>
+  );
+}
+
+/* ───────── 選択した開催日のカード ───────── */
+
+function SelectedDateCard({
+  date,
+  entry,
+  entered,
+  paymentRequired,
+  cancelled,
+  isPast,
+  monthlyBlocked,
+  full,
+  canJoin,
+  busy,
+  nowMs,
+  demo,
+  onJoin,
+  onResume,
+  onLeave,
+  onComplete,
+  onRequestCancel,
+  onClearSelection,
+}: {
+  date: string;
+  entry?: MahjongMyEntry;
+  entered: boolean;
+  paymentRequired: boolean;
+  cancelled: boolean;
+  isPast: boolean;
+  monthlyBlocked: boolean;
+  full: boolean;
+  canJoin: boolean;
+  busy: boolean;
+  nowMs: number;
+  demo: boolean;
+  onJoin: () => void;
+  onResume: () => void;
+  onLeave: () => void;
+  onComplete: (entryId: string) => void;
+  onRequestCancel: () => void;
+  onClearSelection: () => void;
+}) {
+  const { md, wd } = dateParts(date);
+  const heading = (
+    <div className="flex items-baseline gap-2">
+      <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+        {md}（{wd}）
+      </span>
+      <span className="text-[15px] text-[color:var(--eb-ink-muted)]">リーグ戦</span>
+    </div>
+  );
+
+  // 中止（流会）
+  if (cancelled) {
+    return (
+      <GlassCard tone="coral">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="coral" className="self-start">
+            中止
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            参加者が規定人数に満たなかったため中止になりました。
+            {entered && "お支払い済みの参加費は返金対応します（担当よりご連絡します）。"}
+          </p>
+          <Button variant="secondary" onClick={onClearSelection}>
+            ほかの開催日を見る
+          </Button>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  const pending = isPendingNow(entry, nowMs);
+  const paid = entered && (!paymentRequired || entry?.paymentStatus === "paid");
+  const cancelRequested = entry?.paymentStatus === "cancelRequested";
+
+  // お支払い確認中（15分の仮押さえ）
+  if (pending && entry) {
+    const left = Math.max(0, minutesLeft(entry.pendingExpiresAt!, nowMs));
+    return (
+      <GlassCard tone="gold">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="gold" className="self-start">
+            お支払い確認中
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            お支払い画面を開いています。15分以内にお支払いを終えてください。時間を過ぎると席の仮押さえは解除されます。
+          </p>
+          <p className="text-[15px] font-bold text-[color:var(--eb-gold-text)]">あと {left} 分</p>
+          <Button variant="pay" loading={busy} onClick={onResume}>
+            お支払い画面に戻る
+          </Button>
+          <Button variant="secondary" loading={busy} onClick={() => onComplete(entry.entryId)}>
+            支払いを終えたのに確定しない
+          </Button>
+          <Button variant="ghost" loading={busy} onClick={onLeave}>
+            参加をやめる
+          </Button>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 仮押さえが切れた（画面を開いたまま15分過ぎた等）。サーバー上も席は解放されている。
+  // ここを作らないと「参加中なのに何も操作できないカード」が出る（次のポーリングまで数秒〜十数秒）。
+  if (entry?.paymentStatus === "pending" && !pending) {
+    return (
+      <GlassCard>
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="muted" className="self-start">
+            仮押さえ解除
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            お支払いの時間（15分）が過ぎたため、席の仮押さえを解除しました。もう一度お手続きください。
+          </p>
+          <Button variant="primary" loading={busy} onClick={onJoin}>
+            参加する（お支払いへ進む）
+          </Button>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 返金対応中
+  if (entered && cancelRequested) {
+    return (
+      <GlassCard tone="gold">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="gold" className="self-start">
+            返金対応中
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            参加費の返金を手続き中です。担当よりご連絡します。
+          </p>
+          {demo && (
+            <Button variant="ghost" loading={busy} onClick={onLeave}>
+              リセット（デモ）
+            </Button>
+          )}
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 参加確定（支払い済み・staff）
+  if (paid) {
+    const cancellable = canCancelMahjong(date);
+    return (
+      <GlassCard tone="green">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="green" className="self-start">
+            ✓ 参加確定・支払い済み
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            当日はゲーム開始までに会場へお越しください。卓の振り分けは当日GMが行います。
+          </p>
+          {paymentRequired ? (
+            cancellable ? (
+              <>
+                <Button variant="secondary" loading={busy} onClick={onRequestCancel}>
+                  支払いをキャンセルする
+                </Button>
+                <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
+                  キャンセルは{cancelDeadlineLabel(date)}まで受け付けます。
+                </p>
+              </>
+            ) : (
+              <p className="text-[15px] text-[color:var(--eb-ink-muted)]">
+                キャンセル期限切れ（{cancelDeadlineLabel(date)}まで）
+              </p>
+            )
+          ) : (
+            <Button variant="ghost" loading={busy} onClick={onLeave}>
+              参加をやめる
+            </Button>
+          )}
+          {demo && paymentRequired && (
+            <Button variant="ghost" loading={busy} onClick={onLeave}>
+              リセット（デモ）
+            </Button>
+          )}
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 未参加: 参加できない理由を1文で（ボタンは出さない）
+  if (!canJoin) {
+    const reason = isPast
+      ? "この開催日は終了しました"
+      : full
+        ? "満員です（この日はもう参加できません）"
+        : monthlyBlocked
+          ? "今月はすでに別の日に参加しています"
+          : "この日は参加を受け付けていません";
+    return (
+      <GlassCard>
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="muted" className="self-start">
+            {isPast ? "終了" : full ? "満員" : monthlyBlocked ? "今月は参加済み" : "受付なし"}
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">{reason}</p>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 未参加・参加できる日
+  return (
+    <GlassCard>
+      <div className="flex flex-col gap-3">
+        {heading}
+        <StatusPill tone="green" className="self-start">
+          参加できます
+        </StatusPill>
+        {paymentRequired ? (
+          <>
+            <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+              参加費のお支払いが完了すると、参加が確定します。
+            </p>
+            <div
+              className="flex items-center justify-between rounded-2xl px-4 py-3"
+              style={{ background: "var(--eb-tint)" }}
+            >
+              <span className="text-[15px] text-[color:var(--eb-ink)]">参加費</span>
+              <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+                ¥{MAHJONG_ENTRY_FEE.toLocaleString()}
+              </span>
+            </div>
+            <Button variant="primary" loading={busy} onClick={onJoin}>
+              参加する（お支払いへ進む）
+            </Button>
+            <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+              押すとSquareのお支払い画面が開きます。支払いが終わると自動でこの画面に戻り「参加確定」になります。
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+              参加費のお支払いは不要です。押すとすぐに参加確定になります。
+            </p>
+            <Button variant="primary" loading={busy} onClick={onJoin}>
+              参加する
+            </Button>
+          </>
+        )}
+      </div>
+    </GlassCard>
   );
 }
 
@@ -511,34 +735,25 @@ function CancelPayModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-base font-bold text-[#1c1f21]">参加費のキャンセル</h3>
-        <p className="text-[12.5px] text-[#231714]/80 mt-2 leading-relaxed">
-          {formatJpDate(date)} の参加費のキャンセルを依頼します。<br />
-          <span className="font-bold text-[#231714]/90">アプリ内では自動返金されません。</span>
-          管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
-        </p>
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl"
-            style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}
-          >
-            やめる
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={busy}
-            className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50"
-            style={{ background: "#d8533a" }}
-          >
-            {busy ? "送信中..." : "キャンセルを依頼"}
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3" onClick={onClose}>
+      <div className="safe-area-pb w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <GlassCard>
+          <h3 className="text-[17px] font-bold text-[color:var(--eb-ink)]">参加費のキャンセル</h3>
+          <p className="mt-2 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            {formatJpDate(date)} の参加費のキャンセルを依頼します。
+            <br />
+            <span className="font-bold">アプリ内では自動返金されません。</span>
+            管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <Button variant="danger" loading={busy} onClick={onConfirm}>
+              キャンセルを依頼
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              やめる
+            </Button>
+          </div>
+        </GlassCard>
       </div>
     </div>
   );
