@@ -762,6 +762,7 @@ function EditTableModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tableLabel, setTableLabel] = useState(table.tableLabel ?? "");
+  const [round, setRound] = useState(table.round != null ? String(table.round) : "");
 
   const scoresChanged = rows.some((r, i) => {
     const m = table.members[i];
@@ -773,6 +774,11 @@ function EditTableModal({
 
   async function save() {
     setError(null);
+    if ((round !== "" && (!Number.isInteger(Number(round)) || Number(round) < 1 || Number(round) > 99)) ||
+        (round === "" && table.round != null)) {
+      setError("半荘番号は1〜99の整数で入力してください");
+      return;
+    }
     for (const r of scoresChanged ? rows : []) {
       if (r.points === "" || r.rank === "") {
         setError("全員の点数と順位を入力してください");
@@ -787,6 +793,7 @@ function EditTableModal({
         credentials: "same-origin",
         body: JSON.stringify({
           tableLabel,
+          ...(round !== "" ? { round: Number(round) } : {}),
           ...(scoresChanged ? { members: rows.map((r) => ({
             lineUserId: r.lineUserId,
             points: Number(r.points) * r.sign, // 絶対値 × 符号（マイナス対応）
@@ -820,6 +827,23 @@ function EditTableModal({
         <p className="text-xs text-[#231714]/85 mb-4">
           {table.eventDate} の卓 / 合計が100,000点と異なる場合は、保存後に卓一覧の「確定」から管理者確定できます。
         </p>
+
+        <label className="flex items-center gap-2 mb-4 text-sm text-[#231714]">
+          第
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={99}
+            step={1}
+            value={round}
+            onChange={(e) => setRound(e.target.value)}
+            aria-label="半荘番号"
+            placeholder="未設定"
+            className="w-24 px-3 py-2 border border-[#231714]/10 rounded-lg"
+          />
+          半荘
+        </label>
 
         <label className="flex items-center gap-2 mb-4 text-sm text-[#231714]">
           卓

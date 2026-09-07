@@ -144,6 +144,30 @@ describe("force=true（管理者権限で合計不一致のまま確定）", () 
 });
 
 describe("卓ラベルの編集", () => {
+  test.each([1, 99])("半荘番号を %i に変更しても点数と確定状態を維持する", async (round) => {
+    seed([120000, 30000, 20000, 10000]);
+    Object.assign(db.__store.get("t1")!, { round: 2, tableLabel: "A", status: "completed" });
+    const members = db.__store.get("t1")!.members;
+    const res = await PATCH(req({ round }), params("t1"));
+    expect(res.status).toBe(200);
+    expect(db.__store.get("t1")).toMatchObject({ round, tableLabel: "A", status: "completed", members });
+  });
+
+  test("半荘番号・卓・点数を同時に変更できる", async () => {
+    seed([null, null, null, null]);
+    const members = [45000, 28000, 18000, 9000].map((points, i) => ({ lineUserId: `U${i + 1}`, points, rank: i + 1 }));
+    const res = await PATCH(req({ round: 3, tableLabel: "B", members }), params("t1"));
+    expect(res.status).toBe(200);
+    expect(db.__store.get("t1")).toMatchObject({ round: 3, tableLabel: "B", members, status: "completed" });
+  });
+
+  test.each([0, -1, 1.5, 100, "2", null])("不正な半荘番号 %p は保存しない", async (round) => {
+    seed([null, null, null, null]);
+    const res = await PATCH(req({ round }), params("t1"));
+    expect(res.status).toBe(400);
+    expect(db.__store.get("t1")!.round).toBeUndefined();
+  });
+
   test("未申告の卓でもA卓からB卓へ変更でき、点数と状態を維持する", async () => {
     seed([null, null, null, null]);
     db.__store.get("t1")!.tableLabel = "A";

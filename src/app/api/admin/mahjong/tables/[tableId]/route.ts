@@ -75,9 +75,17 @@ export async function PATCH(
     if (tableLabel !== undefined && (typeof tableLabel !== "string" || !/^[A-D]?$/.test(tableLabel))) {
       return NextResponse.json({ error: "卓ラベルは A〜D で指定してください" }, { status: 400 });
     }
+    const round: unknown = body?.round;
+    if (round !== undefined && (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > 99)) {
+      return NextResponse.json({ error: "半荘番号は1〜99の整数で指定してください" }, { status: 400 });
+    }
+    const metadata = {
+      ...(tableLabel !== undefined ? { tableLabel } : {}),
+      ...(round !== undefined ? { round } : {}),
+    };
     const updates: unknown = body?.members;
-    const labelOnly = updates === undefined && tableLabel !== undefined;
-    if (!labelOnly && (!Array.isArray(updates) || updates.length === 0)) {
+    const metadataOnly = updates === undefined && Object.keys(metadata).length > 0;
+    if (!metadataOnly && (!Array.isArray(updates) || updates.length === 0)) {
       return NextResponse.json({ error: "members が不正です" }, { status: 400 });
     }
     for (const u of (Array.isArray(updates) ? updates : [])) {
@@ -103,8 +111,8 @@ export async function PATCH(
     }
 
     const table = doc.data() as MahjongTable;
-    if (labelOnly) {
-      await ref.update({ tableLabel, updatedAt: new Date().toISOString() });
+    if (metadataOnly) {
+      await ref.update({ ...metadata, updatedAt: new Date().toISOString() });
       return NextResponse.json({ success: true, tableStatus: table.status });
     }
     const updateMap = new Map(
@@ -131,7 +139,7 @@ export async function PATCH(
     await ref.update({
       members,
       status,
-      ...(tableLabel !== undefined ? { tableLabel } : {}),
+      ...metadata,
       updatedAt: new Date().toISOString(),
     });
 
