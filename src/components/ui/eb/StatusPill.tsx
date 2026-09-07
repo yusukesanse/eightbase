@@ -22,7 +22,7 @@ export function StatusPill({ tone, children, className }: EbStatusPillProps): JS
   return (
     <span
       className={clsx(
-        "inline-block rounded-full px-3 py-1.5 text-[13px] font-bold",
+        "inline-block shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] max-[400px]:text-[12px] max-[360px]:text-[11px] font-bold",
         TONE_CLASSES[tone],
         className
       )}

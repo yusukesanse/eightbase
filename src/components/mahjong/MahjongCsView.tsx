@@ -137,8 +137,8 @@ export function MahjongCsView() {
     <div className="flex flex-col gap-4">
       {/* イベントヘッダー */}
       <GlassCard className="text-center">
-        <div className="text-[20px] font-bold text-[color:var(--eb-ink)]">{event.name}</div>
-        <div className="text-[14px] text-[color:var(--eb-ink-muted)] mt-0.5">{event.eventDate}</div>
+        <div className="truncate text-[20px] font-bold text-[color:var(--eb-ink)]">{event.name}</div>
+        <div className="whitespace-nowrap text-[14px] text-[color:var(--eb-ink-muted)] mt-0.5">{event.eventDate}</div>
         <p className="text-[14px] text-[color:var(--eb-ink-muted)] leading-relaxed mt-3">
           M1リーグ所属者は<b className="text-[color:var(--eb-ink)]">準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
         </p>
@@ -171,7 +171,7 @@ export function MahjongCsView() {
               return (
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
+                    <span className="whitespace-nowrap text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
                     <StatusPill tone="muted">1着通過</StatusPill>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
@@ -230,8 +230,8 @@ function CsEntryPanel({
   return (
     <GlassCard className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">チャンピオンシップに参加</div>
+        <div className="min-w-0">
+          <div className="whitespace-nowrap text-[18px] max-[400px]:text-[17px] max-[360px]:text-[16px] font-bold text-[color:var(--eb-ink)]">チャンピオンシップに参加</div>
           <div className="text-[15px] text-[color:var(--eb-ink-muted)] mt-0.5">
             どなたでも参加できます（現在 {count} 名エントリー中）
           </div>
@@ -312,8 +312,8 @@ function MatchCard({
   const iAmIn = match.players.some((p) => p.isMe);
   return (
     <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
+      <div className="flex items-center justify-between mb-1.5 gap-1.5">
+        <span className="min-w-0 truncate text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
         {done ? (
           <StatusPill tone="green">確定</StatusPill>
         ) : (
@@ -485,9 +485,9 @@ function CsInputSheet({
           <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">この卓に自分は居ません。デモ検証のため自動で結果を入れて進めます（本番は各自が申告）。</p>
           <div className="flex flex-col gap-1.5 mb-4">
             {match.players.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--eb-tint)" }}>
+              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl min-w-0" style={{ background: "var(--eb-tint)" }}>
                 <Avatar src={p.pictureUrl} name={p.displayName} size={28} />
-                <span className="text-[14px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</span>
               </div>
             ))}
           </div>

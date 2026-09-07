@@ -38,7 +38,7 @@ export function Button({
       disabled={isDisabled}
       aria-busy={loading || undefined}
       className={clsx(
-        "h-14 items-center justify-center rounded-2xl px-4 text-[17px] font-bold transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
+        "h-14 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-4 text-[17px] max-[400px]:text-[16px] max-[360px]:text-[15px] font-bold transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
         fullWidth ? "flex w-full" : "inline-flex",
         VARIANT_CLASSES[variant],
         className

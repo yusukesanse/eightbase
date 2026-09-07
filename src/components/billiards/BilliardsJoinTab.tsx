@@ -110,9 +110,9 @@ export function BilliardsJoinTab({
           variant="game"
         />
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[color:var(--eb-ink-muted)]">
-          <span>○ 開催日</span>
-          <span>◎ 参加確定</span>
-          <span>● 選んだ日</span>
+          <span className="whitespace-nowrap">○ 開催日</span>
+          <span className="whitespace-nowrap">◎ 参加確定</span>
+          <span className="whitespace-nowrap">● 選んだ日</span>
         </div>
         {canBrowsePastMonths(minMonth, today) && (
           <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
@@ -146,7 +146,7 @@ export function BilliardsJoinTab({
                   onClick={() => setSelectedDate(d)}
                   className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70"
                 >
-                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
                     {md}（{wd}）
                   </span>
                   <StatusPill tone={tone}>{label}</StatusPill>
@@ -185,9 +185,11 @@ export function BilliardsJoinTab({
 
       {selectedDate && !cancelledDates.has(selectedDate) && selectedDate >= today && (
         <GlassCard>
-          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
-            この日の参加者（{dateCount} / {BILLIARDS_MAX_ENTRIES_PER_DATE}名）
-            {dateFull && <span className="ml-1.5 text-[color:var(--eb-gold-text)]">満員</span>}
+          <div className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+            <span className="whitespace-nowrap">
+              この日の参加者（{dateCount} / {BILLIARDS_MAX_ENTRIES_PER_DATE}名）
+            </span>
+            {dateFull && <span className="whitespace-nowrap text-[color:var(--eb-gold-text)]">満員</span>}
           </div>
           {dateEntries.length === 0 ? (
             <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ参加者がいません。</p>
@@ -272,11 +274,11 @@ function SelectedDateCard({
   const timeLabel = startTime ? `${startTime}${endTime ? `〜${endTime}` : "〜"}` : null;
   const { md, wd } = dateParts(date);
   const heading = (
-    <div className="flex items-baseline gap-2">
-      <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <span className="text-[20px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
         {md}（{wd}）
       </span>
-      <span className="text-[15px] text-[color:var(--eb-ink-muted)]">
+      <span className="text-[15px] text-[color:var(--eb-ink-muted)] whitespace-nowrap">
         リーグ戦{timeLabel && <span className="ml-1.5 tabular-nums">{timeLabel}</span>}
       </span>
     </div>

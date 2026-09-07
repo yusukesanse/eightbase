@@ -89,7 +89,7 @@ function CompleteInner() {
             <p className="text-[15px] text-[color:var(--eb-ink)]">{errorMsg}</p>
             <Link
               href="/my-reservations"
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-[color:var(--eb-green)] text-[17px] font-bold text-white"
+              className="flex h-14 w-full items-center justify-center whitespace-nowrap rounded-2xl bg-[color:var(--eb-green)] text-[17px] max-[400px]:text-[16px] max-[360px]:text-[15px] font-bold text-white"
             >
               マイ予約を見る
             </Link>
@@ -147,7 +147,7 @@ function CompleteInner() {
 
             <Link
               href="/my-reservations"
-              className="flex h-14 w-full items-center justify-center rounded-2xl border-2 border-[color:var(--eb-green)] bg-white/60 text-[17px] font-bold text-[color:var(--eb-green)]"
+              className="flex h-14 w-full items-center justify-center whitespace-nowrap rounded-2xl border-2 border-[color:var(--eb-green)] bg-white/60 text-[17px] max-[400px]:text-[16px] max-[360px]:text-[15px] font-bold text-[color:var(--eb-green)]"
             >
               マイ予約を見る
             </Link>

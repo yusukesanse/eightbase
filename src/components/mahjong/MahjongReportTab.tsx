@@ -81,7 +81,7 @@ function ReportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-[color:var(--eb-line)]" />
-        <h3 className="text-[22px] font-bold text-[color:var(--eb-ink)]">スコアを申告</h3>
+        <h3 className="whitespace-nowrap text-[22px] font-bold text-[color:var(--eb-ink)]">スコアを申告</h3>
         <p className="text-[14px] text-[color:var(--eb-ink-muted)] mt-1 mb-5">
           同卓4人の合計が100,000点になると自動で確定します。
         </p>
@@ -309,10 +309,10 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
     <div className="flex flex-col gap-4">
       {gmBanner}
       {gmPanel}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <div className="text-[17px] font-bold text-[color:var(--eb-ink)]">第{day.round}半荘・抜け番あり</div>
-          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">半荘ごとに自動で卓を組み直します</div>
+      <div className="flex items-center justify-between px-1 gap-2">
+        <div className="min-w-0">
+          <div className="truncate whitespace-nowrap text-[17px] font-bold text-[color:var(--eb-ink)]">第{day.round}半荘・抜け番あり</div>
+          <div className="truncate whitespace-nowrap text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">半荘ごとに自動で卓を組み直します</div>
         </div>
         <StatusPill tone={myTable ? "green" : "coral"}>{myTable ? "対戦中" : "待機中"}</StatusPill>
       </div>
@@ -320,7 +320,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       {myTable ? (
         <GlassCard className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">{myTable.tableLabel}卓</span>
+            <span className="whitespace-nowrap text-[20px] font-bold text-[color:var(--eb-ink)]">{myTable.tableLabel}卓</span>
             <StatusPill tone="muted">第{day.round}半荘</StatusPill>
           </div>
           <TableBoard table={myTable} />
@@ -345,7 +345,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       {/* デモ操作: ダミーは自己申告しないため、代行申告で実運用の流れ（1人ずつ申告→卓確定→次半荘）を再現する。 */}
       {demo && day.tables.length > 0 && (
         <div className="rounded-2xl border-[1.5px] border-dashed p-3.5 flex flex-col gap-2" style={{ borderColor: "rgba(35,147,94,.4)", background: "var(--eb-tint)" }}>
-          <div className="text-[12px] font-bold text-[color:var(--eb-green-text)]">デモ操作（ダミーの申告を代行）</div>
+          <div className="whitespace-nowrap text-[12px] font-bold text-[color:var(--eb-green-text)]">デモ操作（ダミーの申告を代行）</div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={stepOne} disabled={busy} className="text-[13px]">
               ダミー1名分を申告
@@ -359,7 +359,7 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
       )}
 
       <GlassCard padding="md">
-        <div className="text-[13px] font-bold text-[color:var(--eb-ink)] mb-2">待機順（先頭が次にIN）</div>
+        <div className="whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink)] mb-2">待機順（先頭が次にIN）</div>
         {day.waiting.length === 0 ? (
           <div className="text-[13px] text-[color:var(--eb-ink-muted)]">待機者はいません</div>
         ) : (
@@ -374,9 +374,9 @@ function RotationView({ onChanged }: { onChanged: () => void }) {
                     : { background: "var(--eb-tint)" }
                 }
               >
-                <span className="text-[11px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">{i + 1}</span>
+                <span className="shrink-0 text-[11px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">{i + 1}</span>
                 <Avatar src={w.pictureUrl} name={w.displayName} size={20} />
-                <span className="text-[14px] font-bold text-[color:var(--eb-ink)]">
+                <span className="whitespace-nowrap text-[14px] font-bold text-[color:var(--eb-ink)]">
                   {w.displayName}
                   {w.isMe && <span className="ml-1 text-[12px] font-bold text-[color:var(--eb-green-text)]">（あなた）</span>}
                 </span>
@@ -419,9 +419,9 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
       <div className="flex flex-col gap-2.5">
         {tables.map((t) => (
           <GlassCard key={t.tableId} padding="md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">{t.tableLabel}卓</span>
-              <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{t.members.length}名</span>
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <span className="shrink-0 whitespace-nowrap text-[15px] font-bold text-[color:var(--eb-ink)]">{t.tableLabel}卓</span>
+              <span className="shrink-0 whitespace-nowrap text-[12px] text-[color:var(--eb-ink-muted)]">{t.members.length}名</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {t.members.map((m, i) => {
@@ -429,7 +429,7 @@ function SwapSheet({ swap, tables, onClose }: { swap: MahjongDaySwap; tables: Pu
                 return (
                   <div key={i} className="flex items-center gap-1.5 min-w-0">
                     <Avatar src={m.pictureUrl} name={m.displayName} size={22} />
-                    <span className={`text-[13px] font-bold truncate ${m.isCurrentUser ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink)]"}`}>{m.displayName}</span>
+                    <span className={`min-w-0 flex-1 truncate text-[13px] font-bold ${m.isCurrentUser ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink)]"}`}>{m.displayName}</span>
                     {m.isCurrentUser && <span className="shrink-0 text-[11px] font-bold text-[color:var(--eb-green-text)]">あなた</span>}
                     {isNew && !m.isCurrentUser && <StatusPill tone="green" className="shrink-0 px-1.5 py-0.5 text-[10px]">IN</StatusPill>}
                   </div>

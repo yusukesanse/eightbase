@@ -96,7 +96,7 @@ const Chip = memo(function Chip({
       type="button"
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, id); }}
-      className={`inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white border select-none ${dragging ? "opacity-30" : ""} cursor-grab active:cursor-grabbing`}
+      className={`inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold whitespace-nowrap bg-white border select-none ${dragging ? "opacity-30" : ""} cursor-grab active:cursor-grabbing`}
       style={{
         touchAction: "none",
         borderColor: selected ? DARTS_ACCENT : "var(--eb-line)",
@@ -133,11 +133,11 @@ const DropZone = memo(function DropZone({
         background: lit ? `color-mix(in srgb, ${DARTS_ACCENT} 10%, var(--eb-tint))` : "var(--eb-tint)",
       }}
     >
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[12px] font-bold" style={{ color: over ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}>
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="flex-1 min-w-0 truncate whitespace-nowrap text-[12px] font-bold" style={{ color: over ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}>
           {label}{cap != null ? `（${count}/${cap}）` : `（${count}）`}
         </span>
-        {lit && <span className="text-[11px] font-bold" style={{ color: DARTS_ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>}
+        {lit && <span className="shrink-0 whitespace-nowrap text-[11px] font-bold" style={{ color: DARTS_ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>}
       </div>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
@@ -205,7 +205,7 @@ export function DartsGmPanel({ eventDate, onChanged }: { eventDate: string; onCh
 
   return (
     <GlassCard tone="green" padding="md" className="flex flex-col gap-3">
-      <div className="text-[15px] font-bold text-[color:var(--eb-green-text)]">{header}</div>
+      <div className="text-[15px] max-[400px]:text-[14px] max-[360px]:text-[13px] font-bold text-[color:var(--eb-green-text)] whitespace-nowrap">{header}</div>
       {error && (
         <div className="text-[13px] font-bold text-[color:var(--eb-coral-text)] rounded-lg px-3 py-2" style={{ background: "rgba(217,72,58,.10)" }}>
           {error}
@@ -258,13 +258,13 @@ function StartPhase({ day, eventDate, onDone, setError }: { day: DayDto; eventDa
         そのときの支払い済みメンバーで進めます。
       </p>
       <div className="rounded-[14px] border-[1.5px] border-dashed p-2.5" style={{ borderColor: "var(--eb-line)", background: "var(--eb-tint)" }}>
-        <div className="text-[13px] font-bold text-[color:var(--eb-ink)] mb-1.5">支払い済み（{day.paidCount}名）</div>
+        <div className="text-[13px] font-bold text-[color:var(--eb-ink)] mb-1.5 whitespace-nowrap">支払い済み（{day.paidCount}名）</div>
         <div className="flex flex-wrap gap-1.5">
           {day.participants.length === 0 ? (
             <span className="text-[12px] text-[color:var(--eb-ink-muted)]">まだいません</span>
           ) : (
             day.participants.map((m) => (
-              <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border border-[color:var(--eb-line)] text-[color:var(--eb-ink)]">
+              <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold whitespace-nowrap bg-white border border-[color:var(--eb-line)] text-[color:var(--eb-ink)]">
                 {m.displayName}
               </span>
             ))
@@ -321,7 +321,7 @@ function VariantPhase({ eventDate, onDone, setError }: { eventDate: string; onDo
           <button
             key={s}
             onClick={() => setStart(s)}
-            className="flex-1 py-2.5 rounded-xl text-[15px] font-bold transition-all"
+            className="flex-1 py-2.5 rounded-xl text-[15px] font-bold whitespace-nowrap transition-all"
             style={start === s ? { background: "var(--eb-green)", color: "#fff" } : { background: "var(--eb-tint)", color: "var(--eb-ink)" }}
           >
             {s}
@@ -334,7 +334,7 @@ function VariantPhase({ eventDate, onDone, setError }: { eventDate: string; onDo
           <button
             key={o}
             onClick={() => setOut(o)}
-            className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
+            className="flex-1 py-2.5 rounded-xl text-[13px] max-[360px]:text-[11px] font-bold whitespace-nowrap transition-all"
             style={out === o ? { background: "var(--eb-green)", color: "#fff" } : { background: "var(--eb-tint)", color: "var(--eb-ink)" }}
           >
             {OUT_LABEL[o]}
@@ -378,9 +378,9 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">{DARTS_EVENT_LABEL[ev.kind]}{hint}</span>
-        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex-1 min-w-0 truncate text-[13px] font-bold text-[color:var(--eb-ink-muted)]">{DARTS_EVENT_LABEL[ev.kind]}{hint}</span>
+        <span className="shrink-0 whitespace-nowrap text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
       <p className="text-[13px] text-[color:var(--eb-ink-muted)]">各自がアプリで申告します。GM も自分の分を申告し、代理入力・修正もできます。{label}。全員そろったら「確定」を押すと次に進みます。</p>
       <div className="flex flex-col gap-1.5">
@@ -396,7 +396,7 @@ function IndividualReportPhase({ day, ev, eventDate, onDone, setError }: { day: 
               }}
             >
               <span className="text-[13px] font-bold text-[color:var(--eb-ink)] flex-1 min-w-0 truncate">{m.displayName}</span>
-              {done && <span className="text-[12px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[m.lineUserId] ?? "棄権"}</span>}
+              {done && <span className="shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[m.lineUserId] ?? "棄権"}</span>}
               <input
                 type="text" inputMode="numeric" placeholder={done ? "修正" : "入力"}
                 value={draft[m.lineUserId] ?? ""}
@@ -619,9 +619,9 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">クリケット（15R・チーム最終ポイント）</span>
-        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex-1 min-w-0 truncate text-[13px] font-bold text-[color:var(--eb-ink-muted)]">クリケット（15R・チーム最終ポイント）</span>
+        <span className="shrink-0 whitespace-nowrap text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {ev.reportedCount}/{ev.total}</span>
       </div>
       <p className="text-[13px] text-[color:var(--eb-ink-muted)]">各チームが申告します。GM は代理入力・修正もできます。全チームそろったら「確定」を押すと本日終了へ進みます。</p>
       <div className="flex flex-col gap-1.5">
@@ -640,7 +640,7 @@ function CricketReportPhase({ day, ev, eventDate, onDone, setError }: { day: Day
                 <div className="text-[11px] font-bold text-[color:var(--eb-ink-muted)]">チーム{i + 1}</div>
                 <div className="text-[13px] font-bold text-[color:var(--eb-ink)] truncate">{team.members.map((m) => m.displayName).join("・")}</div>
               </div>
-              {isReported && <span className="text-[12px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[team.teamId] ?? "棄権"}</span>}
+              {isReported && <span className="shrink-0 whitespace-nowrap text-[12px] font-bold tabular-nums" style={{ color: DARTS_ACCENT }}>{reported[team.teamId] ?? "棄権"}</span>}
               <input
                 type="text" inputMode="numeric" placeholder={isReported ? "修正" : "入力"}
                 value={draft[team.teamId] ?? ""}

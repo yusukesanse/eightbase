@@ -26,9 +26,9 @@ const ORDER: DartsEventKind[] = ["zeroOne", "countUp", "cricket"];
 export function DartsDayStandings({ eventDate, standings }: { eventDate: string; standings: DartsDayStanding[] }) {
   return (
     <GlassCard padding="md">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">この日の成績</div>
-        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{eventDate}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">この日の成績</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap shrink-0">{eventDate}</div>
       </div>
       <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 mb-2.5">
         ※ この開催日の成績のみ（通算はリーグタブ）。01=ゼロワン / CU=カウントアップ / CR=クリケット
@@ -52,8 +52,10 @@ export function DartsDayStandings({ eventDate, standings }: { eventDate: string;
             </span>
             <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
-                {s.displayName}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[15px] font-bold text-[color:var(--eb-ink)] truncate min-w-0">
+                  {s.displayName}
+                </span>
                 {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
               </div>
               {/* 3種目内訳（種目短縮 + 着順） */}
@@ -64,7 +66,7 @@ export function DartsDayStandings({ eventDate, standings }: { eventDate: string;
                   return (
                     <span
                       key={kind}
-                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums whitespace-nowrap shrink-0"
                       style={{
                         background: "var(--eb-tint)",
                         color: rank === 1 ? "var(--eb-green-text)" : "var(--eb-ink-muted)",
@@ -79,8 +81,8 @@ export function DartsDayStandings({ eventDate, standings }: { eventDate: string;
               </div>
             </div>
             <div className="text-right shrink-0 min-w-[46px]">
-              <div className="text-[15px] font-bold text-[color:var(--eb-ink)] tabular-nums leading-none">{s.totalPt}</div>
-              <div className="text-[10px] font-bold text-[color:var(--eb-ink-muted)] mt-0.5">pt</div>
+              <div className="text-[15px] font-bold text-[color:var(--eb-ink)] tabular-nums leading-none whitespace-nowrap">{s.totalPt}</div>
+              <div className="text-[10px] font-bold text-[color:var(--eb-ink-muted)] mt-0.5 whitespace-nowrap">pt</div>
             </div>
           </div>
         ))}

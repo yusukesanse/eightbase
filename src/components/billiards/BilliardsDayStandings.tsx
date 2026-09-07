@@ -18,9 +18,9 @@ export interface BilliardsDayStanding {
 export function BilliardsDayStandings({ eventDate, standings }: { eventDate: string; standings: BilliardsDayStanding[] }) {
   return (
     <GlassCard padding="md">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">この日の成績</div>
-        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{eventDate}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">この日の成績</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap shrink-0">{eventDate}</div>
       </div>
       <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 mb-2.5">
         ※ この開催日の成績のみ（通算はリーグタブ）
@@ -48,7 +48,7 @@ export function BilliardsDayStandings({ eventDate, standings }: { eventDate: str
                 {s.displayName}
                 {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
               </div>
-              <div className="text-[11px] text-[color:var(--eb-ink-muted)] tabular-nums mt-0.5">
+              <div className="text-[11px] text-[color:var(--eb-ink-muted)] tabular-nums mt-0.5 whitespace-nowrap">
                 {s.wins}勝{s.losses}敗
               </div>
             </div>

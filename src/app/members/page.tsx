@@ -136,7 +136,7 @@ export default function MembersPage() {
               key={f}
               onClick={() => setFilter(f)}
               className={clsx(
-                "shrink-0 flex h-10 items-center rounded-full px-4 text-[13px] font-bold transition-colors",
+                "shrink-0 flex h-10 items-center whitespace-nowrap rounded-full px-4 text-[13px] font-bold transition-colors",
                 selected ? "text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
               )}
               style={selected ? { background: "var(--eb-green)" } : { borderColor: "var(--eb-line)" }}
@@ -233,7 +233,11 @@ function MemberCard({ m, onOpen }: { m: MemberItem; onOpen: () => void }) {
               <div className="mt-0.5 text-[13px] text-[color:var(--eb-ink-muted)] truncate">{roleCompany}</div>
             )}
           </div>
-          {m.lineUrl && <LineGlyph size={20} />}
+          {m.lineUrl && (
+            <span className="shrink-0">
+              <LineGlyph size={20} />
+            </span>
+          )}
         </div>
         {m.skills.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">

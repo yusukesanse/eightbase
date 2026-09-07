@@ -89,9 +89,9 @@ export default function MyReservationsPage() {
           right={
             <Link
               href="/reservation"
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white/60 px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-white/60 px-3 text-[13px] max-[360px]:text-[12px] font-bold text-[color:var(--eb-ink)]"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
                 <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               施設予約

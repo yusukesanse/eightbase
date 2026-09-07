@@ -329,9 +329,9 @@ export function JoinTab({
           variant="game"
         />
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[color:var(--eb-ink-muted)]">
-          <span>○ 開催日</span>
-          <span>◎ 参加確定</span>
-          <span>● 選んだ日</span>
+          <span className="whitespace-nowrap">○ 開催日</span>
+          <span className="whitespace-nowrap">◎ 参加確定</span>
+          <span className="whitespace-nowrap">● 選んだ日</span>
         </div>
         {canBrowsePastMonths(minMonth, today) && (
           <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
@@ -343,7 +343,7 @@ export function JoinTab({
       {/* あなたの参加状況 */}
       {enteredArr.length > 0 && (
         <GlassCard padding="md">
-          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">あなたの参加状況</div>
+          <div className="mb-2 whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink-muted)]">あなたの参加状況</div>
           <div className="flex flex-col divide-y divide-[color:var(--eb-line)]">
             {enteredArr.map((d) => {
               const e = myEntries[d];
@@ -367,7 +367,7 @@ export function JoinTab({
                   onClick={() => setSelectedDate(d)}
                   className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70"
                 >
-                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                  <span className="shrink-0 whitespace-nowrap text-[15px] font-bold text-[color:var(--eb-ink)]">
                     {md}（{wd}）
                   </span>
                   <StatusPill tone={tone}>{label}</StatusPill>
@@ -413,7 +413,7 @@ export function JoinTab({
       {/* この日の参加者（支払いが完了した人だけ）。終了した過去日は当日順位を出すので隠す。 */}
       {selectedDate && !cancelledDates.has(selectedDate) && !isPastEventDate(selectedDate, calCtx) && (
         <GlassCard>
-          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+          <div className="mb-2 whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
             この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
           </div>
           {(() => {
@@ -510,10 +510,10 @@ function SelectedDateCard({
   const { md, wd } = dateParts(date);
   const heading = (
     <div className="flex items-baseline gap-2">
-      <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+      <span className="whitespace-nowrap text-[20px] font-bold text-[color:var(--eb-ink)]">
         {md}（{wd}）
       </span>
-      <span className="text-[15px] text-[color:var(--eb-ink-muted)]">リーグ戦</span>
+      <span className="whitespace-nowrap text-[15px] text-[color:var(--eb-ink-muted)]">リーグ戦</span>
     </div>
   );
 
@@ -692,11 +692,11 @@ function SelectedDateCard({
               参加費のお支払いが完了すると、参加が確定します。
             </p>
             <div
-              className="flex items-center justify-between rounded-2xl px-4 py-3"
+              className="flex items-center justify-between rounded-2xl px-4 py-3 gap-2"
               style={{ background: "var(--eb-tint)" }}
             >
-              <span className="text-[15px] text-[color:var(--eb-ink)]">参加費</span>
-              <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+              <span className="whitespace-nowrap text-[15px] text-[color:var(--eb-ink)]">参加費</span>
+              <span className="shrink-0 whitespace-nowrap text-[20px] font-bold text-[color:var(--eb-ink)]">
                 ¥{MAHJONG_ENTRY_FEE.toLocaleString()}
               </span>
             </div>

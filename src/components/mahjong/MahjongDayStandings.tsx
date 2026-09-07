@@ -40,9 +40,9 @@ export function MahjongDayStandings({
   const byTotal = rankingMetric === "total";
   return (
     <GlassCard padding="md">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">この日の順位</div>
-        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{eventDate}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="whitespace-nowrap text-[15px] font-bold text-[color:var(--eb-ink)]">この日の順位</div>
+        <div className="shrink-0 whitespace-nowrap text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{eventDate}</div>
       </div>
       <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 mb-2.5">
         ※ この開催日の成績のみ（通算はリーグタブ）
@@ -70,14 +70,14 @@ export function MahjongDayStandings({
               </span>
               <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
-                  {s.displayName}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="min-w-0 truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{s.displayName}</span>
                   {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
                 </div>
-                <div className="flex gap-2 mt-0.5 text-[11px] text-[color:var(--eb-ink-muted)] tabular-nums">
-                  <span>{s.gamesPlayed}半荘</span>
-                  <span>1位 {s.firstCount}</span>
-                  <span>連対 {pct(s.top2Rate)}</span>
+                <div className="flex gap-2 mt-0.5 text-[11px] max-[360px]:text-[10px] text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap">
+                  <span className="whitespace-nowrap">{s.gamesPlayed}半荘</span>
+                  <span className="whitespace-nowrap">1位 {s.firstCount}</span>
+                  <span className="whitespace-nowrap">連対 {pct(s.top2Rate)}</span>
                 </div>
               </div>
               <div className="text-right shrink-0 min-w-[58px]">

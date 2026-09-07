@@ -71,14 +71,14 @@ export function MahjongDayGmBanner({
     return (
       <GlassCard padding="md">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 text-[13px] font-extrabold text-[color:var(--eb-ink)]">
+          <div className="min-w-0 truncate text-[13px] font-extrabold text-[color:var(--eb-ink)]">
             本日のゲームマスター: {dayGm.gmDisplayName}さん
           </div>
           <button
             type="button"
             disabled={busy}
             onClick={() => claim(true)}
-            className="shrink-0 rounded-xl bg-white/60 px-3.5 py-2 text-[13px] font-bold text-[color:var(--eb-ink)] disabled:opacity-50"
+            className="shrink-0 whitespace-nowrap rounded-xl bg-white/60 px-3.5 py-2 text-[13px] font-bold text-[color:var(--eb-ink)] disabled:opacity-50"
           >
             {busy ? "設定中…" : "交代する"}
           </button>

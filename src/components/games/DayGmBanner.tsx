@@ -40,7 +40,7 @@ export function DayGmBanner({
   if (entryClosed === false) {
     return (
       <GlassCard padding="md">
-        <div className="text-[13px] font-bold text-[color:var(--eb-ink)]">
+        <div className="text-[13px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
           参加受付中{startTime ? `（${startTime} に締切）` : ""}
         </div>
         <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 leading-relaxed">
@@ -86,7 +86,7 @@ export function DayGmBanner({
     <GlassCard padding="md">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-bold text-[color:var(--eb-ink)]">
+          <div className="text-[13px] font-bold text-[color:var(--eb-ink)] truncate">
             {gameMasterName ? `本日のゲームマスター: ${gameMasterName}さん` : "本日のゲームマスターが未定です"}
           </div>
           <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">
@@ -99,7 +99,7 @@ export function DayGmBanner({
           type="button"
           disabled={busy}
           onClick={() => claim(!!gameMasterName)}
-          className="shrink-0 rounded-xl px-3.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+          className="shrink-0 whitespace-nowrap rounded-xl px-3.5 py-2 text-[13px] max-[400px]:text-[12px] max-[360px]:text-[11px] font-bold text-white disabled:opacity-50"
           style={{ background: "var(--eb-green)" }}
         >
           {busy ? "設定中…" : gameMasterName ? "交代する" : "GMをやる"}

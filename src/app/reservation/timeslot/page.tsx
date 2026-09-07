@@ -255,14 +255,14 @@ function TimeslotContent() {
           </div>
 
           {/* 凡例 */}
-          <div className="flex gap-5 border-t border-[color:var(--eb-line)] px-4 py-2.5">
-            <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+          <div className="flex gap-5 overflow-x-auto border-t border-[color:var(--eb-line)] px-4 py-2.5">
+            <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[12px] max-[360px]:text-[11px] text-[color:var(--eb-ink-muted)]">
               <span className="font-bold text-[color:var(--eb-green-text)]">○</span> 空き
             </span>
-            <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+            <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[12px] max-[360px]:text-[11px] text-[color:var(--eb-ink-muted)]">
               <span className="font-bold">×</span> 予約済み
             </span>
-            <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+            <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[12px] max-[360px]:text-[11px] text-[color:var(--eb-ink-muted)]">
               <span className="font-bold text-[color:var(--eb-green-text)]">●</span> 選択中
             </span>
           </div>
@@ -272,19 +272,19 @@ function TimeslotContent() {
       {/* フッターアクションエリア */}
       <div className="border-t border-[color:var(--eb-line)] bg-white/80 px-5 pb-3 pt-3 backdrop-blur-lg">
         {selStart && endTime && (
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] text-[color:var(--eb-ink-muted)]">選択中</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="shrink-0 whitespace-nowrap text-[13px] text-[color:var(--eb-ink-muted)]">選択中</span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0 whitespace-nowrap text-[15px] max-[360px]:text-[14px] font-bold text-[color:var(--eb-ink)]">
                 {selStart} 〜 {endTime}
               </span>
               {availability?.available === true && (
-                <span className="rounded-full px-2 py-1 text-[12px] font-bold" style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}>
+                <span className="shrink-0 whitespace-nowrap rounded-full px-2 py-1 text-[12px] font-bold" style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}>
                   空きあり
                 </span>
               )}
               {availability?.available === false && (
-                <span className="rounded-full px-2 py-1 text-[12px] font-bold" style={{ background: "rgba(217,72,58,.14)", color: "var(--eb-coral-text)" }}>
+                <span className="shrink-0 whitespace-nowrap rounded-full px-2 py-1 text-[12px] font-bold" style={{ background: "rgba(217,72,58,.14)", color: "var(--eb-coral-text)" }}>
                   予約不可
                 </span>
               )}

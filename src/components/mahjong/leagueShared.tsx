@@ -134,7 +134,7 @@ function Seat({ m, me, wind }: { m: PublicMahjongTableMember; me: boolean; wind:
       <div className="shrink-0 flex flex-col items-end gap-1">
         {done ? (
           <>
-            <span className="text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">
+            <span className="whitespace-nowrap text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">
               {m.points!.toLocaleString()}<span className="text-[11px] font-bold text-[color:var(--eb-ink-muted)]"> ・{m.rank}着</span>
             </span>
             <StatusPill tone="green">申告済み</StatusPill>

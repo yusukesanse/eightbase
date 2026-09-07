@@ -130,12 +130,12 @@ export function PlayerHistorySheet({
                 {data.standing ? (
                   <div className="flex items-center gap-1.5 mt-1">
                     <span
-                      className="text-[11px] font-extrabold px-2 py-0.5 rounded-full"
+                      className="shrink-0 whitespace-nowrap text-[11px] font-extrabold px-2 py-0.5 rounded-full"
                       style={{ background: tierColor, color: data.standing ? TIER_TEXT[data.standing.tier] : "#fff" }}
                     >
                       {data.standing.tier}
                     </span>
-                    <span className="text-[12px] font-bold text-[#3f4247]">
+                    <span className="shrink-0 whitespace-nowrap text-[12px] font-bold text-[#3f4247]">
                       {data.standing.rank}位
                     </span>
                   </div>
@@ -155,9 +155,9 @@ export function PlayerHistorySheet({
                     { label: "1位率", val: pct(data.standing.firstRate) },
                     { label: "連対率", val: pct2(data.standing.top2Rate) },
                   ].map((c) => (
-                    <div key={c.label} className="rounded-xl bg-[#f6f8f9] py-2.5 text-center">
-                      <div className="text-[15px] font-black text-[#1c1f21] tabular-nums">{c.val}</div>
-                      <div className="text-[10px] text-[#3f4247] mt-0.5">{c.label}</div>
+                    <div key={c.label} className="rounded-xl bg-[#f6f8f9] py-2.5 text-center px-0.5">
+                      <div className="whitespace-nowrap text-[15px] max-[400px]:text-[14px] max-[360px]:text-[13px] font-black text-[#1c1f21] tabular-nums">{c.val}</div>
+                      <div className="whitespace-nowrap text-[10px] text-[#3f4247] mt-0.5">{c.label}</div>
                     </div>
                   ))}
                 </div>
@@ -184,18 +184,18 @@ export function PlayerHistorySheet({
                         className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
                         style={{ background: "#fff", boxShadow: "inset 0 0 0 1px #f1f3f4" }}
                       >
-                        <span className="text-[12px] font-bold text-[#1c1f21] tabular-nums w-[64px]">
+                        <span className="whitespace-nowrap text-[12px] font-bold text-[#1c1f21] tabular-nums w-[64px] shrink-0">
                           {fmtDate(g.eventDate)}
                         </span>
                         {g.round ? (
-                          <span className="text-[10px] text-[#3f4247]">第{g.round}回戦</span>
+                          <span className="whitespace-nowrap shrink-0 text-[10px] text-[#3f4247]">第{g.round}回戦</span>
                         ) : null}
                         <span className="flex-1" />
-                        <span className="text-[14px] font-black tabular-nums text-[#1c1f21]">
+                        <span className="whitespace-nowrap shrink-0 text-[14px] font-black tabular-nums text-[#1c1f21]">
                           {g.points.toLocaleString()}
                         </span>
                         <span
-                          className="text-[12px] font-extrabold w-[34px] text-right"
+                          className="whitespace-nowrap shrink-0 text-[12px] font-extrabold w-[34px] text-right"
                           style={{ color: rankColor(g.rank) }}
                         >
                           {g.rank}着

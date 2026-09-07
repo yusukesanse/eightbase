@@ -275,7 +275,7 @@ function EventsTab({
                               <StatusPill tone={eventCategoryTone(ev.category)}>
                                 {EVENT_CATEGORY_LABELS[ev.category] || ev.category}
                               </StatusPill>
-                              <span className="text-[13px] text-[color:var(--eb-ink-muted)]">
+                              <span className="shrink-0 whitespace-nowrap text-[13px] text-[color:var(--eb-ink-muted)]">
                                 {start.format("M/D（ddd）")}
                               </span>
                             </div>
@@ -372,7 +372,7 @@ function NewsTab({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
-                    <span className="text-[13px] text-[color:var(--eb-ink-muted)]">
+                    <span className="shrink-0 whitespace-nowrap text-[13px] text-[color:var(--eb-ink-muted)]">
                       {dayjs(item.publishedAt).format("M月D日")}
                     </span>
                   </div>

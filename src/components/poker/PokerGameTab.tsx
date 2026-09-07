@@ -114,12 +114,12 @@ export function PokerGameTab({ onChanged }: { onChanged: () => void }) {
       )}
 
       {/* 進行状況ヘッダ */}
-      <GlassCard padding="md" className="flex items-center justify-between">
-        <div>
-          <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+      <GlassCard padding="md" className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
             {day.started ? `第${(day.currentGame?.gameIndex ?? day.gamesPlayed) || day.gamesPlayed}試合` : "開始前"}
           </div>
-          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">これまでに {day.gamesPlayed} 試合終了 ・ 参加 {day.paidCount}名</div>
+          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 truncate whitespace-nowrap">これまでに {day.gamesPlayed} 試合終了 ・ 参加 {day.paidCount}名</div>
         </div>
         {day.currentGame && (
           <StatusPill tone="green">
@@ -166,14 +166,14 @@ function DealerSelect({ day, eventDate, onDone, setError }: { day: DayDto; event
           {day.gamesPlayed === 0 && "受付は開催日の開始時刻で締め切られ、その後に最初の試合を始められます。"}
         </p>
         <div className="rounded-2xl p-3" style={{ background: "var(--eb-tint)" }}>
-          <div className="mb-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+          <div className="mb-1.5 text-[13px] max-[400px]:text-[12px] max-[360px]:text-[11px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">
             参加者（支払い済み {day.paidCount}名{day.entryCount > day.paidCount ? ` ・ 未払い ${day.entryCount - day.paidCount}名` : ""}）
           </div>
           <div className="flex flex-wrap gap-1.5">
             {day.participants.map((p, i) => (
               <span
                 key={i}
-                className="inline-flex min-h-[36px] items-center rounded-2xl border bg-white px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+                className="inline-flex min-h-[36px] items-center whitespace-nowrap rounded-2xl border bg-white px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
                 style={{ borderColor: p.isMe ? "var(--eb-green)" : "var(--eb-line)" }}
               >
                 {p.displayName}{p.isMe && "（あなた）"}
@@ -290,9 +290,9 @@ function PlayerReport({ game, eventDate, onDone, setError, allReported }: { game
   return (
     <GlassCard>
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">終了時チップを申告</span>
-          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {game.reportedCount}/{game.total}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">終了時チップを申告</span>
+          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap shrink-0">申告 {game.reportedCount}/{game.total}</span>
         </div>
         {game.myReported ? (
           <div className="flex flex-col gap-1.5">
@@ -349,9 +349,9 @@ function DealerReview({ game, eventDate, onDone, setError, allReported }: { game
   return (
     <GlassCard>
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">チップ申告の確認（ディーラー）</span>
-          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {game.reportedCount}/{game.total}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[15px] font-bold text-[color:var(--eb-ink)] min-w-0 truncate">チップ申告の確認（ディーラー）</span>
+          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap shrink-0">申告 {game.reportedCount}/{game.total}</span>
         </div>
         <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
           各プレイヤーが自分で申告します。未申告の人はディーラーが代理入力できます。全員そろったら「確定」を押すと次の試合へ進みます。
@@ -370,7 +370,7 @@ function DealerReview({ game, eventDate, onDone, setError, allReported }: { game
                 }
               >
                 <span className="flex-1 min-w-0 truncate text-[14px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</span>
-                {p.reported && <span className="text-[13px] font-bold text-[color:var(--eb-green-text)] tabular-nums">{fmtChips(p.chips ?? 0)}</span>}
+                {p.reported && <span className="shrink-0 whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-green-text)] tabular-nums">{fmtChips(p.chips ?? 0)}</span>}
                 <input
                   type="text" inputMode="numeric" placeholder={p.reported ? "修正" : "入力"}
                   value={draft[uid] ?? ""}

@@ -90,7 +90,7 @@ export function GamePlayerHistorySheet({
               <div className="text-base font-bold text-[#1c1f21] truncate">{data.player.displayName}</div>
               {data.summary ? (
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full text-white" style={{ background: accent }}>通算 {data.summary.rank}位</span>
+                  <span className="whitespace-nowrap text-[11px] font-extrabold px-2 py-0.5 rounded-full text-white" style={{ background: accent }}>通算 {data.summary.rank}位</span>
                 </div>
               ) : (
                 <div className="text-[12px] text-[#3f4247] mt-1">このシーズンの戦歴なし</div>
@@ -129,11 +129,11 @@ export function GamePlayerHistorySheet({
                       key={i}
                       className="eb-glass flex min-h-[56px] items-center gap-2.5 rounded-2xl px-3 py-2"
                     >
-                      <span className="text-[13px] font-bold text-[color:var(--eb-ink)] tabular-nums w-[70px]">{fmtDate(g.date)}</span>
-                      <span className="text-[12px] font-bold" style={{ color: g.isFirst ? accent : "var(--eb-ink-muted)" }}>{g.label}</span>
+                      <span className="shrink-0 whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink)] tabular-nums w-[70px]">{fmtDate(g.date)}</span>
+                      <span className="min-w-0 truncate whitespace-nowrap text-[12px] font-bold" style={{ color: g.isFirst ? accent : "var(--eb-ink-muted)" }}>{g.label}</span>
                       <span className="flex-1" />
-                      <span className="text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">{g.pt.toLocaleString()}</span>
-                      <span className="text-[11px] font-bold text-[color:var(--eb-ink-muted)]">pt</span>
+                      <span className="shrink-0 whitespace-nowrap text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">{g.pt.toLocaleString()}</span>
+                      <span className="shrink-0 whitespace-nowrap text-[11px] font-bold text-[color:var(--eb-ink-muted)]">pt</span>
                     </div>
                   ))}
                 </div>

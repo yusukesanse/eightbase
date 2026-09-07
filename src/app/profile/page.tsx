@@ -329,7 +329,7 @@ function ToggleButton({ selected, onClick, label }: { selected: boolean; onClick
       type="button"
       onClick={onClick}
       className={clsx(
-        "h-12 rounded-[14px] px-4 text-[14px] font-bold transition-colors",
+        "h-12 whitespace-nowrap rounded-[14px] px-4 text-[14px] font-bold transition-colors",
         selected ? "border-2 text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
       )}
       style={

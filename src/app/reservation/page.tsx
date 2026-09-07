@@ -505,7 +505,7 @@ export default function ReservationPage() {
           right={
             <Link
               href="/my-reservations"
-              className="inline-flex h-9 items-center rounded-xl bg-white/60 px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl bg-white/60 px-3 text-[13px] max-[360px]:text-[12px] font-bold text-[color:var(--eb-ink)]"
             >
               マイ予約
             </Link>

@@ -254,7 +254,7 @@ function ToggleButton({ selected, onClick, label }: { selected: boolean; onClick
       type="button"
       onClick={onClick}
       className={clsx(
-        "h-9 rounded-[14px] px-3 text-[13px] font-bold transition-colors",
+        "h-9 whitespace-nowrap rounded-[14px] px-3 text-[13px] font-bold transition-colors",
         selected ? "border-2 text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
       )}
       style={
@@ -273,7 +273,7 @@ function SkillChip({ label, onRemove }: { label: string; onRemove: () => void })
     <button
       type="button"
       onClick={onRemove}
-      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-bold"
+      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-bold"
       style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}
     >
       {label}
@@ -285,9 +285,9 @@ function SkillChip({ label, onRemove }: { label: string; onRemove: () => void })
 function CategoryRow({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
     <div className="mb-2">
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between rounded-xl bg-white/60 px-4 py-3 text-[15px] font-medium text-[color:var(--eb-ink)]">
-        {label}
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("transition-transform", open && "rotate-90")}>
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 rounded-xl bg-white/60 px-4 py-3 text-[15px] font-medium text-[color:var(--eb-ink)]">
+        <span className="min-w-0 truncate">{label}</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("shrink-0 transition-transform", open && "rotate-90")}>
           <path d="M4 3l3 3-3 3" stroke="var(--eb-ink-muted)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>

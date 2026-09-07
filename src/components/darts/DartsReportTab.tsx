@@ -108,16 +108,16 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
                 : mine?.value != null;
             return (
               <GlassCard className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex-1 min-w-0 truncate text-[15px] font-bold text-[color:var(--eb-ink)]">
                     {DARTS_EVENT_LABEL[activeEvent.kind]}
                     {activeEvent.kind === "zeroOne" && day.zeroOneVariant && (
-                      <span className="ml-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+                      <span className="ml-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">
                         {day.zeroOneVariant.start}／{OUT_LABEL[day.zeroOneVariant.out]}
                       </span>
                     )}
                   </span>
-                  <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {activeEvent.reportedCount}/{activeEvent.total}</span>
+                  <span className="shrink-0 whitespace-nowrap text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {activeEvent.reportedCount}/{activeEvent.total}</span>
                 </div>
 
                 {isCricket && myTeam && (
@@ -223,7 +223,7 @@ function EventProgress({ events }: { events: EventStateDto[] }) {
                       : "var(--eb-line)",
               }}
             />
-            <span className="text-[11px] font-bold" style={{ color: st === "pending" ? "var(--eb-ink-muted)" : "var(--eb-ink)" }}>
+            <span className="whitespace-nowrap text-[11px] max-[360px]:text-[10px] font-bold" style={{ color: st === "pending" ? "var(--eb-ink-muted)" : "var(--eb-ink)" }}>
               {i + 1}.{DARTS_EVENT_LABEL[kind]}
             </span>
           </div>

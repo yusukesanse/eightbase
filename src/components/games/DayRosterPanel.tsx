@@ -68,12 +68,12 @@ export function DayRosterPanel({
 
   return (
     <GlassCard padding="md" className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold text-[color:var(--eb-ink)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
           本日の参加者 {members.length}名
         </span>
         {unpaid.length > 0 && (
-          <span className="text-[12px] font-bold text-[color:var(--eb-gold-text)]">未払い {unpaid.length}名</span>
+          <span className="text-[12px] font-bold text-[color:var(--eb-gold-text)] whitespace-nowrap shrink-0">未払い {unpaid.length}名</span>
         )}
       </div>
 

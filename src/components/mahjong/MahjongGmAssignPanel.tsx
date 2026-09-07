@@ -83,7 +83,7 @@ const Chip = memo(function Chip({
       // 枠の onClick へ伝播すると、その枠へ即移動してしまうため止める。
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, m.lineUserId); }}
-      className={`inline-flex items-center justify-center rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white border select-none ${dragging ? "opacity-30" : ""} ${locked ? "cursor-default" : "cursor-grab active:cursor-grabbing"}`}
+      className={`inline-flex items-center justify-center whitespace-nowrap rounded-2xl px-4 min-h-[48px] text-[14px] font-bold bg-white border select-none ${dragging ? "opacity-30" : ""} ${locked ? "cursor-default" : "cursor-grab active:cursor-grabbing"}`}
       style={{
         touchAction: "none",
         borderColor: selected ? ACCENT : "var(--eb-line)",
@@ -125,17 +125,17 @@ const DropZone = memo(function DropZone({
         background: lit ? `color-mix(in srgb, ${ACCENT} 10%, var(--eb-tint))` : "var(--eb-tint)",
       }}
     >
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[12px] font-bold" style={{ color: over ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}>
+      <div className="flex items-center justify-between mb-1.5 gap-1.5">
+        <span className="shrink-0 whitespace-nowrap text-[12px] max-[360px]:text-[11px] font-bold" style={{ color: over ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}>
           {label}{cap != null ? `（${members.length}/${cap}）` : `（${members.length}）`}
         </span>
         {lit ? (
-          <span className="text-[11px] font-bold" style={{ color: ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>
+          <span className="shrink-0 whitespace-nowrap text-[11px] max-[360px]:text-[10px] font-bold" style={{ color: ACCENT }}>{isPool ? "ここに戻す" : "ここに置く"}</span>
         ) : onSendAllToWaiting ? (
           // 4名に満たない卓は成立しない。全員を待機へ送れば「この卓は使わない」編成として確定できる。
           <button
             onClick={(e) => { e.stopPropagation(); onSendAllToWaiting(zone); }}
-            className="text-[11px] font-bold underline underline-offset-2 text-[color:var(--eb-coral-text)]"
+            className="shrink-0 whitespace-nowrap text-[11px] max-[360px]:text-[10px] font-bold underline underline-offset-2 text-[color:var(--eb-coral-text)]"
           >
             この卓を使わない（{members.length}名を待機へ）
           </button>
@@ -468,12 +468,12 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
 
   return (
     <GlassCard tone="green" padding="md" className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="text-[15px] font-bold text-[color:var(--eb-green-text)]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate text-[15px] font-bold text-[color:var(--eb-green-text)]">
           {!started ? "ゲーム開始（GM）" : finished ? "本日の対局は終了しました（GM）" : assigned ? `第${round}半荘 進行中（GM）` : `卓振り分け（GM）・第${round}半荘`}
         </div>
         {assigned && progress && (
-          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">
+          <span className="shrink-0 whitespace-nowrap text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">
             申告 {progress.reported}/{progress.total}
           </span>
         )}
@@ -500,13 +500,13 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             そのときの支払い済みメンバーで卓を組みます。
           </p>
           <div className="rounded-[14px] border-[1.5px] border-dashed p-2.5" style={{ borderColor: "var(--eb-line)", background: "var(--eb-tint)" }}>
-            <div className="text-[13px] font-bold text-[color:var(--eb-ink)] mb-1.5">支払い済み（{pool.length}名）</div>
+            <div className="whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink)] mb-1.5">支払い済み（{pool.length}名）</div>
             <div className="flex flex-wrap gap-1.5">
               {pool.length === 0 ? (
                 <span className="text-[12px] text-[color:var(--eb-ink-muted)]">まだいません</span>
               ) : (
                 pool.map((m) => (
-                  <span key={m.lineUserId} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border border-[color:var(--eb-line)] text-[color:var(--eb-ink)]">
+                  <span key={m.lineUserId} className="inline-flex items-center whitespace-nowrap rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border border-[color:var(--eb-line)] text-[color:var(--eb-ink)]">
                     {m.displayName}
                   </span>
                 ))
@@ -552,14 +552,14 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
           <div className="flex flex-col gap-2">
             {(progress?.tables ?? []).map((t) => (
               <GlassCard key={t.label} padding="md">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+                <div className="flex items-center justify-between mb-1.5 gap-1.5">
+                  <span className="shrink-0 whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
                     {t.label}卓（{t.members.length}名）
                   </span>
                   {confirmTable !== t.label && (
                     <button
                       onClick={() => setConfirmTable(t.label)}
-                      className="text-[11px] font-bold underline underline-offset-2 text-[color:var(--eb-coral-text)]"
+                      className="shrink-0 whitespace-nowrap text-[11px] max-[360px]:text-[10px] font-bold underline underline-offset-2 text-[color:var(--eb-coral-text)]"
                     >
                       この卓の半荘を取り消す
                     </button>
@@ -586,7 +586,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
                     {t.members.map((m, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1 rounded-2xl px-3 min-h-[34px] text-[12.5px] font-bold border"
+                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-2xl px-3 min-h-[34px] text-[12.5px] font-bold border"
                         style={{
                           borderColor: m.reported ? ACCENT : "var(--eb-line)",
                           color: m.reported ? ACCENT : "var(--eb-ink)",
@@ -683,7 +683,7 @@ export function MahjongGmAssignPanel({ eventDate, onChanged }: { eventDate: stri
             !confirmFinish ? (
               <button
                 onClick={() => setConfirmFinish(true)}
-                className="text-[12px] font-bold underline underline-offset-2 self-center text-[color:var(--eb-ink-muted)]"
+                className="whitespace-nowrap text-[12px] max-[400px]:text-[11px] max-[360px]:text-[10px] font-bold underline underline-offset-2 self-center text-[color:var(--eb-ink-muted)]"
               >
                 本日の対局を終了する（次の半荘を組まない）
               </button>

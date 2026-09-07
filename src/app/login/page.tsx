@@ -210,10 +210,10 @@ export default function LoginPage() {
                 <p className="text-[12px] text-[color:var(--eb-ink-muted)]">LINE アカウント</p>
               </div>
               <span
-                className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-bold"
                 style={{ background: "rgba(6,199,85,.12)", color: "#06C755" }}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="shrink-0">
                   <path d="M8.5 1.5l-5 5L1 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 LINE認証済み

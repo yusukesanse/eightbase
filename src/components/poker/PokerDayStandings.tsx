@@ -23,9 +23,9 @@ export interface PokerDayStanding {
 export function PokerDayStandings({ eventDate, standings }: { eventDate: string; standings: PokerDayStanding[] }) {
   return (
     <GlassCard padding="md">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">この日の成績</div>
-        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{eventDate}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">この日の成績</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap shrink-0">{eventDate}</div>
       </div>
       <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 mb-2.5">
         ※ この開催日の成績のみ（通算はリーグタブ）。順位は当日の通算チップ数。
@@ -49,16 +49,16 @@ export function PokerDayStandings({ eventDate, standings }: { eventDate: string;
             </span>
             <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
-                {s.displayName}
-                {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[15px] font-bold text-[color:var(--eb-ink)] truncate min-w-0">{s.displayName}</span>
+                {s.isMe && <span className="shrink-0"><StatusPill tone="green">YOU</StatusPill></span>}
               </div>
               {/* 各試合のチップ内訳 */}
               <div className="flex gap-1.5 mt-1 flex-wrap">
                 {s.games.map((g) => (
                   <span
                     key={g.gameIndex}
-                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums"
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums whitespace-nowrap shrink-0"
                     style={{
                       background: "var(--eb-tint)",
                       color: g.rank === 1 ? "var(--eb-green-text)" : "var(--eb-ink-muted)",

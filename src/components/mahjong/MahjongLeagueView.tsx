@@ -174,7 +174,7 @@ export function MahjongLeagueView() {
         <GlassCard tone={payBanner.ok ? "green" : "coral"} padding="md" className="mb-3">
           <div className="flex items-center justify-between gap-2">
             <span
-              className={`text-[15px] font-bold ${
+              className={`min-w-0 text-[15px] font-bold ${
                 payBanner.ok
                   ? "text-[color:var(--eb-green-text)]"
                   : "text-[color:var(--eb-coral-text)]"
@@ -286,7 +286,7 @@ function SeasonSelector({
             key={s.seasonId}
             type="button"
             onClick={() => onChange(s.seasonId)}
-            className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12.5px] font-bold transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-[12.5px] font-bold transition-colors ${
               active ? "text-white" : "text-[#40434a]"
             }`}
             style={

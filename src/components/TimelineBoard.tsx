@@ -297,7 +297,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
                   type="button"
                   onClick={() => setDraftType(s.id)}
                   className={clsx(
-                    "h-12 flex-1 rounded-[14px] text-[14px] font-bold transition-colors",
+                    "h-12 flex-1 whitespace-nowrap rounded-[14px] text-[14px] font-bold transition-colors",
                     selected ? "border-2 text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
                   )}
                   style={
@@ -331,11 +331,11 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
                     key={t}
                     type="button"
                     onClick={() => removeTag(t)}
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold"
+                    className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-bold"
                     style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}
                   >
                     #{t}
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="shrink-0"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
                   </button>
                 ))}
               </div>
@@ -435,7 +435,7 @@ function PostHeader({ post, large }: { post: Post; large?: boolean }) {
       <Avatar src={post.authorPictureUrl} name={post.authorName} size={large ? "md" : "sm"} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className={clsx("font-bold text-[color:var(--eb-ink)]", large ? "text-[16px]" : "text-[15px]")}>{post.authorName}</span>
+          <span className={clsx("min-w-0 truncate font-bold text-[color:var(--eb-ink)]", large ? "text-[16px]" : "text-[15px]")}>{post.authorName}</span>
           <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
         </div>
         <div className="text-[12px] text-[color:var(--eb-ink-muted)]">{getRelativeTime(post.createdAt)}</div>

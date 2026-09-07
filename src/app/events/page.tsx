@@ -217,13 +217,13 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
             {ev.title}
           </h3>
           <p className="mt-1 text-[13px] text-[color:var(--eb-ink-muted)] line-clamp-2">{ev.description}</p>
-          <div className="mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-1 text-[12px] text-[color:var(--eb-ink-muted)]">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1 text-[12px] max-[360px]:text-[11px] text-[color:var(--eb-ink-muted)]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
                 <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
-              {start.format("HH:mm")}〜{end.format("HH:mm")}
-              <span className="ml-2">{ev.location}</span>
+              <span className="shrink-0 whitespace-nowrap">{start.format("HH:mm")}〜{end.format("HH:mm")}</span>
+              <span className="ml-2 truncate">{ev.location}</span>
             </div>
             <button
               type="button"
@@ -277,8 +277,8 @@ function CompactCard({ event: ev, onToggleGood, onClick }: {
             <div className="mt-1 text-[12px] text-[color:var(--eb-ink-muted)]">
               {start.format("M/D（ddd）HH:mm")}〜{end.format("HH:mm")}
             </div>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="truncate text-[12px] text-[color:var(--eb-ink-muted)]">{ev.location}</span>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-[12px] text-[color:var(--eb-ink-muted)]">{ev.location}</span>
               <button
                 type="button"
                 onClick={(e) => onToggleGood(e, ev.eventId)}

@@ -678,7 +678,7 @@ function StepPill({ n, label, status }: { n: number; label: string; status: "cur
   return (
     <div
       className={clsx(
-        "flex h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-bold",
+        "flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] max-[400px]:text-[12px] max-[360px]:px-2.5 max-[360px]:text-[11px] font-bold",
         status === "current" ? "bg-[color:var(--eb-ink)] text-white" : "bg-white/60 text-[color:var(--eb-ink)]"
       )}
     >
@@ -708,7 +708,7 @@ function ToggleButton({ selected, onClick, label, small }: { selected: boolean; 
       type="button"
       onClick={onClick}
       className={clsx(
-        "rounded-[14px] font-bold transition-colors",
+        "whitespace-nowrap rounded-[14px] font-bold transition-colors",
         small ? "h-9 px-3 text-[13px]" : "h-12 px-4 text-[14px]",
         selected
           ? "border-2 text-white"
@@ -730,11 +730,11 @@ function SkillChip({ label, onRemove }: { label: string; onRemove: () => void })
     <button
       type="button"
       onClick={onRemove}
-      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-bold"
+      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-bold"
       style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}
     >
       {label}
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="shrink-0"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
     </button>
   );
 }
@@ -742,9 +742,9 @@ function SkillChip({ label, onRemove }: { label: string; onRemove: () => void })
 function CategoryRow({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
     <div className="mb-2">
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between rounded-xl bg-white/60 px-4 py-3 text-[15px] font-medium text-[color:var(--eb-ink)]">
-        {label}
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("transition-transform", open && "rotate-90")}>
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-2 rounded-xl bg-white/60 px-4 py-3 text-[15px] font-medium text-[color:var(--eb-ink)]">
+        <span className="min-w-0 truncate">{label}</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("shrink-0 transition-transform", open && "rotate-90")}>
           <path d="M4 3l3 3-3 3" stroke="var(--eb-ink-muted)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>

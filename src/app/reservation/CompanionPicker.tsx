@@ -154,7 +154,9 @@ export function CompanionPicker({
                 <circle cx="8" cy="8" r="8" fill="var(--eb-green)" />
                 <path d="M4.5 8l2.5 2.5L11.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span className="text-[13px] font-bold text-[color:var(--eb-green-text)]">{c.displayName}</span>
+              <span className="max-w-[120px] truncate whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-green-text)]">
+                {c.displayName}
+              </span>
               <button
                 type="button"
                 onClick={() => remove(c.lineUserId)}

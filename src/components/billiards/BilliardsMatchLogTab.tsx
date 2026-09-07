@@ -101,7 +101,7 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
         <>
           {/* ライブ当日順位 */}
           <GlassCard padding="md">
-            <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+            <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">
               当日順位（{day.finished ? "確定" : "途中経過"}）
             </div>
             {day.standings.length === 0 ? (
@@ -128,8 +128,8 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
                       {s.displayName}
                       {s.isMe && <StatusPill tone="green" className="ml-1.5">YOU</StatusPill>}
                     </span>
-                    <span className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{s.wins}勝{s.losses}敗</span>
-                    <span className="w-[42px] text-right text-[16px] font-bold text-[color:var(--eb-ink)] tabular-nums">{s.points}</span>
+                    <span className="shrink-0 whitespace-nowrap text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{s.wins}勝{s.losses}敗</span>
+                    <span className="w-[42px] shrink-0 whitespace-nowrap text-right text-[16px] font-bold text-[color:var(--eb-ink)] tabular-nums">{s.points}</span>
                   </div>
                 ))}
               </div>
@@ -138,7 +138,7 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
 
           {/* 試合ログ */}
           <GlassCard padding="md">
-            <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">試合ログ（{day.matches.length}試合）</div>
+            <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">試合ログ（{day.matches.length}試合）</div>
             {day.matches.length === 0 ? (
               <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ試合がありません。</p>
             ) : (
@@ -149,20 +149,20 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
                     className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px]"
                     style={{ background: "var(--eb-tint)" }}
                   >
-                    <span className="font-bold text-[color:var(--eb-green-text)]">勝</span>
+                    <span className="shrink-0 whitespace-nowrap font-bold text-[color:var(--eb-green-text)]">勝</span>
                     <span
-                      className={`truncate font-bold ${m.winnerIsMe ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink)]"}`}
+                      className={`min-w-0 shrink truncate font-bold ${m.winnerIsMe ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink)]"}`}
                     >
                       {m.winnerName}
                     </span>
-                    <span className="text-[color:var(--eb-ink-muted)]">14</span>
-                    <span className="mx-0.5 text-[color:var(--eb-ink-muted)]">—</span>
+                    <span className="shrink-0 whitespace-nowrap text-[color:var(--eb-ink-muted)]">14</span>
+                    <span className="mx-0.5 shrink-0 whitespace-nowrap text-[color:var(--eb-ink-muted)]">—</span>
                     <span
-                      className={`truncate font-bold ${m.loserIsMe ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}
+                      className={`min-w-0 shrink truncate font-bold ${m.loserIsMe ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}
                     >
                       {m.loserName}
                     </span>
-                    <span className="text-[color:var(--eb-ink-muted)]">{m.loserBalls}</span>
+                    <span className="shrink-0 whitespace-nowrap text-[color:var(--eb-ink-muted)]">{m.loserBalls}</span>
                     <span className="flex-1" />
                     {day.isGameMaster && !day.finished && <DeleteMatch eventDate={eventDate} matchId={m.matchId} onDone={refresh} setError={setError} />}
                   </div>
@@ -248,7 +248,7 @@ function GmPanel({ day, eventDate, onDone, setError }: { day: DayDto; eventDate:
   return (
     <GlassCard tone="green">
       <div className="flex flex-col gap-3">
-        <div className="text-[15px] font-bold text-[color:var(--eb-green-text)]">
+        <div className="text-[15px] font-bold text-[color:var(--eb-green-text)] whitespace-nowrap max-[360px]:text-[14px]">
           {!day.started ? "ゲーム開始（GM）" : day.finished ? "本日の対局は終了しました" : "試合を記録（GM）"}
         </div>
 
@@ -258,7 +258,7 @@ function GmPanel({ day, eventDate, onDone, setError }: { day: DayDto; eventDate:
               「ゲーム開始」で<b className="text-[color:var(--eb-ink)]">受付を締め切り</b>ます。以降は参加・支払い不可。その時点の支払い済みメンバーで進めます。
             </p>
             <div className="rounded-2xl p-3" style={{ background: "var(--eb-tint)" }}>
-              <div className="mb-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">支払い済み（{day.paidCount}名）</div>
+              <div className="mb-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">支払い済み（{day.paidCount}名）</div>
               <div className="flex flex-wrap gap-1.5">
                 {day.participants.length === 0 ? (
                   <span className="text-[13px] text-[color:var(--eb-ink-muted)]">まだいません</span>

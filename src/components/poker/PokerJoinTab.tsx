@@ -195,7 +195,7 @@ export function PokerJoinTab({
                   onClick={() => setSelectedDate(d)}
                   className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70"
                 >
-                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
                     {md}（{wd}）
                   </span>
                   <StatusPill tone={tone}>{label}</StatusPill>
@@ -234,7 +234,7 @@ export function PokerJoinTab({
 
       {selectedDate && !cancelledDates.has(selectedDate) && selectedDate >= today && (
         <GlassCard>
-          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+          <div className="mb-2 text-[13px] max-[400px]:text-[12px] max-[360px]:text-[11px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">
             この日の参加者（{dateCount} / {POKER_MAX_ENTRIES_PER_DATE}名）
             {dateFull && <span className="ml-1.5 text-[color:var(--eb-gold-text)]">満員</span>}
           </div>
@@ -321,11 +321,11 @@ function SelectedDateCard({
   const timeLabel = startTime ? `${startTime}${endTime ? `〜${endTime}` : "〜"}` : null;
   const { md, wd } = dateParts(date);
   const heading = (
-    <div className="flex items-baseline gap-2">
-      <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+    <div className="flex items-baseline gap-2 min-w-0">
+      <span className="text-[20px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap shrink-0">
         {md}（{wd}）
       </span>
-      <span className="text-[15px] text-[color:var(--eb-ink-muted)]">
+      <span className="text-[15px] text-[color:var(--eb-ink-muted)] whitespace-nowrap truncate min-w-0">
         ポーカー{timeLabel && <span className="ml-1.5 tabular-nums">{timeLabel}</span>}
       </span>
     </div>

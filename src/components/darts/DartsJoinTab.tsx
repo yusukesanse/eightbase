@@ -210,7 +210,7 @@ export function DartsJoinTab({
                   onClick={() => setSelectedDate(d)}
                   className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70"
                 >
-                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap shrink-0">
                     {md}（{wd}）
                   </span>
                   <StatusPill tone={tone}>{label}</StatusPill>
@@ -262,12 +262,12 @@ export function DartsJoinTab({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+                        <span className="text-[20px] font-bold text-[color:var(--eb-ink)] whitespace-nowrap">
                           {md}（{wd}）
                         </span>
-                        <span className="text-[15px] text-[color:var(--eb-ink-muted)]">リーグ戦</span>
+                        <span className="text-[15px] text-[color:var(--eb-ink-muted)] whitespace-nowrap">リーグ戦</span>
                         {selectedDate && scheduleTimes?.[selectedDate]?.startTime && (
-                          <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">
+                          <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums whitespace-nowrap">
                             {scheduleTimes[selectedDate].startTime}
                             {scheduleTimes[selectedDate].endTime ? `〜${scheduleTimes[selectedDate].endTime}` : "〜"}
                           </span>
@@ -385,7 +385,7 @@ export function DartsJoinTab({
       {/* この日の参加者 */}
       {selectedDate && !cancelledDates.has(selectedDate) && selectedDate >= today && (
         <GlassCard padding="md">
-          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)] whitespace-nowrap">
             この日の参加者（{dateCount} / {DARTS_MAX_ENTRIES_PER_DATE}名）
             {dateFull && <span className="ml-1.5 text-[color:var(--eb-gold-text)]">満員</span>}
           </div>

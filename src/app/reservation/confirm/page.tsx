@@ -241,9 +241,9 @@ export default function ConfirmPage() {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[13px] text-[color:var(--eb-ink-muted)]">{label}</span>
-      <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">{value}</span>
+    <div className="flex items-center justify-between gap-3">
+      <span className="shrink-0 whitespace-nowrap text-[13px] text-[color:var(--eb-ink-muted)]">{label}</span>
+      <span className="min-w-0 truncate text-right text-[15px] font-bold text-[color:var(--eb-ink)]">{value}</span>
     </div>
   );
 }

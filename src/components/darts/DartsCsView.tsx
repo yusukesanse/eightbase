@@ -137,7 +137,7 @@ export function DartsCsView() {
               return (
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
+                    <span className="text-[17px] max-[400px]:text-[16px] max-[360px]:text-[15px] font-bold whitespace-nowrap" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
                     <StatusPill tone="muted">{gold ? "金銀銅" : "1位通過"}</StatusPill>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
@@ -172,8 +172,8 @@ function CsEntryPanel({ entered, count, busy, error, onToggle }: { entered: bool
   return (
     <GlassCard className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">チャンピオンシップに参加</div>
+        <div className="min-w-0">
+          <div className="text-[18px] max-[400px]:text-[17px] max-[360px]:text-[16px] font-bold text-[color:var(--eb-ink)] truncate">チャンピオンシップに参加</div>
           <div className="text-[15px] text-[color:var(--eb-ink-muted)] mt-0.5">どなたでも参加できます（現在 {count} 名エントリー中）</div>
         </div>
         {entered && <StatusPill tone="green" className="shrink-0">参加中</StatusPill>}
@@ -264,8 +264,8 @@ function MatchCard({ match, onInput }: { match: PubMatch; onInput: () => void })
   const iAmTied = tiebreak && me?.score === topScore;
   return (
     <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
+      <div className="flex items-center justify-between gap-1 mb-1.5">
+        <span className="flex-1 min-w-0 truncate text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
         {done ? (
           <StatusPill tone="green">確定</StatusPill>
         ) : tiebreak ? (
