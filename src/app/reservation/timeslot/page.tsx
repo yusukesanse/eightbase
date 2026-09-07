@@ -2,11 +2,11 @@
 
 import { useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { TopBar } from "@/components/ui/TopBar";
 import type { Facility } from "@/types";
 import type { AvailabilityResponse } from "@/types";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { timeToMin } from "@/lib/date";
+import { Button, GlassCard, PageBg, PageHeading } from "@/components/ui/eb";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
@@ -165,18 +165,14 @@ function TimeslotContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <TopBar
-        title="EIGHT BASE UNGA 施設予約"
-        subtitle={`${facility?.name ?? ""} ー ${dateLabel}`}
-      />
+    <PageBg className="flex flex-col">
+      <div className="px-5 pt-8">
+        <PageHeading title="RESERVE" subtitle={`${facility?.name ?? ""} — ${dateLabel}`} />
+      </div>
 
-      <div className="p-3 space-y-3 flex-1">
-        {/* ステップ */}
-        <StepIndicator step={3} total={4} />
-
-        <section className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <p className="text-xs font-medium text-gray-700 px-3 pt-3 pb-2">
+      <div className="flex-1 space-y-3 px-5 pt-6 pb-3">
+        <GlassCard padding="md" className="overflow-hidden !p-0">
+          <p className="px-4 pb-2 pt-4 text-[15px] text-[color:var(--eb-ink)]">
             開始時刻・終了時刻を順にタップ（15分単位）
           </p>
 
@@ -184,11 +180,11 @@ function TimeslotContent() {
           <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 280px)" }}>
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-[10px] font-medium text-gray-700 px-3 py-2 text-left w-20 border-r border-gray-100">
+                <tr className="border-b border-[color:var(--eb-line)] bg-white/95">
+                  <th className="w-20 border-r border-[color:var(--eb-line)] px-4 py-2 text-left text-[12px] font-medium text-[color:var(--eb-ink-muted)]">
                     受付時刻
                   </th>
-                  <th className="text-[10px] font-medium text-gray-700 px-3 py-2 text-center">
+                  <th className="px-4 py-2 text-center text-[12px] font-medium text-[color:var(--eb-ink-muted)]">
                     {loading
                       ? "読み込み中..."
                       : refreshing
@@ -205,15 +201,15 @@ function TimeslotContent() {
                     <tr
                       key={slot}
                       className={clsx(
-                        "border-b border-gray-50",
-                        isHourBoundary && "border-t border-gray-100"
+                        "border-b border-[color:var(--eb-line)]",
+                        isHourBoundary && "border-t border-[color:var(--eb-line)]"
                       )}
                     >
                       {/* 時刻ラベル */}
                       <td
                         className={clsx(
-                          "text-[11px] px-3 py-1.5 border-r border-gray-100 w-20",
-                          isHourBoundary ? "font-semibold text-gray-700" : "text-gray-700"
+                          "w-20 border-r border-[color:var(--eb-line)] px-4 py-1.5 text-[12px]",
+                          isHourBoundary ? "font-bold text-[color:var(--eb-ink)]" : "text-[color:var(--eb-ink-muted)]"
                         )}
                       >
                         {slot}
@@ -223,27 +219,32 @@ function TimeslotContent() {
                       <td
                         onClick={() => !loading && handleCellClick(slot)}
                         className={clsx(
-                          "text-center py-1.5 select-none transition-colors",
+                          "select-none py-1.5 text-center transition-colors",
                           !loading && state !== "booked" && "cursor-pointer",
-                          state === "free" && "hover:bg-[#A5C1C8]/20",
-                          state === "booked" && "cursor-not-allowed",
-                          state === "sel-start" && "bg-[#A5C1C8]",
-                          state === "sel-range" && "bg-[#A5C1C8]/25",
-                          state === "sel-end" && "bg-[#8BA8AF]"
+                          state === "booked" && "cursor-not-allowed"
                         )}
+                        style={
+                          state === "sel-start" || state === "sel-end"
+                            ? { background: "var(--eb-green)" }
+                            : state === "sel-range"
+                              ? { background: "rgba(35,147,94,.14)" }
+                              : state === "booked"
+                                ? { background: "var(--eb-tint)" }
+                                : undefined
+                        }
                       >
                         {loading ? (
-                          <span className="text-gray-400 text-sm">…</span>
+                          <span className="text-[14px] text-[color:var(--eb-ink-muted)]">…</span>
                         ) : state === "booked" ? (
-                          <span className="text-gray-700 text-base font-medium">×</span>
+                          <span className="text-[15px] font-bold text-[color:var(--eb-ink-muted)]">×</span>
                         ) : state === "free" ? (
-                          <span className="text-[#4f757e] text-base font-medium">○</span>
+                          <span className="text-[15px] font-bold text-[color:var(--eb-green-text)]">○</span>
                         ) : state === "sel-start" ? (
-                          <span className="text-white text-base font-bold">●</span>
+                          <span className="text-[15px] font-bold text-white">●</span>
                         ) : state === "sel-range" ? (
-                          <span className="text-[#4f757e] text-base font-medium">○</span>
+                          <span className="text-[15px] font-bold text-[color:var(--eb-green-text)]">○</span>
                         ) : (
-                          <span className="text-white text-base font-bold">●</span>
+                          <span className="text-[15px] font-bold text-white">●</span>
                         )}
                       </td>
                     </tr>
@@ -254,36 +255,36 @@ function TimeslotContent() {
           </div>
 
           {/* 凡例 */}
-          <div className="flex gap-5 px-3 py-2 border-t border-gray-100">
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-700">
-              <span className="text-[#4f757e] font-medium">○</span> 空き
+          <div className="flex gap-5 border-t border-[color:var(--eb-line)] px-4 py-2.5">
+            <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+              <span className="font-bold text-[color:var(--eb-green-text)]">○</span> 空き
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-700">
-              <span className="text-gray-700 font-medium">×</span> 予約済み
+            <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+              <span className="font-bold">×</span> 予約済み
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-700">
-              <span className="text-[#4f757e] font-bold">●</span> 選択中
+            <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+              <span className="font-bold text-[color:var(--eb-green-text)]">●</span> 選択中
             </span>
           </div>
-        </section>
+        </GlassCard>
       </div>
 
       {/* フッターアクションエリア */}
-      <div className="px-3 pb-3 bg-white border-t border-gray-100 pt-3">
+      <div className="border-t border-[color:var(--eb-line)] bg-white/80 px-5 pb-3 pt-3 backdrop-blur-lg">
         {selStart && endTime && (
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs text-gray-700">選択中</span>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[13px] text-[color:var(--eb-ink-muted)]">選択中</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-gray-800">
+              <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
                 {selStart} 〜 {endTime}
               </span>
               {availability?.available === true && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#B0E401]/10 text-[#7BA801] border border-[#B0E401]/20">
+                <span className="rounded-full px-2 py-1 text-[12px] font-bold" style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}>
                   空きあり
                 </span>
               )}
               {availability?.available === false && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+                <span className="rounded-full px-2 py-1 text-[12px] font-bold" style={{ background: "rgba(217,72,58,.14)", color: "var(--eb-coral-text)" }}>
                   予約不可
                 </span>
               )}
@@ -292,71 +293,46 @@ function TimeslotContent() {
         )}
 
         {!availability && selStart && endTime && (
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714] disabled:opacity-60"
-          >
-            {checking ? "確認中..." : "空きを確認する"}
-          </button>
+          <Button onClick={handleCheck} loading={checking} variant="primary">
+            空きを確認する
+          </Button>
         )}
 
         {availability?.available === true && (
-          <button
-            onClick={handleConfirm}
-            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
-          >
+          <Button onClick={handleConfirm} variant="primary">
             予約内容を確認する
-          </button>
+          </Button>
         )}
 
         {availability?.available === false && (
-          <button
+          <Button
             onClick={() => { setSelStart(null); setSelEnd(null); setAvailability(null); }}
-            className="w-full py-3 rounded-xl text-sm font-medium bg-gray-200 text-gray-700"
+            variant="ghost"
           >
             別の時間帯を選び直す
-          </button>
+          </Button>
         )}
 
         {!selStart && (
-          <p className="text-center text-xs text-gray-700 py-2">
+          <p className="py-2 text-center text-[13px] text-[color:var(--eb-ink-muted)]">
             開始時刻をタップし、次に終了時刻をタップしてください
           </p>
         )}
 
         {selStart && !endTime && (
-          <p className="text-center text-xs text-gray-700 py-2">
-            <span className="font-medium text-gray-700">{selStart}</span> を選択中 — 次に終了時刻をタップ
+          <p className="py-2 text-center text-[13px] text-[color:var(--eb-ink-muted)]">
+            <span className="font-bold text-[color:var(--eb-ink)]">{selStart}</span> を選択中 — 次に終了時刻をタップ
           </p>
         )}
       </div>
-    </div>
+    </PageBg>
   );
 }
 
 export default function TimeslotPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-center text-sm text-gray-700">読み込み中...</div>}>
+    <Suspense fallback={<div className="p-4 text-center text-[13px] text-[color:var(--eb-ink-muted)]">読み込み中...</div>}>
       <TimeslotContent />
     </Suspense>
-  );
-}
-
-// ─── サブコンポーネント ────────────────────────────────────────────────────────
-
-function StepIndicator({ step, total }: { step: number; total: number }) {
-  return (
-    <div className="flex gap-1.5 justify-center my-1">
-      {Array.from({ length: total }, (_, i) => (
-        <div
-          key={i}
-          className={clsx(
-            "h-1 w-5 rounded-full",
-            i < step ? "bg-[#A5C1C8]" : "bg-gray-200"
-          )}
-        />
-      ))}
-    </div>
   );
 }
