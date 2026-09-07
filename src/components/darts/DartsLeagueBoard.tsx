@@ -51,7 +51,14 @@ export function DartsLeagueBoard() {
   // 順位が動くのは「本日終了」を押した瞬間だけなので、マウント時の取得で十分。
 
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <div
+          className="w-6 h-6 rounded-full animate-spin border-2 border-t-transparent"
+          style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }}
+        />
+      </div>
+    );
   }
 
   const rows: GameLeagueStanding[] = (data?.standings ?? []).map((s) => ({

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Avatar } from "@/components/ui/LineContact";
+import { GlassCard, StatusPill } from "@/components/ui/eb";
 import { cssColor, tierIndexOf, type TierKeys } from "@/components/LeaguePyramid3D";
 
 /**
@@ -86,22 +87,27 @@ export function GameLeagueBoard({
 
       {/* 順位リスト（成績が無い間はプレースホルダ） */}
       {isEmpty ? (
-        <div className="rounded-[14px] border border-[#eceff1] bg-white p-8 text-center text-sm text-[#231714]/70">
-          {emptyText}
-        </div>
+        <GlassCard className="text-center py-8">
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">{emptyText}</p>
+        </GlassCard>
       ) : (
-      <div className="space-y-[18px]">
+      <div className="space-y-4">
         {tierKeys.map((tier, i) => {
           const members = byTier[i];
           if (members.length === 0) return null;
           const col = cssColor(i);
           return (
-            <div key={tier}>
-              <div className="flex items-center gap-2 mx-0.5 mb-2">
-                <span className="text-[13px] font-black tracking-wide" style={{ color: col }}>{tier}</span>
-                <span className="text-[11px] text-[#3f4247]">{KICKER[i]} ・ {RANGE[i]}</span>
-                <span className="flex-1 h-px bg-[#eceff1]" />
-                <span className="text-[11px] text-[#3f4247]">{members.length}名</span>
+            <GlassCard key={tier}>
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className="inline-flex items-center rounded-lg px-2 py-1 text-[13px] font-bold text-white"
+                  style={{ background: col }}
+                >
+                  {tier}
+                </span>
+                <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{KICKER[i]} ・ {RANGE[i]}</span>
+                <span className="flex-1" />
+                <span className="text-[12px] text-[color:var(--eb-ink-muted)]">{members.length}名</span>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -114,42 +120,42 @@ export function GameLeagueBoard({
                     style={
                       s.isMe
                         ? { background: `color-mix(in srgb, ${col} 8%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${col}` }
-                        : { background: "#fff", boxShadow: "0 1px 2px rgba(28,31,33,.05), inset 0 0 0 1px #f1f3f4" }
+                        : { background: "transparent" }
                     }
                   >
                     <div className="w-[26px] text-center shrink-0">
                       <span
-                        className="font-black tabular-nums"
-                        style={{ fontSize: s.rank <= 3 ? 19 : 16, color: s.rank <= 3 ? col : "#3f4247", letterSpacing: "-.03em" }}
+                        className="text-[17px] font-bold tabular-nums"
+                        style={{ color: s.rank <= 3 ? col : "rgba(26,29,27,.6)", letterSpacing: "-.03em" }}
                       >
                         {s.rank}
                       </span>
                     </div>
-                    <Avatar src={s.pictureUrl} name={s.displayName} size={36} />
+                    <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[14.5px] font-bold text-[#1c1f21] truncate">
+                      <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
                         {s.displayName}
-                        {s.isMe && <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: col }}>YOU</span>}
+                        {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
                       </div>
-                      <div className="mt-0.5 text-[11px] text-[#3f4247] tabular-nums">{s.subText}</div>
+                      <div className="mt-0.5 text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{s.subText}</div>
                     </div>
                     <Sparkline data={s.trend} color={col} />
-                    <div className="text-right shrink-0 min-w-[58px]">
-                      <div className="text-[16.5px] font-black text-[#1c1f21] tabular-nums leading-none">
+                    <div className="text-right shrink-0 min-w-[64px]">
+                      <div className="text-[17px] font-bold text-[color:var(--eb-ink)] tabular-nums leading-none">
                         {s.value.toLocaleString()}
                       </div>
-                      <div className="text-[9.5px] font-bold text-[#3f4247] mt-0.5">{unit}</div>
+                      <div className="text-[10px] font-bold text-[color:var(--eb-ink-muted)] mt-0.5">{unit}</div>
                     </div>
                   </button>
                 ))}
               </div>
-            </div>
+            </GlassCard>
           );
         })}
       </div>
       )}
 
-      <p className="text-[11px] text-[#3f4247] leading-relaxed px-1">{footnote}</p>
+      <p className="text-[12px] text-[color:var(--eb-ink-muted)] leading-relaxed px-1">{footnote}</p>
     </div>
   );
 }

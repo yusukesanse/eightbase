@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { DARTS_ACCENT, todayJst, CheckIcon } from "@/components/darts/dartsShared";
+import { todayJst } from "@/components/darts/dartsShared";
 import { DartsGmPanel } from "@/components/darts/DartsGmPanel";
 import { DayGmBanner } from "@/components/games/DayGmBanner";
 import { DayTabPlaceholder } from "@/components/games/DayTabPlaceholder";
 import { DayRosterPanel } from "@/components/games/DayRosterPanel";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 import { DARTS_EVENT_ORDER, DARTS_EVENT_LABEL, type DartsEventKind, type DartsZeroOneOut } from "@/types/darts";
 
 /**
@@ -58,7 +59,10 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <div
+          className="w-6 h-6 rounded-full animate-spin border-2 border-t-transparent"
+          style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }}
+        />
       </div>
     );
   }
@@ -103,46 +107,48 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
                 ? (activeEvent.results ?? []).some((r) => r.isMe && r.value != null)
                 : mine?.value != null;
             return (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
+              <GlassCard className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-extrabold text-[#231714]">
+                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
                     {DARTS_EVENT_LABEL[activeEvent.kind]}
                     {activeEvent.kind === "zeroOne" && day.zeroOneVariant && (
-                      <span className="ml-1.5 text-[11px] font-bold text-[#3c4f54]">
+                      <span className="ml-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
                         {day.zeroOneVariant.start}／{OUT_LABEL[day.zeroOneVariant.out]}
                       </span>
                     )}
                   </span>
-                  <span className="text-[11px] font-bold text-[#3c4f54] tabular-nums">申告 {activeEvent.reportedCount}/{activeEvent.total}</span>
+                  <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {activeEvent.reportedCount}/{activeEvent.total}</span>
                 </div>
 
                 {isCricket && myTeam && (
-                  <div className="rounded-xl bg-[#f7faf8] px-3 py-2">
-                    <div className="text-[10px] font-extrabold text-[#3c4f54]">あなたのチーム</div>
-                    <div className="text-[13px] font-bold text-[#1c1f21]">{myTeam.members.map((m) => m.displayName).join("・")}</div>
+                  <div className="rounded-2xl px-3 py-2" style={{ background: "var(--eb-tint)" }}>
+                    <div className="text-[12px] font-bold text-[color:var(--eb-ink-muted)]">あなたのチーム</div>
+                    <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">{myTeam.members.map((m) => m.displayName).join("・")}</div>
                   </div>
                 )}
 
                 {!canReport ? (
                   <InfoCard text={isCricket ? "あなたはこの種目のチームに含まれていません。" : "あなたは本日の参加者ではありません。"} />
                 ) : teamReported ? (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-extrabold self-start" style={{ background: "#eef4dd", color: "#6f9023" }}>
-                      <CheckIcon color="#6f9023" size={14} />申告済み
-                      <button onClick={() => setReportKind(activeEvent.kind)} className="ml-2 text-[11px] font-bold text-[#231714]/70 underline underline-offset-2">修正</button>
-                    </div>
-                    <p className="text-[11px] text-[#231714]/70">
+                  <div className="flex flex-col gap-2">
+                    <StatusPill tone="green" className="self-start">
+                      ✓ 申告済み
+                    </StatusPill>
+                    <button onClick={() => setReportKind(activeEvent.kind)} className="self-start text-[13px] font-bold text-[color:var(--eb-ink-muted)] underline underline-offset-2">
+                      修正する
+                    </button>
+                    <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
                       {activeEvent.reportedCount >= activeEvent.total
                         ? "全員の申告が揃いました。ゲームマスターの確定を待っています。"
                         : "他の参加者の申告を待っています。全員そろうとゲームマスターが確定します。"}
                     </p>
                   </div>
                 ) : (
-                  <button onClick={() => setReportKind(activeEvent.kind)} className="w-full py-3 rounded-2xl text-[14px] font-extrabold text-white active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-1.5" style={{ background: DARTS_ACCENT }}>
-                    <CheckIcon size={17} />{isCricket ? "チームのスコアを申告する" : "スコアを申告する"}
-                  </button>
+                  <Button variant="primary" onClick={() => setReportKind(activeEvent.kind)}>
+                    {isCricket ? "チームのスコアを申告する" : "スコアを申告する"}
+                  </Button>
                 )}
-              </div>
+              </GlassCard>
             );
           })()
         )}
@@ -192,7 +198,9 @@ export function DartsReportTab({ onChanged }: { onChanged: () => void }) {
 
 function InfoCard({ text }: { text: string }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-sm text-[#231714]/80">{text}</div>
+    <GlassCard className="text-center py-8">
+      <p className="text-[15px] text-[color:var(--eb-ink-muted)]">{text}</p>
+    </GlassCard>
   );
 }
 
@@ -204,8 +212,18 @@ function EventProgress({ events }: { events: EventStateDto[] }) {
         const st = e?.status ?? "pending";
         return (
           <div key={kind} className="flex-1 flex flex-col items-center gap-1">
-            <div className="w-full h-1.5 rounded-full" style={{ background: st === "confirmed" ? DARTS_ACCENT : st === "reporting" ? `color-mix(in srgb, ${DARTS_ACCENT} 45%, #fff)` : "#e4e7e9" }} />
-            <span className="text-[10px] font-bold" style={{ color: st === "pending" ? "#9aa0a6" : "#3c4f54" }}>
+            <div
+              className="w-full h-1.5 rounded-full"
+              style={{
+                background:
+                  st === "confirmed"
+                    ? "var(--eb-green)"
+                    : st === "reporting"
+                      ? "color-mix(in srgb, var(--eb-green) 45%, #fff)"
+                      : "var(--eb-line)",
+              }}
+            />
+            <span className="text-[11px] font-bold" style={{ color: st === "pending" ? "var(--eb-ink-muted)" : "var(--eb-ink)" }}>
               {i + 1}.{DARTS_EVENT_LABEL[kind]}
             </span>
           </div>
@@ -263,30 +281,37 @@ function ReportModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 pb-8 safe-area-pb" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-bold text-[#1c1f21]">{DARTS_EVENT_LABEL[kind]}の申告</h3>
-        <p className="text-[11px] text-[#231714]/85 mt-1 mb-5">全員の申告後、ゲームマスターが確認して確定します。あとから修正もできます。</p>
+      <div
+        className="w-full max-w-md rounded-t-[28px] p-5 pb-8 safe-area-pb max-h-[90vh] overflow-y-auto"
+        style={{ background: "rgba(255,255,255,.96)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-[color:var(--eb-line)]" />
+        <h3 className="text-[22px] font-bold text-[color:var(--eb-ink)]">{DARTS_EVENT_LABEL[kind]}の申告</h3>
+        <p className="text-[14px] text-[color:var(--eb-ink-muted)] mt-1 mb-5">全員の申告後、ゲームマスターが確認して確定します。あとから修正もできます。</p>
 
-        <label className="block text-[11px] font-extrabold text-[#3f4247] tracking-[0.04em] mb-2">{label}</label>
-        <div className="flex items-baseline gap-2 pb-1.5" style={{ borderBottom: `2px solid ${value ? DARTS_ACCENT : "#e4e7e9"}` }}>
+        <label className="block text-[14px] font-bold text-[color:var(--eb-ink)] mb-2">{label}</label>
+        <div className="flex items-baseline gap-2 h-14 rounded-2xl bg-white px-4 border border-[color:var(--eb-line)]">
           <input
             type="text" inputMode="numeric" autoFocus value={value}
             onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             placeholder="0"
-            className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-black text-[#1c1f21] tabular-nums"
-            style={{ fontSize: "30px" }}
+            className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-bold text-right text-[color:var(--eb-ink)] tabular-nums text-[26px]"
           />
-          <span className="text-[14px] font-bold text-[#3f4247]">点</span>
+          <span className="shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">点</span>
         </div>
-        <div className="text-[11px] text-[#3f4247] mt-1.5">{hint}</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-1.5">{hint}</div>
 
-        {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
 
         <div className="mt-6 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>キャンセル</button>
-          <button onClick={submit} disabled={busy} className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50" style={{ background: DARTS_ACCENT }}>
-            {busy ? "送信中..." : "申告する"}
-          </button>
+          <Button variant="ghost" onClick={onClose}>
+            キャンセル
+          </Button>
+          <Button variant="primary" onClick={submit} loading={busy}>
+            申告する
+          </Button>
         </div>
       </div>
     </div>

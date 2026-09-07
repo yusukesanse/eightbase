@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GlassCard } from "@/components/ui/eb";
 
 /**
  * 当日GMの自己選出バナー（ダーツ / ビリヤード）。
@@ -35,19 +36,18 @@ export function DayGmBanner({
 
   if (finished) return null;
 
-
   // 締切前はGMを決めない（参加者が確定していないため）。開始時刻＝受付締切であることだけ伝える。
   if (entryClosed === false) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-        <div className="text-[13px] font-extrabold text-[#231714]">
+      <GlassCard padding="md">
+        <div className="text-[13px] font-bold text-[color:var(--eb-ink)]">
           参加受付中{startTime ? `（${startTime} に締切）` : ""}
         </div>
-        <div className="text-[11px] text-[#3c4f54] mt-0.5">
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 leading-relaxed">
           締切までに参加表明した人がこの日の参加者になります（未払いの方はその場でお支払いいただけます）。
           締切後に参加者の中からゲームマスターを決めます。
         </div>
-      </div>
+      </GlassCard>
     );
   }
 
@@ -74,20 +74,22 @@ export function DayGmBanner({
 
   if (isGameMaster) {
     return (
-      <div className="rounded-2xl bg-[#eef4dd] px-4 py-2.5 text-[12.5px] font-bold text-[#5f7d1e]">
-        あなたが本日のゲームマスターです。下の進行パネルから操作してください。
-      </div>
+      <GlassCard tone="green" padding="md">
+        <p className="text-[13px] font-bold text-[color:var(--eb-green-text)]">
+          あなたが本日のゲームマスターです。下の進行パネルから操作してください。
+        </p>
+      </GlassCard>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex flex-col gap-2">
+    <GlassCard padding="md">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-extrabold text-[#231714]">
+          <div className="text-[13px] font-bold text-[color:var(--eb-ink)]">
             {gameMasterName ? `本日のゲームマスター: ${gameMasterName}さん` : "本日のゲームマスターが未定です"}
           </div>
-          <div className="text-[11px] text-[#3c4f54] mt-0.5">
+          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">
             {gameMasterName
               ? "進行担当が不在の場合は交代できます。"
               : "受付は開始時刻で締め切られています。ゲームマスターが決まると進行を開始できます。"}
@@ -97,13 +99,13 @@ export function DayGmBanner({
           type="button"
           disabled={busy}
           onClick={() => claim(!!gameMasterName)}
-          className="shrink-0 rounded-xl px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-50"
-          style={{ background: "#2f7d57" }}
+          className="shrink-0 rounded-xl px-3.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+          style={{ background: "var(--eb-green)" }}
         >
           {busy ? "設定中…" : gameMasterName ? "交代する" : "GMをやる"}
         </button>
       </div>
-      {error && <p className="text-[11.5px] font-bold text-[#d8533a]">{error}</p>}
-    </div>
+      {error && <p className="mt-2 text-[13px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
+    </GlassCard>
   );
 }

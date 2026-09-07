@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/ui/LineContact";
-import { DARTS_ACCENT } from "@/components/darts/dartsShared";
+import { GlassCard, StatusPill } from "@/components/ui/eb";
 import type { DartsEventKind } from "@/types/darts";
 
 /**
@@ -25,12 +25,12 @@ const ORDER: DartsEventKind[] = ["zeroOne", "countUp", "cricket"];
 
 export function DartsDayStandings({ eventDate, standings }: { eventDate: string; standings: DartsDayStanding[] }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+    <GlassCard padding="md">
       <div className="flex items-baseline justify-between">
-        <div className="text-[13px] font-extrabold text-[#1c1f21]">この日の成績</div>
-        <div className="text-[10.5px] text-[#3f4247] tabular-nums">{eventDate}</div>
+        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">この日の成績</div>
+        <div className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{eventDate}</div>
       </div>
-      <p className="text-[10.5px] text-[#3f4247] mt-0.5 mb-2.5">
+      <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5 mb-2.5">
         ※ この開催日の成績のみ（通算はリーグタブ）。01=ゼロワン / CU=カウントアップ / CR=クリケット
       </p>
       <div className="flex flex-col gap-1.5">
@@ -38,19 +38,23 @@ export function DartsDayStandings({ eventDate, standings }: { eventDate: string;
           <div
             key={s.dayRank + s.displayName}
             className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl"
-            style={s.isMe ? { background: `color-mix(in srgb, ${DARTS_ACCENT} 8%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${DARTS_ACCENT}` } : undefined}
+            style={
+              s.isMe
+                ? { background: "rgba(35,147,94,.08)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
+                : undefined
+            }
           >
             <span
-              className="w-[22px] text-center font-black tabular-nums shrink-0"
-              style={{ fontSize: s.dayRank <= 3 ? 16 : 14, color: s.dayRank <= 3 ? DARTS_ACCENT : "#3f4247", letterSpacing: "-.03em" }}
+              className="w-6 text-center text-[17px] font-bold tabular-nums shrink-0"
+              style={{ color: "rgba(26,29,27,.6)" }}
             >
               {s.dayRank}
             </span>
-            <Avatar src={s.pictureUrl} name={s.displayName} size={30} />
+            <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-bold text-[#1c1f21] truncate">
+              <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
                 {s.displayName}
-                {s.isMe && <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: DARTS_ACCENT }}>YOU</span>}
+                {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
               </div>
               {/* 3種目内訳（種目短縮 + 着順） */}
               <div className="flex gap-1.5 mt-1 flex-wrap">
@@ -61,23 +65,26 @@ export function DartsDayStandings({ eventDate, standings }: { eventDate: string;
                     <span
                       key={kind}
                       className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                      style={{ background: "#f6f8f9", color: rank === 1 ? DARTS_ACCENT : "#40434a", boxShadow: "inset 0 0 0 1px #eceff1" }}
+                      style={{
+                        background: "var(--eb-tint)",
+                        color: rank === 1 ? "var(--eb-green-text)" : "var(--eb-ink-muted)",
+                      }}
                     >
-                      <span className="text-[#97999d]">{SHORT[kind]}</span>
+                      <span style={{ color: "var(--eb-ink-muted)" }}>{SHORT[kind]}</span>
                       {rank != null ? `${rank}位` : "—"}
-                      <span className="text-[#97999d]">{e ? `${e.points}pt` : ""}</span>
+                      <span style={{ color: "var(--eb-ink-muted)" }}>{e ? `${e.points}pt` : ""}</span>
                     </span>
                   );
                 })}
               </div>
             </div>
             <div className="text-right shrink-0 min-w-[46px]">
-              <div className="text-[15px] font-black text-[#1c1f21] tabular-nums leading-none">{s.totalPt}</div>
-              <div className="text-[9px] font-bold text-[#3f4247] mt-0.5">pt</div>
+              <div className="text-[15px] font-bold text-[color:var(--eb-ink)] tabular-nums leading-none">{s.totalPt}</div>
+              <div className="text-[10px] font-bold text-[color:var(--eb-ink-muted)] mt-0.5">pt</div>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </GlassCard>
   );
 }
