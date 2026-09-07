@@ -582,124 +582,124 @@ export default function ReservationPage() {
       </section>
 
       {/* ── 区切り ── */}
-      <div className="mx-5 h-px bg-gray-100" />
+      <div className="mx-5 h-px bg-[color:var(--eb-line)]" />
 
       {/* ── カレンダー ── */}
       {selectedFacility ? (
         <section className="px-5 pt-4 pb-2">
           {/* 直前予約を禁止している施設は、なぜ手前の日付が選べないのかを先に伝える */}
           {minAdvanceDays > 0 && (
-            <div className="mb-3 bg-[#f3f5f6] rounded-xl px-3 py-2.5">
-              <p className="text-[12px] text-[#45484d] leading-relaxed">
-                この施設は<strong className="text-[#231714]">利用日の{minAdvanceDays}日前まで</strong>にご予約ください。
+            <div className="mb-3 rounded-2xl px-4 py-3" style={{ background: "var(--eb-tint)" }}>
+              <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink)]">
+                この施設は<strong>利用日の{minAdvanceDays}日前まで</strong>にご予約ください。
                 <br />
                 {dayjs(minDate).format("M月D日（ddd）")}以降の日付から選べます。
               </p>
             </div>
           )}
 
-          {/* 月ナビ */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setCurrentMonth((m) => m.subtract(1, "month"))}
-              disabled={currentMonth.isSame(dayjs().startOf("month"), "month")}
-              className={clsx(
-                "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                currentMonth.isSame(dayjs().startOf("month"), "month")
-                  ? "text-gray-400"
-                  : "text-[#231714] hover:bg-gray-50"
-              )}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-            <h2 className="text-sm font-bold text-[#231714]">
-              {currentMonth.format("YYYY年 M月")}
-            </h2>
-            <button
-              onClick={() => setCurrentMonth((m) => m.add(1, "month"))}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[#231714] hover:bg-gray-50 transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
-            </button>
-          </div>
+          <GlassCard>
+            {/* 月ナビ */}
+            <div className="mb-3 flex items-center justify-between">
+              <button
+                onClick={() => setCurrentMonth((m) => m.subtract(1, "month"))}
+                disabled={currentMonth.isSame(dayjs().startOf("month"), "month")}
+                aria-label="前の月"
+                className={clsx(
+                  "flex h-11 w-11 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)] transition-colors",
+                  currentMonth.isSame(dayjs().startOf("month"), "month") && "cursor-not-allowed opacity-[.35]"
+                )}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+              <h2 className="text-[18px] font-bold text-[color:var(--eb-ink)]">
+                {currentMonth.format("YYYY年 M月")}
+              </h2>
+              <button
+                onClick={() => setCurrentMonth((m) => m.add(1, "month"))}
+                aria-label="次の月"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)] transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+              </button>
+            </div>
 
-          {/* 曜日ヘッダー */}
-          <div className="grid grid-cols-7 mb-1">
-            {DAY_LABELS.map((d) => (
-              <div key={d} className="text-center text-[10px] font-medium text-[#231714]/75 py-1">
-                {d}
-              </div>
-            ))}
-          </div>
+            {/* 曜日ヘッダー */}
+            <div className="mb-1 grid grid-cols-7 gap-x-[3px]">
+              {DAY_LABELS.map((d) => (
+                <div key={d} className="py-1 text-center text-[12px] font-medium text-[color:var(--eb-ink-muted)]">
+                  {d}
+                </div>
+              ))}
+            </div>
 
-          {/* 日付グリッド */}
-          <div className="grid grid-cols-7 gap-y-0.5">
-            {calendarDays.map((d, i) => {
-              if (!d) return <div key={`blank-${i}`} />;
-              const dateStr = d.format("YYYY-MM-DD");
-              const state = getDateState(d);
-              const isSelected = dateStr === selectedDate;
-              const isToday = dateStr === today;
+            {/* 日付グリッド（44px円セル。MonthCalendar variant="game" と同じ規則） */}
+            <div className="grid grid-cols-7 gap-x-[3px] gap-y-[6px]">
+              {calendarDays.map((d, i) => {
+                if (!d) return <div key={`blank-${i}`} className="h-11 w-11" />;
+                const dateStr = d.format("YYYY-MM-DD");
+                const state = getDateState(d);
+                const isSelected = dateStr === selectedDate;
+                const isToday = dateStr === today;
+                const selectable = state !== "disabled" && state !== "full";
 
-              return (
-                <button
-                  key={dateStr}
-                  disabled={state === "disabled" || state === "full"}
-                  onClick={() => setSelectedDate(dateStr)}
-                  className={clsx(
-                    "relative flex flex-col items-center py-1.5 rounded-xl transition-all",
-                    state === "disabled" && "opacity-20",
-                    state === "full" && "opacity-30",
-                    isSelected && "bg-[#231714]",
-                    !isSelected && state !== "disabled" && state !== "full" && "hover:bg-gray-50 active:scale-95"
-                  )}
-                >
-                  <span
+                return (
+                  <button
+                    key={dateStr}
+                    disabled={!selectable}
+                    onClick={() => setSelectedDate(dateStr)}
                     className={clsx(
-                      "text-[13px] font-medium",
-                      isSelected ? "text-white" : isToday ? "text-[#B0E401] font-bold" : "text-[#231714]"
+                      "relative flex h-11 w-11 items-center justify-center rounded-full text-[17px] transition-all",
+                      !selectable
+                        ? "border-0 bg-transparent font-normal text-[rgba(26,29,27,.35)]"
+                        : isSelected
+                          ? "border-[2.5px] border-[color:var(--eb-green)] bg-[color:var(--eb-green)] font-bold text-white active:scale-95"
+                          : clsx(
+                              "border-[1.5px] border-[rgba(15,29,25,.28)] bg-white/60 active:scale-95",
+                              isToday ? "font-bold text-[color:var(--eb-green)]" : "font-medium text-[color:var(--eb-ink)]"
+                            )
                     )}
                   >
-                    {d.date()}
-                  </span>
-                  {/* 空きインジケーター */}
-                  <span
-                    className={clsx(
-                      "w-1 h-1 rounded-full mt-0.5 transition-colors",
-                      isSelected
-                        ? "bg-[#B0E401]"
-                        : state === "available"
-                        ? "bg-[#B0E401]"
-                        : state === "partial"
-                        ? "bg-[#A5C1C8]"
-                        : "bg-transparent"
+                    <span>{d.date()}</span>
+                    {/* 空きインジケーター */}
+                    {selectable && (state === "available" || state === "partial") && (
+                      <span
+                        className={clsx(
+                          "absolute bottom-[4px] h-1.5 w-1.5 rounded-full",
+                          isSelected
+                            ? "bg-white"
+                            : state === "partial"
+                              ? "bg-[color:var(--eb-gold)]"
+                              : "bg-[color:var(--eb-green)]"
+                        )}
+                      />
                     )}
-                  />
-                </button>
-              );
-            })}
-          </div>
-
-          {weekLoading ? (
-            <div className="flex justify-center py-2">
-              <div className="w-4 h-4 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+                  </button>
+                );
+              })}
             </div>
-          ) : weekRefreshing ? (
-            <div className="flex items-center justify-center gap-1.5 py-2">
-              <div className="w-3 h-3 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
-              <span className="text-[10px] text-[#231714]/80">空き状況を更新中…</span>
-            </div>
-          ) : null}
 
-          {/* 凡例 */}
-          <div className="flex items-center gap-4 mt-2 justify-center">
-            <span className="flex items-center gap-1 text-[9px] text-[#231714]/80">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B0E401]" /> 空きあり
-            </span>
-            <span className="flex items-center gap-1 text-[9px] text-[#231714]/80">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#A5C1C8]" /> 一部予約
-            </span>
-          </div>
+            {weekLoading ? (
+              <div className="flex justify-center py-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
+              </div>
+            ) : weekRefreshing ? (
+              <div className="flex items-center justify-center gap-1.5 py-2">
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
+                <span className="text-[12px] text-[color:var(--eb-ink-muted)]">空き状況を更新中…</span>
+              </div>
+            ) : null}
+
+            {/* 凡例 */}
+            <div className="mt-2 flex items-center justify-center gap-4">
+              <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--eb-green)]" /> 空きあり
+              </span>
+              <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--eb-gold)]" /> 一部予約
+              </span>
+            </div>
+          </GlassCard>
         </section>
       ) : (
         <div className="flex-1 px-5 pt-2 pb-4">
@@ -714,77 +714,77 @@ export default function ReservationPage() {
       {/* ── タイムスロット ── */}
       {selectedDate && selectedFacility && (
         <>
-          <div className="mx-5 h-px bg-gray-100" />
+          <div className="mx-5 h-px bg-[color:var(--eb-line)]" />
           <section className="px-5 pt-4 pb-2 flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-[11px] font-bold text-[#231714]/80 uppercase tracking-widest">
-                  時間を選択
-                </h3>
+            <GlassCard>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+                  {dayjs(selectedDate).format("M月D日（ddd）")}
+                </span>
                 {dayRefreshing && (
-                  <span className="flex items-center gap-1 text-[10px] text-[#231714]/80">
-                    <span className="w-2.5 h-2.5 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+                  <span className="flex items-center gap-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+                    <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
                     更新中…
                   </span>
                 )}
               </div>
-              <span className="text-xs font-medium text-[#231714]">
-                {dayjs(selectedDate).format("M月D日（ddd）")}
-              </span>
-            </div>
 
-            {loadingDay ? (
-              <div className="flex justify-center py-8">
-                <div className="w-6 h-6 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
-              </div>
-            ) : (
-              <>
-                <p className="text-[10px] text-[#231714]/80 mb-2">
-                  {isFixedDuration
-                    ? (!selStart
-                      ? "開始時間をタップしてください（終了は自動設定されます）"
-                      : `${selStart}〜${selEnd} を選択中`)
-                    : (!selStart
-                      ? "開始時間をタップしてください"
-                      : !selEnd
-                        ? "終了時間をタップしてください"
-                        : `${selStart}〜${selEnd} を選択中`)}
-                </p>
-                {/* 固定枠の内訳表示 */}
-                {isFixedDuration && fixedMinDuration > 0 && (
-                  <div className="mb-2 px-3 py-2 bg-[#A5C1C8]/10 rounded-lg">
-                    <p className="text-[11px] text-[#231714]/85">
-                      {facilityPrepTime > 0
-                        ? `利用${fixedMinDuration - facilityPrepTime}分 ＋ 準備${facilityPrepTime}分 = 合計${fixedMinDuration}分の固定枠`
-                        : `${fixedMinDuration}分の固定枠`}
-                    </p>
-                  </div>
-                )}
-                <div className="grid grid-cols-4 gap-1.5">
-                  {timeSlots.map((slot) => {
-                    const state = getSlotState(slot);
-                    return (
-                      <button
-                        key={slot}
-                        disabled={state === "booked" || state === "past"}
-                        onClick={() => handleSlotClick(slot)}
-                        className={clsx(
-                          "py-2.5 rounded-xl text-xs font-medium transition-all",
-                          state === "booked" && "bg-gray-50 text-gray-400 line-through cursor-not-allowed",
-                          state === "past" && "bg-gray-50 text-gray-400 cursor-not-allowed",
-                          state === "free" && "bg-[#FAFAFA] text-[#231714] hover:bg-[#A5C1C8]/20 active:scale-95 border border-gray-100",
-                          state === "selected-start" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]",
-                          state === "selected-range" && "bg-[#B0E401]/15 text-[#231714] border border-[#B0E401]/20",
-                          state === "selected-end" && "bg-[#B0E401] text-[#231714] font-bold shadow-sm shadow-[#B0E401]/25 scale-[1.02]"
-                        )}
-                      >
-                        {slot}
-                      </button>
-                    );
-                  })}
+              {loadingDay ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <p className="mb-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+                    {isFixedDuration
+                      ? (!selStart
+                        ? "開始時間をタップしてください（終了は自動設定されます）"
+                        : `${selStart}〜${selEnd} を選択中`)
+                      : (!selStart
+                        ? "開始時間をタップしてください"
+                        : !selEnd
+                          ? "終了時間をタップしてください"
+                          : `${selStart}〜${selEnd} を選択中`)}
+                  </p>
+                  {/* 固定枠の内訳表示 */}
+                  {isFixedDuration && fixedMinDuration > 0 && (
+                    <div className="mb-3 rounded-xl px-3 py-2" style={{ background: "var(--eb-tint)" }}>
+                      <p className="text-[12px] text-[color:var(--eb-ink-muted)]">
+                        {facilityPrepTime > 0
+                          ? `利用${fixedMinDuration - facilityPrepTime}分 ＋ 準備${facilityPrepTime}分 = 合計${fixedMinDuration}分の固定枠`
+                          : `${fixedMinDuration}分の固定枠`}
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-4 gap-2">
+                    {timeSlots.map((slot) => {
+                      const state = getSlotState(slot);
+                      return (
+                        <button
+                          key={slot}
+                          disabled={state === "booked" || state === "past"}
+                          onClick={() => handleSlotClick(slot)}
+                          className={clsx(
+                            "flex h-12 flex-col items-center justify-center rounded-[14px] text-[13px] transition-all",
+                            (state === "booked" || state === "past") && "font-normal text-[color:var(--eb-ink-muted)] cursor-not-allowed",
+                            state === "free" && "border border-[color:var(--eb-line)] bg-white/60 font-bold text-[color:var(--eb-ink)] active:scale-95",
+                            (state === "selected-start" || state === "selected-end") &&
+                              "bg-[color:var(--eb-green)] font-bold text-white active:scale-95",
+                            state === "selected-range" && "bg-[rgba(35,147,94,.14)] font-bold text-[color:var(--eb-green-text)]"
+                          )}
+                          style={state === "booked" ? { background: "var(--eb-tint)" } : undefined}
+                        >
+                          <span className="leading-none">{slot}</span>
+                          {state === "booked" && (
+                            <span className="mt-0.5 text-[9px] leading-none">予約済</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </GlassCard>
           </section>
 
           {/* ── 同伴者（サウナ等）: 日時が決まってから選ぶ ── */}
@@ -804,41 +804,42 @@ export default function ReservationPage() {
 
       {/* ── 利用規約 全画面オーバーレイ ── */}
       {showTermsModal && selectedFacility?.termsContent && (
-        <div className="fixed inset-0 z-[60] bg-white flex flex-col">
+        <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: "var(--eb-bg)" }}>
           {/* ヘッダー */}
-          <header className="shrink-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+          <header className="shrink-0 flex items-center gap-3 border-b border-[color:var(--eb-line)] bg-white/80 px-4 py-3 backdrop-blur-lg">
             <button
               onClick={() => setShowTermsModal(false)}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--eb-tint)]"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#231714" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--eb-ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <h1 className="text-[15px] font-bold text-[#231714]">利用規約</h1>
+            <h1 className="text-[15px] font-bold text-[color:var(--eb-ink)]">利用規約</h1>
           </header>
 
           {/* 規約本文（スクロール領域） */}
           <div ref={termsScrollRef} className="flex-1 overflow-y-auto relative" onScroll={handleTermsScroll}>
             <div className="px-5 py-5">
-              <div className="prose prose-sm max-w-none text-[#231714]/90
-                prose-headings:text-[#231714] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+              <div className="prose prose-sm max-w-none text-[color:var(--eb-ink)]
+                prose-headings:text-[color:var(--eb-ink)] prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
                 prose-h2:text-base prose-h3:text-sm
                 prose-p:my-1.5 prose-p:leading-relaxed
                 prose-li:my-0.5
-                prose-strong:text-[#231714]">
+                prose-strong:text-[color:var(--eb-ink)]">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedFacility.termsContent}</ReactMarkdown>
               </div>
 
               {/* 規約末尾の同意ボタン（スクロール完了で表示） */}
               {termsRead && (
-                <div className="mt-8 mb-6 px-2">
-                  <button
+                <div className="mt-8 mb-6">
+                  <Button
+                    type="button"
+                    variant="primary"
                     onClick={() => { setTermsAgreed(true); setShowTermsModal(false); }}
-                    className="w-full py-3.5 rounded-2xl text-sm font-bold bg-[#B0E401] text-[#231714] active:scale-[0.98] transition-transform"
                   >
                     利用規約に同意する
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -846,12 +847,12 @@ export default function ReservationPage() {
 
           {/* スクロールガイド（未読時のみフローティング表示） */}
           {!termsRead && (
-            <div className="shrink-0 border-t border-gray-100 bg-white px-5 py-3">
+            <div className="shrink-0 border-t border-[color:var(--eb-line)] bg-white/80 px-5 py-3 backdrop-blur-lg">
               <div className="flex items-center justify-center gap-1.5">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
                   <path d="M12 5v14M19 12l-7 7-7-7" />
                 </svg>
-                <p className="text-[12px] text-[#231714]/80">最後までスクロールしてください</p>
+                <p className="text-[12px] text-[color:var(--eb-ink-muted)]">最後までスクロールしてください</p>
               </div>
             </div>
           )}
@@ -859,61 +860,56 @@ export default function ReservationPage() {
       )}
 
       {/* ── フローティングフッター ── */}
-      <div className="sticky bg-white/80 backdrop-blur-lg border-t border-gray-100 px-5 py-3 safe-area-pb" style={{ bottom: "var(--bottom-nav-height)" }}>
+      <div
+        className="sticky border-t border-[color:var(--eb-line)] bg-white/80 px-5 py-3 backdrop-blur-lg safe-area-pb"
+        style={{ bottom: "var(--bottom-nav-height)" }}
+      >
         {selectedFacility && selectedDate && selStart && selEnd ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {/* 選択サマリー */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#A5C1C8]/20 flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-[11px] text-[#231714]/85">{selectedFacility?.name}</p>
-                  <p className="text-xs font-bold text-[#231714]">
-                    {dayjs(selectedDate!).format("M/D（ddd）")} {selStart}〜{selEnd}
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--eb-tint)" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green)" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{selectedFacility?.name}</p>
+                <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
+                  {dayjs(selectedDate!).format("M/D（ddd）")} {selStart}〜{selEnd}
+                  {requiresCompanions && `　合計${partySize}名`}
+                </p>
+                {/* 固定枠の内訳 */}
+                {isFixedDuration && facilityPrepTime > 0 && (
+                  <p className="text-[12px] text-[color:var(--eb-ink-muted)]">
+                    利用{fixedMinDuration - facilityPrepTime}分 ＋ 準備{facilityPrepTime}分
                   </p>
-                  {/* 固定枠の内訳 */}
-                  {isFixedDuration && facilityPrepTime > 0 && (
-                    <p className="text-[10px] text-[#231714]/80">
-                      利用{fixedMinDuration - facilityPrepTime}分 ＋ 準備{facilityPrepTime}分
-                    </p>
-                  )}
-                  {requiresCompanions && (
-                    <p className="text-[10px] text-[#231714]/80">合計{partySize}名</p>
-                  )}
-                </div>
+                )}
               </div>
             </div>
 
             {/* 利用規約 */}
             {needsTerms && (
               termsAgreed ? (
-                <div className="flex items-center gap-2 px-1 py-1">
+                <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
-                    <circle cx="8" cy="8" r="8" fill="#B0E401"/>
-                    <path d="M4.5 8l2.5 2.5L11.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="8" cy="8" r="8" fill="var(--eb-green)" />
+                    <path d="M4.5 8l2.5 2.5L11.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span className="text-xs text-[#231714]/85">利用規約に同意済み</span>
+                  <span className="text-[13px] text-[color:var(--eb-ink-muted)]">利用規約に同意済み</span>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowTermsModal(true)}
-                  className="w-full py-2.5 rounded-xl text-xs font-medium border border-[#A5C1C8] text-[#4f757e]"
-                >
+                <Button type="button" variant="ghost" onClick={() => setShowTermsModal(true)}>
                   利用規約を確認する
-                </button>
+                </Button>
               )
             )}
 
             {/* 同伴者が足りない（サウナ等・1人での利用を禁止する施設） */}
             {requiresCompanions && !companionsOk && (
-              <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-amber-700">
+              <div className="rounded-2xl px-4 py-3" style={{ background: "rgba(217,169,58,.14)" }}>
+                <p className="text-[13px]" style={{ color: "var(--eb-gold-text)" }}>
                   この施設は1人ではご利用いただけません。一緒に入る人を
                   {minPartySize - partySize}名以上選んでください。
                 </p>
@@ -922,21 +918,23 @@ export default function ReservationPage() {
 
             {/* 有料施設は予約不可（旧 requirePayment・決済URL未設定時のみ） */}
             {needsPayment && (
-              <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-amber-700">オンライン決済は現在準備中です。管理者にお問い合わせください。</p>
+              <div className="rounded-2xl px-4 py-3" style={{ background: "rgba(217,169,58,.14)" }}>
+                <p className="text-[13px]" style={{ color: "var(--eb-gold-text)" }}>
+                  オンライン決済は現在準備中です。管理者にお問い合わせください。
+                </p>
               </div>
             )}
 
             {/* トレーラー: 決済額の案内 */}
             {isTrailer && selectedFacility?.paymentAmount ? (
-              <p className="text-xs text-[#231714]/80 text-center">
+              <p className="text-center text-[13px] text-[color:var(--eb-ink-muted)]">
                 決済額 ¥{selectedFacility.paymentAmount.toLocaleString()}（税込）／ 決済後に解錠コードが表示されます
               </p>
             ) : null}
 
             {payError && (
-              <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-red-600">{payError}</p>
+              <div className="rounded-2xl px-4 py-3" style={{ background: "rgba(217,72,58,.14)" }}>
+                <p className="text-[13px]" style={{ color: "var(--eb-coral-text)" }}>{payError}</p>
               </div>
             )}
 
@@ -953,7 +951,7 @@ export default function ReservationPage() {
             </Button>
           </div>
         ) : (
-          <p className="text-center text-[11px] text-[#231714]/75 py-1">
+          <p className="py-1 text-center text-[13px] text-[color:var(--eb-ink-muted)]">
             {!selectedFacility
               ? "上から施設を選択してください"
               : !selectedDate

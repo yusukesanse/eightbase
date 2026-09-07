@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { GlassCard, PageBg } from "@/components/ui/eb";
 
 interface CompletedReservation {
   facilityName?: string;
@@ -13,7 +14,7 @@ interface CompletedReservation {
 
 function Spinner() {
   return (
-    <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
   );
 }
 
@@ -68,58 +69,66 @@ function CompleteInner() {
   }, [rid]);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center px-5 py-10">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+    <PageBg className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
+      <div className="w-full max-w-md">
         {state === "loading" && (
-          <div className="flex flex-col items-center gap-4 py-8">
+          <GlassCard className="flex flex-col items-center gap-4 py-10">
             <Spinner />
-            <p className="text-sm text-[#231714]/80">決済を確認しています…</p>
-          </div>
+            <p className="text-[15px] text-[color:var(--eb-ink-muted)]">決済を確認しています…</p>
+          </GlassCard>
         )}
 
         {state === "error" && (
-          <div className="flex flex-col items-center gap-4 py-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-              <span className="text-red-500 text-2xl">!</span>
+          <GlassCard tone="coral" className="flex flex-col items-center gap-4 py-6 text-center">
+            <div
+              className="flex items-center justify-center rounded-full"
+              style={{ width: 48, height: 48, background: "rgba(217,72,58,.14)" }}
+            >
+              <span className="text-[22px] font-bold text-[color:var(--eb-coral-text)]">!</span>
             </div>
-            <p className="text-sm text-[#231714]/85">{errorMsg}</p>
+            <p className="text-[15px] text-[color:var(--eb-ink)]">{errorMsg}</p>
             <Link
               href="/my-reservations"
-              className="mt-2 w-full py-3 rounded-2xl text-sm font-bold bg-[#4f757e] text-white text-center"
+              className="flex h-14 w-full items-center justify-center rounded-2xl bg-[color:var(--eb-green)] text-[17px] font-bold text-white"
             >
-              マイ予約を確認
+              マイ予約を見る
             </Link>
-          </div>
+          </GlassCard>
         )}
 
         {state === "done" && (
           <div className="flex flex-col gap-5">
             <div className="flex flex-col items-center gap-2 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#EAF7C9] flex items-center justify-center">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6f9023" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <div
+                className="flex items-center justify-center rounded-full"
+                style={{ width: 64, height: 64, background: "rgba(35,147,94,.14)" }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12.5l4.5 4.5L19 7.5" />
                 </svg>
               </div>
-              <h1 className="text-base font-bold text-[#1c1f21]">決済・予約が完了しました</h1>
+              <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">予約が完了しました</h1>
             </div>
 
             {reservation && (
-              <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/90 space-y-1">
-                <div className="font-bold text-[#1c1f21]">{reservation.facilityName}</div>
-                <div>
-                  {reservation.date} {reservation.startTime}〜{reservation.endTime}
+              <GlassCard padding="md">
+                <div className="space-y-1">
+                  <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">{reservation.facilityName}</div>
+                  <div className="text-[15px] text-[color:var(--eb-ink-muted)]">
+                    {reservation.date} {reservation.startTime}〜{reservation.endTime}
+                  </div>
                 </div>
-              </div>
+              </GlassCard>
             )}
 
             {/* 解錠コード */}
             {passcode ? (
-              <div className="rounded-2xl border-2 border-[#2f7d57] p-4 text-center">
-                <div className="text-[11px] font-extrabold text-[#2f7d57] tracking-wide">解錠コード</div>
-                <div className="text-[34px] font-black tabular-nums text-[#1c1f21] tracking-[0.15em] my-1">
+              <div className="rounded-2xl p-4 text-center" style={{ background: "var(--eb-tint)" }}>
+                <div className="text-[12px] font-bold tracking-wide text-[color:var(--eb-green-text)]">解錠コード</div>
+                <div className="my-1 text-[26px] font-black tabular-nums tracking-[0.15em] text-[color:var(--eb-ink)]">
                   {passcode}
                 </div>
-                <div className="text-[11px] text-[#231714]/85 space-y-0.5">
+                <div className="space-y-0.5 text-[12px] text-[color:var(--eb-ink-muted)]">
                   <p>
                     予約開始時刻になると、このコードでドアを解錠できます
                     {reservation?.startTime ? `（${reservation.startTime}〜${reservation.endTime}のみ有効）` : "（予約時間中のみ有効）"}。
@@ -128,24 +137,24 @@ function CompleteInner() {
                 </div>
               </div>
             ) : passcodePending ? (
-              <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-center">
-                <p className="text-xs text-amber-700">
+              <GlassCard tone="gold" padding="md" className="text-center">
+                <p className="text-[13px]" style={{ color: "var(--eb-gold-text)" }}>
                   解錠コードは準備が整い次第、<b>管理者からご連絡</b>します。<br />
                   発行後は「マイ予約」にも表示されます。お急ぎの場合は管理者へお問い合わせください。
                 </p>
-              </div>
+              </GlassCard>
             ) : null}
 
             <Link
               href="/my-reservations"
-              className="w-full py-3 rounded-2xl text-sm font-bold bg-[#4f757e] text-white text-center"
+              className="flex h-14 w-full items-center justify-center rounded-2xl border-2 border-[color:var(--eb-green)] bg-white/60 text-[17px] font-bold text-[color:var(--eb-green)]"
             >
-              マイ予約を確認
+              マイ予約を見る
             </Link>
           </div>
         )}
       </div>
-    </div>
+    </PageBg>
   );
 }
 
@@ -153,9 +162,9 @@ export default function ReservationCompletePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#FAF9F6]">
+        <PageBg className="flex min-h-screen items-center justify-center">
           <Spinner />
-        </div>
+        </PageBg>
       }
     >
       <CompleteInner />

@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { kanaIncludes } from "@/lib/kana";
 import { Avatar } from "@/components/ui/LineContact";
+import { GlassCard } from "@/components/ui/eb";
 import {
   companionPickerReducer,
   isCompanionDropdownOpen,
@@ -133,27 +134,32 @@ export function CompanionPicker({
   const open = isCompanionDropdownOpen(picker);
 
   return (
-    <div className="bg-white rounded-[18px] border border-[#eceff1] p-4">
-      <h3 className="text-[14px] font-bold text-[#1c1f21]">一緒に入る人</h3>
-      <p className="text-[12px] text-[#45484d] mt-1 leading-relaxed">
+    <GlassCard padding="md">
+      <h3 className="text-[15px] font-bold text-[color:var(--eb-ink)]">一緒に入る人</h3>
+      <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
         この施設は1人ではご利用いただけません。合計{minTotal}名以上でご予約ください。
       </p>
 
-      {/* 選択済み */}
+      {/* 選択済み（チェック＋緑12%地） */}
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-3">
+        <div className="mt-3 flex flex-wrap gap-2">
           {value.map((c) => (
             <span
               key={c.lineUserId}
-              className="inline-flex items-center gap-1.5 bg-[#f3f5f6] rounded-full pl-1 pr-1.5 py-1"
+              className="inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3"
+              style={{ background: "rgba(35,147,94,.12)" }}
             >
               <Avatar src={c.pictureUrl} name={c.displayName} size={24} />
-              <span className="text-[12px] text-[#1c1f21]">{c.displayName}</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                <circle cx="8" cy="8" r="8" fill="var(--eb-green)" />
+                <path d="M4.5 8l2.5 2.5L11.5 5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-[13px] font-bold text-[color:var(--eb-green-text)]">{c.displayName}</span>
               <button
                 type="button"
                 onClick={() => remove(c.lineUserId)}
                 aria-label={`${c.displayName}を外す`}
-                className="w-5 h-5 flex items-center justify-center text-[#45484d] text-[14px] leading-none"
+                className="flex h-5 w-5 items-center justify-center text-[14px] leading-none text-[color:var(--eb-green-text)]"
               >
                 ×
               </button>
@@ -169,7 +175,7 @@ export function CompanionPicker({
           height="16"
           viewBox="0 0 16 16"
           fill="none"
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3f4247]"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--eb-ink-muted)]"
         >
           <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
           <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -187,17 +193,17 @@ export function CompanionPicker({
           onFocus={() => dispatch({ type: "focus" })}
           onKeyDown={onKeyDown}
           placeholder={isFull ? `同伴者は最大${maxCompanions}名までです` : "名前で検索…"}
-          className="w-full pl-9 pr-4 py-2.5 text-[14px] bg-[#f3f5f6] rounded-xl border border-[#eceff1] focus:outline-none focus:border-[#a5c1c7] transition-colors disabled:opacity-60"
+          className="h-14 w-full rounded-2xl border border-[color:var(--eb-line)] bg-white pl-11 pr-4 text-[17px] text-[color:var(--eb-ink)] placeholder:text-[#9AA39E] transition-colors focus:border-2 focus:border-[color:var(--eb-green)] focus:outline-none disabled:opacity-60"
         />
 
         {open && (
           <ul
             id={listId}
             role="listbox"
-            className="absolute z-20 left-0 right-0 top-[calc(100%+4px)] max-h-56 overflow-y-auto bg-white rounded-xl border border-[#eceff1] shadow-lg"
+            className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-y-auto rounded-2xl border border-[color:var(--eb-line)] bg-white shadow-lg"
           >
             {suggestions.length === 0 ? (
-              <li className="px-3 py-3 text-[12px] text-[#45484d]">
+              <li className="px-4 py-3 text-[13px] text-[color:var(--eb-ink-muted)]">
                 {isLoading ? "読み込み中…" : "該当する利用者がいません"}
               </li>
             ) : (
@@ -211,15 +217,15 @@ export function CompanionPicker({
                       add(c);
                     }}
                     onMouseEnter={() => setActiveIndex(i)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left ${
-                      i === activeIndex ? "bg-[#f3f5f6]" : "bg-white"
+                    className={`flex h-14 w-full items-center gap-3 px-4 text-left transition-colors ${
+                      i === activeIndex ? "bg-[color:var(--eb-tint)]" : "bg-white"
                     }`}
                   >
-                    <Avatar src={c.pictureUrl} name={c.displayName} size={32} />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] text-[#1c1f21] truncate">{c.displayName}</span>
+                    <Avatar src={c.pictureUrl} name={c.displayName} size={36} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{c.displayName}</span>
                       {c.companyName && (
-                        <span className="block text-[11px] text-[#45484d] truncate">{c.companyName}</span>
+                        <span className="block truncate text-[12px] text-[color:var(--eb-ink-muted)]">{c.companyName}</span>
                       )}
                     </span>
                   </button>
@@ -230,22 +236,22 @@ export function CompanionPicker({
         )}
       </div>
 
-      <p className="text-[12px] text-[#45484d] mt-3">
-        合計 <span className="font-bold text-[#1c1f21]">{total}名</span>
+      <p className="mt-3 text-[13px] text-[color:var(--eb-ink-muted)]">
+        合計 <span className="font-bold text-[color:var(--eb-ink)]">{total}名</span>
         （あなた + {value.length}名）
         {shortBy > 0 && (
-          <span className="text-[#b4543f]">　あと{shortBy}名選んでください</span>
+          <span style={{ color: "var(--eb-coral-text)" }}>　あと{shortBy}名選んでください</span>
         )}
       </p>
 
       {/* 上限に達したことを本文でも知らせる。placeholder だけだと「検索が壊れている」と
           区別がつかない（同伴者の上限は施設の定員-1 なので、定員2名なら1名で打ち止め）。 */}
       {isFull && (
-        <p className="text-[12px] text-[#45484d] mt-1.5">
+        <p className="mt-1.5 text-[13px] text-[color:var(--eb-ink-muted)]">
           この施設で選べる同伴者は最大{maxCompanions}名です。
           変更するには選択済みの人を外してください。
         </p>
       )}
-    </div>
+    </GlassCard>
   );
 }
