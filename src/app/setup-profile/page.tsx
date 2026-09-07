@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import { SKILL_CATEGORIES, INDUSTRY_OPTIONS } from "@/types";
 import { lookupAddressByPostalCode } from "@/lib/address";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { normalizeRole, type UserRole } from "@/lib/roles";
+import { Button, Field, GlassCard, PageBg, PageHeading, inputClass } from "@/components/ui/eb";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -91,9 +93,6 @@ const EMPTY_FORM: FormData = {
   socialLinks: { instagram: "", x: "", facebook: "", other: "" },
 };
 
-const INPUT_CLASS =
-  "w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714]";
-
 export default function SetupProfilePage() {
   const router = useRouter();
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
@@ -147,7 +146,7 @@ export default function SetupProfilePage() {
   function validateStep1(): string | null {
     if (!form.lastName.trim() || !form.firstName.trim()) return "氏名を入力してください";
     if (!form.lastNameKana.trim() || !form.firstNameKana.trim()) return "氏名（カナ）を入力してください";
-    const kanaRegex = /^[\u30A0-\u30FF\u3000\s]+$/;
+    const kanaRegex = /^[゠-ヿ　\s]+$/;
     if (!kanaRegex.test(form.lastNameKana) || !kanaRegex.test(form.firstNameKana)) return "氏名（カナ）はカタカナで入力してください";
     if (!form.email.trim()) return "メールアドレスを入力してください";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "メールアドレスの形式が正しくありません";
@@ -262,192 +261,194 @@ export default function SetupProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-700">読み込み中...</p>
+      <PageBg>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div
+              className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+              style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+            />
+            <p className="text-[15px] text-[color:var(--eb-ink-muted)]">読み込み中...</p>
+          </div>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
   // ═══ エイト社員（staff）: 簡素版フォーム（1 ステップ・会社名は自動固定） ═══
   if (role === "staff") {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-          <h1 className="text-xl font-bold tracking-wide text-[#231714]">プロフィール登録</h1>
-          <p className="text-sm text-[#231714]/80 mt-1">
-            ご利用にあたり、基本情報をご入力ください
-          </p>
+      <PageBg>
+        <div className="px-5 pt-8">
+          <PageHeading
+            title="プロフィール登録"
+            subtitle="ご利用にあたり、基本情報をご入力ください。あとから変更もできます。"
+          />
         </div>
 
-        <div className="flex-1 px-4 pt-5 pb-8">
-          {error && (
-            <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
-              <p className="text-xs text-red-600">{error}</p>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {/* 氏名 */}
-            <Card title="氏名" icon="person" required>
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="姓"><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_CLASS} /></Field>
-                <Field label="名"><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_CLASS} /></Field>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <Field label="セイ"><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_CLASS} /></Field>
-                <Field label="メイ"><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_CLASS} /></Field>
-              </div>
-            </Card>
-
-            {/* 連絡先 */}
-            <Card title="連絡先" icon="clipboard" required>
-              <Field label="メールアドレス">
-                <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@8-design.net" autoComplete="email" className={INPUT_CLASS} />
+        <div className="px-5 pt-6 pb-10 space-y-4">
+          {/* 氏名 */}
+          <GlassCard>
+            <SectionHeading title="氏名" />
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="姓" required>
+                <input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={inputClass} />
               </Field>
-              <div className="mt-3">
-                <Field label="電話番号">
-                  <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={INPUT_CLASS} />
-                </Field>
-              </div>
-            </Card>
+              <Field label="名" required>
+                <input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={inputClass} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <Field label="セイ" required>
+                <input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={inputClass} />
+              </Field>
+              <Field label="メイ" required>
+                <input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={inputClass} />
+              </Field>
+            </div>
+          </GlassCard>
 
-            {/* 会社・職種 */}
-            <Card title="お仕事について" icon="briefcase" required>
-              <Field label="会社名">
-                <div className="w-full px-3 py-2.5 text-sm border border-[#231714]/10 rounded-xl bg-[#231714]/5 text-[#231714]/80">
+          {/* 連絡先 */}
+          <GlassCard>
+            <SectionHeading title="連絡先" />
+            <div className="space-y-3">
+              <Field label="メールアドレス" required>
+                <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@8-design.net" autoComplete="email" className={inputClass} />
+              </Field>
+              <Field label="電話番号" required>
+                <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={inputClass} />
+              </Field>
+            </div>
+          </GlassCard>
+
+          {/* 会社・職種 */}
+          <GlassCard>
+            <SectionHeading title="お仕事について" />
+            <div className="space-y-3">
+              <Field label="会社名" hint="会社名は自動で設定されます">
+                <div className="flex h-14 items-center rounded-2xl px-4 text-[15px]" style={{ background: "var(--eb-tint)", color: "var(--eb-ink-muted)" }}>
                   エイトデザイン株式会社
                 </div>
-                <p className="text-[10px] text-[#231714]/75 mt-1">会社名は自動で設定されます</p>
               </Field>
-              <div className="mt-3">
-                <Field label="職種">
-                  <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: デザイナー / ディレクター / 経理" className={INPUT_CLASS} />
-                </Field>
-              </div>
-            </Card>
+              <Field label="職種" required>
+                <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: デザイナー / ディレクター / 経理" className={inputClass} />
+              </Field>
+            </div>
+          </GlassCard>
 
-            {/* 自己紹介（任意） */}
-            <Card title="自己紹介（任意）" icon="edit">
-              <p className="text-[10px] text-[#231714]/80 mb-2">メンバーに一言。あとから変更もできます。</p>
-              <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="例: 〇〇を担当しています。お気軽にお声がけください。" rows={3} className={`${INPUT_CLASS} resize-y`} />
-            </Card>
+          {/* 自己紹介（任意） */}
+          <GlassCard>
+            <SectionHeading title="自己紹介（任意）" />
+            <p className="mb-2 text-[13px] text-[color:var(--eb-ink-muted)]">メンバーに一言。あとから変更もできます。</p>
+            <textarea
+              value={form.bio}
+              onChange={(e) => updateForm("bio", e.target.value)}
+              placeholder="例: 〇〇を担当しています。お気軽にお声がけください。"
+              className="h-[120px] w-full resize-y rounded-2xl border px-4 py-3 text-[15px] focus:outline-none focus:border-2"
+              style={{ background: "#fff", borderColor: "var(--eb-line)", color: "var(--eb-ink)" }}
+            />
+          </GlassCard>
 
-            {/* LINE連絡先（任意） */}
-            <Card title="LINE連絡先（任意）" icon="share">
-              <p className="text-[10px] text-[#231714]/80 mb-2 leading-relaxed">
-                登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーが直接連絡できます。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
-              </p>
-              <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={INPUT_CLASS} />
-            </Card>
+          {/* LINE連絡先（任意） */}
+          <GlassCard>
+            <SectionHeading title="LINE連絡先（任意）" />
+            <p className="mb-2 text-[13px] text-[color:var(--eb-ink-muted)]">
+              登録すると、メンバー一覧・掲示板の「LINEで連絡」から直接連絡してもらえます。
+            </p>
+            <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={inputClass} />
+          </GlassCard>
 
-            <button type="button" onClick={handleStaffSubmit} disabled={submitting} className="w-full py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">
-              {submitting ? "登録中..." : "登録して利用開始"}
-            </button>
-          </div>
+          {error && <p className="text-[14px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
+
+          <Button type="button" variant="primary" loading={submitting} onClick={handleStaffSubmit}>
+            登録して利用開始
+          </Button>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* ヘッダー */}
-      <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-        <h1 className="text-xl font-bold tracking-wide text-[#231714]">プロフィール登録</h1>
-        <p className="text-sm text-[#231714]/80 mt-1">
-          ご利用にあたり、お客様情報をご入力ください
-        </p>
-        <div className="flex items-center gap-2 mt-4">
-          {[
-            { n: 1, label: "基本情報" },
-            { n: 2, label: "住所情報" },
-            { n: 3, label: "プロフィール" },
-          ].map((s, i) => (
-            <div key={s.n} className="contents">
-              {i > 0 && <div className="w-4 h-px bg-[#231714]/20" />}
-              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-                step === s.n ? "bg-[#231714] text-white" : "bg-white/40 text-[#231714]/80"
-              }`}>
-                <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">{s.n}</span>
-                {s.label}
-              </div>
-            </div>
-          ))}
+    <PageBg>
+      <div className="px-5 pt-8">
+        <PageHeading
+          title="プロフィール登録"
+          subtitle="ご利用にあたり、お客様情報をご入力ください。あとから変更もできます。"
+        />
+        <div className="mt-4 flex items-center gap-2">
+          <StepPill n={1} label="基本情報" status={step === 1 ? "current" : "done"} />
+          <StepPill n={2} label="住所情報" status={step === 2 ? "current" : step > 2 ? "done" : "future"} />
+          <StepPill n={3} label="プロフィール" status={step === 3 ? "current" : "future"} />
         </div>
       </div>
 
-      <div className="flex-1 px-4 pt-5 pb-8">
-        {error && (
-          <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
-            <p className="text-xs text-red-600">{error}</p>
-          </div>
-        )}
-
+      <div className="px-5 pt-6 pb-10">
         {/* ═══ Step 1: 基本情報 ═══ */}
         {step === 1 && (
           <div className="space-y-4">
             {/* 氏名 */}
-            <Card title="氏名" icon="person" required>
+            <GlassCard>
+              <SectionHeading title="氏名" />
               <div className="grid grid-cols-2 gap-2">
-                <Field label="姓"><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_CLASS} /></Field>
-                <Field label="名"><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_CLASS} /></Field>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <Field label="セイ"><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_CLASS} /></Field>
-                <Field label="メイ"><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_CLASS} /></Field>
-              </div>
-            </Card>
-
-            {/* 連絡先・基本情報 */}
-            <Card title="連絡先・基本情報" icon="clipboard" required>
-              <Field label="メールアドレス">
-                <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" autoComplete="email" className={INPUT_CLASS} />
-              </Field>
-              <div className="mt-3">
-              <Field label="電話番号">
-                <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={INPUT_CLASS} />
-              </Field>
-              </div>
-              <div className="mt-3">
-                <Field label="生年月日">
-                  <BirthdaySelect value={form.birthday} onChange={(v) => updateForm("birthday", v)} />
+                <Field label="姓" required>
+                  <input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={inputClass} />
+                </Field>
+                <Field label="名" required>
+                  <input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={inputClass} />
                 </Field>
               </div>
-              <div className="mt-3">
-                <Field label="性別">
-                  <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <Field label="セイ" required>
+                  <input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={inputClass} />
+                </Field>
+                <Field label="メイ" required>
+                  <input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={inputClass} />
+                </Field>
+              </div>
+            </GlassCard>
+
+            {/* 連絡先・基本情報 */}
+            <GlassCard>
+              <SectionHeading title="連絡先・基本情報" />
+              <div className="space-y-3">
+                <Field label="メールアドレス" required>
+                  <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" autoComplete="email" className={inputClass} />
+                </Field>
+                <Field label="電話番号" required>
+                  <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={inputClass} />
+                </Field>
+                <Field label="生年月日" required>
+                  <BirthdaySelect value={form.birthday} onChange={(v) => updateForm("birthday", v)} />
+                </Field>
+                <Field label="性別" required>
+                  <div className="flex flex-wrap gap-2">
                     {GENDER_OPTIONS.map((opt) => (
                       <ToggleButton key={opt.value} selected={form.gender === opt.value} onClick={() => updateForm("gender", opt.value)} label={opt.label} />
                     ))}
                   </div>
                 </Field>
               </div>
-            </Card>
+            </GlassCard>
 
             {/* 会社・職種・業種 */}
-            <Card title="お仕事について" icon="briefcase" required>
-              <Field label="会社名・屋号">
-                <input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / 〇〇事務所 / フリーランス" className={INPUT_CLASS} />
-              </Field>
-              <div className="mt-3">
-                <Field label="職種">
-                  <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 税理士 / 映像ディレクター / 営業" className={INPUT_CLASS} />
-                  <p className="text-[10px] text-[#231714]/75 mt-1">あなたの専門分野が伝わるように記入してください</p>
+            <GlassCard>
+              <SectionHeading title="お仕事について" />
+              <div className="space-y-3">
+                <Field label="会社名・屋号" required>
+                  <input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / 〇〇事務所 / フリーランス" className={inputClass} />
                 </Field>
-              </div>
-              <div className="mt-3">
-                <Field label="業種">
-                  <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_CLASS} ${!form.industry ? "text-[#231714]/75" : ""}`}>
-                    <option value="">選択してください</option>
-                    {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
+                <Field label="職種" required hint="あなたの専門分野が伝わるように記入してください">
+                  <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 税理士" className={inputClass} />
                 </Field>
-              </div>
-              <div className="mt-3">
-                <Field label="利用目的">
+                <Field label="業種" required>
+                  <SelectShell>
+                    <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={clsx(SELECT_CLASS, !form.industry && "text-[#9AA39E]")}>
+                      <option value="">選択してください</option>
+                      {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  </SelectShell>
+                </Field>
+                <Field label="利用目的" required>
                   <div className="flex flex-wrap gap-2">
                     {PURPOSE_OPTIONS.map((opt) => (
                       <ToggleButton key={opt} selected={form.purpose === opt} onClick={() => updateForm("purpose", opt)} label={opt} />
@@ -455,54 +456,65 @@ export default function SetupProfilePage() {
                   </div>
                 </Field>
               </div>
-            </Card>
+            </GlassCard>
 
-            <button type="button" onClick={() => handleNext(2, validateStep1)} className="w-full py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors flex items-center justify-center gap-2">
-              次へ — 住所情報
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
+            {error && <p className="text-[14px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
+
+            <Button type="button" variant="primary" onClick={() => handleNext(2, validateStep1)}>
+              次へ（住所情報）
+            </Button>
           </div>
         )}
 
         {/* ═══ Step 2: 住所情報 ═══ */}
         {step === 2 && (
           <div className="space-y-4">
-            <Card title="住所" icon="home" required>
-              <Field label="住所種別">
-                <div className="grid grid-cols-2 gap-2">
-                  <ToggleButton selected={form.addressType === "home"} onClick={() => updateForm("addressType", "home")} label="自宅住所" />
-                  <ToggleButton selected={form.addressType === "office"} onClick={() => updateForm("addressType", "office")} label="会社住所" />
-                </div>
-              </Field>
-              <div className="mt-3">
-                <Field label="郵便番号">
-                  <div className="flex gap-2">
-                    <input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8} className={`flex-1 ${INPUT_CLASS}`} />
-                    <button type="button" onClick={lookupPostalCode} className="px-4 py-2.5 text-xs bg-[#A5C1C8]/30 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap">住所検索</button>
+            <GlassCard>
+              <SectionHeading title="住所" />
+              <div className="space-y-3">
+                <Field label="住所種別" required>
+                  <div className="flex flex-wrap gap-2">
+                    <ToggleButton selected={form.addressType === "home"} onClick={() => updateForm("addressType", "home")} label="自宅住所" />
+                    <ToggleButton selected={form.addressType === "office"} onClick={() => updateForm("addressType", "office")} label="会社住所" />
                   </div>
                 </Field>
-              </div>
-              <div className="mt-3">
-                <Field label="都道府県">
-                  <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_CLASS} ${!form.prefecture ? "text-[#231714]/75" : ""}`}>
-                    <option value="">選択してください</option>
-                    {PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                <Field label="郵便番号" required>
+                  <div className="flex gap-2">
+                    <input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8} className={clsx("flex-1", inputClass)} />
+                    <Button type="button" variant="secondary" fullWidth={false} className="w-[120px]" onClick={lookupPostalCode}>
+                      住所検索
+                    </Button>
+                  </div>
+                </Field>
+                <Field label="都道府県" required>
+                  <SelectShell>
+                    <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={clsx(SELECT_CLASS, !form.prefecture && "text-[#9AA39E]")}>
+                      <option value="">選択してください</option>
+                      {PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </SelectShell>
+                </Field>
+                <Field label="市区町村" required>
+                  <input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={inputClass} />
+                </Field>
+                <Field label="番地" required>
+                  <input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={inputClass} />
+                </Field>
+                <Field label="建物名・部屋番号（任意）">
+                  <input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={inputClass} />
                 </Field>
               </div>
-              <div className="mt-3"><Field label="市区町村"><input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={INPUT_CLASS} /></Field></div>
-              <div className="mt-3"><Field label="番地"><input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={INPUT_CLASS} /></Field></div>
-              <div className="mt-3"><Field label="建物名・部屋番号" optional><input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={INPUT_CLASS} /></Field></div>
-            </Card>
+            </GlassCard>
+
+            {error && <p className="text-[14px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
 
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setStep(1); setError(null); window.scrollTo(0, 0); }} className="flex-1 py-3.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors flex items-center justify-center gap-1">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <Button type="button" variant="ghost" fullWidth={false} className="flex-1" onClick={() => { setStep(1); setError(null); window.scrollTo(0, 0); }}>
                 戻る
-              </button>
-              <button type="button" onClick={() => handleNext(3, validateStep2)} className="flex-[2] py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors">
-                次へ — プロフィール
-              </button>
+              </Button>
+              <Button type="button" variant="primary" fullWidth={false} className="flex-[2]" onClick={() => handleNext(3, validateStep2)}>
+                次へ（プロフィール）
+              </Button>
             </div>
           </div>
         )}
@@ -510,142 +522,156 @@ export default function SetupProfilePage() {
         {/* ═══ Step 3: プロフィール情報（任意） ═══ */}
         {step === 3 && (
           <div className="space-y-4">
-            <div className="bg-[#A5C1C8]/10 rounded-xl px-4 py-3">
-              <p className="text-xs text-[#231714]/80">
-                メンバー同士のコミュニティを広げるための情報です。スキルと自己紹介は必須です。あとから変更もできます。
-              </p>
-            </div>
+            <p className="text-[14px] text-[color:var(--eb-ink-muted)]">
+              スキルと自己紹介は必須です。他の項目は任意で、あとから変更もできます。
+            </p>
 
             {/* スキル */}
-            <Card title="スキル・得意分野" icon="star" required>
-              <p className="text-[10px] text-[#231714]/80 mb-3">メンバー検索であなたが見つけてもらいやすくなります</p>
+            <GlassCard>
+              <SectionHeading title="スキル・得意分野" />
+              <p className="mb-3 text-[13px] text-[color:var(--eb-ink-muted)]">メンバー検索で見つけてもらいやすくなります。</p>
               {form.skills.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {form.skills.map((skill) => (
-                    <button key={skill} onClick={() => toggleSkill(skill)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-full bg-[#A5C1C8]/15 text-[#4f757e] font-medium">
-                      {skill}
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-                    </button>
+                    <SkillChip key={skill} label={skill} onRemove={() => toggleSkill(skill)} />
                   ))}
                 </div>
               )}
               {SKILL_CATEGORIES.map((cat) => (
-                <div key={cat.id} className="mb-2">
-                  <button onClick={() => setOpenCategory(openCategory === cat.id ? null : cat.id)} className="w-full flex items-center justify-between py-2 text-xs font-medium text-[#231714]/85">
-                    {cat.label}
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${openCategory === cat.id ? "rotate-90" : ""}`}><path d="M4 3l3 3-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </button>
-                  {openCategory === cat.id && (
-                    <div className="flex flex-wrap gap-1.5 pb-2">
-                      {cat.skills.map((skill) => (
-                        <ToggleButton key={skill} selected={form.skills.includes(skill)} onClick={() => toggleSkill(skill)} label={skill} small />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <CategoryRow
+                  key={cat.id}
+                  label={cat.label}
+                  open={openCategory === cat.id}
+                  onToggle={() => setOpenCategory(openCategory === cat.id ? null : cat.id)}
+                >
+                  {cat.skills.map((skill) => (
+                    <ToggleButton key={skill} selected={form.skills.includes(skill)} onClick={() => toggleSkill(skill)} label={skill} small />
+                  ))}
+                </CategoryRow>
               ))}
               <div className="flex gap-2 mt-2">
-                <input type="text" value={customSkill} onChange={(e) => setCustomSkill(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSkill())} placeholder="その他のスキルを追加" className={`flex-1 ${INPUT_CLASS}`} />
-                <button type="button" onClick={addCustomSkill} disabled={!customSkill.trim()} className="px-4 py-2.5 text-xs bg-[#231714]/5 text-[#231714]/80 rounded-xl hover:bg-[#231714]/10 disabled:opacity-30 transition-colors">追加</button>
+                <input type="text" value={customSkill} onChange={(e) => setCustomSkill(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSkill())} placeholder="その他のスキルを追加" className={clsx("flex-1", inputClass)} />
+                <Button type="button" variant="ghost" fullWidth={false} className="w-24" disabled={!customSkill.trim()} onClick={addCustomSkill}>
+                  追加
+                </Button>
               </div>
-            </Card>
+            </GlassCard>
 
             {/* 会社URL */}
-            <Card title="会社・事業のURL" icon="link">
-              <p className="text-[10px] text-[#231714]/80 mb-2">
-                URLを登録すると、メンバーページからあなたの事業が見つけやすくなります。お仕事の依頼につながることも。
-              </p>
-              <input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={INPUT_CLASS} />
-            </Card>
+            <GlassCard>
+              <SectionHeading title="会社・事業のURL（任意）" />
+              <p className="mb-2 text-[13px] text-[color:var(--eb-ink-muted)]">お仕事の依頼につながることがあります。</p>
+              <input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={inputClass} />
+            </GlassCard>
 
             {/* SNSリンク */}
-            <Card title="SNSアカウント" icon="share">
-              <p className="text-[10px] text-[#231714]/80 mb-3">メンバーとの交流のきっかけになります</p>
+            <GlassCard>
+              <SectionHeading title="SNSアカウント（任意）" />
+              <p className="mb-3 text-[13px] text-[color:var(--eb-ink-muted)]">メンバーとの交流のきっかけになります。</p>
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="w-8 text-center text-sm">𝕏</span>
-                  <input type="text" value={form.socialLinks.x} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, x: e.target.value } }))} placeholder="@username" className={`flex-1 ${INPUT_CLASS}`} />
+                  <span className="w-8 text-center text-[15px]">𝕏</span>
+                  <input type="text" value={form.socialLinks.x} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, x: e.target.value } }))} placeholder="@username" className={clsx("flex-1", inputClass)} />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-8 text-center text-[13px]">IG</span>
-                  <input type="text" value={form.socialLinks.instagram} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, instagram: e.target.value } }))} placeholder="@username" className={`flex-1 ${INPUT_CLASS}`} />
+                  <input type="text" value={form.socialLinks.instagram} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, instagram: e.target.value } }))} placeholder="@username" className={clsx("flex-1", inputClass)} />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-8 text-center text-[13px]">FB</span>
-                  <input type="text" value={form.socialLinks.facebook} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, facebook: e.target.value } }))} placeholder="https://facebook.com/..." className={`flex-1 ${INPUT_CLASS}`} />
+                  <input type="text" value={form.socialLinks.facebook} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, facebook: e.target.value } }))} placeholder="https://facebook.com/..." className={clsx("flex-1", inputClass)} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-8 text-center text-[11px] text-[#231714]/80">他</span>
-                  <input type="text" value={form.socialLinks.other} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, other: e.target.value } }))} placeholder="その他のURL" className={`flex-1 ${INPUT_CLASS}`} />
+                  <span className="w-8 text-center text-[13px] text-[color:var(--eb-ink-muted)]">他</span>
+                  <input type="text" value={form.socialLinks.other} onChange={(e) => setForm((prev) => ({ ...prev, socialLinks: { ...prev.socialLinks, other: e.target.value } }))} placeholder="その他のURL" className={clsx("flex-1", inputClass)} />
                 </div>
               </div>
-            </Card>
+            </GlassCard>
 
             {/* LINE連絡先（任意・推奨） */}
-            <Card title="LINE連絡先（任意）" icon="share">
-              <p className="text-[10px] text-[#231714]/80 mb-2 leading-relaxed">
-                登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーがあなたに直接連絡できます（任意・後からでも設定できます）。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
+            <GlassCard>
+              <SectionHeading title="LINE連絡先（任意）" />
+              <p className="mb-2 text-[13px] text-[color:var(--eb-ink-muted)]">
+                登録すると、メンバー一覧・掲示板の「LINEで連絡」から直接連絡してもらえます。
               </p>
-              <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={INPUT_CLASS} />
-            </Card>
+              <input type="url" value={form.lineUrl} onChange={(e) => updateForm("lineUrl", e.target.value)} placeholder="https://line.me/ti/p/～" className={inputClass} />
+            </GlassCard>
 
             {/* 自己紹介 */}
-            <Card title="自己紹介・PR" icon="edit" required>
-              <p className="text-[10px] text-[#231714]/80 mb-2">事業内容やアピールを自由に記入してください</p>
-              <textarea value={form.bio} onChange={(e) => updateForm("bio", e.target.value)} placeholder="例: Webサイトのデザイン・制作を行っています。お気軽にお声がけください。" rows={4} className={`${INPUT_CLASS} resize-y`} />
-            </Card>
+            <GlassCard>
+              <SectionHeading title="自己紹介・PR" />
+              <Field label="自己紹介" required hint="事業内容やアピールを自由に記入してください">
+                <textarea
+                  value={form.bio}
+                  onChange={(e) => updateForm("bio", e.target.value)}
+                  placeholder="例: Webサイトのデザイン・制作を行っています。お気軽にお声がけください。"
+                  className="h-[120px] w-full resize-y rounded-2xl border px-4 py-3 text-[15px] focus:outline-none focus:border-2"
+                  style={{ background: "#fff", borderColor: "var(--eb-line)", color: "var(--eb-ink)" }}
+                />
+              </Field>
+            </GlassCard>
+
+            {error && <p className="text-[14px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
 
             {/* ボタン */}
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setStep(2); setError(null); window.scrollTo(0, 0); }} className="flex-1 py-3.5 text-sm border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors flex items-center justify-center gap-1">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <Button type="button" variant="ghost" fullWidth={false} className="flex-1" onClick={() => { setStep(2); setError(null); window.scrollTo(0, 0); }}>
                 戻る
-              </button>
-              <button type="button" onClick={handleSubmit} disabled={submitting} className="flex-[2] py-3.5 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">
-                {submitting ? "登録中..." : "登録して利用開始"}
-              </button>
+              </Button>
+              <Button type="button" variant="primary" fullWidth={false} className="flex-[2]" loading={submitting} onClick={handleSubmit}>
+                登録して利用開始
+              </Button>
             </div>
           </div>
         )}
       </div>
+    </PageBg>
+  );
+}
+
+/* ═══ 共通コンポーネント（この画面専用の見た目部品） ═══ */
+
+const SELECT_CLASS = clsx(inputClass, "appearance-none pr-10");
+
+function SelectShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      {children}
+      <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="12" height="8" viewBox="0 0 12 8" fill="none">
+        <path d="M1 1l5 5 5-5" stroke="var(--eb-ink-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </div>
   );
 }
 
-/* ═══ 共通コンポーネント ═══ */
-
-function Card({ title, icon, required, children }: { title: string; icon: string; required?: boolean; children: React.ReactNode }) {
-  const icons: Record<string, React.ReactNode> = {
-    person: <><path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" /><path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" /></>,
-    clipboard: <><path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" /><rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" /></>,
-    briefcase: <><rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" /><path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" /></>,
-    home: <><path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" /><path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" /></>,
-    star: <><path d="M8 1.5l1.76 3.52 3.84.56-2.8 2.72.64 3.84L8 10.44l-3.44 1.8.64-3.84-2.8-2.72 3.84-.56L8 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" /></>,
-    link: <><path d="M6.5 9.5l3-3M5 11a2.83 2.83 0 01-1-4l2-2a2.83 2.83 0 014 0" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" /><path d="M11 5a2.83 2.83 0 011 4l-2 2a2.83 2.83 0 01-4 0" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" /></>,
-    share: <><circle cx="12" cy="4" r="2" stroke="#A5C1C8" strokeWidth="1.2" /><circle cx="4" cy="8" r="2" stroke="#A5C1C8" strokeWidth="1.2" /><circle cx="12" cy="12" r="2" stroke="#A5C1C8" strokeWidth="1.2" /><path d="M6 7l4-2M6 9l4 2" stroke="#A5C1C8" strokeWidth="1.2" /></>,
-    edit: <><path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" /></>,
-  };
-
-  return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-      <h3 className="text-sm font-semibold text-[#231714] mb-3 flex items-center gap-2">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">{icons[icon]}</svg>
-        {title}
-        {required && <span className="text-[10px] text-red-400 font-normal">必須</span>}
-      </h3>
-      {children}
-    </div>
-  );
+function SectionHeading({ title }: { title: string }) {
+  return <h3 className="mb-3 text-[16px] font-bold text-[color:var(--eb-ink)]">{title}</h3>;
 }
 
-function Field({ label, optional, children }: { label: string; optional?: boolean; children: React.ReactNode }) {
+function StepPill({ n, label, status }: { n: number; label: string; status: "current" | "done" | "future" }) {
   return (
-    <div>
-      <label className="block text-[11px] text-[#231714]/80 mb-1">
-        {label}
-        {optional && <span className="text-[#231714]/75 ml-1">任意</span>}
-      </label>
-      {children}
+    <div
+      className={clsx(
+        "flex h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-bold",
+        status === "current" ? "bg-[color:var(--eb-ink)] text-white" : "bg-white/60 text-[color:var(--eb-ink)]"
+      )}
+    >
+      {status === "done" ? (
+        <span className="flex h-5 w-5 items-center justify-center rounded-full text-white" style={{ background: "var(--eb-green)" }}>
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+      ) : (
+        <span
+          className={clsx(
+            "flex h-5 w-5 items-center justify-center rounded-full text-[11px]",
+            status === "current" ? "bg-white/20 text-white" : "text-[color:var(--eb-ink)]"
+          )}
+          style={status === "future" ? { background: "var(--eb-tint)" } : undefined}
+        >
+          {n}
+        </span>
+      )}
+      {label}
     </div>
   );
 }
@@ -655,14 +681,49 @@ function ToggleButton({ selected, onClick, label, small }: { selected: boolean; 
     <button
       type="button"
       onClick={onClick}
-      className={`${small ? "px-2.5 py-1.5 text-[11px]" : "px-3 py-2 text-xs"} rounded-xl border transition-colors ${
+      className={clsx(
+        "rounded-[14px] font-bold transition-colors",
+        small ? "h-9 px-3 text-[13px]" : "h-12 px-4 text-[14px]",
         selected
-          ? "bg-[#231714] text-white border-[#231714]"
-          : "bg-white text-[#231714]/80 border-[#231714]/10 hover:border-[#231714]/30"
-      }`}
+          ? "border-2 text-white"
+          : "border bg-white/60 text-[color:var(--eb-ink)]"
+      )}
+      style={
+        selected
+          ? { background: "var(--eb-green)", borderColor: "var(--eb-green)" }
+          : { borderColor: "var(--eb-line)" }
+      }
     >
       {label}
     </button>
+  );
+}
+
+function SkillChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-bold"
+      style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}
+    >
+      {label}
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+    </button>
+  );
+}
+
+function CategoryRow({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <div className="mb-2">
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between rounded-xl bg-white/60 px-4 py-3 text-[15px] font-medium text-[color:var(--eb-ink)]">
+        {label}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("transition-transform", open && "rotate-90")}>
+          <path d="M4 3l3 3-3 3" stroke="var(--eb-ink-muted)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && <div className="flex flex-wrap gap-2 px-1 pb-2 pt-2">{children}</div>}
+    </div>
   );
 }
 
@@ -673,22 +734,27 @@ function BirthdaySelect({ value, onChange }: { value: string; onChange: (v: stri
     p[idx] = v;
     onChange(p.join("-"));
   }
-  const selectClass = `w-full px-2 py-2.5 text-sm border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] bg-white`;
 
   return (
     <div className="grid grid-cols-3 gap-2">
-      <select value={parts[0] || ""} onChange={(e) => update(0, e.target.value)} className={`${selectClass} ${!parts[0] ? "text-[#231714]/75" : ""}`}>
-        <option value="">年</option>
-        {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}年</option>)}
-      </select>
-      <select value={parts[1] || ""} onChange={(e) => update(1, e.target.value)} className={`${selectClass} ${!parts[1] ? "text-[#231714]/75" : ""}`}>
-        <option value="">月</option>
-        {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}月</option>)}
-      </select>
-      <select value={parts[2] || ""} onChange={(e) => update(2, e.target.value)} className={`${selectClass} ${!parts[2] ? "text-[#231714]/75" : ""}`}>
-        <option value="">日</option>
-        {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => <option key={d} value={d}>{Number(d)}日</option>)}
-      </select>
+      <SelectShell>
+        <select value={parts[0] || ""} onChange={(e) => update(0, e.target.value)} className={clsx(SELECT_CLASS, !parts[0] && "text-[#9AA39E]")}>
+          <option value="">年</option>
+          {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}年</option>)}
+        </select>
+      </SelectShell>
+      <SelectShell>
+        <select value={parts[1] || ""} onChange={(e) => update(1, e.target.value)} className={clsx(SELECT_CLASS, !parts[1] && "text-[#9AA39E]")}>
+          <option value="">月</option>
+          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}月</option>)}
+        </select>
+      </SelectShell>
+      <SelectShell>
+        <select value={parts[2] || ""} onChange={(e) => update(2, e.target.value)} className={clsx(SELECT_CLASS, !parts[2] && "text-[#9AA39E]")}>
+          <option value="">日</option>
+          {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => <option key={d} value={d}>{Number(d)}日</option>)}
+        </select>
+      </SelectShell>
     </div>
   );
 }

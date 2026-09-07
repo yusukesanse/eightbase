@@ -14,6 +14,7 @@ import { CompanionPicker, type CompanionCandidate } from "./CompanionPicker";
 import { saveReservationDraft } from "@/lib/reservationDraft";
 import { minPartySizeOf, maxCompanionsOf } from "@/lib/companions";
 import { BOOKING_HORIZON_DAYS, earliestBookableDate, minAdvanceDaysOf } from "@/lib/reservations";
+import { Button, GlassCard, PageBg, PageHeading } from "@/components/ui/eb";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -495,33 +496,30 @@ export default function ReservationPage() {
 
   // ─── レンダリング ──────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <PageBg className="flex flex-col">
       {/* ── ヘッダー ── */}
-      <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
-        <h1 className="text-[15px] font-medium leading-tight text-[#231714]">施設予約</h1>
-        <p className="text-[11px] text-[#231714]/85 mt-0.5">EIGHT BASE UNGA</p>
-      </header>
-
-      {/* ── マイ予約リンク ── */}
-      <div className="px-5 pt-3">
-        <Link
-          href="/my-reservations"
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-[#231714]/85"
-        >
-          マイ予約
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </Link>
+      <div className="px-5 pt-8">
+        <PageHeading
+          title="RESERVE"
+          subtitle="施設予約 — EIGHT BASE UNGA"
+          right={
+            <Link
+              href="/my-reservations"
+              className="inline-flex h-9 items-center rounded-xl bg-white/60 px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+            >
+              マイ予約
+            </Link>
+          }
+        />
       </div>
 
       {/* ── 施設選択 ── */}
-      <section className="px-5 pt-4 pb-2">
-        <p className="text-[11px] font-bold text-[#231714]/80 uppercase tracking-widest mb-3">施設を選択</p>
+      <section className="px-5 pt-6 pb-2 space-y-3">
+        <p className="text-[15px] text-[color:var(--eb-ink-muted)]">使いたい施設を選んでください。</p>
 
         {meetingRooms.length > 0 && (
-          <div className="mb-3">
-            <p className="text-[10px] text-[#231714]/80 mb-1.5">会議室</p>
+          <GlassCard>
+            <h3 className="mb-3 text-[15px] font-bold text-[color:var(--eb-ink)]">会議室</h3>
             <div className="flex gap-2 flex-wrap">
               {meetingRooms.map((f) => (
                 <FacilityPill
@@ -537,12 +535,12 @@ export default function ReservationPage() {
                 />
               ))}
             </div>
-          </div>
+          </GlassCard>
         )}
 
         {booths.length > 0 && (
-          <div>
-            <p className="text-[10px] text-[#231714]/80 mb-1.5">リモートブース</p>
+          <GlassCard>
+            <h3 className="mb-3 text-[15px] font-bold text-[color:var(--eb-ink)]">リモートブース</h3>
             <div className="flex gap-2 flex-wrap">
               {booths.map((f) => (
                 <FacilityPill
@@ -558,12 +556,12 @@ export default function ReservationPage() {
                 />
               ))}
             </div>
-          </div>
+          </GlassCard>
         )}
 
         {activities.length > 0 && (
-          <div className="mt-3">
-            <p className="text-[10px] text-[#231714]/80 mb-1.5">アクティビティ</p>
+          <GlassCard>
+            <h3 className="mb-3 text-[15px] font-bold text-[color:var(--eb-ink)]">アクティビティ</h3>
             <div className="flex gap-2 flex-wrap">
               {activities.map((f) => (
                 <FacilityPill
@@ -579,7 +577,7 @@ export default function ReservationPage() {
                 />
               ))}
             </div>
-          </div>
+          </GlassCard>
         )}
       </section>
 
@@ -704,18 +702,12 @@ export default function ReservationPage() {
           </div>
         </section>
       ) : (
-        <div className="flex-1 flex items-center justify-center px-8">
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#A5C1C8]/20 flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A5C1C8" strokeWidth="1.5">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
-              </svg>
-            </div>
-            <p className="text-sm text-[#231714]/80 leading-relaxed">
-              施設を選択すると<br />空き状況が表示されます
+        <div className="flex-1 px-5 pt-2 pb-4">
+          <GlassCard className="flex min-h-[220px] items-center justify-center text-center">
+            <p className="text-[15px] text-[color:var(--eb-ink-muted)]">
+              施設を選ぶと空き状況（カレンダー）が表示されます
             </p>
-          </div>
+          </GlassCard>
         </div>
       )}
 
@@ -948,22 +940,17 @@ export default function ReservationPage() {
               </div>
             )}
 
-            <button
+            <Button
+              type="button"
+              variant={isTrailer ? "pay" : "primary"}
+              loading={paying}
+              disabled={!canConfirm}
               onClick={isTrailer ? handlePay : handleConfirm}
-              disabled={!canConfirm || paying}
-              className={clsx(
-                "w-full py-3.5 rounded-2xl text-sm font-bold transition-all",
-                canConfirm && !paying
-                  ? "bg-[#B0E401] text-[#231714] active:scale-[0.98] shadow-sm shadow-[#B0E401]/20"
-                  : "bg-gray-200 text-gray-700 cursor-not-allowed"
-              )}
             >
-              {paying
-                ? "決済へ移動中..."
-                : isTrailer
-                  ? `決済する${selectedFacility?.paymentAmount ? `（¥${selectedFacility.paymentAmount.toLocaleString()}）` : ""}`
-                  : "予約内容を確認する"}
-            </button>
+              {isTrailer
+                ? `決済する${selectedFacility?.paymentAmount ? `（¥${selectedFacility.paymentAmount.toLocaleString()}）` : ""}`
+                : "予約内容を確認する"}
+            </Button>
           </div>
         ) : (
           <p className="text-center text-[11px] text-[#231714]/75 py-1">
@@ -977,6 +964,6 @@ export default function ReservationPage() {
           </p>
         )}
       </div>
-    </div>
+    </PageBg>
   );
 }
