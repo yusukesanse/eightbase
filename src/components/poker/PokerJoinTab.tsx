@@ -7,7 +7,8 @@ import { isDevLoginEnabled } from "@/lib/env";
 import { startPokerEntryPayment, cancelPokerEntryPayment } from "@/lib/pokerPayment";
 import { POKER_ENTRY_FEE, POKER_MAX_ENTRIES_PER_DATE, type PokerPaymentStatus } from "@/types/poker";
 import { PokerDayStandings, type PokerDayStanding } from "@/components/poker/PokerDayStandings";
-import { POKER_ACCENT, POKER_CONFIRM, dateParts, formatJpDate, todayJst, CheckIcon } from "@/components/poker/pokerShared";
+import { dateParts, formatJpDate, todayJst } from "@/components/poker/pokerShared";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 
 /**
  * ポーカー 参加タブ（ダーツ/ビリヤードの JoinTab の読み替え）。
@@ -133,35 +134,46 @@ export function PokerJoinTab({
   const minMonth = calendarMinMonth(scheduleDates, enteredDates);
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-[12px] text-[#231714]/85 leading-relaxed px-0.5">
-        第1・第3土曜が開催日です。カレンダーの開催日から参加日を選んでください{monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）"}。
+    <div className="flex flex-col gap-4">
+      <p className="px-0.5 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+        第1・第3土曜が開催日です。カレンダーの開催日から参加日を選んでください
+        {monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）"}。
         {paymentRequired &&
-          `　「参加する」で参加枠を確保し、参加費 ¥${POKER_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${POKER_MAX_ENTRIES_PER_DATE}名）。`}
-        　参加費のキャンセルは開催7日前まで。<b>開始時刻を過ぎると参加表明・取消はできません。</b>
+          `「参加する」で参加枠を確保し、参加費 ¥${POKER_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${POKER_MAX_ENTRIES_PER_DATE}名）。`}
+        参加費のキャンセルは開催7日前まで。開始時刻を過ぎると参加表明・取消はできません。
       </p>
-      {payMsg && <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{payMsg}</div>}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      {payMsg && (
+        <GlassCard tone="coral" padding="md">
+          <p className="text-[15px] font-bold text-[color:var(--eb-coral-text)]">{payMsg}</p>
+        </GlassCard>
+      )}
+
+      <GlassCard>
         <MonthCalendar
           value={selectedDate}
           onSelect={setSelectedDate}
           isSelectable={(d) => scheduleDates.has(d)}
           marked={(d) => enteredDates.has(d)}
-          accent={POKER_ACCENT}
           minMonth={minMonth}
+          variant="game"
         />
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[color:var(--eb-ink-muted)]">
+          <span>○ 開催日</span>
+          <span>◎ 参加確定</span>
+          <span>● 選んだ日</span>
+        </div>
         {canBrowsePastMonths(minMonth, today) && (
-          <p className="text-[11px] text-[#231714]/70 mt-2 px-0.5 leading-relaxed">
-            「‹」で前の月に戻れます。過去の開催日を選ぶと、その日の対戦結果（順位）を確認できます。
+          <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            「‹」で前の月に戻ると、その日の対戦結果を確認できます。
           </p>
         )}
-      </div>
+      </GlassCard>
 
       {enteredArr.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#3f4247] mb-1">あなたの参加状況</div>
-          <div className="flex flex-col divide-y divide-gray-100">
+        <GlassCard padding="md">
+          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">あなたの参加状況</div>
+          <div className="flex flex-col divide-y divide-[color:var(--eb-line)]">
             {enteredArr.map((d) => {
               const cancelled = cancelledDates.has(d);
               const st = paymentStatusByDate[d] ?? null;
@@ -175,238 +187,313 @@ export function PokerJoinTab({
                     : st === "paid"
                       ? "支払い済み"
                       : "参加確定（未払い）";
+              const tone = cancelled ? "coral" : paidLike ? "green" : "gold";
               const { md, wd } = dateParts(d);
-              const active = selectedDate === d;
               return (
-                <button key={d} onClick={() => setSelectedDate(d)} className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70">
-                  <span className="text-[13px] font-bold text-[#231714]">
-                    {md}（{wd}）{active && <span className="ml-1 text-[10px] text-[#4f757e]">▼</span>}
+                <button
+                  key={d}
+                  onClick={() => setSelectedDate(d)}
+                  className="flex items-center justify-between gap-2 py-2.5 text-left active:opacity-70"
+                >
+                  <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+                    {md}（{wd}）
                   </span>
-                  <span
-                    className="shrink-0 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full"
-                    style={
-                      cancelled
-                        ? { background: "#fdeede", color: "#a1502c" }
-                        : paidLike
-                          ? { background: "#eef4dd", color: "#6f9023" }
-                          : { background: "#fdf4e3", color: "#b48f13" }
-                    }
-                  >
-                    {label}
-                  </span>
+                  <StatusPill tone={tone}>{label}</StatusPill>
                 </button>
               );
             })}
           </div>
-        </div>
+        </GlassCard>
       )}
 
-      {selectedDate ? (
-        (() => {
-          const entered = enteredDates.has(selectedDate);
-          const payStatus = paymentStatusByDate[selectedDate] ?? null;
-          const needsPay = entered && paymentRequired;
-          const unpaidNotice = needsPay && payStatus !== "paid" && payStatus !== "cancelRequested";
-          const isPast = selectedDate < today;
-          // 受付締切（開催日の開始時刻）を過ぎたか。締切後は参加表明も取消もできない
-          // （「締切までに表明した人＝参加者」なので抜けられると名簿が崩れる。サーバーも409で拒否）。
-          const st = scheduleTimes?.[selectedDate]?.startTime;
-          const closed = isPast || (!!st && Date.now() >= Date.parse(`${selectedDate}T${st}:00+09:00`));
-          const { md, wd } = dateParts(selectedDate);
-
-          if (cancelledDates.has(selectedDate)) {
-            return (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-4 py-3" style={{ boxShadow: "inset 0 0 0 1.5px #f0c9b0" }}>
-                <div className="w-[50px] text-center shrink-0">
-                  <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                  <div className="text-[11px] text-[#231714]/80 mt-0.5">{wd}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14.5px] font-extrabold text-[#a1502c]">中止（流会）</div>
-                  <div className="text-[12px] text-[#231714]/85 mt-0.5">
-                    この開催日は中止になりました。
-                    {entered && "お支払い済みの参加費は返金対応します（担当よりご連絡します）。"}
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <>
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2.5 px-4 py-3" style={{ boxShadow: `inset 0 0 0 1.5px ${entered ? POKER_ACCENT : "#eceff1"}` }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-[50px] text-center shrink-0">
-                    <div className="text-[19px] font-black text-[#231714] tabular-nums leading-none">{md}</div>
-                    <div className="text-[11px] text-[#231714]/80 mt-0.5">{wd}</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[14.5px] font-extrabold text-[#231714] truncate">
-                      ポーカー
-                      {selectedDate && scheduleTimes?.[selectedDate]?.startTime && (
-                        <span className="ml-1.5 text-[12px] font-bold text-[#231714]/80 tabular-nums">
-                          {scheduleTimes[selectedDate].startTime}
-                          {scheduleTimes[selectedDate].endTime ? `〜${scheduleTimes[selectedDate].endTime}` : "〜"}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[12px] text-[#231714]/85 mt-0.5 truncate">
-                      {!entered
-                        ? isPast
-                          ? "この開催日は終了しました"
-                          : dateFull
-                            ? "満員です（参加者を確認できます）"
-                            : "この日に参加できます"
-                        : !paymentRequired
-                          ? "参加確定"
-                          : payStatus === "paid"
-                            ? "支払い済み"
-                            : payStatus === "cancelRequested"
-                              ? "返金対応中"
-                              : "参加確定（未払い）"}
-                    </div>
-                  </div>
-                  {needsPay && payStatus === "paid" ? (
-                    <div className="shrink-0 flex flex-col items-end gap-1">
-                      <span className="inline-flex items-center gap-1 rounded-full text-[12.5px] font-extrabold px-3 py-2 whitespace-nowrap" style={{ background: "#eef4dd", color: "#6f9023" }}>
-                        <CheckIcon color="#6f9023" size={13} />参加確定
-                      </span>
-                      {!isPast && (
-                        <button onClick={() => setCancelDate(selectedDate)} className="text-[10.5px] font-bold text-[#231714]/80 underline underline-offset-2 whitespace-nowrap">
-                          支払いをキャンセル
-                        </button>
-                      )}
-                      {demo && (
-                        <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>
-                      )}
-                    </div>
-                  ) : needsPay && payStatus === "cancelRequested" ? (
-                    <div className="shrink-0 flex flex-col items-end gap-1">
-                      <span className="text-[11px] font-bold text-[#b48f13] whitespace-nowrap">返金対応中</span>
-                      {demo && (
-                        <button onClick={() => toggle(selectedDate, true)} className="text-[10px] font-bold text-[#b48f13] underline underline-offset-2">リセット（デモ）</button>
-                      )}
-                    </div>
-                  ) : needsPay ? null : entered && !closed ? (
-                    <button onClick={() => toggle(selectedDate, true)} className="shrink-0 text-[11px] font-bold text-[#231714]/80 underline underline-offset-2 whitespace-nowrap">
-                      参加をやめる
-                    </button>
-                  ) : dateFull ? (
-                    <span className="shrink-0 inline-flex items-center rounded-full text-[12.5px] font-extrabold px-3 py-2 bg-[#231714]/5 text-[#231714]/80">満員</span>
-                  ) : !closed ? (
-                    <button
-                      onClick={() => toggle(selectedDate, false)}
-                      disabled={busy === selectedDate}
-                      className="shrink-0 inline-flex items-center gap-1 rounded-full text-[13px] font-extrabold px-4 py-2 active:scale-95 disabled:opacity-50 transition-transform whitespace-nowrap"
-                      style={{ background: POKER_ACCENT, color: "#fff", boxShadow: `0 2px 8px color-mix(in srgb, ${POKER_ACCENT} 40%, transparent)` }}
-                    >
-                      {busy === selectedDate ? "..." : "参加する"}
-                    </button>
-                  ) : null}
-                </div>
-
-                {unpaidNotice && (
-                  <div className="flex items-stretch gap-2">
-                    <button
-                      onClick={() => pay(selectedDate)}
-                      disabled={busy === selectedDate}
-                      className="flex-[3] inline-flex items-center justify-center gap-1 rounded-xl text-[13.5px] font-extrabold py-2.5 active:scale-[0.98] disabled:opacity-50 transition-transform text-white whitespace-nowrap"
-                      style={{ background: POKER_CONFIRM, boxShadow: `0 2px 8px color-mix(in srgb, ${POKER_CONFIRM} 40%, transparent)` }}
-                    >
-                      {busy === selectedDate ? "..." : `支払いする ¥${POKER_ENTRY_FEE.toLocaleString()}`}
-                    </button>
-                    <button
-                      onClick={() => toggle(selectedDate, true)}
-                      disabled={busy === selectedDate}
-                      className="flex-[2] inline-flex items-center justify-center rounded-xl text-[12.5px] font-bold py-2.5 border border-[#231714]/15 text-[#231714]/75 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50 transition-transform whitespace-nowrap"
-                    >
-                      参加をやめる
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {unpaidNotice && (
-                <div className="rounded-2xl border px-4 py-3 space-y-2" style={{ background: "#fff9ec", borderColor: "#f0d9a8" }}>
-                  <div className="text-[13px] font-extrabold text-[#b48f13]">参加確定（未払い）</div>
-                  <p className="text-[12.5px] font-bold text-[#8a6a12] leading-relaxed">
-                    参加枠を確保しました。当日プレイするには参加費（¥{POKER_ENTRY_FEE.toLocaleString()}）のお支払いが必要です。
-                  </p>
-                  <p className="text-[12px] font-bold text-[#8a6a12] leading-relaxed">
-                    <b>参加費は開催日の開始時刻{selectedDate && scheduleTimes?.[selectedDate]?.startTime ? `（${scheduleTimes[selectedDate].startTime}）` : ""}までにお支払いください。</b>
-                    この種目はゲームマスターを事前に決めないため、<b>開始時刻で受付が自動的に締め切られます</b>。
-                    未払いのままだと当日の進行に参加できません（当日その場でお支払いいただければ参加できます）。
-                  </p>
-                </div>
-              )}
-            </>
-          );
-        })()
+      {!selectedDate ? (
+        <GlassCard>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            参加する開催日をカレンダーから選んでください
+          </p>
+        </GlassCard>
       ) : (
-        <div className="text-center text-[12px] text-[#231714]/80 py-4">参加する開催日をカレンダーから選んでください</div>
+        <SelectedDateCard
+          date={selectedDate}
+          entered={enteredDates.has(selectedDate)}
+          paymentRequired={paymentRequired}
+          payStatus={paymentStatusByDate[selectedDate] ?? null}
+          cancelled={cancelledDates.has(selectedDate)}
+          isPast={selectedDate < today}
+          startTime={scheduleTimes?.[selectedDate]?.startTime}
+          endTime={scheduleTimes?.[selectedDate]?.endTime}
+          dateFull={dateFull}
+          busy={busy === selectedDate}
+          demo={demo}
+          onJoin={() => toggle(selectedDate, false)}
+          onLeave={() => toggle(selectedDate, true)}
+          onPay={() => pay(selectedDate)}
+          onRequestCancel={() => setCancelDate(selectedDate)}
+        />
       )}
 
       {selectedDate && !cancelledDates.has(selectedDate) && selectedDate >= today && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <div className="text-[11px] font-extrabold text-[#3f4247] mb-2">
+        <GlassCard>
+          <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
             この日の参加者（{dateCount} / {POKER_MAX_ENTRIES_PER_DATE}名）
-            {dateFull && <span className="ml-1.5 text-[#b48f13]">満員</span>}
+            {dateFull && <span className="ml-1.5 text-[color:var(--eb-gold-text)]">満員</span>}
           </div>
           {dateEntries.length === 0 ? (
-            <div className="text-[12px] text-[#231714]/80 py-2">まだ参加者がいません。</div>
+            <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ参加者がいません。</p>
           ) : (
             <div className="flex flex-col gap-1.5">
               {dateEntries.map((e, i) => {
                 const paid = e.displayStatus === "paid";
                 return (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{e.displayName}</span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={paid ? { background: "#eef4dd", color: "#6f9023" } : { background: "#fdf4e3", color: "#b48f13" }}>
-                      {paid ? "支払い済み" : "参加済み（未払い）"}
+                    <span className="flex-1 min-w-0 truncate text-[15px] font-bold text-[color:var(--eb-ink)]">
+                      {e.displayName}
                     </span>
+                    <StatusPill tone={paid ? "green" : "gold"}>{paid ? "支払い済み" : "参加済み（未払い）"}</StatusPill>
                   </div>
                 );
               })}
             </div>
           )}
-        </div>
+        </GlassCard>
       )}
 
       {selectedDate && !cancelledDates.has(selectedDate) && selectedDate < today && dayStandings && (
         dayStandings.hasResults ? (
           <PokerDayStandings eventDate={selectedDate} standings={dayStandings.standings} />
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-6 text-center text-[12px] text-[#231714]/80">
-            この日の成績はまだありません。
-          </div>
+          <GlassCard>
+            <p className="text-center text-[15px] text-[color:var(--eb-ink-muted)]">この日の成績はまだありません。</p>
+          </GlassCard>
         )
       )}
 
       {cancelDate && (
-        <CancelPayModal date={cancelDate} busy={busy === cancelDate} onConfirm={() => confirmCancel(cancelDate)} onClose={() => setCancelDate(null)} />
+        <CancelPayModal
+          date={cancelDate}
+          busy={busy === cancelDate}
+          onConfirm={() => confirmCancel(cancelDate)}
+          onClose={() => setCancelDate(null)}
+        />
       )}
     </div>
   );
 }
 
-function CancelPayModal({ date, busy, onConfirm, onClose }: { date: string; busy: boolean; onConfirm: () => void; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 safe-area-pb" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-bold text-[#1c1f21]">参加費のキャンセル</h3>
-        <p className="text-[12.5px] text-[#231714]/80 mt-2 leading-relaxed">
-          {formatJpDate(date)} の参加費のキャンセルを依頼します。<br />
-          <span className="font-bold text-[#231714]/90">アプリ内では自動返金されません。</span>
-          管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
-        </p>
-        <div className="mt-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>
-            やめる
-          </button>
-          <button onClick={onConfirm} disabled={busy} className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50" style={{ background: "#d8533a" }}>
-            {busy ? "送信中..." : "キャンセルを依頼"}
-          </button>
+/* ───────── 選択した開催日のカード ───────── */
+
+function SelectedDateCard({
+  date,
+  entered,
+  paymentRequired,
+  payStatus,
+  cancelled,
+  isPast,
+  startTime,
+  endTime,
+  dateFull,
+  busy,
+  demo,
+  onJoin,
+  onLeave,
+  onPay,
+  onRequestCancel,
+}: {
+  date: string;
+  entered: boolean;
+  paymentRequired: boolean;
+  payStatus: PokerPaymentStatus | null;
+  cancelled: boolean;
+  isPast: boolean;
+  startTime?: string;
+  endTime?: string;
+  dateFull: boolean;
+  busy: boolean;
+  demo: boolean;
+  onJoin: () => void;
+  onLeave: () => void;
+  onPay: () => void;
+  onRequestCancel: () => void;
+}) {
+  // 受付締切（開催日の開始時刻）を過ぎたか。締切後は参加表明も取消もできない
+  // （「締切までに表明した人＝参加者」なので抜けられると名簿が崩れる。サーバーも409で拒否）。
+  const closed = isPast || (!!startTime && Date.now() >= Date.parse(`${date}T${startTime}:00+09:00`));
+  const timeLabel = startTime ? `${startTime}${endTime ? `〜${endTime}` : "〜"}` : null;
+  const { md, wd } = dateParts(date);
+  const heading = (
+    <div className="flex items-baseline gap-2">
+      <span className="text-[20px] font-bold text-[color:var(--eb-ink)]">
+        {md}（{wd}）
+      </span>
+      <span className="text-[15px] text-[color:var(--eb-ink-muted)]">
+        ポーカー{timeLabel && <span className="ml-1.5 tabular-nums">{timeLabel}</span>}
+      </span>
+    </div>
+  );
+
+  // 中止（流会）
+  if (cancelled) {
+    return (
+      <GlassCard tone="coral">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="coral" className="self-start">
+            中止（流会）
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            この開催日は中止になりました。
+            {entered && "お支払い済みの参加費は返金対応します（担当よりご連絡します）。"}
+          </p>
         </div>
+      </GlassCard>
+    );
+  }
+
+  const needsPay = entered && paymentRequired;
+
+  // 返金対応中
+  if (needsPay && payStatus === "cancelRequested") {
+    return (
+      <GlassCard tone="gold">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="gold" className="self-start">
+            返金対応中
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            参加費の返金を手続き中です。担当よりご連絡します。
+          </p>
+          {demo && (
+            <Button variant="ghost" loading={busy} onClick={onLeave}>
+              リセット（デモ）
+            </Button>
+          )}
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 参加確定（支払い済み・または支払い不要）
+  if (needsPay ? payStatus === "paid" : entered) {
+    return (
+      <GlassCard tone="green">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="green" className="self-start">
+            ✓ 参加確定{needsPay ? "・支払い済み" : ""}
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            当日はゲーム開始までに会場へお越しください。
+          </p>
+          {needsPay ? (
+            !isPast && (
+              <Button variant="secondary" loading={busy} onClick={onRequestCancel}>
+                支払いをキャンセルする
+              </Button>
+            )
+          ) : (
+            !closed && (
+              <Button variant="ghost" loading={busy} onClick={onLeave}>
+                参加をやめる
+              </Button>
+            )
+          )}
+          {demo && needsPay && (
+            <Button variant="ghost" loading={busy} onClick={onLeave}>
+              リセット（デモ）
+            </Button>
+          )}
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 参加確定（未払い）
+  if (needsPay) {
+    return (
+      <GlassCard tone="gold">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="gold" className="self-start">
+            参加確定（未払い）
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            参加枠を確保しました。当日プレイするには参加費（¥{POKER_ENTRY_FEE.toLocaleString()}）のお支払いが必要です。
+          </p>
+          <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            <b className="text-[color:var(--eb-ink)]">
+              参加費は開催日の開始時刻{timeLabel ? `（${startTime}）` : ""}までにお支払いください。
+            </b>
+            この種目はゲームマスターを事前に決めないため、
+            <b className="text-[color:var(--eb-ink)]">開始時刻で受付が自動的に締め切られます</b>
+            。未払いのままだと当日の進行に参加できません（当日その場でお支払いいただければ参加できます）。
+          </p>
+          <Button variant="pay" loading={busy} onClick={onPay}>
+            支払いする ¥{POKER_ENTRY_FEE.toLocaleString()}
+          </Button>
+          <Button variant="ghost" loading={busy} onClick={onLeave}>
+            参加をやめる
+          </Button>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // 未参加
+  const reasonLabel = isPast ? "終了" : dateFull ? "満員" : "参加できます";
+  const reason = isPast ? "この開催日は終了しました" : dateFull ? "満員です（参加者を確認できます）" : "この日に参加できます";
+  const canJoinNow = !isPast && !dateFull && !closed;
+
+  return (
+    <GlassCard>
+      <div className="flex flex-col gap-3">
+        {heading}
+        <StatusPill tone={canJoinNow ? "green" : "muted"} className="self-start">
+          {reasonLabel}
+        </StatusPill>
+        <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">{reason}</p>
+        {canJoinNow && (
+          <Button variant="primary" loading={busy} onClick={onJoin}>
+            参加する
+          </Button>
+        )}
+      </div>
+    </GlassCard>
+  );
+}
+
+/* 参加費キャンセル依頼の確認（自動返金なし・管理者が手動返金） */
+function CancelPayModal({
+  date,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  date: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3" onClick={onClose}>
+      <div className="safe-area-pb w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <GlassCard>
+          <h3 className="text-[17px] font-bold text-[color:var(--eb-ink)]">参加費のキャンセル</h3>
+          <p className="mt-2 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            {formatJpDate(date)} の参加費のキャンセルを依頼します。
+            <br />
+            <span className="font-bold">アプリ内では自動返金されません。</span>
+            管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <Button variant="danger" loading={busy} onClick={onConfirm}>
+              キャンセルを依頼
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              やめる
+            </Button>
+          </div>
+        </GlassCard>
       </div>
     </div>
   );

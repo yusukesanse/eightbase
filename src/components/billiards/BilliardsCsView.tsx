@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { BILLIARDS_ACCENT } from "@/components/billiards/billiardsShared";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 
 /**
  * CS > ビリヤード（8ボール 1対1・GMなし完全自動進行）— 縦トーナメント表。
@@ -30,8 +30,6 @@ interface PubEvent {
 }
 
 const MEDAL: Record<number, string> = { 1: "#d8a526", 2: "#b9c0c6", 3: "#c97b3c" };
-const SUCCESS = "#8aab36";
-const SUCCESS_INK = "#6f9023";
 const LINE = "#d5dadd";
 const CARD_W = 158;
 const GAP = 12;
@@ -92,24 +90,31 @@ export function BilliardsCsView() {
   );
 
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 rounded-full animate-spin border-2 border-t-transparent" style={{ borderColor: "rgba(35,147,94,.3)", borderTopColor: "transparent" }} />
+      </div>
+    );
   }
   if (!event) {
-    return <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">チャンピオンシップはまだ開催されていません</div>;
+    return (
+      <GlassCard className="text-center py-10">
+        <p className="text-[15px] text-[color:var(--eb-ink-muted)]">チャンピオンシップはまだ開催されていません</p>
+      </GlassCard>
+    );
   }
 
   const roundsTopDown = [...event.rounds].reverse();
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl px-4 py-3 text-center" style={{ background: "radial-gradient(120% 90% at 50% 0%, #2b2f31, #16191b)" }}>
-        <div className="text-[13px] font-black text-white tracking-[0.06em]">{event.name}</div>
-        <div className="text-[11px] text-white/55 mt-0.5">{event.eventDate}</div>
-      </div>
-
-      <p className="text-[11px] text-[#231714]/85 leading-relaxed px-0.5">
-        8ボール1対1のシングルエリミネーション。リーグ<b style={{ color: BILLIARDS_ACCENT }}>上位者はシード</b>（S・端数の回は不戦勝）。勝者が勝ち上がり、決勝で優勝（金/銀/銅）。
-      </p>
+      <GlassCard className="text-center">
+        <div className="text-[20px] font-bold text-[color:var(--eb-ink)]">{event.name}</div>
+        <div className="text-[14px] text-[color:var(--eb-ink-muted)] mt-0.5">{event.eventDate}</div>
+        <p className="text-[14px] text-[color:var(--eb-ink-muted)] leading-relaxed mt-3">
+          8ボール1対1のシングルエリミネーション。リーグ<b className="text-[color:var(--eb-ink)]">上位者はシード</b>（S・端数の回は不戦勝）。勝者が勝ち上がり、決勝で優勝（金/銀/銅）。
+        </p>
+      </GlassCard>
 
       {event.status === "setup" && (
         <CsEntryPanel entered={event.entrants.some((e) => e.isMe)} count={event.entrants.length} busy={busy} error={entryError} onToggle={toggleEntry} />
@@ -118,7 +123,9 @@ export function BilliardsCsView() {
       {event.status === "finished" && <Podium champion={event.champion} runnerUp={event.runnerUp} third={event.third} />}
 
       {event.rounds.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-sm text-[#231714]/80">トーナメント表はまだ公開されていません</div>
+        <GlassCard className="text-center py-10">
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">トーナメント表はまだ公開されていません</p>
+        </GlassCard>
       ) : (
         <div className="overflow-x-auto -mx-4 px-4 pb-1">
           <div className="flex flex-col items-center mx-auto" style={{ width: "max-content", minWidth: "100%" }}>
@@ -128,9 +135,9 @@ export function BilliardsCsView() {
               const gold = round.type === "final";
               return (
                 <div key={i} className="flex flex-col items-center">
-                  <div className="flex items-baseline gap-1.5 mb-1.5">
-                    <span className="text-[11.5px] font-black" style={{ color: gold ? MEDAL[1] : "#5f6266" }}>{round.label}</span>
-                    <span className="text-[9.5px] text-[#3f4247]">{gold ? "金銀銅" : "勝ち抜き"}</span>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
+                    <StatusPill tone="muted">{gold ? "金銀銅" : "勝ち抜き"}</StatusPill>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
                     {round.matches.map((m) => (
@@ -142,7 +149,11 @@ export function BilliardsCsView() {
                   {round.byes.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap justify-center gap-1">
                       {round.byes.map((b, bi) => (
-                        <span key={bi} className="inline-flex items-center gap-1 text-[9.5px] font-bold rounded-full px-2 py-0.5" style={{ color: BILLIARDS_ACCENT, background: `color-mix(in srgb, ${BILLIARDS_ACCENT} 10%, #fff)` }}>
+                        <span
+                          key={bi}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                          style={{ color: "var(--eb-green-text)", background: "rgba(35,147,94,.10)" }}
+                        >
                           不戦勝 {b.displayName}{b.isMe && "（あなた）"}
                         </span>
                       ))}
@@ -169,26 +180,32 @@ export function BilliardsCsView() {
   );
 }
 
+/** CS 自己エントリーパネル（受付中のみ表示）。参加/取消と現在の参加者数。 */
 function CsEntryPanel({ entered, count, busy, error, onToggle }: { entered: boolean; count: number; busy: boolean; error: string | null; onToggle: (join: boolean) => void }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+    <GlassCard className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[13px] font-black text-[#231714]">チャンピオンシップに参加</div>
-          <div className="text-[11px] text-[#231714]/85 mt-0.5">どなたでも参加できます（現在 {count} 名エントリー中）</div>
+          <div className="text-[18px] font-bold text-[color:var(--eb-ink)]">チャンピオンシップに参加</div>
+          <div className="text-[15px] text-[color:var(--eb-ink-muted)] mt-0.5">どなたでも参加できます（現在 {count} 名エントリー中）</div>
         </div>
-        {entered && <span className="text-[10px] font-black px-2 py-1 rounded-full" style={{ color: SUCCESS_INK, background: `color-mix(in srgb, ${SUCCESS} 14%, #fff)` }}>参加中</span>}
+        {entered && <StatusPill tone="green" className="shrink-0">参加中</StatusPill>}
       </div>
-      {error && <div className="text-[11px] font-bold text-[#c0563c]">{error}</div>}
+      {error && <div className="text-[13px] font-bold text-[color:var(--eb-coral-text)]">{error}</div>}
       {entered ? (
-        <button onClick={() => onToggle(false)} disabled={busy} className="w-full py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl disabled:opacity-50" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>エントリーを取り消す</button>
+        <Button variant="secondary" onClick={() => onToggle(false)} disabled={busy}>
+          エントリーを取り消す
+        </Button>
       ) : (
-        <button onClick={() => onToggle(true)} disabled={busy} className="w-full py-3 text-sm font-black text-white rounded-2xl disabled:opacity-50" style={{ background: BILLIARDS_ACCENT }}>CSに参加する</button>
+        <Button variant="primary" onClick={() => onToggle(true)} disabled={busy}>
+          CSに参加する
+        </Button>
       )}
-    </div>
+    </GlassCard>
   );
 }
 
+/** 表彰台（決勝ラウンド完了後）。 */
 function Podium({ champion, runnerUp, third }: { champion: PodiumName | null; runnerUp: PodiumName | null; third: PodiumName | null }) {
   const slots: { medal: number; label: string; who: PodiumName | null }[] = [
     { medal: 2, label: "2位", who: runnerUp },
@@ -196,22 +213,23 @@ function Podium({ champion, runnerUp, third }: { champion: PodiumName | null; ru
     { medal: 3, label: "3位", who: third },
   ];
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-      <div className="text-[12px] font-black text-[#231714] text-center mb-3">表彰台</div>
-      <div className="flex items-end justify-center gap-3">
+    <GlassCard>
+      <div className="mb-3 text-center text-[15px] font-bold text-[color:var(--eb-ink)]">表彰台</div>
+      <div className="flex items-end justify-center gap-4">
         {slots.map(({ medal, label, who }) => (
           <div key={medal} className="flex flex-col items-center" style={{ opacity: who ? 1 : 0.35 }}>
-            <div className="text-[13px] leading-none mb-1">{medal === 1 ? "🥇" : medal === 2 ? "🥈" : "🥉"}</div>
+            <div className="mb-1 text-[16px] leading-none">{medal === 1 ? "🥇" : medal === 2 ? "🥈" : "🥉"}</div>
             <Avatar src={who?.pictureUrl} name={who?.displayName ?? "—"} size={medal === 1 ? 48 : 38} style={{ boxShadow: `0 0 0 3px ${MEDAL[medal]}` }} />
-            <div className="text-[11px] font-black text-[#1c1f21] mt-1 max-w-[90px] truncate">{who?.displayName ?? "—"}</div>
-            <div className="text-[9px] font-extrabold" style={{ color: MEDAL[medal] }}>{label}</div>
+            <div className="mt-1 max-w-[90px] truncate text-[13px] font-bold text-[color:var(--eb-ink)]">{who?.displayName ?? "—"}</div>
+            <div className="text-[11px] font-bold" style={{ color: MEDAL[medal] }}>{label}</div>
           </div>
         ))}
       </div>
-    </div>
+    </GlassCard>
   );
 }
 
+/** 木の頂点：王冠＋優勝者（未定なら未定表示）。 */
 function ChampCrown({ champ }: { champ: PodiumName | null }) {
   return (
     <div className="flex flex-col items-center">
@@ -223,7 +241,7 @@ function ChampCrown({ champ }: { champ: PodiumName | null }) {
           <div className="text-[9px] font-extrabold tracking-wide" style={{ color: MEDAL[1] }}>WINNER</div>
         </div>
       ) : (
-        <div className="mt-0.5 text-[10.5px] text-[#3f4247]">優勝者 未定</div>
+        <div className="mt-0.5 text-[16px]" style={{ color: "rgba(26,29,27,.7)" }}>優勝者 未定</div>
       )}
     </div>
   );
@@ -255,13 +273,13 @@ function MatchCard({ match, gold, onInput }: { match: PubMatch; gold: boolean; o
   const done = match.status === "completed";
   const iAmIn = match.players.some((p) => p.isMe);
   return (
-    <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-2" style={gold ? { borderLeft: `3px solid ${MEDAL[1]}` } : undefined}>
-      <div className="flex items-center justify-between mb-1.5 px-0.5">
-        <span className="text-[10.5px] font-bold text-[#40434a]">{match.label}</span>
+    <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
         {done ? (
-          <span className="text-[9px] font-black px-1 py-0.5 rounded" style={{ color: SUCCESS_INK, background: `color-mix(in srgb, ${SUCCESS} 14%, #fff)` }}>確定</span>
+          <StatusPill tone="green">確定</StatusPill>
         ) : (
-          <span className="text-[9px] font-bold text-[#c0563c]">結果待ち</span>
+          <StatusPill tone="gold">結果待ち</StatusPill>
         )}
       </div>
       <div className="flex flex-col gap-1">
@@ -270,11 +288,11 @@ function MatchCard({ match, gold, onInput }: { match: PubMatch; gold: boolean; o
         ))}
       </div>
       {!done && iAmIn && (
-        <button onClick={onInput} className="mt-1.5 w-full py-1.5 rounded-lg text-[11px] font-extrabold text-white active:scale-[0.98] transition-transform" style={{ background: BILLIARDS_ACCENT }}>
+        <Button variant="primary" onClick={onInput} className="mt-1.5 h-10 text-[13px]">
           勝敗を申告
-        </button>
+        </Button>
       )}
-    </div>
+    </GlassCard>
   );
 }
 
@@ -282,19 +300,27 @@ function BracketSlot({ p, me, seed, advanced, loser }: { p: PubPlayer; me: boole
   return (
     <div
       className="flex items-center gap-1 px-1.5 py-1 rounded-lg"
-      style={advanced
-        ? { background: `color-mix(in srgb, ${SUCCESS} 12%, #fff)`, boxShadow: `inset 0 0 0 1.5px ${SUCCESS}` }
-        : me ? { background: "#eef4f5", boxShadow: "inset 0 0 0 1px #dde9eb" } : { background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #f1f3f4" }}
+      style={
+        advanced
+          ? { background: "rgba(35,147,94,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
+          : me
+            ? { background: "var(--eb-tint)", boxShadow: "inset 0 0 0 1px var(--eb-line)" }
+            : { background: "transparent" }
+      }
     >
-      <span className="flex-1 min-w-0 text-[11px] font-bold text-[#1c1f21] truncate" style={loser ? { opacity: 0.5 } : undefined}>
+      <span className="flex-1 min-w-0 text-[13px] font-bold text-[color:var(--eb-ink)] truncate" style={loser ? { opacity: 0.5 } : undefined}>
         {p.displayName}
-        {me && <span className="ml-0.5 text-[9px] font-extrabold text-[#3c4f54]">(あなた)</span>}
+        {me && <span className="ml-0.5 text-[11px] font-bold text-[color:var(--eb-ink-muted)]">(あなた)</span>}
       </span>
-      {seed && <span className="text-[8px] font-black px-1 py-0.5 rounded shrink-0" style={{ color: BILLIARDS_ACCENT, background: `color-mix(in srgb, ${BILLIARDS_ACCENT} 12%, #fff)` }}>S</span>}
+      {seed && (
+        <StatusPill tone="gold" className="shrink-0 px-1.5 py-0.5 text-[10px]">S</StatusPill>
+      )}
       {advanced ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SUCCESS_INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
       ) : (
-        <span className="text-[9px] text-[#3f4247] shrink-0">{loser ? "敗" : "—"}</span>
+        <span className="text-[11px] text-[color:var(--eb-ink-muted)] shrink-0">{loser ? "敗" : "—"}</span>
       )}
     </div>
   );
@@ -305,7 +331,7 @@ function CsInputSheet({ match, busy, error, onClose, onReport }: { match: PubMat
   const [pick, setPick] = useState<0 | 1 | null>(null);
   return (
     <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
-      <p className="text-[11px] text-[#231714]/85 mb-3">勝った方を選んで申告してください（対戦者どちらでも申告できます）。確定後は変更できません。</p>
+      <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">勝った方を選んで申告してください（対戦者どちらでも申告できます）。確定後は変更できません。</p>
 
       <div className="flex flex-col gap-2">
         {match.players.map((p, i) => {
@@ -315,27 +341,31 @@ function CsInputSheet({ match, busy, error, onClose, onReport }: { match: PubMat
               key={i}
               onClick={() => setPick(i as 0 | 1)}
               className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left active:scale-[0.99] transition-transform"
-              style={selected
-                ? { background: `color-mix(in srgb, ${BILLIARDS_ACCENT} 10%, #fff)`, boxShadow: `inset 0 0 0 2px ${BILLIARDS_ACCENT}` }
-                : { background: "#f6f8f9", boxShadow: "inset 0 0 0 1px #eceff1" }}
+              style={
+                selected
+                  ? { background: "rgba(35,147,94,.10)", boxShadow: "inset 0 0 0 2px var(--eb-green)" }
+                  : { background: "var(--eb-tint)", boxShadow: "inset 0 0 0 1px var(--eb-line)" }
+              }
             >
               <Avatar src={p.pictureUrl} name={p.displayName} size={34} />
-              <span className="flex-1 text-[13.5px] font-bold text-[#1c1f21] truncate">
-                {p.displayName}{p.isMe && <span className="ml-1 text-[10px] font-extrabold text-[#3c4f54]">(あなた)</span>}
+              <span className="flex-1 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
+                {p.displayName}{p.isMe && <span className="ml-1 text-[11px] font-bold text-[color:var(--eb-ink-muted)]">(あなた)</span>}
               </span>
-              {selected && <span className="text-[11px] font-black" style={{ color: BILLIARDS_ACCENT }}>勝者</span>}
+              {selected && <span className="text-[13px] font-bold text-[color:var(--eb-green-text)]">勝者</span>}
             </button>
           );
         })}
       </div>
 
-      {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
 
       <div className="mt-6 flex gap-2">
-        <button onClick={onClose} className="flex-1 py-3 text-sm font-bold text-[#40434a] bg-white rounded-2xl" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9" }}>キャンセル</button>
-        <button onClick={() => pick != null && onReport(pick)} disabled={pick == null || busy} className="flex-1 py-3 text-sm font-extrabold text-white rounded-2xl active:scale-[0.98] disabled:opacity-50" style={{ background: BILLIARDS_ACCENT }}>
-          {busy ? "送信中..." : "勝者を申告"}
-        </button>
+        <Button variant="ghost" onClick={onClose}>
+          キャンセル
+        </Button>
+        <Button variant="primary" onClick={() => pick != null && onReport(pick)} disabled={pick == null} loading={busy}>
+          勝者を申告
+        </Button>
       </div>
     </BottomSheet>
   );

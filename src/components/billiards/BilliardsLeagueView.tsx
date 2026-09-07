@@ -8,7 +8,7 @@ import { BilliardsJoinTab } from "@/components/billiards/BilliardsJoinTab";
 import { BilliardsMatchLogTab } from "@/components/billiards/BilliardsMatchLogTab";
 import { BilliardsCsView } from "@/components/billiards/BilliardsCsView";
 import { BilliardsRulesTab } from "@/components/billiards/BilliardsRulesTab";
-import { BILLIARDS_ACCENT } from "@/components/billiards/billiardsShared";
+import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import type { BilliardsPaymentStatus, BilliardsScheduleEntry } from "@/types/billiards";
 
 /**
@@ -91,30 +91,39 @@ export function BilliardsLeagueView() {
   return (
     <div>
       {payBanner && (
-        <div className={`mb-3 rounded-2xl px-4 py-3 text-[13px] font-bold flex items-center justify-between gap-2 ${payBanner.ok ? "bg-[#eef6f0] text-[#2f7d57]" : "bg-[#fdece8] text-[#d8533a]"}`}>
-          <span>{payBanner.text}</span>
-          <button onClick={() => setPayBanner(null)} className="shrink-0 font-black opacity-60">×</button>
-        </div>
+        <GlassCard tone={payBanner.ok ? "green" : "coral"} padding="md" className="mb-3">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`text-[15px] font-bold ${
+                payBanner.ok ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-coral-text)]"
+              }`}
+            >
+              {payBanner.text}
+            </span>
+            <button
+              onClick={() => setPayBanner(null)}
+              aria-label="閉じる"
+              className="shrink-0 text-[17px] font-bold text-[color:var(--eb-ink-muted)]"
+            >
+              ×
+            </button>
+          </div>
+        </GlassCard>
       )}
 
-      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1">
-        {([
+      <SegmentedTabs
+        className="mb-4"
+        size="md"
+        value={subTab}
+        onChange={(id) => setSubTab(id as SubTab)}
+        items={[
           { id: "league", label: "リーグ" },
           { id: "join", label: "参加" },
           { id: "match", label: "対戦記録" },
           { id: "cs", label: "CS" },
           { id: "rules", label: "ルール/約款" },
-        ] as { id: SubTab; label: string }[]).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSubTab(t.id)}
-            className={`flex-1 py-2 rounded-lg text-xs text-center transition-all ${subTab === t.id ? "bg-white font-bold shadow-md" : "text-[#231714]/80 font-medium"}`}
-            style={subTab === t.id ? { color: BILLIARDS_ACCENT, boxShadow: `0 1px 3px rgba(0,0,0,.12), inset 0 0 0 1px color-mix(in srgb, ${BILLIARDS_ACCENT} 25%, transparent)` } : undefined}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+        ]}
+      />
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>
