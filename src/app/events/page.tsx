@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { TopBar } from "@/components/ui/TopBar";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
 import type { NufEvent } from "@/types";
+import { GlassCard, PageBg, PageHeading, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 
 // キャッシュ即表示と同じ paint 前タイミングでグッド状態を重ねるため layout effect を使う
 // （再訪時に一瞬「イベントなし」が見えるのを防ぐ）。SSR では useEffect にフォールバック。
@@ -18,21 +18,21 @@ dayjs.locale("ja");
 
 interface EventWithGood extends NufEvent { goodCount: number; liked: boolean }
 
-const CATEGORY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+const CATEGORY_CONFIG: Record<string, { tone: EbStatusTone; label: string }> = {
   // 新カテゴリ（日本語キー）
-  "ワークショップ": { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]", label: "ワークショップ" },
-  "セミナー":       { bg: "bg-blue-100", text: "text-blue-700", label: "セミナー" },
-  "カンファレンス": { bg: "bg-purple-100", text: "text-purple-700", label: "カンファレンス" },
-  "ミートアップ":   { bg: "bg-amber-100", text: "text-amber-700", label: "ミートアップ" },
-  "交流会":         { bg: "bg-[#B0E401]/10", text: "text-[#231714]", label: "交流会" },
+  "ワークショップ": { tone: "green", label: "ワークショップ" },
+  "セミナー": { tone: "gold", label: "セミナー" },
+  "カンファレンス": { tone: "coral", label: "カンファレンス" },
+  "ミートアップ": { tone: "gold", label: "ミートアップ" },
+  "交流会": { tone: "green", label: "交流会" },
   // 旧カテゴリ（後方互換）
-  networking: { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]", label: "ネットワーキング" },
-  workshop:   { bg: "bg-[#A5C1C8]/25", text: "text-[#231714]", label: "ワークショップ" },
-  social:     { bg: "bg-[#B0E401]/10", text: "text-[#231714]", label: "交流" },
-  info:       { bg: "bg-[#A5C1C8]/20", text: "text-[#231714]", label: "お知らせ" },
+  networking: { tone: "gold", label: "ネットワーキング" },
+  workshop: { tone: "green", label: "ワークショップ" },
+  social: { tone: "green", label: "交流" },
+  info: { tone: "muted", label: "お知らせ" },
 };
-function getCategoryStyle(cat: string) {
-  return CATEGORY_STYLES[cat] ?? { bg: "bg-gray-100", text: "text-gray-700", label: cat };
+function getCategoryConfig(cat: string) {
+  return CATEGORY_CONFIG[cat] ?? { tone: "muted" as EbStatusTone, label: cat };
 }
 
 export default function EventsPage() {
@@ -104,24 +104,33 @@ export default function EventsPage() {
   const rest = events.slice(1);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <TopBar title="イベント" subtitle="EIGHT BASE UNGA 開催予定のイベント" />
+    <PageBg>
+      <div className="px-5 pt-[52px]">
+        <PageHeading title="イベント" subtitle="EIGHT BASE UNGA 開催予定のイベント" />
+      </div>
 
-      <div className="p-4">
+      <div className="px-5 pt-5 pb-10">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#A5C1C8] rounded-full animate-spin" />
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+              style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+            />
           </div>
         ) : events.length === 0 ? (
-          <div className="text-center py-16 text-sm text-gray-700">
-            現在開催予定のイベントはありません
-          </div>
+          <GlassCard>
+            <p className="py-6 text-center text-[15px] text-[color:var(--eb-ink-muted)]">
+              現在開催予定のイベントはありません
+            </p>
+          </GlassCard>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {/* Featured (大きいカード) */}
             {featured && (
               <div>
-                <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Featured</p>
+                <p className="mb-2 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">
+                  Featured
+                </p>
                 <FeaturedCard event={featured} onToggleGood={handleToggleGood} onClick={() => router.push(`/events/${featured.eventId}`)} />
               </div>
             )}
@@ -129,8 +138,10 @@ export default function EventsPage() {
             {/* 残りのイベント */}
             {rest.length > 0 && (
               <div>
-                <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Upcoming</p>
-                <div className="space-y-3">
+                <p className="mb-2 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">
+                  Upcoming
+                </p>
+                <div className="flex flex-col gap-2.5">
                   {rest.map(ev => (
                     <CompactCard key={ev.eventId} event={ev} onToggleGood={handleToggleGood} onClick={() => router.push(`/events/${ev.eventId}`)} />
                   ))}
@@ -140,15 +151,21 @@ export default function EventsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageBg>
   );
 }
 
 /* ─── グッド表示（アイコン＋数字） ─── */
 function GoodBadge({ count, liked }: { count: number; liked: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold transition-all ${liked ? "bg-[#B0E401]/15 text-[#7BA801]" : "bg-gray-100 text-[#231714]/80"}`}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? "#B0E401" : "none"} stroke={liked ? "#B0E401" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <span
+      className={clsx(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[12px] font-bold transition-all",
+        liked ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"
+      )}
+      style={{ background: liked ? "rgba(35,147,94,.14)" : "var(--eb-tint)" }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
       </svg>
       {count}
@@ -162,51 +179,62 @@ function FeaturedCard({ event: ev, onToggleGood, onClick }: {
   onToggleGood: (e: React.MouseEvent, id: string) => void;
   onClick: () => void;
 }) {
-  const style = getCategoryStyle(ev.category);
+  const cfg = getCategoryConfig(ev.category);
   const start = dayjs(ev.startAt);
   const end = dayjs(ev.endAt);
 
   return (
-    <div onClick={onClick} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer">
-      {/* 画像 or グラデーション */}
-      {ev.imageUrl ? (
-        <div className="aspect-[2/1] overflow-hidden bg-gray-100">
-          <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="aspect-[2/1] bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF] flex items-end p-5">
-          <span className="text-white/60 text-xs font-medium">EIGHT BASE UNGA</span>
-        </div>
-      )}
-      <div className="p-4">
-        <div className="flex items-center gap-2">
-          <span className={clsx("text-[10px] px-2 py-0.5 rounded-full font-medium", style.bg, style.text)}>
-            {style.label}
-          </span>
-          <span className="text-[10px] text-gray-700">
-            {start.format("M/D（ddd）")}
-          </span>
-        </div>
-        <h3 className="text-base font-bold text-[#231714] mt-2 leading-snug line-clamp-2">
-          {ev.title}
-        </h3>
-        <p className="text-xs text-gray-700 mt-1 line-clamp-2">{ev.description}</p>
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-1 text-xs text-gray-700">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
-            {start.format("HH:mm")}〜{end.format("HH:mm")}
-            <span className="ml-2">{ev.location}</span>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+      className="cursor-pointer active:opacity-80"
+    >
+      <GlassCard className="overflow-hidden !p-0">
+        {/* 画像 or トーン背景 */}
+        {ev.imageUrl ? (
+          <div className="aspect-[2/1] overflow-hidden bg-[color:var(--eb-tint)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ev.imageUrl} alt={ev.title} className="h-full w-full object-cover" />
           </div>
-          <button
-            onClick={(e) => onToggleGood(e, ev.eventId)}
-            className="flex items-center gap-0.5 flex-shrink-0"
+        ) : (
+          <div
+            className="flex aspect-[2/1] items-end p-5"
+            style={{ background: "linear-gradient(135deg, rgba(35,147,94,.24), rgba(35,147,94,.06))" }}
           >
-            <GoodBadge count={ev.goodCount} liked={ev.liked} />
-          </button>
+            <span className="text-[12px] font-medium text-[color:var(--eb-green-text)]">EIGHT BASE UNGA</span>
+          </div>
+        )}
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
+            <span className="text-[13px] text-[color:var(--eb-ink-muted)]">
+              {start.format("M/D（ddd）")}
+            </span>
+          </div>
+          <h3 className="mt-2 text-[17px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-2">
+            {ev.title}
+          </h3>
+          <p className="mt-1 text-[13px] text-[color:var(--eb-ink-muted)] line-clamp-2">{ev.description}</p>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-1 text-[12px] text-[color:var(--eb-ink-muted)]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              {start.format("HH:mm")}〜{end.format("HH:mm")}
+              <span className="ml-2">{ev.location}</span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => onToggleGood(e, ev.eventId)}
+              className="flex shrink-0 items-center gap-0.5"
+            >
+              <GoodBadge count={ev.goodCount} liked={ev.liked} />
+            </button>
+          </div>
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 }
@@ -217,42 +245,51 @@ function CompactCard({ event: ev, onToggleGood, onClick }: {
   onToggleGood: (e: React.MouseEvent, id: string) => void;
   onClick: () => void;
 }) {
-  const style = getCategoryStyle(ev.category);
+  const cfg = getCategoryConfig(ev.category);
   const start = dayjs(ev.startAt);
   const end = dayjs(ev.endAt);
 
   return (
-    <div onClick={onClick} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 flex active:scale-[0.98] transition-transform cursor-pointer">
-      {/* サムネイル */}
-      {ev.imageUrl ? (
-        <div className="w-28 flex-shrink-0 overflow-hidden bg-gray-100">
-          <img src={ev.imageUrl} alt={ev.title} className="w-full h-full object-cover" />
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+      className="cursor-pointer active:opacity-80"
+    >
+      <GlassCard padding="md">
+        <div className="flex gap-3">
+          {/* サムネイル */}
+          {ev.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ev.imageUrl} alt={ev.title} className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+          ) : (
+            <div
+              className="h-16 w-16 shrink-0 rounded-xl"
+              style={{ background: "linear-gradient(135deg, rgba(35,147,94,.24), rgba(35,147,94,.06))" }}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
+            <h3 className="mt-1.5 text-[15px] font-bold leading-snug text-[color:var(--eb-ink)] line-clamp-2">
+              {ev.title}
+            </h3>
+            <div className="mt-1 text-[12px] text-[color:var(--eb-ink-muted)]">
+              {start.format("M/D（ddd）HH:mm")}〜{end.format("HH:mm")}
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="truncate text-[12px] text-[color:var(--eb-ink-muted)]">{ev.location}</span>
+              <button
+                type="button"
+                onClick={(e) => onToggleGood(e, ev.eventId)}
+                className="flex shrink-0 items-center gap-0.5"
+              >
+                <GoodBadge count={ev.goodCount} liked={ev.liked} />
+              </button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="w-28 flex-shrink-0 bg-gradient-to-br from-[#A5C1C8] to-[#8BA8AF]" />
-      )}
-      <div className="flex-1 p-3 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={clsx("text-[10px] px-2 py-0.5 rounded-full font-medium", style.bg, style.text)}>
-            {style.label}
-          </span>
-        </div>
-        <h3 className="text-sm font-bold text-[#231714] mt-1 leading-snug line-clamp-2">
-          {ev.title}
-        </h3>
-        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-700">
-          <span>{start.format("M/D（ddd）HH:mm")}〜{end.format("HH:mm")}</span>
-        </div>
-        <div className="flex items-center justify-between mt-1.5">
-          <span className="text-[11px] text-gray-700 truncate">{ev.location}</span>
-          <button
-            onClick={(e) => onToggleGood(e, ev.eventId)}
-            className="flex items-center gap-0.5 flex-shrink-0"
-          >
-            <GoodBadge count={ev.goodCount} liked={ev.liked} />
-          </button>
-        </div>
-      </div>
+      </GlassCard>
     </div>
   );
 }
