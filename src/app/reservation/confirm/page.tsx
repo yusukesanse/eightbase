@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { TopBar } from "@/components/ui/TopBar";
 import type { Facility } from "@/types";
 import { getLineProfile } from "@/lib/liff";
 import { readReservationDraft, clearReservationDraft } from "@/lib/reservationDraft";
-import { Button, GlassCard, PageBg, PageHeading } from "@/components/ui/eb";
 
+import clsx from "clsx";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -101,139 +102,146 @@ function ConfirmContent() {
 
   if (step === "loading") {
     return (
-      <PageBg className="flex min-h-screen flex-col items-center justify-center gap-3">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
-        <p className="text-[15px] text-[color:var(--eb-ink-muted)]">予約処理中...</p>
-      </PageBg>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-gray-700">予約処理中...</p>
+      </div>
     );
   }
 
   if (step === "done") {
     return (
-      <PageBg>
-        <div className="px-5 pt-8">
-          <div className="flex flex-col items-center gap-2 pb-2 pt-4 text-center">
-            <div
-              className="flex items-center justify-center rounded-full"
-              style={{ width: 64, height: 64, background: "rgba(35,147,94,.14)" }}
-            >
-              <svg width="28" height="28" viewBox="0 0 26 26" fill="none">
-                <path d="M4 13l6 6L22 7" stroke="var(--eb-green-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">予約が完了しました</h1>
-            <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
-              {facility?.name} — {dateLabel} {startTime}〜{endTime}
-            </p>
+      <div>
+        {/* 完了ヘッダー */}
+        <div className="bg-[#A5C1C8] px-4 py-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <path d="M4 13l6 6L22 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
+          <p className="text-white font-medium text-base mb-1">予約が完了しました</p>
+          <p className="text-white/80 text-xs">
+            {facility?.name} — {dateLabel} {startTime}〜{endTime}
+          </p>
         </div>
 
-        <div className="space-y-3 px-5 pt-4">
+        <div className="p-3 space-y-3">
           {/* 通知済みバッジ */}
-          <div className="flex items-center gap-2 rounded-2xl px-4 py-3" style={{ background: "rgba(35,147,94,.14)" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
-              <path d="M8 2C5.24 2 3 4.02 3 6.5c0 1.7.97 3.18 2.4 4.02L4.5 13l2.5-1.2c.33.07.66.1 1 .1 2.76 0 5-2.02 5-4.5S10.76 2 8 2z" fill="var(--eb-green)" />
+          <div className="bg-[#B0E401]/10 border border-[#B0E401]/20 rounded-xl p-3 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
+              <path d="M8 2C5.24 2 3 4.02 3 6.5c0 1.7.97 3.18 2.4 4.02L4.5 13l2.5-1.2c.33.07.66.1 1 .1 2.76 0 5-2.02 5-4.5S10.76 2 8 2z" fill="#A5C1C8"/>
             </svg>
-            <p className="text-[13px] text-[color:var(--eb-green-text)]">LINE にて予約完了通知を送信しました</p>
+            <p className="text-xs text-[#7BA801]">LINE にて予約完了通知を送信しました</p>
           </div>
 
           {/* 予約詳細 */}
-          <GlassCard padding="md">
-            <div className="space-y-2.5">
-              <DetailRow label="施設" value={facility?.name ?? ""} />
-              <DetailRow label="日付" value={dateLabel} />
-              <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
-              <DetailRow label="予約者" value={displayName} />
-            </div>
-          </GlassCard>
+          <div className="bg-white rounded-xl border border-gray-100 p-3 space-y-2.5">
+            <DetailRow label="施設" value={facility?.name ?? ""} />
+            <DetailRow label="日付" value={dateLabel} />
+            <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
+            <DetailRow label="予約者" value={displayName} />
+          </div>
 
           {/* アクションボタン */}
-          <Button variant="secondary" onClick={() => router.push("/my-reservations")}>
-            マイ予約を見る
-          </Button>
-          <Button variant="ghost" onClick={() => router.push("/reservation")}>
+          <button
+            onClick={() => router.push("/my-reservations")}
+            className="w-full py-3 rounded-xl text-sm font-medium bg-[#B0E401] text-[#231714]"
+          >
+            マイ予約を確認する
+          </button>
+          <button
+            onClick={() => router.push("/reservation")}
+            className="w-full py-3 rounded-xl text-sm font-medium border border-gray-200 text-gray-700"
+          >
             戻る
-          </Button>
+          </button>
         </div>
-      </PageBg>
+      </div>
     );
   }
 
   if (step === "error") {
     return (
-      <PageBg>
-        <div className="space-y-3 px-5 pt-8">
-          <PageHeading title="RESERVE" subtitle="予約エラー" />
-          <GlassCard tone="coral">
-            <p className="mb-1 text-[15px] font-bold text-[color:var(--eb-coral-text)]">予約できませんでした</p>
-            <p className="text-[13px] text-[color:var(--eb-coral-text)]">{errorMsg}</p>
-          </GlassCard>
-          <Button variant="ghost" onClick={() => router.back()}>
-            戻って選び直す
-          </Button>
+      <div className="p-4 space-y-3">
+        <TopBar title="予約エラー" />
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+          <p className="text-sm text-red-600 mb-1 font-medium">予約できませんでした</p>
+          <p className="text-xs text-red-400">{errorMsg}</p>
         </div>
-      </PageBg>
+        <button
+          onClick={() => router.back()}
+          className="w-full py-3 rounded-xl text-sm font-medium border border-gray-200 text-gray-700"
+        >
+          戻って選び直す
+        </button>
+      </div>
     );
   }
 
   // confirm ステップ
   return (
-    <PageBg>
-      <div className="px-5 pt-8">
-        <PageHeading title="RESERVE" subtitle="予約内容の確認" />
-      </div>
+    <div>
+      <TopBar title="EIGHT BASE UNGA 施設予約" subtitle="予約内容の確認" />
 
-      <div className="space-y-3 px-5 pt-6">
-        <GlassCard>
-          <p className="mb-3 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">予約内容</p>
-          <div className="space-y-2.5">
-            <DetailRow label="施設" value={facility?.name ?? ""} />
-            <DetailRow label="日付" value={dateLabel} />
-            <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
-            <DetailRow label="予約者" value={displayName || "読み込み中..."} />
-            {companions.length > 0 && (
-              <>
-                <DetailRow
-                  label="一緒に入る人"
-                  value={companions.map((c) => c.displayName).join("、")}
-                />
-                <DetailRow label="合計人数" value={`${1 + companions.length}名`} />
-              </>
-            )}
-            {termsAgreed && <DetailRow label="利用規約" value="同意済み ✓" />}
-          </div>
-        </GlassCard>
+      <div className="p-3 space-y-3">
+        <StepIndicator step={2} total={2} />
+
+        <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+          <p className="text-xs font-medium text-gray-700 mb-1">予約内容</p>
+          <DetailRow label="施設" value={facility?.name ?? ""} />
+          <DetailRow label="日付" value={dateLabel} />
+          <DetailRow label="時間" value={`${startTime} 〜 ${endTime}`} />
+          <DetailRow label="予約者" value={displayName || "読み込み中..."} />
+          {companions.length > 0 && (
+            <>
+              <DetailRow
+                label="一緒に入る人"
+                value={companions.map((c) => c.displayName).join("、")}
+              />
+              <DetailRow label="合計人数" value={`${1 + companions.length}名`} />
+            </>
+          )}
+          {termsAgreed && <DetailRow label="利用規約" value="同意済み ✓" />}
+        </div>
 
         {companionsLost && (
-          <GlassCard tone="gold" padding="md">
-            <p className="text-[13px]" style={{ color: "var(--eb-gold-text)" }}>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+            <p className="text-xs text-amber-700">
               一緒に入る人の選択が失われました。前の画面で選び直してください。
             </p>
-          </GlassCard>
+          </div>
         )}
 
-        <p className="text-center text-[13px] text-[color:var(--eb-ink-muted)]">
+        <p className="text-xs text-gray-700 text-center">
           予約確定後はLINEにて通知が届きます
         </p>
 
-        <Button
-          variant="primary"
+        <button
           onClick={handleReserve}
           disabled={!profileLoaded || companionsLost}
+          className={clsx(
+            "w-full py-3 rounded-xl text-sm font-medium transition-colors",
+            profileLoaded && !companionsLost
+              ? "bg-[#B0E401] text-[#231714]"
+              : "bg-gray-200 text-gray-700 cursor-not-allowed"
+          )}
         >
           予約を確定する
-        </Button>
-        <Button variant="ghost" onClick={() => router.back()}>
+        </button>
+        <button
+          onClick={() => router.back()}
+          className="w-full py-3 rounded-xl text-sm font-medium border border-gray-200 text-gray-700"
+        >
           戻る
-        </Button>
+        </button>
       </div>
-    </PageBg>
+    </div>
   );
 }
 
 export default function ConfirmPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-center text-[13px] text-[color:var(--eb-ink-muted)]">読み込み中...</div>}>
+    <Suspense fallback={<div className="p-4 text-center text-sm text-gray-700">読み込み中...</div>}>
       <ConfirmContent />
     </Suspense>
   );
@@ -241,9 +249,25 @@ export default function ConfirmPage() {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[13px] text-[color:var(--eb-ink-muted)]">{label}</span>
-      <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">{value}</span>
+    <div className="flex justify-between items-center">
+      <span className="text-xs text-gray-700">{label}</span>
+      <span className="text-sm font-medium text-gray-800">{value}</span>
+    </div>
+  );
+}
+
+function StepIndicator({ step, total }: { step: number; total: number }) {
+  return (
+    <div className="flex gap-1.5 justify-center my-1">
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          className={clsx(
+            "h-1 w-5 rounded-full",
+            i < step ? "bg-[#A5C1C8]" : "bg-gray-200"
+          )}
+        />
+      ))}
     </div>
   );
 }

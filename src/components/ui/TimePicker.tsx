@@ -92,21 +92,21 @@ export default function TimePicker({
         type="button"
         onClick={() => setOpen((p) => !p)}
         className={`
-          flex h-14 w-full items-center justify-between gap-2
-          rounded-2xl border px-4 text-[17px] transition-all
-          ${open ? "border-2 border-[color:var(--eb-green)]" : "border-[color:var(--eb-line)]"}
-          ${!value ? "text-[#9AA39E]" : "text-[color:var(--eb-ink)]"}
-          cursor-pointer bg-white
+          w-full flex items-center justify-between gap-2
+          px-3 py-2.5 border rounded-xl text-sm transition-all
+          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/30" : "border-[#231714]/15 hover:border-[#231714]/30"}
+          ${!value ? "text-[#231714]/80" : "text-[#231714]"}
+          bg-white cursor-pointer
         `}
       >
         <div className="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[color:var(--eb-green)]">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#4f757e] shrink-0">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
           <span>{displayValue || placeholder}</span>
         </div>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[color:var(--eb-ink-muted)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#231714]/75 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
@@ -115,8 +115,8 @@ export default function TimePicker({
       {open && (
         <div
           ref={listRef}
-          className="eb-glass absolute left-0 right-0 mt-1 max-h-[240px] overflow-y-auto rounded-2xl py-1 shadow-lg shadow-black/10"
-          style={{ zIndex: 99999, background: "rgba(255,255,255,.98)" }}
+          className="absolute left-0 right-0 mt-1 max-h-[240px] overflow-y-auto bg-white border border-[#231714]/10 rounded-xl shadow-lg shadow-black/10 py-1"
+          style={{ zIndex: 99999 }}
         >
           {options.map((t) => {
             const isSelected = t === value;
@@ -126,10 +126,9 @@ export default function TimePicker({
                 type="button"
                 onClick={() => handleSelect(t)}
                 className={`
-                  flex h-12 w-full items-center rounded-[14px] px-4 text-left text-[15px] transition-colors
-                  ${isSelected ? "font-bold text-white" : "font-medium text-[color:var(--eb-ink)] hover:bg-[color:var(--eb-tint)]"}
+                  w-full text-left px-3 py-2 text-sm transition-colors
+                  ${isSelected ? "bg-[#231714] text-white font-medium" : "text-[#231714] hover:bg-[#A5C1C8]/20"}
                 `}
-                style={isSelected ? { background: "var(--eb-green)" } : undefined}
               >
                 {t}
               </button>
