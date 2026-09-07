@@ -1,21 +1,17 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import Image from "next/image";
 import type { MahjongStanding, MahjongLeagueTier } from "@/types";
 import { Avatar } from "@/components/ui/LineContact";
 import { GlassCard, StatusPill } from "@/components/ui/eb";
 
 /**
- * 麻雀リーグ ピラミッド表示（TILES 案）
- * - 上部: 3D 回転ピラミッド（`LeaguePyramid3D`）をアイボリー帯のヒーローに配置
+ * 麻雀リーグ ピラミッド表示
+ * - 上部: クリスタル・ピラミッドの画像（`public/league-pyramid.jpg`・M1=マゼンタ／M2=ブルー／M3=ゴールド）を
+ *   黒のヒーローカードに置き、左に段ラベル、右に自分の位置（アバター＋「あなた」）を重ねる。
+ *   ※ 2026-09-07 に Three.js の 3D ピラミッド（`LeaguePyramid3D`）から差し替え。ファイルは残してあるが未使用。
  * - 下部: M1/M2/M3 別の順位リスト（自分を YOU でハイライト）
  */
-
-// 3D は WebGL のためクライアント専用（SSR 無効）
-const LeaguePyramid3D = dynamic(
-  () => import("./LeaguePyramid3D").then((m) => m.LeaguePyramid3D),
-  { ssr: false }
-);
 
 const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
   M1: { color: "var(--eb-league-m1)", desc: "PREMIER ・ 1〜4位" },
@@ -24,6 +20,9 @@ const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
 };
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
+
+/** 画像内で各段の中心が来る高さ（上端からの割合）。画像を差し替えたらここを合わせる。 */
+const TIER_Y: Record<MahjongLeagueTier, number> = { M1: 0.2, M2: 0.47, M3: 0.76 };
 
 /** 連対率の表示（0–1 の小数でも 0–100 でも % 表記・小数第2位まで） */
 function pct(v: number): string {
@@ -49,15 +48,64 @@ export function LeaguePyramid({
   const byTier: Record<MahjongLeagueTier, MahjongStanding[]> = { M1: [], M2: [], M3: [] };
   standings.forEach((s) => byTier[s.tier].push(s));
   TIER_ORDER.forEach((t) => byTier[t].sort((a, b) => a.rank - b.rank));
+  const me = currentUserId ? standings.find((s) => s.lineUserId === currentUserId) : undefined;
 
   return (
     <div className="space-y-5">
-      {/* 3D ピラミッド（黒帯ヒーロー・ダーツ LEAGUE BOARD と背景色を統一 #17191b） */}
+      {/* クリスタル・ピラミッド（黒のヒーローカード） */}
       <div
-        className="rounded-[18px] overflow-hidden"
-        style={{ background: "radial-gradient(120% 80% at 50% 12%, #202226, #17191b)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
+        className="relative overflow-hidden rounded-[20px]"
+        style={{
+          background: "radial-gradient(120% 80% at 50% 10%, #16181b, #050607)",
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(20,41,31,.12)",
+        }}
       >
-        <LeaguePyramid3D standings={standings} currentUserId={currentUserId} height={280} />
+        <div className="relative mx-auto aspect-square w-full max-w-[340px]">
+          <Image
+            src="/league-pyramid.jpg"
+            alt="M1・M2・M3 のリーグを表すクリスタルのピラミッド"
+            fill
+            sizes="(max-width: 480px) 100vw, 340px"
+            priority
+            className="object-contain"
+          />
+        </div>
+
+        {/* 左: 段ラベル（色＋文字。色だけに頼らない） */}
+        <div className="pointer-events-none absolute inset-y-0 left-3 w-24">
+          {TIER_ORDER.map((t) => (
+            <div
+              key={t}
+              className="absolute left-0 flex -translate-y-1/2 items-center gap-1.5"
+              style={{ top: `${TIER_Y[t] * 100}%` }}
+            >
+              <span
+                className="inline-flex h-7 min-w-[36px] items-center justify-center rounded-lg px-2 text-[13px] font-bold text-white shadow-[0_2px_8px_rgba(0,0,0,.4)]"
+                style={{ background: TIER_META[t].color }}
+              >
+                {t}
+              </span>
+              <span className="text-[11px] font-bold text-white/70">{byTier[t].length}名</span>
+            </div>
+          ))}
+        </div>
+
+        {/* 右: 自分の位置 */}
+        {me && (
+          <div
+            className="pointer-events-none absolute right-3 flex -translate-y-1/2 flex-col items-center gap-1"
+            style={{ top: `${TIER_Y[me.tier] * 100}%` }}
+          >
+            <div className="rounded-full p-[2px]" style={{ background: TIER_META[me.tier].color }}>
+              <div className="rounded-full bg-black p-[2px]">
+                <Avatar src={me.pictureUrl} name={me.displayName} size={40} />
+              </div>
+            </div>
+            <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-bold text-[color:var(--eb-ink)]">
+              あなた・{me.rank}位
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 順位リスト */}
