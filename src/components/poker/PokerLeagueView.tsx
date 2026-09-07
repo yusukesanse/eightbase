@@ -8,6 +8,7 @@ import { PokerJoinTab } from "@/components/poker/PokerJoinTab";
 import { PokerGameTab } from "@/components/poker/PokerGameTab";
 import { PokerRulesTab } from "@/components/poker/PokerRulesTab";
 import { PokerCsView } from "@/components/poker/PokerCsView";
+import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import type { PokerPaymentStatus, PokerScheduleEntry } from "@/types/poker";
 
 /**
@@ -90,33 +91,39 @@ export function PokerLeagueView() {
   return (
     <div>
       {payBanner && (
-        <div className={`mb-3 rounded-2xl px-4 py-3 text-[13px] font-bold flex items-center justify-between gap-2 ${payBanner.ok ? "bg-[#eef4dd] text-[#5f7d1e]" : "bg-[#fdece8] text-[#d8533a]"}`}>
-          <span>{payBanner.text}</span>
-          <button onClick={() => setPayBanner(null)} className="shrink-0 font-black opacity-60">×</button>
-        </div>
+        <GlassCard tone={payBanner.ok ? "green" : "coral"} padding="md" className="mb-3">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`text-[15px] font-bold ${
+                payBanner.ok ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-coral-text)]"
+              }`}
+            >
+              {payBanner.text}
+            </span>
+            <button
+              onClick={() => setPayBanner(null)}
+              aria-label="閉じる"
+              className="shrink-0 text-[17px] font-bold text-[color:var(--eb-ink-muted)]"
+            >
+              ×
+            </button>
+          </div>
+        </GlassCard>
       )}
 
-      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1">
-        {(
-          [
-            { id: "league", label: "リーグ" },
-            { id: "join", label: "参加" },
-            { id: "game", label: "対戦記録" },
-            { id: "cs", label: "CS" },
-            { id: "rules", label: "ルール/約款" },
-          ] as { id: SubTab; label: string }[]
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSubTab(t.id)}
-            className={`flex-1 py-2 rounded-lg text-xs text-center transition-all ${
-              subTab === t.id ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25" : "text-[#231714]/80 font-medium"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        className="mb-4"
+        size="md"
+        value={subTab}
+        onChange={(id) => setSubTab(id as SubTab)}
+        items={[
+          { id: "league", label: "リーグ" },
+          { id: "join", label: "参加" },
+          { id: "game", label: "対戦記録" },
+          { id: "cs", label: "CS" },
+          { id: "rules", label: "ルール/約款" },
+        ]}
+      />
 
       {loading ? (
         <div className="flex justify-center py-12">

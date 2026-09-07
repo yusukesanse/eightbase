@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { DayTabPlaceholder } from "@/components/games/DayTabPlaceholder";
-import { POKER_ACCENT, todayJst, CheckIcon, fmtChips } from "@/components/poker/pokerShared";
+import { todayJst, fmtChips } from "@/components/poker/pokerShared";
 import { POKER_INITIAL_CHIPS } from "@/types/poker";
+import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 
 /**
  * ポーカー 当日タブ（ディーラー主導の複数試合）。麻雀/ダーツの当日フローの読み替え。
@@ -106,22 +107,26 @@ export function PokerGameTab({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {error && <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{error}</div>}
+      {error && (
+        <GlassCard tone="coral" padding="md">
+          <p className="text-[15px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>
+        </GlassCard>
+      )}
 
       {/* 進行状況ヘッダ */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between">
+      <GlassCard padding="md" className="flex items-center justify-between">
         <div>
-          <div className="text-[13px] font-extrabold text-[#1c1f21]">
+          <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">
             {day.started ? `第${(day.currentGame?.gameIndex ?? day.gamesPlayed) || day.gamesPlayed}試合` : "開始前"}
           </div>
-          <div className="text-[10.5px] text-[#3f4247] mt-0.5">これまでに {day.gamesPlayed} 試合終了 ・ 参加 {day.paidCount}名</div>
+          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-0.5">これまでに {day.gamesPlayed} 試合終了 ・ 参加 {day.paidCount}名</div>
         </div>
         {day.currentGame && (
-          <span className="text-[10.5px] font-bold px-2 py-1 rounded-full" style={{ background: `color-mix(in srgb, ${POKER_ACCENT} 12%, #fff)`, color: POKER_ACCENT }}>
+          <StatusPill tone="green">
             {day.currentGame.status === "ready" ? "開始待ち" : day.currentGame.status === "playing" ? "プレイ中" : "チップ申告中"}
-          </span>
+          </StatusPill>
         )}
-      </div>
+      </GlassCard>
 
       {day.phase === "dealerSelect" && <DealerSelect day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
       {day.phase === "ready" && day.currentGame && <ReadyPhase game={day.currentGame} eventDate={eventDate} onDone={refresh} setError={setError} />}
@@ -132,7 +137,11 @@ export function PokerGameTab({ onChanged }: { onChanged: () => void }) {
 }
 
 function InfoCard({ text }: { text: string }) {
-  return <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-sm text-[#231714]/80">{text}</div>;
+  return (
+    <GlassCard className="py-8 text-center">
+      <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink-muted)]">{text}</p>
+    </GlassCard>
+  );
 }
 
 /* ───────── ディーラー選択 ───────── */
@@ -147,36 +156,46 @@ function DealerSelect({ day, eventDate, onDone, setError }: { day: DayDto; event
   };
   const enoughPeople = day.paidCount >= day.minParticipants;
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
-      <div className="text-[13px] font-extrabold text-[#1c1f21]">
-        {day.gamesPlayed > 0 ? "次の試合のディーラーを決めます" : "ディーラーを決めます"}
-      </div>
-      <p className="text-[11.5px] text-[#231714]/80 leading-relaxed">
-        ディーラーは進行役です（プレイには参加しません）。誰か1人が「ディーラーをやる」を押してください。
-        {day.gamesPlayed === 0 && "　受付は開催日の開始時刻で締め切られ、その後に最初の試合を始められます。"}
-      </p>
-      <div className="rounded-xl bg-[#f7faf8] px-3 py-2">
-        <div className="text-[10.5px] font-extrabold text-[#3c4f54] mb-1">
-          参加者（支払い済み {day.paidCount}名{day.entryCount > day.paidCount ? ` ・ 未払い ${day.entryCount - day.paidCount}名` : ""}）
+    <GlassCard>
+      <div className="flex flex-col gap-3">
+        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">
+          {day.gamesPlayed > 0 ? "次の試合のディーラーを決めます" : "ディーラーを決めます"}
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {day.participants.map((p, i) => (
-            <span key={i} className="inline-flex items-center rounded-2xl px-2.5 min-h-[30px] text-[12px] font-bold bg-white border" style={{ borderColor: p.isMe ? POKER_ACCENT : "#e4e7e9", color: "#231714" }}>
-              {p.displayName}{p.isMe && "（あなた）"}
-              {!p.paid && <span className="ml-1 text-[10px] font-bold" style={{ color: "#a1702c" }}>未払い</span>}
-            </span>
-          ))}
+        <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+          ディーラーは進行役です（プレイには参加しません）。誰か1人が「ディーラーをやる」を押してください。
+          {day.gamesPlayed === 0 && "受付は開催日の開始時刻で締め切られ、その後に最初の試合を始められます。"}
+        </p>
+        <div className="rounded-2xl p-3" style={{ background: "var(--eb-tint)" }}>
+          <div className="mb-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+            参加者（支払い済み {day.paidCount}名{day.entryCount > day.paidCount ? ` ・ 未払い ${day.entryCount - day.paidCount}名` : ""}）
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {day.participants.map((p, i) => (
+              <span
+                key={i}
+                className="inline-flex min-h-[36px] items-center rounded-2xl border bg-white px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+                style={{ borderColor: p.isMe ? "var(--eb-green)" : "var(--eb-line)" }}
+              >
+                {p.displayName}{p.isMe && "（あなた）"}
+                {!p.paid && <span className="ml-1 text-[11px] font-bold text-[color:var(--eb-gold-text)]">未払い</span>}
+              </span>
+            ))}
+          </div>
         </div>
+        {!day.iAmPaid ? (
+          <InfoCard text="参加費が未払いです。お支払いいただくと参加・ディーラーができます（「参加」タブからお支払いください）。" />
+        ) : (
+          <Button variant="primary" loading={busy} disabled={!enoughPeople} onClick={become}>
+            ディーラーをやる
+          </Button>
+        )}
+        {!enoughPeople && (
+          <p className="text-center text-[13px] text-[color:var(--eb-ink-muted)]">
+            支払い済みが{day.minParticipants}名以上になると始められます（未払いの方はその場でお支払いください）。
+          </p>
+        )}
       </div>
-      {!day.iAmPaid ? (
-        <InfoCard text="参加費が未払いです。お支払いいただくと参加・ディーラーができます（「参加」タブからお支払いください）。" />
-      ) : (
-        <button onClick={become} disabled={busy || !enoughPeople} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: POKER_ACCENT }}>
-          {busy ? "登録中…" : "ディーラーをやる"}
-        </button>
-      )}
-      {!enoughPeople && <p className="text-[10.5px] text-center text-[#231714]/80">支払い済みが{day.minParticipants}名以上になると始められます（未払いの方はその場でお支払いください）。</p>}
-    </div>
+    </GlassCard>
   );
 }
 
@@ -191,22 +210,24 @@ function ReadyPhase({ game, eventDate, onDone, setError }: { game: CurrentGame; 
     setBusy(false);
   };
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
-      <div className="text-[13px] font-extrabold text-[#1c1f21]">ディーラー: {game.dealerName}</div>
-      {game.iAmDealer ? (
-        <>
-          <p className="text-[11.5px] text-[#231714]/80 leading-relaxed">
-            あなたがディーラーです。準備ができたら「ゲーム開始」を押してください（30分タイマーが始まります）。
-            受付は開催日の開始時刻で締め切られます。
-          </p>
-          <button onClick={start} disabled={busy} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: POKER_ACCENT }}>
-            {busy ? "開始中…" : "ゲーム開始（30分）"}
-          </button>
-        </>
-      ) : (
-        <InfoCard text={`ディーラー（${game.dealerName}）の開始を待っています。`} />
-      )}
-    </div>
+    <GlassCard>
+      <div className="flex flex-col gap-3">
+        <div className="text-[15px] font-bold text-[color:var(--eb-ink)]">ディーラー: {game.dealerName}</div>
+        {game.iAmDealer ? (
+          <>
+            <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+              あなたがディーラーです。準備ができたら「ゲーム開始」を押してください（30分タイマーが始まります）。
+              受付は開催日の開始時刻で締め切られます。
+            </p>
+            <Button variant="primary" loading={busy} onClick={start}>
+              ゲーム開始（30分）
+            </Button>
+          </>
+        ) : (
+          <InfoCard text={`ディーラー（${game.dealerName}）の開始を待っています。`} />
+        )}
+      </div>
+    </GlassCard>
   );
 }
 
@@ -222,20 +243,27 @@ function PlayingPhase({ game, eventDate, onDone, setError }: { game: CurrentGame
     setBusy(false);
   };
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center gap-3">
-      <div className="text-[11px] font-bold text-[#3c4f54]">ディーラー: {game.dealerName}</div>
-      <div className="text-[52px] font-black tabular-nums leading-none" style={{ color: over ? "#d8533a" : POKER_ACCENT }}>{text}</div>
-      <p className="text-[11.5px] text-[#231714]/80 text-center leading-relaxed">
-        {over ? "時間切れです。ディーラーがゲームを終了してください。" : "プレイ中です。誰か1人のチップが0になるか、30分でゲーム終了です。"}
-      </p>
-      {game.iAmDealer ? (
-        <button onClick={end} disabled={busy} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: over ? "#d8533a" : POKER_ACCENT }}>
-          {busy ? "終了中…" : "ゲーム終了（チップ申告へ）"}
-        </button>
-      ) : (
-        <div className="text-[11.5px] text-[#231714]/75">ディーラーがゲームを終了すると、チップの申告に進みます。</div>
-      )}
-    </div>
+    <GlassCard>
+      <div className="flex flex-col items-center gap-3">
+        <div className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">ディーラー: {game.dealerName}</div>
+        <div
+          className="text-[52px] font-bold tabular-nums leading-none"
+          style={{ color: over ? "var(--eb-coral-text)" : "var(--eb-green-text)" }}
+        >
+          {text}
+        </div>
+        <p className="text-center text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+          {over ? "時間切れです。ディーラーがゲームを終了してください。" : "プレイ中です。誰か1人のチップが0になるか、30分でゲーム終了です。"}
+        </p>
+        {game.iAmDealer ? (
+          <Button variant={over ? "danger" : "primary"} loading={busy} onClick={end}>
+            ゲーム終了（チップ申告へ）
+          </Button>
+        ) : (
+          <p className="text-[13px] text-[color:var(--eb-ink-muted)]">ディーラーがゲームを終了すると、チップの申告に進みます。</p>
+        )}
+      </div>
+    </GlassCard>
   );
 }
 
@@ -260,38 +288,39 @@ function PlayerReport({ game, eventDate, onDone, setError, allReported }: { game
     setBusy(false);
   };
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-extrabold text-[#1c1f21]">終了時チップを申告</span>
-        <span className="text-[10.5px] font-bold text-[#3c4f54] tabular-nums">申告 {game.reportedCount}/{game.total}</span>
-      </div>
-      {game.myReported ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-extrabold self-start" style={{ background: "#eef4dd", color: "#6f9023" }}>
-            <CheckIcon color="#6f9023" size={14} />申告済み: {fmtChips(game.myChips ?? 0)}
-          </div>
-          <p className="text-[11px] text-[#231714]/70">
-            {allReported ? "全員の申告が揃いました。ディーラーの確定を待っています。" : "他のプレイヤーの申告を待っています。"}
-          </p>
+    <GlassCard>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">終了時チップを申告</span>
+          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {game.reportedCount}/{game.total}</span>
         </div>
-      ) : (
-        <>
-          <p className="text-[11px] text-[#231714]/80">初期チップは1人 {fmtChips(POKER_INITIAL_CHIPS)}。手元の残高（点）を入力してください（0〜{fmtChips(game.maxChips)}）。</p>
-          <div className="flex items-center gap-2">
-            <input
-              type="text" inputMode="numeric" autoFocus placeholder="0" value={value}
-              onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
-              className="flex-1 border-b-2 outline-none bg-transparent text-[26px] font-black tabular-nums text-[#1c1f21] py-1"
-              style={{ borderColor: value ? POKER_ACCENT : "#e4e7e9" }}
-            />
-            <span className="text-[13px] font-bold text-[#3f4247]">点</span>
-            <button onClick={submit} disabled={busy || !value} className="shrink-0 px-4 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-30" style={{ background: POKER_ACCENT }}>
-              {busy ? "..." : "申告する"}
-            </button>
+        {game.myReported ? (
+          <div className="flex flex-col gap-1.5">
+            <StatusPill tone="green" className="self-start">申告済み: {fmtChips(game.myChips ?? 0)}</StatusPill>
+            <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
+              {allReported ? "全員の申告が揃いました。ディーラーの確定を待っています。" : "他のプレイヤーの申告を待っています。"}
+            </p>
           </div>
-        </>
-      )}
-    </div>
+        ) : (
+          <>
+            <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
+              初期チップは1人 {fmtChips(POKER_INITIAL_CHIPS)}。手元の残高（点）を入力してください（0〜{fmtChips(game.maxChips)}）。
+            </p>
+            <div className="flex items-center h-14 rounded-2xl bg-white px-4 border border-[color:var(--eb-line)]">
+              <input
+                type="text" inputMode="numeric" autoFocus placeholder="0" value={value}
+                onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
+                className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-bold text-right text-[color:var(--eb-ink)] tabular-nums text-[26px]"
+              />
+              <span className="ml-2 shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">点</span>
+            </div>
+            <Button variant="primary" loading={busy} disabled={!value} onClick={submit}>
+              申告する
+            </Button>
+          </>
+        )}
+      </div>
+    </GlassCard>
   );
 }
 
@@ -318,36 +347,52 @@ function DealerReview({ game, eventDate, onDone, setError, allReported }: { game
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-extrabold text-[#1c1f21]">チップ申告の確認（ディーラー）</span>
-        <span className="text-[10.5px] font-bold text-[#3c4f54] tabular-nums">申告 {game.reportedCount}/{game.total}</span>
+    <GlassCard>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">チップ申告の確認（ディーラー）</span>
+          <span className="text-[12px] font-bold text-[color:var(--eb-ink-muted)] tabular-nums">申告 {game.reportedCount}/{game.total}</span>
+        </div>
+        <p className="text-[13px] text-[color:var(--eb-ink-muted)]">
+          各プレイヤーが自分で申告します。未申告の人はディーラーが代理入力できます。全員そろったら「確定」を押すと次の試合へ進みます。
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {game.players.map((p) => {
+            const uid = p.lineUserId ?? "";
+            return (
+              <div
+                key={uid}
+                className="flex items-center gap-2 rounded-xl px-3 py-2"
+                style={
+                  p.reported
+                    ? { background: "rgba(35,147,94,.08)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
+                    : { background: "var(--eb-tint)" }
+                }
+              >
+                <span className="flex-1 min-w-0 truncate text-[14px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</span>
+                {p.reported && <span className="text-[13px] font-bold text-[color:var(--eb-green-text)] tabular-nums">{fmtChips(p.chips ?? 0)}</span>}
+                <input
+                  type="text" inputMode="numeric" placeholder={p.reported ? "修正" : "入力"}
+                  value={draft[uid] ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, [uid]: e.target.value.replace(/[^\d]/g, "") }))}
+                  className="w-20 rounded-xl border border-[color:var(--eb-line)] bg-white py-1.5 text-right text-[14px] font-bold tabular-nums text-[color:var(--eb-ink)] focus:outline-none focus:border-2 focus:border-[color:var(--eb-green)]"
+                />
+                <button
+                  onClick={() => submit(uid)}
+                  disabled={busy === uid || !draft[uid]}
+                  className="shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-white disabled:opacity-30"
+                  style={{ background: "var(--eb-green)" }}
+                >
+                  登録
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <Button variant="primary" loading={confirming} disabled={!allReported} onClick={confirmGame}>
+          {allReported ? "全員のチップを確定して次へ" : `あと${game.total - game.reportedCount}名の申告待ち`}
+        </Button>
       </div>
-      <p className="text-[11px] text-[#231714]/80">各プレイヤーが自分で申告します。未申告の人はディーラーが代理入力できます。全員そろったら「確定」を押すと次の試合へ進みます。</p>
-      <div className="flex flex-col gap-1.5">
-        {game.players.map((p) => {
-          const uid = p.lineUserId ?? "";
-          return (
-            <div key={uid} className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: p.reported ? POKER_ACCENT : "#e4e7e9", background: p.reported ? `color-mix(in srgb, ${POKER_ACCENT} 6%, #fff)` : "#fff" }}>
-              <span className="text-[12.5px] font-bold text-[#1c1f21] flex-1 min-w-0 truncate">{p.displayName}</span>
-              {p.reported && <span className="text-[11px] font-bold tabular-nums" style={{ color: POKER_ACCENT }}>{fmtChips(p.chips ?? 0)}</span>}
-              <input
-                type="text" inputMode="numeric" placeholder={p.reported ? "修正" : "入力"}
-                value={draft[uid] ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, [uid]: e.target.value.replace(/[^\d]/g, "") }))}
-                className="w-20 text-right border-b outline-none bg-transparent text-[14px] font-black tabular-nums text-[#1c1f21] py-0.5"
-                style={{ borderColor: draft[uid] ? POKER_ACCENT : "#e4e7e9" }}
-              />
-              <button onClick={() => submit(uid)} disabled={busy === uid || !draft[uid]} className="shrink-0 text-[11px] font-black px-2.5 py-1.5 rounded-lg text-white disabled:opacity-30" style={{ background: POKER_ACCENT }}>
-                登録
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      <button onClick={confirmGame} disabled={!allReported || confirming} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: POKER_ACCENT }}>
-        {confirming ? "確定中…" : allReported ? "全員のチップを確定して次へ" : `あと${game.total - game.reportedCount}名の申告待ち`}
-      </button>
-    </div>
+    </GlassCard>
   );
 }

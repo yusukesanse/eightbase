@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { Avatar } from "@/components/ui/LineContact";
-import { BILLIARDS_ACCENT, todayJst } from "@/components/billiards/billiardsShared";
+import { todayJst } from "@/components/billiards/billiardsShared";
 import { DayGmBanner } from "@/components/games/DayGmBanner";
 import { DayTabPlaceholder } from "@/components/games/DayTabPlaceholder";
 import { DayRosterPanel } from "@/components/games/DayRosterPanel";
 import { BILLIARDS_MAX_LOSER_BALLS, BILLIARDS_MIN_PARTICIPANTS } from "@/types/billiards";
+import { Button, GlassCard, StatusPill, inputClass } from "@/components/ui/eb";
 
 /**
  * ビリヤード 対戦記録タブ（試合ログ方式）。当日=todayJst。
@@ -50,16 +50,24 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
 
   const refresh = useCallback(async () => { await load(); onChanged(); }, [load, onChanged]);
 
-  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
-
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // 参加者以外（取得できなかった場合も含む）には出さない。理由は DayTabPlaceholder 参照。
   if (!day || !day.iAmParticipant) return <DayTabPlaceholder />;
 
-
   return (
     <div className="flex flex-col gap-4">
-      {error && <div className="text-[12px] font-bold text-[#d8533a] bg-[#fdece8] rounded-xl px-3 py-2">{error}</div>}
+      {error && (
+        <GlassCard tone="coral" padding="md">
+          <p className="text-[15px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>
+        </GlassCard>
+      )}
       {/* 当日GMは開催日ごとに参加者が自己選出する（シーズン固定GMは麻雀だけ）。 */}
       <DayGmBanner
         game="billiards"
@@ -84,54 +92,88 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
       {day.isGameMaster && <GmPanel day={day} eventDate={eventDate} onDone={refresh} setError={setError} />}
 
       {!day.started ? (
-        <InfoCard text={day.gameMasterName ? "ゲームマスターの「ゲーム開始」を待っています。" : "まだゲームマスターが決まっていません。上の「GMをやる」から担当を決めてください。"} />
+        <GlassCard className="py-8 text-center">
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            {day.gameMasterName ? "ゲームマスターの「ゲーム開始」を待っています。" : "まだゲームマスターが決まっていません。上の「GMをやる」から担当を決めてください。"}
+          </p>
+        </GlassCard>
       ) : (
         <>
           {/* ライブ当日順位 */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-            <div className="text-[12px] font-extrabold text-[#1c1f21] mb-2">当日順位（{day.finished ? "確定" : "途中経過"}）</div>
-            {day.standings.length === 0 ? <div className="text-[12px] text-[#231714]/80 py-1">まだ試合がありません。</div> : (
-              <div className="flex flex-col gap-1">
+          <GlassCard padding="md">
+            <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+              当日順位（{day.finished ? "確定" : "途中経過"}）
+            </div>
+            {day.standings.length === 0 ? (
+              <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ試合がありません。</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
                 {day.standings.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2.5 px-1.5 py-1 rounded-lg" style={s.isMe ? { background: `color-mix(in srgb, ${BILLIARDS_ACCENT} 8%, #fff)` } : undefined}>
-                    <span className="w-[20px] text-center text-[13px] font-black tabular-nums" style={{ color: s.dayRank <= 3 ? BILLIARDS_ACCENT : "#97999d" }}>{s.dayRank}</span>
-                    <span className="flex-1 min-w-0 text-[13px] font-bold text-[#1c1f21] truncate">{s.displayName}{s.isMe && <span className="ml-1 text-[10px] font-extrabold" style={{ color: BILLIARDS_ACCENT }}>YOU</span>}</span>
-                    <span className="text-[10.5px] text-[#97999d] tabular-nums">{s.wins}勝{s.losses}敗</span>
-                    <span className="text-[15px] font-black text-[#1c1f21] tabular-nums w-[42px] text-right">{s.points}</span>
+                  <div
+                    key={i}
+                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl"
+                    style={
+                      s.isMe
+                        ? { background: "rgba(35,147,94,.08)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
+                        : undefined
+                    }
+                  >
+                    <span
+                      className="w-6 text-center font-bold tabular-nums shrink-0"
+                      style={{ fontSize: s.dayRank <= 3 ? 17 : 15, color: "rgba(26,29,27,.6)" }}
+                    >
+                      {s.dayRank}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate text-[15px] font-bold text-[color:var(--eb-ink)]">
+                      {s.displayName}
+                      {s.isMe && <StatusPill tone="green" className="ml-1.5">YOU</StatusPill>}
+                    </span>
+                    <span className="text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{s.wins}勝{s.losses}敗</span>
+                    <span className="w-[42px] text-right text-[16px] font-bold text-[color:var(--eb-ink)] tabular-nums">{s.points}</span>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </GlassCard>
 
           {/* 試合ログ */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-            <div className="text-[12px] font-extrabold text-[#1c1f21] mb-2">試合ログ（{day.matches.length}試合）</div>
-            {day.matches.length === 0 ? <div className="text-[12px] text-[#231714]/80 py-1">まだ試合がありません。</div> : (
+          <GlassCard padding="md">
+            <div className="mb-2 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">試合ログ（{day.matches.length}試合）</div>
+            {day.matches.length === 0 ? (
+              <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ試合がありません。</p>
+            ) : (
               <div className="flex flex-col gap-1.5">
                 {day.matches.map((m) => (
-                  <div key={m.matchId} className="flex items-center gap-2 rounded-xl border border-[#eceff1] px-2.5 py-2 text-[12.5px]">
-                    <span className="font-extrabold" style={{ color: "#6f9023" }}>勝</span>
-                    <span className={`font-bold ${m.winnerIsMe ? "text-[#2f7d57]" : "text-[#1c1f21]"} truncate`}>{m.winnerName}</span>
-                    <span className="text-[#97999d]">14</span>
-                    <span className="text-[#c3c7cc] mx-0.5">—</span>
-                    <span className={`font-bold ${m.loserIsMe ? "text-[#2f7d57]" : "text-[#40434a]"} truncate`}>{m.loserName}</span>
-                    <span className="text-[#97999d]">{m.loserBalls}</span>
+                  <div
+                    key={m.matchId}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px]"
+                    style={{ background: "var(--eb-tint)" }}
+                  >
+                    <span className="font-bold text-[color:var(--eb-green-text)]">勝</span>
+                    <span
+                      className={`truncate font-bold ${m.winnerIsMe ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink)]"}`}
+                    >
+                      {m.winnerName}
+                    </span>
+                    <span className="text-[color:var(--eb-ink-muted)]">14</span>
+                    <span className="mx-0.5 text-[color:var(--eb-ink-muted)]">—</span>
+                    <span
+                      className={`truncate font-bold ${m.loserIsMe ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}
+                    >
+                      {m.loserName}
+                    </span>
+                    <span className="text-[color:var(--eb-ink-muted)]">{m.loserBalls}</span>
                     <span className="flex-1" />
                     {day.isGameMaster && !day.finished && <DeleteMatch eventDate={eventDate} matchId={m.matchId} onDone={refresh} setError={setError} />}
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </GlassCard>
         </>
       )}
     </div>
   );
-}
-
-function InfoCard({ text }: { text: string }) {
-  return <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-sm text-[#231714]/80">{text}</div>;
 }
 
 async function postDay(path: string, body: unknown, method = "POST"): Promise<{ ok: boolean; error?: string }> {
@@ -153,7 +195,7 @@ function DeleteMatch({ eventDate, matchId, onDone, setError }: { eventDate: stri
         setBusy(false);
       }}
       disabled={busy}
-      className="shrink-0 text-[11px] font-bold text-[#d8533a] disabled:opacity-40"
+      className="shrink-0 text-[13px] font-bold text-[color:var(--eb-coral-text)] disabled:opacity-40"
     >
       取消
     </button>
@@ -204,78 +246,147 @@ function GmPanel({ day, eventDate, onDone, setError }: { day: DayDto; eventDate:
   };
 
   return (
-    <div className="rounded-2xl border-2 p-4 flex flex-col gap-3" style={{ borderColor: BILLIARDS_ACCENT, background: `color-mix(in srgb, ${BILLIARDS_ACCENT} 5%, #fff)` }}>
-      <div className="text-[13px] font-black" style={{ color: BILLIARDS_ACCENT }}>{!day.started ? "ゲーム開始（GM）" : day.finished ? "本日の対局は終了しました" : "試合を記録（GM）"}</div>
+    <GlassCard tone="green">
+      <div className="flex flex-col gap-3">
+        <div className="text-[15px] font-bold text-[color:var(--eb-green-text)]">
+          {!day.started ? "ゲーム開始（GM）" : day.finished ? "本日の対局は終了しました" : "試合を記録（GM）"}
+        </div>
 
-      {!day.started ? (
-        <>
-          <p className="text-[11px] text-[#231714]/80 leading-relaxed">「ゲーム開始」で<b>受付を締め切り</b>ます。以降は参加・支払い不可。その時点の支払い済みメンバーで進めます。</p>
-          <div className="rounded-2xl border border-dashed p-2.5" style={{ borderColor: "#e4e7e9", background: "#fff" }}>
-            <div className="text-[11px] font-extrabold text-[#3f4247] mb-1.5">支払い済み（{day.paidCount}名）</div>
-            <div className="flex flex-wrap gap-1.5">
-              {day.participants.length === 0 ? <span className="text-[11px] text-[#231714]/75">まだいません</span> : day.participants.map((m) => (
-                <span key={m.lineUserId ?? m.displayName} className="inline-flex items-center rounded-2xl px-3 min-h-[36px] text-[13px] font-bold bg-white border" style={{ borderColor: "#e4e7e9", color: "#231714" }}>{m.displayName}</span>
-              ))}
-            </div>
-          </div>
-          <button onClick={start} disabled={starting || day.paidCount < BILLIARDS_MIN_PARTICIPANTS} className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40" style={{ background: BILLIARDS_ACCENT }}>{starting ? "開始中…" : "ゲーム開始（受付を締め切る）"}</button>
-          {day.paidCount < BILLIARDS_MIN_PARTICIPANTS && <p className="text-[10.5px] text-[#231714]/85 text-center">支払い済みが{BILLIARDS_MIN_PARTICIPANTS}名以上になると開始できます。</p>}
-          {!confirmCancel ? (
-            <button onClick={() => setConfirmCancel(true)} className="text-[10.5px] font-bold text-[#c0563c] underline underline-offset-2 self-center">この開催日を中止（流会）にする</button>
-          ) : (
-            <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#e9b7ab", background: "#fdece8" }}>
-              <p className="text-[11px] font-bold text-[#c0563c] leading-relaxed">支払い済みの{day.paidCount}名は<b>返金対象</b>になります。取り消せません。</p>
-              <div className="flex gap-2">
-                <button onClick={() => setConfirmCancel(false)} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}>やめる</button>
-                <button onClick={cancel} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40" style={{ background: "#c0563c" }}>中止する</button>
+        {!day.started ? (
+          <>
+            <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+              「ゲーム開始」で<b className="text-[color:var(--eb-ink)]">受付を締め切り</b>ます。以降は参加・支払い不可。その時点の支払い済みメンバーで進めます。
+            </p>
+            <div className="rounded-2xl p-3" style={{ background: "var(--eb-tint)" }}>
+              <div className="mb-1.5 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">支払い済み（{day.paidCount}名）</div>
+              <div className="flex flex-wrap gap-1.5">
+                {day.participants.length === 0 ? (
+                  <span className="text-[13px] text-[color:var(--eb-ink-muted)]">まだいません</span>
+                ) : (
+                  day.participants.map((m) => (
+                    <span
+                      key={m.lineUserId ?? m.displayName}
+                      className="inline-flex min-h-[36px] items-center rounded-2xl border border-[color:var(--eb-line)] bg-white px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+                    >
+                      {m.displayName}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
-          )}
-        </>
-      ) : day.finished ? (
-        <p className="text-[12px] text-[#231714]/80 leading-relaxed">当日成績は確定し「リーグ」タブの通算に反映されました。おつかれさまでした。</p>
-      ) : (
-        <>
-          {/* 記録フォーム */}
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-extrabold text-[#3c4f54]">勝者</span>
-                <select value={winnerId} onChange={(e) => setWinnerId(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-2 text-[13px]">
-                  <option value="">選択</option>
-                  {day.participants.filter((m) => m.paid !== false).map((m) => <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>)}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-extrabold text-[#3c4f54]">敗者</span>
-                <select value={loserId} onChange={(e) => setLoserId(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-2 text-[13px]">
-                  <option value="">選択</option>
-                  {day.participants.filter((m) => m.paid !== false && m.lineUserId !== winnerId).map((m) => <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold text-[#3c4f54] whitespace-nowrap">敗者の落とした玉数（0〜{BILLIARDS_MAX_LOSER_BALLS}）</span>
-              <input type="text" inputMode="numeric" value={loserBalls} onChange={(e) => setLoserBalls(e.target.value.replace(/[^\d]/g, "").slice(0, 1))} placeholder="0" className="w-16 rounded-lg border border-gray-200 px-3 py-2 text-[14px] font-black text-center tabular-nums" />
-              <span className="text-[10px] text-[#97999d]">勝者は14pt</span>
-            </label>
-            <button onClick={record} disabled={busy || !winnerId || !loserId || winnerId === loserId || loserBalls === ""} className="w-full py-2.5 rounded-xl text-[14px] font-black text-white disabled:opacity-40" style={{ background: BILLIARDS_ACCENT }}>{busy ? "記録中…" : "この試合を記録"}</button>
-          </div>
-
-          {/* 本日終了 */}
-          {!confirmFinish ? (
-            <button onClick={() => setConfirmFinish(true)} className="text-[10.5px] font-bold text-[#3c4f54] underline underline-offset-2 self-center">本日の対局を終了する</button>
-          ) : (
-            <div className="rounded-2xl border p-3 flex flex-col gap-2" style={{ borderColor: "#c9d6cf", background: "#f7faf8" }}>
-              <p className="text-[11px] font-bold leading-relaxed" style={{ color: BILLIARDS_ACCENT }}>本日終了で当日成績を確定し、通算順位に反映します。以降この日の記録はできません。</p>
-              <div className="flex gap-2">
-                <button onClick={() => setConfirmFinish(false)} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-bold bg-white disabled:opacity-40" style={{ boxShadow: "inset 0 0 0 1px #e4e7e9", color: "#40434a" }}>やめる</button>
-                <button onClick={finish} disabled={busy} className="flex-1 py-2.5 rounded-xl text-[13px] font-black text-white disabled:opacity-40" style={{ background: BILLIARDS_ACCENT }}>終了する</button>
+            <Button variant="primary" loading={starting} disabled={day.paidCount < BILLIARDS_MIN_PARTICIPANTS} onClick={start}>
+              ゲーム開始（受付を締め切る）
+            </Button>
+            {day.paidCount < BILLIARDS_MIN_PARTICIPANTS && (
+              <p className="text-center text-[13px] text-[color:var(--eb-ink-muted)]">
+                支払い済みが{BILLIARDS_MIN_PARTICIPANTS}名以上になると開始できます。
+              </p>
+            )}
+            {!confirmCancel ? (
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="self-center text-[13px] font-bold text-[color:var(--eb-coral-text)] underline underline-offset-2"
+              >
+                この開催日を中止（流会）にする
+              </button>
+            ) : (
+              <GlassCard tone="coral" padding="md">
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[13px] font-bold leading-relaxed text-[color:var(--eb-coral-text)]">
+                    支払い済みの{day.paidCount}名は<b>返金対象</b>になります。取り消せません。
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" loading={busy} onClick={() => setConfirmCancel(false)}>
+                      やめる
+                    </Button>
+                    <Button variant="danger" loading={busy} onClick={cancel}>
+                      中止する
+                    </Button>
+                  </div>
+                </div>
+              </GlassCard>
+            )}
+          </>
+        ) : day.finished ? (
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            当日成績は確定し「リーグ」タブの通算に反映されました。おつかれさまでした。
+          </p>
+        ) : (
+          <>
+            {/* 記録フォーム */}
+            <div className="flex flex-col gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">勝者</span>
+                  <select value={winnerId} onChange={(e) => setWinnerId(e.target.value)} className={inputClass}>
+                    <option value="">選択</option>
+                    {day.participants.filter((m) => m.paid !== false).map((m) => (
+                      <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">敗者</span>
+                  <select value={loserId} onChange={(e) => setLoserId(e.target.value)} className={inputClass}>
+                    <option value="">選択</option>
+                    {day.participants.filter((m) => m.paid !== false && m.lineUserId !== winnerId).map((m) => (
+                      <option key={m.lineUserId} value={m.lineUserId}>{m.displayName}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
+              <label className="flex items-center gap-2.5">
+                <span className="whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
+                  敗者の落とした玉数（0〜{BILLIARDS_MAX_LOSER_BALLS}）
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={loserBalls}
+                  onChange={(e) => setLoserBalls(e.target.value.replace(/[^\d]/g, "").slice(0, 1))}
+                  placeholder="0"
+                  className="h-14 w-16 shrink-0 rounded-2xl border border-[color:var(--eb-line)] bg-white text-center text-[20px] font-bold tabular-nums text-[color:var(--eb-ink)] focus:outline-none focus:border-2 focus:border-[color:var(--eb-green)]"
+                />
+                <span className="shrink-0 text-[13px] text-[color:var(--eb-ink-muted)]">勝者は14pt</span>
+              </label>
+              <Button
+                variant="primary"
+                loading={busy}
+                disabled={!winnerId || !loserId || winnerId === loserId || loserBalls === ""}
+                onClick={record}
+              >
+                この試合を記録
+              </Button>
             </div>
-          )}
-        </>
-      )}
-    </div>
+
+            {/* 本日終了 */}
+            {!confirmFinish ? (
+              <button
+                onClick={() => setConfirmFinish(true)}
+                className="self-center text-[13px] font-bold text-[color:var(--eb-ink-muted)] underline underline-offset-2"
+              >
+                本日の対局を終了する
+              </button>
+            ) : (
+              <GlassCard padding="md">
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[13px] font-bold leading-relaxed text-[color:var(--eb-green-text)]">
+                    本日終了で当日成績を確定し、通算順位に反映します。以降この日の記録はできません。
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" loading={busy} onClick={() => setConfirmFinish(false)}>
+                      やめる
+                    </Button>
+                    <Button variant="primary" loading={busy} onClick={finish}>
+                      終了する
+                    </Button>
+                  </div>
+                </div>
+              </GlassCard>
+            )}
+          </>
+        )}
+      </div>
+    </GlassCard>
   );
 }
