@@ -171,7 +171,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (status === "loading" && !isPublicPath) {
     // 軽量なスケルトン（フルスクリーンスピナーではない）
     return (
-      <div className="min-h-screen bg-gray-50 animate-pulse">
+      <div className="min-h-screen bg-[#F3F6F4] animate-pulse">
         <div className="h-14 bg-gray-100" />
         <div className="p-4 space-y-3">
           <div className="h-4 bg-gray-100 rounded w-1/3" />

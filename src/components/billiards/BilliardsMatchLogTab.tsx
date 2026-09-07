@@ -53,7 +53,7 @@ export function BilliardsMatchLogTab({ onChanged }: { onChanged: () => void }) {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-[color:var(--eb-green)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

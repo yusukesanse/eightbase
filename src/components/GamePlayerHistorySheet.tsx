@@ -80,7 +80,7 @@ export function GamePlayerHistorySheet({
           />
         </div>
       ) : !data || !data.player ? (
-        <div className="py-10 text-center text-sm text-[#231714]/80">戦歴を取得できませんでした</div>
+        <div className="py-10 text-center text-sm text-[color:var(--eb-ink-muted)]">戦歴を取得できませんでした</div>
       ) : (
         <>
           {/* ヘッダー */}

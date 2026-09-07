@@ -47,7 +47,7 @@ export function BilliardsLeagueBoard() {
   // 閲覧者×開催数に比例して読み取りが膨張する（過去に無料枠5万件/日を焼き切った実績あり）。
   // 順位が動くのは「本日終了」を押した瞬間だけなので、マウント時の取得で十分。
 
-  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[color:var(--eb-green)] border-t-transparent rounded-full animate-spin" /></div>;
 
   const rows: GameLeagueStanding[] = (data?.standings ?? []).map((s) => ({
     rank: s.rank,

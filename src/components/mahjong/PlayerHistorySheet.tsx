@@ -112,10 +112,10 @@ export function PlayerHistorySheet({
     <BottomSheet open onClose={onClose}>
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="w-6 h-6 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[color:var(--eb-green)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : !data ? (
-          <div className="py-10 text-center text-sm text-[#231714]/80">
+          <div className="py-10 text-center text-sm text-[color:var(--eb-ink-muted)]">
             戦歴を取得できませんでした
           </div>
         ) : (
