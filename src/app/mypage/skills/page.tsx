@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SKILL_CATEGORIES, ALL_PRESET_SKILLS } from "@/types";
+import clsx from "clsx";
+import { SKILL_CATEGORIES } from "@/types";
+import { Button, GlassCard, PageBg, PageHeading, inputClass } from "@/components/ui/eb";
 
 interface SocialLinks {
   instagram: string;
@@ -98,213 +100,198 @@ export default function SkillsSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <PageBg className="flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-700">読み込み中...</p>
+          <div
+            className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+          />
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">読み込み中...</p>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* ヘッダー */}
-      <header className="bg-white pt-12 pb-4 px-5 border-b border-gray-100 flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-1">
+    <PageBg>
+      <div className="px-5 pt-[52px]">
+        <button
+          onClick={() => router.back()}
+          className="mb-3 flex h-9 w-9 items-center justify-center -ml-2"
+          aria-label="戻る"
+        >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M13 4l-6 6 6 6" stroke="#231714" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M13 4l-6 6 6 6" stroke="var(--eb-ink)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <h1 className="text-[15px] font-medium text-[#231714]">スキル・サービス設定</h1>
-      </header>
-
-      {/* キャッチコピー */}
-      <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/85 mb-2">キャッチコピー</label>
-        <input
-          type="text"
-          value={catchphrase}
-          onChange={(e) => setCatchphrase(e.target.value)}
-          placeholder="例: Web制作なら何でもお任せ！"
-          maxLength={40}
-          className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-        />
-        <p className="text-[10px] text-gray-700 mt-1 text-right">{catchphrase.length}/40</p>
+        <PageHeading title="スキル・サービス設定" />
       </div>
 
-      {/* 選択中のスキル */}
-      {selectedSkills.length > 0 && (
-        <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-          <p className="text-[12px] text-[#231714]/85 mb-3">選択中のスキル ({selectedSkills.length})</p>
-          <div className="flex flex-wrap gap-2">
-            {selectedSkills.map((skill) => (
-              <button
-                key={skill}
-                onClick={() => toggleSkill(skill)}
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded-full bg-[#4f757e] text-white"
-              >
-                {skill}
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 3l6 6M9 3l-6 6" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* カテゴリ別スキル選択 */}
-      <div className="mt-3">
-        {SKILL_CATEGORIES.map((cat) => (
-          <div key={cat.id} className="bg-white border-b border-gray-50">
-            <button
-              onClick={() => setOpenCategory(openCategory === cat.id ? null : cat.id)}
-              className="w-full px-5 py-3.5 flex items-center justify-between text-left"
-            >
-              <span className="text-[13px] text-[#231714]">{cat.label}</span>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                className={`transition-transform ${openCategory === cat.id ? "rotate-90" : ""}`}
-              >
-                <path d="M5 3l4 4-4 4" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            {openCategory === cat.id && (
-              <div className="px-5 pb-4 flex flex-wrap gap-2">
-                {cat.skills.map((skill) => {
-                  const active = selectedSkills.includes(skill);
-                  return (
-                    <button
-                      key={skill}
-                      onClick={() => toggleSkill(skill)}
-                      className={`px-3 py-1.5 text-[11px] rounded-full border transition-colors ${
-                        active
-                          ? "bg-[#4f757e] text-white border-[#A5C1C8]"
-                          : "bg-white text-[#231714]/80 border-gray-200 hover:border-[#A5C1C8]"
-                      }`}
-                    >
-                      {skill}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* カスタムスキル追加 */}
-      <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/85 mb-2">その他のスキルを追加</label>
-        <div className="flex gap-2">
+      <div className="px-5 pt-6 pb-10 space-y-4">
+        {/* キャッチコピー */}
+        <GlassCard>
+          <SectionHeading title="キャッチコピー" />
           <input
             type="text"
-            value={customSkill}
-            onChange={(e) => setCustomSkill(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCustomSkill()}
-            placeholder="スキル名を入力"
-            className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+            value={catchphrase}
+            onChange={(e) => setCatchphrase(e.target.value)}
+            placeholder="例: Web制作なら何でもお任せ！"
+            maxLength={40}
+            className={inputClass}
           />
-          <button
-            onClick={addCustomSkill}
-            disabled={!customSkill.trim()}
-            className="px-4 py-2.5 text-[12px] rounded-lg bg-[#4f757e] text-white disabled:opacity-40 transition-opacity"
-          >
-            追加
-          </button>
-        </div>
-      </div>
+          <p className="mt-1.5 text-right text-[12px] text-[color:var(--eb-ink-muted)]">{catchphrase.length}/40</p>
+        </GlassCard>
 
-      {/* 会社URL */}
-      <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/85 mb-2">会社・事業のURL</label>
-        <input
-          type="url"
-          value={companyUrl}
-          onChange={(e) => setCompanyUrl(e.target.value)}
-          placeholder="https://example.com"
-          className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-        />
-        <p className="text-[10px] text-gray-700 mt-1">URLを登録すると、メンバーページからあなたの事業が見つけやすくなります</p>
-      </div>
-
-      {/* SNS・リンク */}
-      <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/85 mb-2">SNS・リンク</label>
-        <p className="text-[10px] text-gray-700 mb-3">メンバーとの交流のきっかけになります</p>
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-2">
-            <span className="w-8 text-center text-sm">𝕏</span>
+        {/* スキル */}
+        <GlassCard>
+          <SectionHeading title="スキル・得意分野" />
+          <p className="mb-3 text-[13px] text-[color:var(--eb-ink-muted)]">メンバー検索で見つけてもらいやすくなります。</p>
+          {selectedSkills.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {selectedSkills.map((skill) => (
+                <SkillChip key={skill} label={skill} onRemove={() => toggleSkill(skill)} />
+              ))}
+            </div>
+          )}
+          {SKILL_CATEGORIES.map((cat) => (
+            <CategoryRow
+              key={cat.id}
+              label={cat.label}
+              open={openCategory === cat.id}
+              onToggle={() => setOpenCategory(openCategory === cat.id ? null : cat.id)}
+            >
+              {cat.skills.map((skill) => (
+                <ToggleButton key={skill} selected={selectedSkills.includes(skill)} onClick={() => toggleSkill(skill)} label={skill} />
+              ))}
+            </CategoryRow>
+          ))}
+          <div className="flex gap-2 mt-2">
             <input
               type="text"
-              value={socialLinks.x}
-              onChange={(e) => setSocialLinks((p) => ({ ...p, x: e.target.value }))}
-              placeholder="@username"
-              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
+              value={customSkill}
+              onChange={(e) => setCustomSkill(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSkill())}
+              placeholder="その他のスキルを追加"
+              className={clsx("flex-1", inputClass)}
             />
+            <Button type="button" variant="ghost" fullWidth={false} className="w-24" disabled={!customSkill.trim()} onClick={addCustomSkill}>
+              追加
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-8 text-center text-[13px]">IG</span>
-            <input
-              type="text"
-              value={socialLinks.instagram}
-              onChange={(e) => setSocialLinks((p) => ({ ...p, instagram: e.target.value }))}
-              placeholder="@username"
-              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-8 text-center text-[13px]">FB</span>
-            <input
-              type="text"
-              value={socialLinks.facebook}
-              onChange={(e) => setSocialLinks((p) => ({ ...p, facebook: e.target.value }))}
-              placeholder="https://facebook.com/..."
-              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-8 text-center text-[11px] text-[#231714]/80">他</span>
-            <input
-              type="text"
-              value={socialLinks.other}
-              onChange={(e) => setSocialLinks((p) => ({ ...p, other: e.target.value }))}
-              placeholder="その他のURL"
-              className="flex-1 px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-            />
-          </div>
-        </div>
-      </div>
+        </GlassCard>
 
-      {/* LINE連絡先（友だち追加URL） */}
-      <div className="bg-white mt-3 px-5 py-4 border-b border-gray-100">
-        <label className="block text-[12px] text-[#231714]/85 mb-2">LINE連絡先（友だち追加URL）</label>
-        <input
-          type="url"
-          value={lineUrl}
-          onChange={(e) => setLineUrl(e.target.value)}
-          placeholder="https://line.me/ti/p/～ または LINEの友だち追加URL"
-          className="w-full px-3 py-2.5 text-[13px] bg-gray-50 rounded-lg border border-gray-100 focus:outline-none focus:border-[#A5C1C8]"
-        />
-        <p className="text-[10px] text-gray-700 mt-1 leading-relaxed">
-          登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーがあなたに直接連絡できます。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
-        </p>
-      </div>
+        {/* 会社URL */}
+        <GlassCard>
+          <SectionHeading title="会社・事業のURL" />
+          <input
+            type="url"
+            value={companyUrl}
+            onChange={(e) => setCompanyUrl(e.target.value)}
+            placeholder="https://example.com"
+            className={inputClass}
+          />
+          <p className="mt-1.5 text-[12px] text-[color:var(--eb-ink-muted)]">
+            URLを登録すると、メンバーページからあなたの事業が見つけやすくなります
+          </p>
+        </GlassCard>
 
-      {/* 保存ボタン */}
-      <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto px-5 py-3 bg-white border-t border-gray-100">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-3 text-[14px] font-medium rounded-xl bg-[#4f757e] text-white disabled:opacity-50 transition-opacity"
-        >
-          {saving ? "保存中..." : "保存する"}
-        </button>
+        {/* SNS・リンク */}
+        <GlassCard>
+          <SectionHeading title="SNS・リンク" />
+          <p className="mb-3 text-[13px] text-[color:var(--eb-ink-muted)]">メンバーとの交流のきっかけになります</p>
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-8 text-center text-[15px]">𝕏</span>
+              <input type="text" value={socialLinks.x} onChange={(e) => setSocialLinks((p) => ({ ...p, x: e.target.value }))} placeholder="@username" className={clsx("flex-1", inputClass)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 text-center text-[13px]">IG</span>
+              <input type="text" value={socialLinks.instagram} onChange={(e) => setSocialLinks((p) => ({ ...p, instagram: e.target.value }))} placeholder="@username" className={clsx("flex-1", inputClass)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 text-center text-[13px]">FB</span>
+              <input type="text" value={socialLinks.facebook} onChange={(e) => setSocialLinks((p) => ({ ...p, facebook: e.target.value }))} placeholder="https://facebook.com/..." className={clsx("flex-1", inputClass)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 text-center text-[13px] text-[color:var(--eb-ink-muted)]">他</span>
+              <input type="text" value={socialLinks.other} onChange={(e) => setSocialLinks((p) => ({ ...p, other: e.target.value }))} placeholder="その他のURL" className={clsx("flex-1", inputClass)} />
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* LINE連絡先 */}
+        <GlassCard>
+          <SectionHeading title="LINE連絡先（友だち追加URL）" />
+          <input
+            type="url"
+            value={lineUrl}
+            onChange={(e) => setLineUrl(e.target.value)}
+            placeholder="https://line.me/ti/p/～ または LINEの友だち追加URL"
+            className={inputClass}
+          />
+          <p className="mt-1.5 text-[12px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            登録すると、メンバー一覧・掲示板の「LINEで連絡」から他のメンバーがあなたに直接連絡できます。LINEアプリ → ホーム → 友だち追加 → QRコード/招待 で取得した自分の追加用URLを貼り付けてください。
+          </p>
+        </GlassCard>
+
+        <Button type="button" variant="primary" loading={saving} onClick={handleSave}>
+          保存する
+        </Button>
       </div>
+    </PageBg>
+  );
+}
+
+/* ═══ 共通コンポーネント（この画面専用の見た目部品） ═══ */
+
+function SectionHeading({ title }: { title: string }) {
+  return <h3 className="mb-3 text-[16px] font-bold text-[color:var(--eb-ink)]">{title}</h3>;
+}
+
+function ToggleButton({ selected, onClick, label }: { selected: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "h-9 rounded-[14px] px-3 text-[13px] font-bold transition-colors",
+        selected ? "border-2 text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
+      )}
+      style={
+        selected
+          ? { background: "var(--eb-green)", borderColor: "var(--eb-green)" }
+          : { borderColor: "var(--eb-line)" }
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+function SkillChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-bold"
+      style={{ background: "rgba(35,147,94,.14)", color: "var(--eb-green-text)" }}
+    >
+      {label}
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+    </button>
+  );
+}
+
+function CategoryRow({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <div className="mb-2">
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between rounded-xl bg-white/60 px-4 py-3 text-[15px] font-medium text-[color:var(--eb-ink)]">
+        {label}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("transition-transform", open && "rotate-90")}>
+          <path d="M4 3l3 3-3 3" stroke="var(--eb-ink-muted)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && <div className="flex flex-wrap gap-2 px-1 pb-2 pt-2">{children}</div>}
     </div>
   );
 }
