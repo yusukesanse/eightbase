@@ -1,5 +1,5 @@
 /* 麻雀リーグ ピラミッド左ラベル用（Noto Serif JP）＋ canvas 初期文字（Noto Sans JP） */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;900&family=Space+Grotesk:wght@700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -22,6 +22,30 @@
      淡い #A5C1C8 はヘッダー帯・ドット・進捗バーなど「濃い文字を載せる/大きな面」に限定。 */
   --eb-accent: #a5c1c8;
   --eb-accent-strong: #4f757e;
+
+  /* 利用者アプリ 新デザイン */
+  --eb-ink: #1A1D1B;
+  --eb-ink-muted: #6B7370;
+  --eb-green: #23935E;
+  --eb-green-text: #1F7A4D;
+  --eb-gold: #D9A93A;
+  --eb-gold-text: #8A6A12;
+  --eb-coral: #D9483A;
+  --eb-coral-text: #B23A24;
+  --eb-bg: linear-gradient(180deg, #FFFFFF 0%, #ECF3EF 100%);
+  --eb-glass: rgba(255, 255, 255, .72);
+  --eb-line: rgba(15, 29, 25, .10);
+  --eb-tint: rgba(15, 29, 25, .06);
+}
+
+@layer components {
+  .eb-glass {
+    background: var(--eb-glass);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--eb-line);
+    box-shadow: 0 8px 24px rgba(20, 41, 31, .08);
+  }
 }
 
 /* LINE ミニアプリ向け: スクロールバーを非表示 */

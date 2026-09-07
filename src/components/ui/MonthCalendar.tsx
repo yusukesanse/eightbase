@@ -19,6 +19,7 @@ export default function MonthCalendar({
   accent = "#2f7d57",
   size = "sm",
   minMonth,
+  variant = "default",
 }: {
   value: string | null;
   onSelect: (dateStr: string) => void;
@@ -33,6 +34,7 @@ export default function MonthCalendar({
    * ゲームの参加タブが「過去の開催日の成績」を見せるために使う（`calendarMinMonth()`）。
    */
   minMonth?: string;
+  variant?: "default" | "game";
 }) {
   const lg = size === "lg";
   const today = dayjs().format("YYYY-MM-DD");
@@ -52,6 +54,94 @@ export default function MonthCalendar({
     while (arr.length % 7 !== 0) arr.push(null);
     return arr;
   }, [month]);
+
+  if (variant === "game") {
+    return (
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <button
+            onClick={() => setMonth((m) => m.subtract(1, "month"))}
+            disabled={atFloorMonth}
+            aria-label="前の月"
+            className={clsx(
+              "flex h-11 w-11 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)] transition-colors",
+              atFloorMonth && "cursor-not-allowed opacity-[.35]"
+            )}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+          <h2 className="text-[18px] font-bold text-[color:var(--eb-ink)]">{month.format("YYYY年 M月")}</h2>
+          <button
+            onClick={() => setMonth((m) => m.add(1, "month"))}
+            aria-label="次の月"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)] transition-colors"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+          </button>
+        </div>
+
+        <div className="mb-1 grid grid-cols-7 gap-x-[3px]">
+          {DAY_LABELS.map((d) => (
+            <div
+              key={d}
+              className={clsx(
+                "py-1 text-center text-[12px] font-medium text-[color:var(--eb-ink-muted)]",
+                d === "土" && "text-[color:var(--eb-green)]"
+              )}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-x-[3px] gap-y-[6px]">
+          {days.map((d, i) => {
+            if (!d) return <div key={`b${i}`} className="h-11 w-11" />;
+            const dateStr = d.format("YYYY-MM-DD");
+            const selectable = isSelectable(dateStr, d);
+            const selected = dateStr === value;
+            const isToday = dateStr === today;
+            const isMarked = selectable && Boolean(marked?.(dateStr));
+            return (
+              <button
+                key={dateStr}
+                disabled={!selectable}
+                onClick={() => onSelect(dateStr)}
+                className={clsx(
+                  "relative flex h-11 w-11 items-center justify-center rounded-full text-[17px] transition-all",
+                  !selectable
+                    ? "border-0 bg-transparent font-normal text-[rgba(26,29,27,.35)]"
+                    : selected
+                      ? "border-[2.5px] border-[color:var(--eb-green)] bg-[color:var(--eb-green)] font-bold text-white active:scale-95"
+                      : isMarked
+                        ? clsx(
+                            "border-[2.5px] border-[color:var(--eb-green)] bg-white/60 font-bold active:scale-95",
+                            isToday ? "text-[color:var(--eb-green)]" : "text-[color:var(--eb-ink)]"
+                          )
+                        : clsx(
+                            "border-[1.5px] border-[rgba(15,29,25,.28)] bg-white/60 active:scale-95",
+                            isToday
+                              ? "font-bold text-[color:var(--eb-green)]"
+                              : "font-medium text-[color:var(--eb-ink)]"
+                          )
+                )}
+              >
+                <span>{d.date()}</span>
+                {isMarked && (
+                  <span
+                    className={clsx(
+                      "absolute bottom-[4px] h-1.5 w-1.5 rounded-full",
+                      selected ? "bg-white" : "bg-[color:var(--eb-green)]"
+                    )}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
