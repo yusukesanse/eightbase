@@ -128,21 +128,21 @@ export default function DatePicker({
         type="button"
         onClick={() => setOpen((p) => !p)}
         className={`
-          w-full flex items-center justify-between gap-2
-          px-3 py-2.5 border rounded-xl text-sm transition-all
-          ${open ? "border-[#A5C1C8] ring-2 ring-[#A5C1C8]/30" : "border-[#231714]/15 hover:border-[#231714]/30"}
-          ${!value ? "text-[#231714]/80" : "text-[#231714]"}
-          bg-white cursor-pointer
+          flex h-14 w-full items-center justify-between gap-2
+          rounded-2xl border px-4 text-[17px] transition-all
+          ${open ? "border-2 border-[color:var(--eb-green)]" : "border-[color:var(--eb-line)]"}
+          ${!value ? "text-[#9AA39E]" : "text-[color:var(--eb-ink)]"}
+          cursor-pointer bg-white
         `}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#4f757e] shrink-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[color:var(--eb-green)]">
             <rect x="3" y="4" width="18" height="18" rx="3" />
             <path d="M8 2v4M16 2v4M3 10h18" />
           </svg>
           <span className="whitespace-nowrap">{formatDisplay(value) || placeholder}</span>
         </div>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[#231714]/75 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`text-[color:var(--eb-ink-muted)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
@@ -150,26 +150,26 @@ export default function DatePicker({
       {/* Calendar Dropdown */}
       {open && (
         <div
-          className="absolute left-0 mt-1 w-[280px] bg-white border border-[#231714]/10 rounded-xl shadow-lg shadow-black/10 p-3"
-          style={{ zIndex: 99999 }}
+          className="eb-glass absolute left-0 mt-1 w-[280px] rounded-[20px] p-4 shadow-lg shadow-black/10"
+          style={{ zIndex: 99999, background: "rgba(255,255,255,.98)" }}
         >
           {/* Header: month nav */}
-          <div className="flex items-center justify-between mb-2">
-            <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/20 text-[#231714]/85 transition-colors">
+          <div className="mb-2 flex items-center justify-between">
+            <button type="button" onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)] transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <span className="text-sm font-semibold text-[#231714]">
+            <span className="text-[15px] font-bold text-[color:var(--eb-ink)]">
               {viewYear}年{viewMonth + 1}月
             </span>
-            <button type="button" onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#A5C1C8]/20 text-[#231714]/85 transition-colors">
+            <button type="button" onClick={nextMonth} className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--eb-tint)] text-[color:var(--eb-ink)] transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
 
           {/* Weekday header */}
-          <div className="grid grid-cols-7 mb-1">
+          <div className="mb-1 grid grid-cols-7">
             {WEEK.map((w, i) => (
-              <div key={w} className={`text-center text-[10px] font-medium py-1 ${i >= 5 ? "text-[#4f757e]" : "text-[#231714]/75"}`}>
+              <div key={w} className={`py-1 text-center text-[11px] font-medium ${i >= 5 ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}>
                 {w}
               </div>
             ))}
@@ -193,14 +193,14 @@ export default function DatePicker({
                   type="button"
                   onClick={() => selectDay(day)}
                   className={`
-                    w-full aspect-square flex items-center justify-center text-[13px] rounded-lg transition-all
+                    flex aspect-square w-full items-center justify-center rounded-full text-[14px] transition-all
                     ${isSelected
-                      ? "bg-[#231714] text-white font-semibold"
+                      ? "bg-[color:var(--eb-green)] font-bold text-white"
                       : isToday
-                        ? "bg-[#A5C1C8]/25 text-[#231714] font-semibold"
+                        ? "font-bold text-[color:var(--eb-green-text)]"
                         : isWeekend
-                          ? "text-[#4f757e] hover:bg-[#A5C1C8]/15"
-                          : "text-[#231714] hover:bg-[#A5C1C8]/15"
+                          ? "text-[color:var(--eb-green-text)] hover:bg-[color:var(--eb-tint)]"
+                          : "text-[color:var(--eb-ink)] hover:bg-[color:var(--eb-tint)]"
                     }
                   `}
                 >
@@ -211,11 +211,11 @@ export default function DatePicker({
           </div>
 
           {/* Footer: today shortcut */}
-          <div className="mt-2 pt-2 border-t border-[#231714]/5 flex justify-center">
+          <div className="mt-2 flex justify-center border-t border-[color:var(--eb-line)] pt-2">
             <button
               type="button"
               onClick={goToday}
-              className="text-xs text-[#4f757e] hover:text-[#231714] font-medium transition-colors"
+              className="text-[13px] font-bold text-[color:var(--eb-green-text)] transition-colors"
             >
               今日
             </button>

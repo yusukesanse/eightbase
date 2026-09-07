@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { TopBar } from "@/components/ui/TopBar";
 import type { MyReservationItem } from "@/types";
-import clsx from "clsx";
+import { Button, GlassCard, PageBg, PageHeading, StatusPill } from "@/components/ui/eb";
 import dayjs from "dayjs";
 import "dayjs/locale/ja";
 dayjs.locale("ja");
@@ -14,6 +13,8 @@ export default function MyReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
+  const [cancelErrorMsg, setCancelErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,10 +42,15 @@ export default function MyReservationsPage() {
     };
   }, []);
 
-  async function handleCancel(reservationId: string) {
-    if (!confirm("この予約をキャンセルしますか？")) return;
+  /** キャンセル確認モーダルを開く（実際の取消は confirmCancel で行う）。 */
+  function requestCancel(reservationId: string) {
+    setCancelErrorMsg(null);
+    setConfirmTarget(reservationId);
+  }
 
+  async function confirmCancel(reservationId: string) {
     setCancellingId(reservationId);
+    setCancelErrorMsg(null);
     try {
       const res = await fetch(`/api/reservations/${reservationId}`, {
         method: "DELETE",
@@ -53,15 +59,16 @@ export default function MyReservationsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message ?? "キャンセルに失敗しました。");
+        setCancelErrorMsg(data.message ?? "キャンセルに失敗しました。");
         return;
       }
 
       setReservations((prev) =>
         prev.filter((r) => r.reservationId !== reservationId)
       );
+      setConfirmTarget(null);
     } catch {
-      alert("通信エラーが発生しました。");
+      setCancelErrorMsg("通信エラーが発生しました。");
     } finally {
       setCancellingId(null);
     }
@@ -71,55 +78,65 @@ export default function MyReservationsPage() {
   const upcoming = reservations.filter((r) => r.date >= today);
   const past = reservations.filter((r) => r.date < today);
 
+  const confirmTargetReservation = reservations.find((r) => r.reservationId === confirmTarget) ?? null;
+
   return (
-    <div>
-      <TopBar title="マイ予約" subtitle="予約の確認・キャンセル" />
+    <PageBg>
+      <div className="px-5 pt-8">
+        <PageHeading
+          title="MY RESERVATIONS"
+          subtitle="予約の確認・キャンセル"
+          right={
+            <Link
+              href="/reservation"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white/60 px-3 text-[13px] font-bold text-[color:var(--eb-ink)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              施設予約
+            </Link>
+          }
+        />
+      </div>
 
-      <div className="p-3 space-y-3">
-        {/* 施設予約へ戻るリンク */}
-        <Link
-          href="/reservation"
-          className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-700 transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          施設予約に戻る
-        </Link>
-
+      <div className="space-y-3 px-5 pt-6">
         {loading ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-sm text-gray-700 mt-2">読み込み中...</p>
-          </div>
+          <GlassCard className="py-10 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[color:var(--eb-line)] border-t-[color:var(--eb-green)]" />
+            <p className="mt-2 text-[15px] text-[color:var(--eb-ink-muted)]">読み込み中...</p>
+          </GlassCard>
         ) : error ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+          <GlassCard tone="coral" className="py-8 text-center">
+            <div
+              className="mx-auto mb-3 flex items-center justify-center rounded-full"
+              style={{ width: 48, height: 48, background: "rgba(217,72,58,.14)" }}
+            >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#EF4444" strokeWidth="1.5"/>
-                <path d="M12 8v4M12 16h.01" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="12" cy="12" r="9" stroke="var(--eb-coral-text)" strokeWidth="1.5" />
+                <path d="M12 8v4M12 16h.01" stroke="var(--eb-coral-text)" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-[15px] text-[color:var(--eb-coral-text)]">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-3 text-xs text-[#4f757e] underline"
+              className="mt-3 text-[13px] font-bold text-[color:var(--eb-green-text)] underline"
             >
               再読み込み
             </button>
-          </div>
+          </GlassCard>
         ) : upcoming.length === 0 && past.length === 0 ? (
           <EmptyState />
         ) : (
           <>
             {upcoming.length > 0 && (
               <>
-                <p className="text-xs font-medium text-gray-700">今後の予約</p>
+                <p className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">今後の予約</p>
                 {upcoming.map((r) => (
                   <ReservationCard
                     key={r.reservationId}
                     reservation={r}
-                    onCancel={handleCancel}
+                    onRequestCancel={requestCancel}
                     cancelling={cancellingId === r.reservationId}
                   />
                 ))}
@@ -127,19 +144,19 @@ export default function MyReservationsPage() {
             )}
 
             {upcoming.length === 0 && (
-              <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-700 text-center">
-                今後の予約はありません
-              </div>
+              <GlassCard padding="md" className="text-center">
+                <p className="text-[13px] text-[color:var(--eb-ink-muted)]">今後の予約はありません</p>
+              </GlassCard>
             )}
 
             {past.length > 0 && (
               <>
-                <p className="text-xs font-medium text-gray-700 pt-1">過去の予約</p>
+                <p className="pt-1 text-[13px] font-bold text-[color:var(--eb-ink-muted)]">過去の予約</p>
                 {past.map((r) => (
                   <ReservationCard
                     key={r.reservationId}
                     reservation={r}
-                    onCancel={handleCancel}
+                    onRequestCancel={requestCancel}
                     cancelling={false}
                     isPast
                   />
@@ -149,18 +166,31 @@ export default function MyReservationsPage() {
           </>
         )}
       </div>
-    </div>
+
+      {confirmTargetReservation && (
+        <CancelConfirmModal
+          reservation={confirmTargetReservation}
+          busy={cancellingId === confirmTargetReservation.reservationId}
+          errorMsg={cancelErrorMsg}
+          onConfirm={() => confirmCancel(confirmTargetReservation.reservationId)}
+          onClose={() => {
+            setConfirmTarget(null);
+            setCancelErrorMsg(null);
+          }}
+        />
+      )}
+    </PageBg>
   );
 }
 
 function ReservationCard({
   reservation: r,
-  onCancel,
+  onRequestCancel,
   cancelling,
   isPast = false,
 }: {
   reservation: MyReservationItem;
-  onCancel: (id: string) => void;
+  onRequestCancel: (id: string) => void;
   cancelling: boolean;
   isPast?: boolean;
 }) {
@@ -189,113 +219,145 @@ function ReservationCard({
     !r.switchBotPasscode &&
     (r.switchBotStatus === "failed" || r.switchBotStatus === "manual");
 
+  // ステータス表示: 決済待ち=gold／過去=muted／それ以外(確定)=green。
+  const statusTone = isPending ? "gold" : isPast ? "muted" : "green";
+  const statusLabel = isPending ? "決済待ち" : isPast ? "終了" : "予約確定";
+
   return (
-    <div
-      className={clsx(
-        "bg-white rounded-xl border p-3",
-        isPast ? "border-gray-100 opacity-60" : "border-gray-100"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={clsx(
-            "w-2 h-2 rounded-full flex-shrink-0",
-            isPast ? "bg-gray-300" : "bg-[#A5C1C8]"
-          )}
-        />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">
+    <GlassCard padding="md" className={isPast ? "opacity-60" : undefined}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[20px] font-bold text-[color:var(--eb-ink)]">{dateLabel}</p>
+          <p className="mt-0.5 text-[15px] font-bold text-[color:var(--eb-ink)]">
             {r.facilityName}
             {r.isCompanion && (
-              <span className="ml-2 align-middle rounded-full bg-[#a5c1c7]/25 px-2 py-0.5 text-[10px] font-medium text-[#4f757e]">
+              <span
+                className="ml-2 align-middle rounded-full px-2 py-0.5 text-[11px] font-bold"
+                style={{ background: "var(--eb-tint)", color: "var(--eb-ink-muted)" }}
+              >
                 同伴
               </span>
             )}
-            {isPending && (
-              <span className="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                決済待ち
-              </span>
-            )}
           </p>
-          <p className="text-xs text-gray-700 mt-0.5">
-            {dateLabel}　{r.startTime}〜{r.endTime}
+          <p className="mt-0.5 text-[13px] text-[color:var(--eb-ink-muted)]">
+            {r.startTime}〜{r.endTime}
           </p>
-          {isPending && (
-            <p className="text-[11px] text-amber-700 mt-0.5">
-              お支払いが未完了です。
-              {pendingMinutesLeft !== null && `あと約${pendingMinutesLeft}分で自動的に解放されます。`}
-              すぐに枠を空けたいときは「仮押さえを取消」を押してください。
-            </p>
-          )}
-          {r.isCompanion ? (
-            r.organizerName && (
-              <p className="text-[11px] text-gray-700 mt-0.5 truncate">予約者: {r.organizerName}</p>
-            )
-          ) : (
-            companionNames && (
-              <p className="text-[11px] text-gray-700 mt-0.5 truncate">
-                一緒に入る人: {companionNames}
-              </p>
-            )
-          )}
         </div>
-        {canCancel && (
-          <button
-            onClick={() => onCancel(r.reservationId)}
-            disabled={cancelling}
-            className="text-[11px] text-red-500 border border-red-200 rounded-lg px-2.5 py-1.5 flex-shrink-0 disabled:opacity-50"
-          >
-            {cancelling
-              ? "処理中..."
-              : isPending
-                ? "仮押さえを取消"
-                : isTrailer
-                  ? "予約取消（返金）"
-                  : "キャンセル"}
-          </button>
-        )}
+        <StatusPill tone={statusTone} className="shrink-0">
+          {statusLabel}
+        </StatusPill>
       </div>
 
+      {isPending && (
+        <p className="mt-2 text-[13px]" style={{ color: "var(--eb-gold-text)" }}>
+          お支払いが未完了です。
+          {pendingMinutesLeft !== null && `あと約${pendingMinutesLeft}分で自動的に解放されます。`}
+          すぐに枠を空けたいときは「仮押さえを取消」を押してください。
+        </p>
+      )}
+      {r.isCompanion ? (
+        r.organizerName && (
+          <p className="mt-1 truncate text-[13px] text-[color:var(--eb-ink-muted)]">予約者: {r.organizerName}</p>
+        )
+      ) : (
+        companionNames && (
+          <p className="mt-1 truncate text-[13px] text-[color:var(--eb-ink-muted)]">
+            一緒に入る人: {companionNames}
+          </p>
+        )
+      )}
+
       {showPasscode && (
-        <div className="mt-3 rounded-xl border border-[#2f7d57]/40 bg-[#2f7d57]/5 px-3 py-2.5 text-center">
-          <div className="text-[10px] font-extrabold text-[#2f7d57]">解錠コード</div>
-          <div className="text-[22px] font-black tabular-nums tracking-[0.15em] text-[#1c1f21]">
+        <div className="mt-3 rounded-2xl px-4 py-3 text-center" style={{ background: "var(--eb-tint)" }}>
+          <div className="text-[12px] font-bold text-[color:var(--eb-green-text)]">解錠コード</div>
+          <div className="text-[26px] font-black tabular-nums tracking-[0.15em] text-[color:var(--eb-ink)]">
             {r.switchBotPasscode}
           </div>
-          <div className="text-[10px] text-gray-700">
+          <div className="text-[12px] text-[color:var(--eb-ink-muted)]">
             {r.startTime}〜{r.endTime} のみ有効
           </div>
         </div>
       )}
       {passcodePending && (
-        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-center">
-          <p className="text-[11px] text-amber-700">
+        <div className="mt-3 rounded-2xl px-4 py-3 text-center" style={{ background: "rgba(217,169,58,.14)" }}>
+          <p className="text-[13px]" style={{ color: "var(--eb-gold-text)" }}>
             解錠コードは準備が整い次第、管理者からご連絡します。お急ぎの場合は管理者へお問い合わせください。
           </p>
         </div>
       )}
+
+      {canCancel && (
+        <div className="mt-3">
+          <Button variant="danger" loading={cancelling} onClick={() => onRequestCancel(r.reservationId)}>
+            {isPending ? "仮押さえを取消" : isTrailer ? "予約取消（返金）" : "キャンセル"}
+          </Button>
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
+/** キャンセル確認モーダル（文言は従来どおり・見た目のみ刷新）。 */
+function CancelConfirmModal({
+  reservation: r,
+  busy,
+  errorMsg,
+  onConfirm,
+  onClose,
+}: {
+  reservation: MyReservationItem;
+  busy: boolean;
+  errorMsg: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3" onClick={onClose}>
+      <div className="safe-area-pb w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <GlassCard>
+          <h3 className="text-[17px] font-bold text-[color:var(--eb-ink)]">予約のキャンセル</h3>
+          <p className="mt-2 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            {r.facilityName}（{dayjs(r.date).format("M月D日（ddd）")} {r.startTime}〜{r.endTime}）の
+            この予約をキャンセルしますか？
+          </p>
+          {errorMsg && (
+            <p className="mt-2 text-[13px]" style={{ color: "var(--eb-coral-text)" }}>{errorMsg}</p>
+          )}
+          <div className="mt-5 flex flex-col gap-2">
+            <Button variant="danger" loading={busy} onClick={onConfirm}>
+              キャンセルする
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              やめる
+            </Button>
+          </div>
+        </GlassCard>
+      </div>
     </div>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="text-center py-12">
-      <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+    <GlassCard className="py-12 text-center">
+      <div
+        className="mx-auto mb-3 flex items-center justify-center rounded-full"
+        style={{ width: 56, height: 56, background: "var(--eb-tint)" }}
+      >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="4" width="18" height="17" rx="3" stroke="#9CA3AF" strokeWidth="1.5"/>
-          <path d="M8 3v2M16 3v2M3 9h18" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
-          <path d="M8 13h4M8 17h6" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
+          <rect x="3" y="4" width="18" height="17" rx="3" stroke="var(--eb-ink-muted)" strokeWidth="1.5" />
+          <path d="M8 3v2M16 3v2M3 9h18" stroke="var(--eb-ink-muted)" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M8 13h4M8 17h6" stroke="var(--eb-ink-muted)" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </div>
-      <p className="text-sm text-gray-700">予約はありません</p>
-      <p className="text-xs text-gray-700 mt-1">施設予約から予約を作成できます</p>
+      <p className="text-[15px] text-[color:var(--eb-ink)]">予約はありません</p>
+      <p className="mt-1 text-[13px] text-[color:var(--eb-ink-muted)]">施設予約から予約を作成できます</p>
       <Link
         href="/reservation"
-        className="mt-4 inline-block text-xs text-[#4f757e] border border-[#A5C1C8] rounded-xl px-4 py-2"
+        className="mt-4 inline-flex h-11 items-center rounded-xl border border-[color:var(--eb-green)] px-4 text-[13px] font-bold text-[color:var(--eb-green-text)]"
       >
         施設を予約する
       </Link>
-    </div>
+    </GlassCard>
   );
 }
