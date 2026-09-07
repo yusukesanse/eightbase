@@ -6,6 +6,45 @@ import { isReviewModeEnabled } from "@/lib/reviewMode";
 
 export const dynamic = "force-dynamic";
 
+/** 未連携ユーザーに返す「申請中」の中身（表示用。ロールの付与ではない）。 */
+interface PendingAccessRequest {
+  displayName: string;
+  email: string;
+  requestedRole: "member" | "staff" | "guest";
+  createdAt: string;
+}
+
+/**
+ * この LINE ユーザーの pending な利用申請を1件返す（無ければ null）。
+ * 表示用の付加情報なので、読み取りに失敗してもログインは止めずに null を返す。
+ */
+async function fetchPendingAccessRequest(
+  db: ReturnType<typeof getDb>,
+  lineUserId: string
+): Promise<PendingAccessRequest | null> {
+  try {
+    const snap = await db
+      .collection("accessRequests")
+      .where("lineUserId", "==", lineUserId)
+      .where("status", "==", "pending")
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+
+    const d = snap.docs[0].data() as Record<string, unknown>;
+    const role = d?.requestedRole;
+    return {
+      displayName: typeof d?.displayName === "string" ? d.displayName : "",
+      email: typeof d?.email === "string" ? d.email : "",
+      requestedRole: role === "guest" ? "guest" : role === "staff" ? "staff" : "member",
+      createdAt: typeof d?.createdAt === "string" ? d.createdAt : "",
+    };
+  } catch (e) {
+    console.warn("[liff-login] pending access request lookup failed:", e);
+    return null;
+  }
+}
+
 /**
  * POST /api/auth/liff-login
  *
@@ -92,12 +131,16 @@ export async function POST(req: NextRequest) {
       // ここでは「未連携」であることだけを返し、OTP 入力は明示導線(/login)でのみ表示する。
       // ホーム(/) では未連携=「招待が必要」案内を出す（page.tsx 側で分岐）。
       console.log(`[liff-login] lineUserId not linked: ${lineUserId}`);
+      // 既に利用申請を出している人には「現在申請中です」を出せるよう、pending 申請を1件だけ返す。
+      // 等値2条件なので複合インデックスは不要。読めなくてもログインは止めない（表示用の付加情報）。
+      const pendingRequest = await fetchPendingAccessRequest(db, lineUserId);
       return NextResponse.json({
         success: false,
         needsLinking: true,
         lineUserId,
         displayName,
         pictureUrl,
+        ...(pendingRequest ? { pendingRequest } : {}),
       });
     }
 

@@ -3,33 +3,69 @@
 import { useState } from "react";
 import Image from "next/image";
 import { getAuthAccessToken } from "@/lib/liff";
+import { Button, Field, GlassCard, PageBg, inputClass } from "@/components/ui/eb";
 
 /**
  * 未登録ユーザーの利用申請フォーム（氏名・メール・会社名）。
- * 送信すると管理者に通知され、承認されるとメールにワンタイムパスワードが届く。
+ * 送信すると管理者に通知され、承認されるとメールに招待URLのボタンが届く。
  * （この時点ではメールを送らない＝管理者の承認が前提）
  */
 /** 社員（staff）申請時に自動で入る会社名。入力欄は出さない。 */
 const STAFF_COMPANY_NAME = "エイトデザイン株式会社";
 
-export default function AccessRequestForm() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type UserType = "member" | "staff" | "guest";
+
+/** ご利用形態の選択カード（見出し＋副題の2行）。 */
+const USER_TYPES: { key: UserType; label: string; note: string }[] = [
+  { key: "member", label: "オフィス契約者", note: "入居している" },
+  { key: "staff", label: "社員", note: "エイトデザイン" },
+  { key: "guest", label: "ゲスト", note: "麻雀リーグのみ" },
+];
+
+export interface AccessRequestInitialValues {
+  displayName?: string;
+  email?: string;
+  requestedRole?: UserType;
+}
+
+export default function AccessRequestForm({
+  initialValues,
+}: {
+  /** 「メールアドレスを直す」から開いたときの初期値（申請中の内容を上書き送信する）。 */
+  initialValues?: AccessRequestInitialValues;
+} = {}) {
+  const [name, setName] = useState(initialValues?.displayName ?? "");
+  const [email, setEmail] = useState(initialValues?.email ?? "");
   const [company, setCompany] = useState("");
-  const [userType, setUserType] = useState<"member" | "staff" | "guest">("member");
+  const [userType, setUserType] = useState<UserType>(initialValues?.requestedRole ?? "member");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string; company?: string }>({});
   const [done, setDone] = useState(false);
 
-  // 社員は会社名を固定するので入力必須から外す。
+  // 社員は会社名を固定するので入力欄を出さない。ゲストは会社に属さない人もいるので任意。
   const isStaff = userType === "staff";
+  const isGuest = userType === "guest";
   const companyName = isStaff ? STAFF_COMPANY_NAME : company.trim();
-  const canSubmit = name.trim() && email.trim() && companyName && !submitting;
+
+  /** 入力チェック。問題があれば該当 Field に文言を出して false を返す。 */
+  const validate = (): boolean => {
+    const next: { name?: string; email?: string; company?: string } = {};
+    if (!name.trim()) next.name = "お名前を入力してください。";
+    if (!email.trim()) next.email = "メールアドレスを入力してください。";
+    else if (!EMAIL_REGEX.test(email.trim())) next.email = "メールアドレスの形式が正しくありません。";
+    if (!isStaff && !isGuest && !companyName) next.company = "会社名を入力してください。";
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   const submit = async () => {
-    if (!canSubmit) return;
-    setSubmitting(true);
+    if (submitting) return;
     setError("");
+    if (!validate()) return;
+    setSubmitting(true);
     try {
       const accessToken = await getAuthAccessToken();
       if (!accessToken) {
@@ -71,46 +107,54 @@ export default function AccessRequestForm() {
     // 承認後は**全ロールとも招待URL（メールのボタン）**が届く（src/lib/invitations.ts）。
     // ワンタイムパスワード方式は廃止したので、コード入力の案内は出さない。
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 text-center">
-        <div className="w-14 h-14 rounded-full bg-[#EAF7C9] flex items-center justify-center mb-4">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6f9023" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
-          </svg>
+      <PageBg className="flex items-center justify-center px-5">
+        <div className="w-full max-w-sm">
+          <GlassCard>
+            <div className="text-center">
+              <div
+                className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+                style={{ background: "rgba(35,147,94,.14)" }}
+              >
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+              </div>
+              <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">申請を受け付けました</h1>
+              <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+                管理者が確認したあと、ご入力のメールアドレスにご案内メールが届きます。メールの中のボタンから、そのまま始められます。
+              </p>
+              <p className="mt-3 text-[13px] text-[color:var(--eb-ink-muted)]">
+                ボタンは LINE で開いてください。
+              </p>
+            </div>
+          </GlassCard>
         </div>
-        <h1 className="text-base font-bold text-[#1c1f21]">申請を受け付けました</h1>
-        <p className="text-xs text-[#231714]/80 mt-2 leading-relaxed">
-          管理者が承認すると、ご入力のメールアドレスに<br />
-          ご案内メールが届きます。<br />
-          メール内のボタンから、そのままご利用を開始できます。
-        </p>
-        <p className="text-[11px] text-[#231714]/70 mt-4 leading-relaxed">
-          ボタンは <b>LINEアプリで</b> 開いてください。
-        </p>
-      </div>
+      </PageBg>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 py-10">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-6">
-          <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} priority className="opacity-80 mb-3" />
-          <h1 className="text-base font-bold text-[#1c1f21]">利用申請</h1>
-          <p className="text-xs text-[#231714]/75 mt-1 text-center">
-            はじめての方は、以下をご入力ください。<br />管理者の承認後にご利用いただけます。
+    <PageBg className="px-5 pt-10">
+      <div className="mx-auto w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} priority className="mb-3" />
+          <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">利用申請</h1>
+          <p className="mt-2 text-[14px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            はじめての方は、以下を入力してください。管理者が確認したあと、メールでご案内します。
           </p>
         </div>
 
-        <div className="space-y-3">
-          <Field label="お名前">
+        <div className="space-y-5">
+          <Field label="お名前" required error={fieldErrors.name}>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="山田 太郎"
-              className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
+              className={inputClass}
             />
           </Field>
-          <Field label="メールアドレス">
+
+          <Field label="メールアドレス" required error={fieldErrors.email}>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -118,75 +162,77 @@ export default function AccessRequestForm() {
               inputMode="email"
               autoCapitalize="none"
               placeholder="you@example.com"
-              className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
+              className={inputClass}
             />
           </Field>
-          <Field label="ご利用形態">
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { key: "member", label: "オフィス\n契約者" },
-                { key: "staff", label: "社員" },
-                { key: "guest", label: "ゲスト" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setUserType(opt.key)}
-                  className={`rounded-xl border px-2 py-3 text-[13px] font-bold leading-tight whitespace-pre-line transition-colors ${
-                    userType === opt.key
-                      ? "border-[#231714] bg-[#231714] text-white"
-                      : "border-gray-200 bg-white text-[#231714]/85"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+
+          <Field label="ご利用形態" required>
+            <div className="space-y-2">
+              {USER_TYPES.map((opt) => {
+                const selected = userType === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setUserType(opt.key)}
+                    className="flex h-16 w-full flex-col justify-center rounded-2xl px-4 text-left transition-colors"
+                    style={
+                      selected
+                        ? {
+                            background: "var(--eb-green)",
+                            border: "2px solid var(--eb-green)",
+                            color: "#fff",
+                          }
+                        : {
+                            background: "rgba(255,255,255,.6)",
+                            border: "1px solid var(--eb-line)",
+                            color: "var(--eb-ink)",
+                          }
+                    }
+                  >
+                    <span className="text-[14px] font-bold leading-tight">{opt.label}</span>
+                    <span
+                      className="mt-0.5 text-[11px] leading-tight"
+                      style={{ color: selected ? "rgba(255,255,255,.85)" : "var(--eb-ink-muted)" }}
+                    >
+                      {opt.note}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            {isStaff && (
-              <p className="text-[11px] text-[#231714]/70 mt-1.5 leading-relaxed">
-                エイトデザインの社員の方はこちら（会社名は{STAFF_COMPANY_NAME}で申請されます）。
-                管理者の承認後にご利用いただけます。
-              </p>
-            )}
           </Field>
+
           {/* 社員は会社名が自明なので入力欄を出さず、STAFF_COMPANY_NAME を送る。 */}
-          {!isStaff && (
-            <Field label="会社名">
+          {isStaff ? (
+            <p className="text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+              会社名は「{STAFF_COMPANY_NAME}」で申請します。
+            </p>
+          ) : (
+            <Field
+              label={isGuest ? "会社名（任意）" : "会社名"}
+              required={!isGuest}
+              error={fieldErrors.company}
+            >
               <input
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
                 placeholder="エイトデザイン株式会社"
-                className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-sm outline-none focus:border-[#A5C1C8]"
+                className={inputClass}
               />
             </Field>
           )}
         </div>
 
-        {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+        {error && (
+          <p className="mt-4 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>
+        )}
 
-        <button
-          onClick={submit}
-          disabled={!canSubmit}
-          className="mt-5 w-full py-3.5 rounded-2xl text-sm font-bold bg-[#231714] text-white disabled:opacity-40 active:scale-[0.99] transition-transform"
-        >
-          {submitting ? "送信中..." : "申請する"}
-        </button>
-
-        {/* 現在はメールのボタン方式。以前に発行したワンタイムパスワードを持つ人のための導線だけ残す。 */}
-        <p className="text-[11px] text-[#231714]/70 mt-4 text-center">
-          以前にワンタイムパスワードを受け取った方は{" "}
-          <a href="/login" className="underline text-[#231714]/80">こちら</a>
-        </p>
+        <Button variant="ink" className="mt-6" loading={submitting} onClick={submit}>
+          申請する
+        </Button>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block text-[11px] font-bold text-[#231714]/80 mb-1">{label}</span>
-      {children}
-    </label>
+    </PageBg>
   );
 }

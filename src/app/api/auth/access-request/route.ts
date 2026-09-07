@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
     if (!email || !EMAIL_REGEX.test(email)) {
       return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 });
     }
-    if (!companyName) {
+    // ゲストは麻雀リーグに来るだけで会社に属さない人もいるため、会社名を任意にする。
+    // オフィス契約者・社員は従来どおり必須（社員はクライアントが固定値を送る）。
+    if (!companyName && requestedRole !== "guest") {
       return NextResponse.json({ error: "会社名を入力してください" }, { status: 400 });
     }
 
@@ -116,9 +118,11 @@ export async function POST(req: NextRequest) {
 
     const roleLabel =
       requestedRole === "guest" ? "ゲスト" : requestedRole === "staff" ? "社員" : "オフィス契約者";
+    // ゲストは会社名が空でも通るので、通知では「無い」ことが分かる文言にする。
+    const companyLabel = companyName || "（会社名なし）";
     await notifyAdmin(
       "access_request",
-      `利用申請が届きました：${displayName}（${roleLabel} / ${companyName} / ${email}）`,
+      `利用申請が届きました：${displayName}（${roleLabel} / ${companyLabel} / ${email}）`,
       { requestId, lineUserId }
     );
 

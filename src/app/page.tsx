@@ -8,8 +8,48 @@ import { isDevLoginEnabled } from "@/lib/env";
 import { isGamesOnlyRole, normalizeRole } from "@/lib/roles";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { getStoredDevIdentity, setStoredDevIdentity } from "@/lib/devLogin";
+import type { LiffPendingRequest } from "@/lib/liff";
+import { Button, GlassCard, PageBg } from "@/components/ui/eb";
 
 const LOGGED_OUT_FLAG = "eb_logged_out";
+
+/** ご利用形態の表示名（申請中カードで使う）。 */
+const ROLE_LABELS: Record<LiffPendingRequest["requestedRole"], string> = {
+  member: "オフィス契約者",
+  staff: "社員",
+  guest: "ゲスト",
+};
+
+/** ISO文字列を「M月D日」にする（JST基準。読めなければ空文字）。 */
+function formatRequestDate(iso: string): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const jst = new Date(t + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日`;
+}
+
+/** 中央寄せの丸アイコン（各画面共通のトーン）。 */
+function CircleIcon({ background, children }: { background: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[26px]"
+      style={{ background }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** 緑の輪のスピナー（40px）。 */
+function Spinner() {
+  return (
+    <div
+      className="h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+      style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+    />
+  );
+}
 
 /**
  * 開発環境（固定ログイン）のロールをドメインで決める。
@@ -33,8 +73,11 @@ function roleHome(role: string, profileComplete: boolean): string {
 
 export default function HomePage() {
   const boot = useLiffBoot();
-  const [phase, setPhase] = useState<"loading" | "no-account" | "error" | "logged-out">("loading");
+  const [phase, setPhase] = useState<
+    "loading" | "no-account" | "pending-request" | "edit-request" | "error" | "logged-out"
+  >("loading");
   const [statusText, setStatusText] = useState("LIFF初期化中...");
+  const [pendingRequest, setPendingRequest] = useState<LiffPendingRequest | null>(null);
 
   // `/` と `/login` で共通の LIFF→サーバーセッション発行フロー（useLiffBoot）。
   // ログアウト後の「ログインする」ボタンからも呼べるように useCallback で切り出す。
@@ -61,11 +104,15 @@ export default function HomePage() {
         // 開発環境の入口 `/` へ（ドメインごとの固定ロールで自動ログイン）
         window.location.replace("/");
         return;
+      case "pending-request":
+        // 申請済みで承認待ち。申請フォームを出し直さず「現在申請中です」を出す。
+        setPendingRequest(result.request);
+        setPhase("pending-request");
+        return;
       case "needs-linking":
       case "needs-line-login":
       case "no-access":
-        // 未連携/未招待は OTP を自動表示せず「招待が必要」案内（NO ACCOUNT 画面）を出す。
-        // 招待（ワンタイムパスワード）を持つ人は画面内リンクから /login へ進む。
+        // 未連携/未招待は OTP を自動表示せず「利用申請」フォームを出す。
         setPhase("no-account");
         return;
     }
@@ -133,19 +180,95 @@ export default function HomePage() {
   // ── ログアウト後画面（自動再ログインせず、明示的に再ログイン） ──
   if (phase === "logged-out") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-        <div className="opacity-20 mb-6">
-          <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={80} height={80} priority />
+      <PageBg className="flex flex-col items-center justify-center px-6">
+        <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={72} height={72} priority className="mb-6" />
+        <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">ログアウトしました</p>
+        <p className="mt-1 mb-6 text-[15px] text-[color:var(--eb-ink-muted)]">
+          ご利用ありがとうございました
+        </p>
+        <div className="w-full max-w-sm">
+          <Button variant="primary" onClick={runBoot}>
+            ログインする
+          </Button>
         </div>
-        <p className="text-sm font-medium text-[#231714]">ログアウトしました</p>
-        <p className="text-xs text-[#231714]/80 mt-1 mb-6">ご利用ありがとうございました</p>
-        <button
-          onClick={runBoot}
-          className="px-6 py-3 rounded-xl bg-[#231714] text-white text-sm font-medium active:scale-[0.98] transition-transform"
-        >
-          ログインする
-        </button>
-      </div>
+      </PageBg>
+    );
+  }
+
+  // ── 現在申請中です（承認待ち） ──
+  if (phase === "pending-request" && pendingRequest) {
+    const requestedAt = formatRequestDate(pendingRequest.createdAt);
+    return (
+      <PageBg className="flex items-center justify-center px-5">
+        <div className="w-full max-w-sm">
+          <GlassCard>
+            <div className="text-center">
+              <CircleIcon background="rgba(217,169,58,.18)">⏳</CircleIcon>
+              <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">現在申請中です</h1>
+              <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+                管理者が確認しています。承認されると、メールでご案内が届きます。
+              </p>
+            </div>
+
+            <dl
+              className="mt-5 space-y-2 rounded-2xl p-4 text-[15px]"
+              style={{ background: "var(--eb-tint)" }}
+            >
+              <div className="flex gap-3">
+                <dt className="w-20 shrink-0 text-[color:var(--eb-ink-muted)]">お名前</dt>
+                <dd className="min-w-0 break-words text-[color:var(--eb-ink)]">
+                  {pendingRequest.displayName || "—"}
+                </dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="w-20 shrink-0 text-[color:var(--eb-ink-muted)]">利用形態</dt>
+                <dd className="min-w-0 text-[color:var(--eb-ink)]">
+                  {ROLE_LABELS[pendingRequest.requestedRole]}
+                </dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="w-20 shrink-0 text-[color:var(--eb-ink-muted)]">メール</dt>
+                <dd className="min-w-0 break-all text-[color:var(--eb-ink)]">
+                  {pendingRequest.email || "—"}
+                </dd>
+              </div>
+              {requestedAt && (
+                <div className="flex gap-3">
+                  <dt className="w-20 shrink-0 text-[color:var(--eb-ink-muted)]">申請日</dt>
+                  <dd className="min-w-0 text-[color:var(--eb-ink)]">{requestedAt}</dd>
+                </div>
+              )}
+            </dl>
+
+            <p className="mt-4 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+              メールが届いたら、中のボタンを LINE で開いてください。
+            </p>
+
+            <div className="mt-5">
+              <Button variant="ghost" onClick={() => setPhase("edit-request")}>
+                メールアドレスを直す
+              </Button>
+            </div>
+          </GlassCard>
+        </div>
+      </PageBg>
+    );
+  }
+
+  // ── 申請内容の直し（既存の申請を上書き送信する） ──
+  if (phase === "edit-request") {
+    return (
+      <AccessRequestForm
+        initialValues={
+          pendingRequest
+            ? {
+                displayName: pendingRequest.displayName,
+                email: pendingRequest.email,
+                requestedRole: pendingRequest.requestedRole,
+              }
+            : undefined
+        }
+      />
     );
   }
 
@@ -157,22 +280,18 @@ export default function HomePage() {
   // ── エラー画面 ──
   if (phase === "error") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-        <div className="opacity-20 mb-6">
-          <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={80} height={80} priority />
-        </div>
-        <p className="text-sm text-[#231714]/85 text-center">{statusText}</p>
-      </div>
+      <PageBg className="flex flex-col items-center justify-center px-6">
+        <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={72} height={72} priority className="mb-6" />
+        <p className="text-center text-[15px] text-[color:var(--eb-ink)]">{statusText}</p>
+      </PageBg>
     );
   }
 
   // ── ローディング画面 ──
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-gray-700 mt-2">{statusText}</p>
-      </div>
-    </div>
+    <PageBg className="flex flex-col items-center justify-center gap-3">
+      <Spinner />
+      <p className="text-[15px] text-[color:var(--eb-ink-muted)]">{statusText}</p>
+    </PageBg>
   );
 }

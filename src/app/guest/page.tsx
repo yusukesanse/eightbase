@@ -2,16 +2,48 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import { initLiff } from "@/lib/liff";
 import { isDevLoginEnabled } from "@/lib/env";
 import { clearAuthCache } from "@/components/AuthGuard";
+import { Button, Field, GlassCard, PageBg, inputClass } from "@/components/ui/eb";
 
 // ゲストのゲームハブは /games。AuthGuard の GUEST_HOME と一致させる。
 const GUEST_HOME = "/games";
 
+/** 連携中に出す固定文言。 */
+const LINKING_TEXT = "LINE と連携しています…";
+
+/** 緑の輪のスピナー（40px）。 */
 function Spinner() {
-  return <div className="w-9 h-9 border-2 border-[#2f7d57] border-t-transparent rounded-full animate-spin" />;
+  return (
+    <div
+      className="h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+      style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+    />
+  );
+}
+
+/** 中央寄せの丸アイコン（64px）。 */
+function CircleIcon({ background, children }: { background: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-[26px]"
+      style={{ background }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** GlassCard 1枚を画面中央に置く共通レイアウト。 */
+function CenteredCard({ children }: { children: React.ReactNode }) {
+  return (
+    <PageBg className="flex items-center justify-center px-5">
+      <div className="w-full max-w-sm">
+        <GlassCard>{children}</GlassCard>
+      </div>
+    </PageBg>
+  );
 }
 
 function GuestInner() {
@@ -20,9 +52,10 @@ function GuestInner() {
   const code = params.get("code") || "";
 
   const [phase, setPhase] = useState<"loading" | "needs-line" | "confirm" | "tip" | "error">("loading");
-  const [statusText, setStatusText] = useState("LINEと連携しています…");
   const [name, setName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  // 招待そのものが使えない（redeem 失敗）のか、それ以外（コード無し・通信エラー）かで見出しを変える。
+  const [errorKind, setErrorKind] = useState<"invalid-invite" | "other">("other");
   const [saving, setSaving] = useState(false);
 
   const goGame = useCallback(() => {
@@ -33,6 +66,7 @@ function GuestInner() {
   useEffect(() => {
     if (!code) {
       setPhase("error");
+      setErrorKind("other");
       setErrorMsg("招待コードがURLにありません。メールのリンクから開いてください。");
       return;
     }
@@ -59,6 +93,7 @@ function GuestInner() {
           if (!accessToken) {
             if (alive) {
               setPhase("error");
+              setErrorKind("other");
               setErrorMsg("LINE情報の取得に失敗しました。LINEアプリで開き直してください。");
             }
             return;
@@ -74,6 +109,7 @@ function GuestInner() {
         if (!alive) return;
         if (!res.ok) {
           setPhase("error");
+          setErrorKind("invalid-invite");
           setErrorMsg(data.error || "参加登録に失敗しました。");
           return;
         }
@@ -97,6 +133,7 @@ function GuestInner() {
         console.error("[guest] error:", e);
         if (alive) {
           setPhase("error");
+          setErrorKind("other");
           setErrorMsg("エラーが発生しました。ページを再読み込みしてください。");
         }
       }
@@ -104,7 +141,6 @@ function GuestInner() {
     return () => {
       alive = false;
     };
-    // statusText は固定文言なので依存に含めない
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, router]);
 
@@ -129,98 +165,114 @@ function GuestInner() {
   // ── 登録完了 + 次回の開き方の案内 ──
   if (phase === "tip") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6">
-        <div className="w-full max-w-sm bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-          <div className="text-center mb-4">
-            <div className="w-12 h-12 rounded-full bg-[#EAF7C9] flex items-center justify-center mx-auto mb-3">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6f9023" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12.5l4.5 4.5L19 7.5" />
-              </svg>
-            </div>
-            <h1 className="text-base font-bold text-[#1c1f21]">登録が完了しました</h1>
-          </div>
-
-          <div className="rounded-2xl bg-[#f6f8f9] p-4 text-sm text-[#231714]/90 leading-relaxed">
-            <p className="font-bold text-[#1c1f21] mb-1.5">次回の開き方</p>
-            <p className="mb-2">
-              次にこのページを開くときは、<strong>LINEアプリの「ホーム」</strong>を開き、
-              <strong>「ミニアプリ（最近使ったサービス）」</strong>から「EIGHT BASE」を選んでください。
-            </p>
-            <p className="text-xs text-[#231714]/75">
-              ※ お送りした招待メールのリンクからも、いつでも開けます。
-            </p>
-          </div>
-
-          <button
-            onClick={goGame}
-            className="mt-5 w-full py-3 rounded-2xl text-sm font-bold bg-[#2f7d57] text-white"
-          >
-            麻雀リーグを開く
-          </button>
+      <CenteredCard>
+        <div className="text-center">
+          <CircleIcon background="rgba(35,147,94,.14)">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </CircleIcon>
+          <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">登録が完了しました</h1>
         </div>
-      </div>
+
+        <div className="mt-5 rounded-2xl p-4" style={{ background: "var(--eb-tint)" }}>
+          <p className="text-[15px] font-bold text-[color:var(--eb-ink)]">次回の開き方</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            LINE の「ホーム」→「ミニアプリ」→「EIGHT BASE」
+          </p>
+          <p className="mt-2 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            公式 LINE のトーク画面からも開けます。
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <Button variant="primary" onClick={goGame}>
+            麻雀リーグを開く
+          </Button>
+        </div>
+      </CenteredCard>
     );
   }
 
   // ── 氏名確認画面 ──
   if (phase === "confirm") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6">
-        <div className="w-full max-w-sm bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-          <div className="text-center mb-5">
-            <div className="w-12 h-12 rounded-full bg-[#2f7d57]/10 flex items-center justify-center mx-auto mb-3">
-              <span className="text-[#2f7d57] text-xl">🀄</span>
-            </div>
-            <h1 className="text-base font-bold text-[#1c1f21]">麻雀リーグへようこそ</h1>
-            <p className="text-xs text-[#231714]/85 mt-1">順位表に表示されるお名前をご確認ください</p>
-          </div>
-          <label className="block text-xs font-medium text-[#231714]/80 mb-1">お名前</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={50}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2f7d57]/40"
-          />
-          <button
-            onClick={startWithName}
-            disabled={saving || !name.trim()}
-            className="mt-4 w-full py-3 rounded-2xl text-sm font-bold bg-[#2f7d57] text-white disabled:opacity-40"
-          >
-            {saving ? "開始中…" : "この名前で始める"}
-          </button>
+      <CenteredCard>
+        <div className="text-center">
+          <CircleIcon background="rgba(35,147,94,.14)">🀄</CircleIcon>
+          <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">麻雀リーグへようこそ</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            順位表に表示されるお名前を確認してください。あとから変更もできます。
+          </p>
         </div>
-      </div>
+
+        <div className="mt-5">
+          <Field label="お名前">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={50}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        <div className="mt-5">
+          <Button variant="primary" loading={saving} disabled={!name.trim()} onClick={startWithName}>
+            この名前で始める
+          </Button>
+        </div>
+      </CenteredCard>
     );
   }
 
   // ── LINE で開いてもらう案内 ──
   if (phase === "needs-line") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 text-center">
-        <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} className="opacity-20 mb-5" priority />
-        <p className="text-sm text-[#231714]">この招待リンクは <strong>LINEアプリ</strong> で開いてください。</p>
-        <p className="text-xs text-[#231714]/85 mt-2">メールの「麻雀リーグに参加する」ボタンをLINEで開くと参加できます。</p>
-      </div>
+      <CenteredCard>
+        <div className="text-center">
+          <CircleIcon background="rgba(217,169,58,.18)">
+            <span className="font-bold text-[color:var(--eb-gold-text)]">!</span>
+          </CircleIcon>
+          <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">LINE で開いてください</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            この招待リンクは LINE アプリの中でだけ使えます。メールの「麻雀リーグに参加する」ボタンを LINE で開いてください。
+          </p>
+        </div>
+      </CenteredCard>
     );
   }
 
   // ── エラー ──
   if (phase === "error") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] px-6 text-center">
-        <Image src="/logo.svg" alt="EIGHT BASE" width={64} height={64} className="opacity-20 mb-5" priority />
-        <p className="text-sm text-[#231714]/85">{errorMsg}</p>
-      </div>
+      <CenteredCard>
+        <div className="text-center">
+          <CircleIcon background="rgba(217,72,58,.14)">
+            <span className="font-bold text-[color:var(--eb-coral-text)]">×</span>
+          </CircleIcon>
+          <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">
+            {errorKind === "invalid-invite" ? "この招待は使えません" : "うまく読み込めませんでした"}
+          </h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">{errorMsg}</p>
+        </div>
+
+        <div className="mt-5">
+          <Button variant="primary" onClick={() => window.location.reload()}>
+            もう一度読み込む
+          </Button>
+        </div>
+      </CenteredCard>
     );
   }
 
   // ── ローディング ──
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF9F6] gap-3">
+    <PageBg className="flex flex-col items-center justify-center gap-3">
       <Spinner />
-      <p className="text-sm text-gray-700">{statusText}</p>
-    </div>
+      <p className="text-[15px] text-[color:var(--eb-ink-muted)]">{LINKING_TEXT}</p>
+    </PageBg>
   );
 }
 
@@ -228,9 +280,9 @@ export default function GuestPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#FAF9F6]">
+        <PageBg className="flex items-center justify-center">
           <Spinner />
-        </div>
+        </PageBg>
       }
     >
       <GuestInner />

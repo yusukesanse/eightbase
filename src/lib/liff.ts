@@ -33,6 +33,14 @@ export async function initLiff(): Promise<Liff> {
   return liff;
 }
 
+/** 未連携ユーザーが既に出している利用申請（「現在申請中です」画面の表示用）。 */
+export interface LiffPendingRequest {
+  displayName: string;
+  email: string;
+  requestedRole: "member" | "staff" | "guest";
+  createdAt: string;
+}
+
 /** /api/auth/liff-login のレスポンス形 */
 interface LiffLoginApiResponse {
   success?: boolean;
@@ -41,6 +49,7 @@ interface LiffLoginApiResponse {
   lineUserId?: string;
   displayName?: string;
   pictureUrl?: string;
+  pendingRequest?: LiffPendingRequest;
   error?: string;
 }
 
@@ -49,6 +58,14 @@ export type LiffLoginResult =
   | { kind: "needs-line-login" } // 外部ブラウザ等でログイン不可
   | { kind: "needs-dev-login" } // Dev ログイン有効だがテストユーザー未選択（/dev-login へ）
   | { kind: "linked"; profileComplete: boolean } // サーバーセッション発行済み
+  // 未連携だが利用申請が pending（「現在申請中です」画面）。needs-linking より優先する。
+  | {
+      kind: "pending-request";
+      request: LiffPendingRequest;
+      lineUserId: string;
+      displayName: string;
+      pictureUrl: string;
+    }
   | { kind: "needs-linking"; lineUserId: string; displayName: string; pictureUrl: string }
   | { kind: "no-access"; error?: string };
 
@@ -68,6 +85,16 @@ async function postLiffLogin(
 
   if (res.ok && data.success) {
     return { kind: "linked", profileComplete: !!data.profileComplete };
+  }
+  if (data.needsLinking && data.pendingRequest) {
+    // 申請済みの人には OTP 入力ではなく「現在申請中です」を出す（needs-linking より優先）。
+    return {
+      kind: "pending-request",
+      request: data.pendingRequest,
+      lineUserId: data.lineUserId ?? "",
+      displayName: data.displayName ?? "",
+      pictureUrl: data.pictureUrl ?? "",
+    };
   }
   if (data.needsLinking) {
     return {
@@ -101,6 +128,7 @@ export async function getAuthAccessToken(): Promise<string | null> {
  * - LINE 未ログイン & LINE アプリ内 → LINE ログインへリダイレクト（"redirecting"）
  * - LINE 未ログイン & 外部ブラウザ → "needs-line-login"
  * - セッション発行成功 → "linked"（profileComplete 付き）
+ * - 未連携だが利用申請が pending → "pending-request"（「現在申請中です」）
  * - 招待済みだが未連携 → "needs-linking"（OTP 入力へ）
  * - それ以外 → "no-access"
  *

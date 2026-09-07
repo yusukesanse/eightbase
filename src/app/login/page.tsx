@@ -90,6 +90,10 @@ export default function LoginPage() {
           // 開発環境の入口 `/` へ（ドメインごとの固定ロールで自動ログイン）
           window.location.replace("/");
           return;
+        // "pending-request" は `/` の「現在申請中です」用の結果だが、`/login` は
+        // 発行済み OTP の入力導線なので、申請中でも従来どおりコードを入力できるようにする
+        // （case を足さないと未連携ユーザーが「認証中...」で止まる）。
+        case "pending-request":
         case "needs-linking":
           setLineInfo({
             lineUserId: result.lineUserId,
