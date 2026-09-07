@@ -21,8 +21,15 @@ const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
 
 const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
 
-/** 画像内で各段の中心が来る高さ（上端からの割合）。画像を差し替えたらここを合わせる。 */
-const TIER_Y: Record<MahjongLeagueTier, number> = { M1: 0.2, M2: 0.47, M3: 0.76 };
+/** ヒーローの高さ（旧 3D 版と同じ）。 */
+const HERO_HEIGHT = 280;
+/** 左ラベルの縦位置（上端からの割合・旧 3D 版と同じ定数）。画像を差し替えたらここを合わせる。 */
+const LABEL_TOP = [0.07, 0.37, 0.645] as const;
+/** 自分のアバターの縦位置（段の中心）。 */
+const AVATAR_TOP = [0.16, 0.44, 0.7] as const;
+/** 左ラベルのキッカー（段位置で固定・旧 3D 版と同じ）。 */
+const KICKER = ["PREMIER", "CHALLENGER", "CONTENDER"] as const;
+const GOLD = "linear-gradient(180deg,#f9ead0,#e6bd52 42%,#c9962a 70%,#a9781a)";
 
 /** 連対率の表示（0–1 の小数でも 0–100 でも % 表記・小数第2位まで） */
 function pct(v: number): string {
@@ -52,58 +59,67 @@ export function LeaguePyramid({
 
   return (
     <div className="space-y-5">
-      {/* クリスタル・ピラミッド（黒のヒーローカード） */}
+      {/* クリスタル・ピラミッド（黒のヒーローカード）。ラベルとアバターは旧 3D 版と同じ表現:
+          左固定のゴールド箔風セリフ体ラベル＋自分のアバターが「あなた」フラッグ付きで浮遊する。 */}
       <div
         className="relative overflow-hidden rounded-[20px]"
         style={{
           background: "radial-gradient(120% 80% at 50% 10%, #16181b, #050607)",
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(20,41,31,.12)",
+          height: HERO_HEIGHT,
         }}
+        aria-label="リーグのピラミッド"
       >
-        <div className="relative mx-auto aspect-square w-full max-w-[340px]">
+        {/* 画像はゆっくり左右にゆらぐ（reduced-motion では停止） */}
+        <div className="eb-pyramid-sway absolute inset-y-2 left-1/2 aspect-square -translate-x-1/2" style={{ marginLeft: 22 }}>
           <Image
             src="/league-pyramid.jpg"
-            alt="M1・M2・M3 のリーグを表すクリスタルのピラミッド"
+            alt=""
             fill
-            sizes="(max-width: 480px) 100vw, 340px"
+            sizes="(max-width: 480px) 90vw, 320px"
             priority
             className="object-contain"
           />
         </div>
 
-        {/* 左: 段ラベル（色＋文字。色だけに頼らない） */}
-        <div className="pointer-events-none absolute inset-y-0 left-3 w-24">
-          {TIER_ORDER.map((t) => (
-            <div
-              key={t}
-              className="absolute left-0 flex -translate-y-1/2 items-center gap-1.5"
-              style={{ top: `${TIER_Y[t] * 100}%` }}
-            >
-              <span
-                className="inline-flex h-7 min-w-[36px] items-center justify-center rounded-lg px-2 text-[13px] font-bold text-white shadow-[0_2px_8px_rgba(0,0,0,.4)]"
-                style={{ background: TIER_META[t].color }}
-              >
-                {t}
-              </span>
-              <span className="text-[11px] font-bold text-white/70">{byTier[t].length}名</span>
-            </div>
-          ))}
+        {/* 左固定ラベル（ゴールド箔風セリフ体・旧 3D 版と同じ） */}
+        <div className="pointer-events-none absolute inset-0">
+          {TIER_ORDER.map((t, i) => {
+            const col = TIER_META[t].color;
+            const meHere = me?.tier === t;
+            return (
+              <div key={t} style={{ position: "absolute", left: 12, top: `${LABEL_TOP[i] * 100}%`, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 14, height: 14, borderRadius: 3, transform: "rotate(45deg)", background: `linear-gradient(135deg, rgba(255,255,255,.85), ${col})`, boxShadow: `inset 0 0 0 1px rgba(255,255,255,.4), 0 0 0 1px ${col}, 0 0 ${meHere ? 14 : 5}px ${meHere ? col : "rgba(0,0,0,.12)"}` }} />
+                <div style={{ lineHeight: 1.05 }}>
+                  <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 9.5, fontWeight: 600, letterSpacing: ".22em", background: GOLD, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>{KICKER[i]}</div>
+                  <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 33, fontWeight: 900, letterSpacing: "-.01em", marginTop: 1,
+                    background: `linear-gradient(168deg, #ffffff 8%, ${col} 62%, color-mix(in srgb, ${col} 60%, #5a0f33) 100%)`,
+                    WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent",
+                    filter: `drop-shadow(0 1px 0 rgba(255,255,255,.6)) drop-shadow(0 2px 3px rgba(40,20,10,.28)) drop-shadow(0 0 ${meHere ? 11 : 0}px ${col})` }}>{t}</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: meHere ? col : "rgba(255,255,255,.55)", marginTop: 3 }}>{byTier[t].length}名{meHere ? " ・ あなた" : ""}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* 右: 自分の位置 */}
+        {/* 自分のアバター（所属リーグの高さで浮遊・「あなた」フラッグ付き） */}
         {me && (
           <div
-            className="pointer-events-none absolute right-3 flex -translate-y-1/2 flex-col items-center gap-1"
-            style={{ top: `${TIER_Y[me.tier] * 100}%` }}
+            className="eb-pyramid-float pointer-events-none absolute right-4 flex flex-col items-center"
+            style={{ top: `${AVATAR_TOP[TIER_ORDER.indexOf(me.tier)] * 100}%` }}
           >
-            <div className="rounded-full p-[2px]" style={{ background: TIER_META[me.tier].color }}>
+            <span
+              className="mb-1 rounded-full px-2.5 py-[3px] text-[11px] font-bold text-[color:var(--eb-ink)]"
+              style={{ background: GOLD, boxShadow: "0 2px 6px rgba(0,0,0,.35)" }}
+            >
+              あなた
+            </span>
+            <div className="rounded-full p-[3px]" style={{ background: `linear-gradient(135deg, rgba(255,255,255,.9), ${TIER_META[me.tier].color})`, boxShadow: `0 0 18px ${TIER_META[me.tier].color}` }}>
               <div className="rounded-full bg-black p-[2px]">
-                <Avatar src={me.pictureUrl} name={me.displayName} size={40} />
+                <Avatar src={me.pictureUrl} name={me.displayName} size={44} />
               </div>
             </div>
-            <span className="rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-bold text-[color:var(--eb-ink)]">
-              あなた・{me.rank}位
-            </span>
           </div>
         )}
       </div>

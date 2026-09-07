@@ -715,5 +715,6 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - `MonthCalendar variant="game"` はゲーム用の44px円セル。**既定の見た目は施設予約と共用なので変えない。**
 - ボトムバーは既存の `RichMenu` をそのまま使う（新部品は作らない・ユーザー指示）。
 - 見出し「GAME」は `/games` ページが出す。各 LeagueView は見出しを出さない（二重見出しを避ける）。
-- 2026-09-07 追加: 利用者アプリの全画面（予約・Info・掲示板・メンバー・マイページ・ログイン・ダーツ／ビリヤード／ポーカー）を新デザインに揃えた。対象外は管理画面・demo／preview ページのみ。
-- リーグのピラミッドは `public/league-pyramid.jpg`（クリスタル画像・M1 マゼンタ／M2 ブルー／M3 ゴールド）を黒のヒーローカードに置く（`LeaguePyramid.tsx`）。段ラベルの位置は `TIER_Y`。`LeaguePyramid3D.tsx` は未使用で残置。
+- 2026-09-07 追加: 利用者アプリの全画面（Info・掲示板・メンバー・マイページ・ログイン・ダーツ／ビリヤード／ポーカー）を新デザインに揃えた。対象外は管理画面・demo／preview ページ。
+- **施設予約は「カレンダーだけ」新デザイン**（ユーザー指示・2026-09-07）。施設選択・時間選択・同伴者・確認・完了・マイ予約・DatePicker／TimePicker は**以前の UI のまま**。`reservation/page.tsx` の月ナビ〜凡例だけ 44px 円セルにしてある。ここ以外を新デザインに寄せないこと。
+- リーグのピラミッドは `public/league-pyramid.jpg`（クリスタル画像・M1 マゼンタ／M2 ブルー／M3 ゴールド）を黒のヒーローカードに置く（`LeaguePyramid.tsx`）。**段ラベル（左固定・ゴールド箔風の Noto Serif JP）と「あなた」フラッグ付きで浮遊するアバターは旧 3D 版と同じ表現**（ユーザー指示）。位置は `LABEL_TOP` / `AVATAR_TOP`、動きは `globals.css` の `eb-pyramid-sway` / `eb-pyramid-float`（reduced-motion で停止）。`LeaguePyramid3D.tsx` は未使用で残置。
