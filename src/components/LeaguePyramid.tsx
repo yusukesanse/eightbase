@@ -103,11 +103,12 @@ export function LeaguePyramid({
                       </div>
                       <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
-                          {s.displayName}
-                          {isMe && <StatusPill tone="green">YOU</StatusPill>}
+                        {/* 名前は省略記号、YOU は縮めない。補足行は折り返さず、狭い画面では文字を小さくする */}
+                        <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)]">
+                          <span className="min-w-0 truncate">{s.displayName}</span>
+                          {isMe && <span className="shrink-0"><StatusPill tone="green">YOU</StatusPill></span>}
                         </div>
-                        <div className="flex gap-2.5 mt-0.5 text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">
+                        <div className="mt-0.5 flex gap-2 whitespace-nowrap text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums max-[400px]:text-[11px] max-[360px]:gap-1.5 max-[360px]:text-[10px]">
                           <span>{s.gamesPlayed}戦</span>
                           <span>1位 {s.firstCount}</span>
                           <span>連対 {pct(s.top2Rate)}</span>

@@ -121,11 +121,11 @@ export function GameLeagueBoard({
                     </div>
                     <Avatar src={s.pictureUrl} name={s.displayName} size={32} />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)] truncate">
-                        {s.displayName}
-                        {s.isMe && <StatusPill tone="green">YOU</StatusPill>}
+                      <div className="flex items-center gap-1.5 text-[15px] font-bold text-[color:var(--eb-ink)]">
+                        <span className="min-w-0 truncate">{s.displayName}</span>
+                        {s.isMe && <span className="shrink-0"><StatusPill tone="green">YOU</StatusPill></span>}
                       </div>
-                      <div className="mt-0.5 text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums">{s.subText}</div>
+                      <div className="mt-0.5 truncate whitespace-nowrap text-[12px] text-[color:var(--eb-ink-muted)] tabular-nums max-[400px]:text-[11px]">{s.subText}</div>
                     </div>
                     <Sparkline data={s.trend} color={col} />
                     <div className="text-right shrink-0 min-w-[64px]">
