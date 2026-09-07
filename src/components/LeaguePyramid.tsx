@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import type { MahjongStanding, MahjongLeagueTier } from "@/types";
 import { Avatar } from "@/components/ui/LineContact";
 import { GlassCard, StatusPill } from "@/components/ui/eb";
+import { LeaguePyramidHero } from "@/components/LeaguePyramidHero";
 
 /**
  * 麻雀リーグ ピラミッド表示
@@ -19,19 +19,8 @@ const TIER_META: Record<MahjongLeagueTier, { color: string; desc: string }> = {
   M3: { color: "var(--eb-league-m3)", desc: "CONTENDER ・ 9位〜" },
 };
 
-const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
+const TIER_ORDER = ["M1", "M2", "M3"] as const satisfies readonly MahjongLeagueTier[];
 
-/** ヒーローの高さ（旧 3D 版と同じ）。 */
-const HERO_HEIGHT = 280;
-/** 左ラベルの縦位置（上端からの割合・旧 3D 版と同じ定数）。画像を差し替えたらここを合わせる。 */
-const LABEL_TOP = [0.07, 0.37, 0.645] as const;
-/** 自分のアバターの縦位置（各段の面の中心・上端からの割合）。画像を差し替えたらここを合わせる。 */
-const AVATAR_TOP = [0.12, 0.46, 0.73] as const;
-/** ピラミッド画像を中央から右へずらす量（px）。左のラベルと重ならないようにする。 */
-const PYRAMID_OFFSET_X = 22;
-/** 左ラベルのキッカー（段位置で固定・旧 3D 版と同じ）。 */
-const KICKER = ["PREMIER", "CHALLENGER", "CONTENDER"] as const;
-const GOLD = "linear-gradient(180deg,#f9ead0,#e6bd52 42%,#c9962a 70%,#a9781a)";
 
 /** 連対率の表示（0–1 の小数でも 0–100 でも % 表記・小数第2位まで） */
 function pct(v: number): string {
@@ -61,70 +50,12 @@ export function LeaguePyramid({
 
   return (
     <div className="space-y-5">
-      {/* クリスタル・ピラミッド（黒のヒーローカード）。ラベルとアバターは旧 3D 版と同じ表現:
-          左固定のゴールド箔風セリフ体ラベル＋自分のアバターが「あなた」フラッグ付きで浮遊する。 */}
-      <div
-        className="relative overflow-hidden rounded-[20px]"
-        style={{
-          background: "#000000",
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(20,41,31,.12)",
-          height: HERO_HEIGHT,
-        }}
-        aria-label="リーグのピラミッド"
-      >
-        {/* 画像は静止（アニメーションなし・ユーザー指示） */}
-        <div className="absolute inset-y-2 left-1/2 aspect-square -translate-x-1/2" style={{ marginLeft: PYRAMID_OFFSET_X }}>
-          <Image
-            src="/league-pyramid.jpg"
-            alt=""
-            fill
-            sizes="(max-width: 480px) 90vw, 320px"
-            priority
-            className="object-contain"
-          />
-        </div>
-
-        {/* 左固定ラベル（ゴールド箔風セリフ体・旧 3D 版と同じ） */}
-        <div className="pointer-events-none absolute inset-0">
-          {TIER_ORDER.map((t, i) => {
-            const col = TIER_META[t].color;
-            const meHere = me?.tier === t;
-            return (
-              <div key={t} style={{ position: "absolute", left: 12, top: `${LABEL_TOP[i] * 100}%`, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 14, height: 14, borderRadius: 3, transform: "rotate(45deg)", background: `linear-gradient(135deg, rgba(255,255,255,.85), ${col})`, boxShadow: `inset 0 0 0 1px rgba(255,255,255,.4), 0 0 0 1px ${col}, 0 0 ${meHere ? 14 : 5}px ${meHere ? col : "rgba(0,0,0,.12)"}` }} />
-                <div style={{ lineHeight: 1.05 }}>
-                  <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 9.5, fontWeight: 600, letterSpacing: ".22em", background: GOLD, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>{KICKER[i]}</div>
-                  <div style={{ fontFamily: "'Noto Serif JP', serif", fontSize: 33, fontWeight: 900, letterSpacing: "-.01em", marginTop: 1,
-                    background: `linear-gradient(168deg, #ffffff 8%, ${col} 62%, color-mix(in srgb, ${col} 60%, #5a0f33) 100%)`,
-                    WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent",
-                    filter: `drop-shadow(0 1px 0 rgba(255,255,255,.6)) drop-shadow(0 2px 3px rgba(40,20,10,.28)) drop-shadow(0 0 ${meHere ? 11 : 0}px ${col})` }}>{t}</div>
-                  <div style={{ fontSize: 10.5, fontWeight: 700, color: meHere ? col : "rgba(255,255,255,.55)", marginTop: 3 }}>{byTier[t].length}名{meHere ? " ・ あなた" : ""}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 自分のアバター: ピラミッドの上（所属する段の面の中央）に重ねる。「あなた」フラッグ付きでゆっくり浮遊 */}
-        {me && (
-          <div
-            className="eb-pyramid-float pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-            style={{ left: `calc(50% + ${PYRAMID_OFFSET_X}px)`, top: `${AVATAR_TOP[TIER_ORDER.indexOf(me.tier)] * 100}%` }}
-          >
-            <span
-              className="mb-1 rounded-full px-2.5 py-[3px] text-[11px] font-bold text-[color:var(--eb-ink)]"
-              style={{ background: GOLD, boxShadow: "0 2px 6px rgba(0,0,0,.35)" }}
-            >
-              あなた
-            </span>
-            <div className="rounded-full p-[3px]" style={{ background: `linear-gradient(135deg, rgba(255,255,255,.9), ${TIER_META[me.tier].color})`, boxShadow: `0 0 18px ${TIER_META[me.tier].color}` }}>
-              <div className="rounded-full bg-black p-[2px]">
-                <Avatar src={me.pictureUrl} name={me.displayName} size={44} />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ピラミッド（4種目共通のヒーロー） */}
+      <LeaguePyramidHero
+        tierKeys={TIER_ORDER}
+        counts={[byTier.M1.length, byTier.M2.length, byTier.M3.length]}
+        me={me ? { tierIndex: TIER_ORDER.indexOf(me.tier), displayName: me.displayName, pictureUrl: me.pictureUrl } : undefined}
+      />
 
       {/* 順位リスト */}
       <div className="space-y-4">

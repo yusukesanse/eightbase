@@ -1,14 +1,14 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { Avatar } from "@/components/ui/LineContact";
 import { GlassCard, StatusPill } from "@/components/ui/eb";
 import { cssColor, tierIndexOf, type TierKeys } from "@/components/LeaguePyramid3D";
+import { LeaguePyramidHero } from "@/components/LeaguePyramidHero";
 
 /**
  * 種目共通のリーグボード（麻雀 `LeaguePyramid` と同じ見た目に統一）。
  * ダーツ / ビリヤード / ポーカーが共有する。
- * - 上部: 3Dピラミッド（`LeaguePyramid3D`）を黒帯ヒーローに配置
+ * - 上部: クリスタル画像のピラミッド（`LeaguePyramidHero`・麻雀と同じ）
  * - 下部: 3階層別の順位リスト（自分を YOU でハイライト・行タップで戦歴）
  *
  * 種目差は **tierKeys（D1/B1/P1…）と unit（pt / Chips）と脚注だけ**。
@@ -16,12 +16,6 @@ import { cssColor, tierIndexOf, type TierKeys } from "@/components/LeaguePyramid
  * ※ 種目ごとの独自ヒーロー（ダーツ盤・ビリヤードtier板・ポーカーのカード盤）は
  *   デザイン統一のため廃止した。復活させないこと。
  */
-
-// 3D は WebGL のためクライアント専用（SSR 無効）
-const LeaguePyramid3D = dynamic(
-  () => import("@/components/LeaguePyramid3D").then((m) => m.LeaguePyramid3D),
-  { ssr: false }
-);
 
 const KICKER = ["PREMIER", "CHALLENGER", "CONTENDER"] as const;
 const RANGE = ["1〜4位", "5〜8位", "9位〜"] as const;
@@ -64,26 +58,20 @@ export function GameLeagueBoard({
   // ⚠️ 成績が無くても**ピラミッドは常に描く**（麻雀 LeaguePyramid と揃える）。
   // ここで early-return すると「シーズン開始直後は他種目だけピラミッドが出ない」ことになる。
   const isEmpty = standings.length === 0;
-  const meId = standings.find((s) => s.isMe)?.lineUserId;
+  const meRow = standings.find((s) => s.isMe);
   const byTier: GameLeagueStanding[][] = [[], [], []];
   standings.forEach((s) => byTier[tierIndexOf(s.rank)].push(s));
   byTier.forEach((rows) => rows.sort((a, b) => a.rank - b.rank));
 
   return (
     <div className="space-y-5">
-      {/* 3D ピラミッド（黒帯ヒーロー） */}
-      <div
-        className="rounded-[18px] overflow-hidden"
-        style={{ background: "radial-gradient(120% 80% at 50% 12%, #202226, #17191b)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
-      >
-        <LeaguePyramid3D
-          standings={standings}
-          currentUserId={meId}
-          height={280}
-          tierKeys={tierKeys}
-          label={ariaLabel}
-        />
-      </div>
+      {/* ピラミッド（麻雀と同じ共通ヒーロー） */}
+      <LeaguePyramidHero
+        tierKeys={tierKeys}
+        counts={[byTier[0].length, byTier[1].length, byTier[2].length]}
+        me={meRow ? { tierIndex: tierIndexOf(meRow.rank), displayName: meRow.displayName, pictureUrl: meRow.pictureUrl } : undefined}
+        ariaLabel={ariaLabel}
+      />
 
       {/* 順位リスト（成績が無い間はプレースホルダ） */}
       {isEmpty ? (
