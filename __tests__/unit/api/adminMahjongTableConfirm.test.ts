@@ -24,6 +24,9 @@ function makeDb() {
   const store = new Map<string, Data>();
   const db = {
     collection: () => ({
+      where: () => ({ get: async () => ({ docs: [
+        { data: () => ({ lineUserId: "U5", displayName: "後から参加したゲスト", active: true }) },
+      ] }) }),
       doc: (id: string) => ({
         get: async () => ({ exists: store.has(id), id, data: () => store.get(id) }),
         update: async (patch: Data) => { store.set(id, { ...(store.get(id) ?? {}), ...patch }); },
@@ -144,6 +147,53 @@ describe("force=true（管理者権限で合計不一致のまま確定）", () 
 });
 
 describe("卓ラベルの編集", () => {
+  test.each(["reporting", "completed"])("メンバーの入れ替えで席の結果と %s 状態を維持する", async (status) => {
+    seed([120000, 30000, 20000, 10000]);
+    db.__store.get("t1")!.status = status;
+    db.__store.set("U5", { pictureUrl: "https://example.com/guest.png" });
+    const memberIds = ["U5", "U2", "U3", "U4"];
+    const res = await PATCH(req({ memberIds, tableLabel: "B", round: 3 }), params("t1"));
+    expect(res.status).toBe(200);
+    expect(db.__store.get("t1")).toMatchObject({
+      memberIds, status, tableLabel: "B", round: 3,
+      members: [
+        expect.objectContaining({ lineUserId: "U5", displayName: "後から参加したゲスト", pictureUrl: "https://example.com/guest.png", points: 120000, rank: 1 }),
+        expect.objectContaining({ lineUserId: "U2" }),
+        expect.objectContaining({ lineUserId: "U3" }),
+        expect.objectContaining({ lineUserId: "U4" }),
+      ],
+    });
+  });
+
+  test("未申告のままメンバーを変更できる", async () => {
+    seed([null, null, null, null]);
+    const res = await PATCH(req({ memberIds: ["U5", "U2", "U3", "U4"] }), params("t1"));
+    expect(res.status).toBe(200);
+    expect((db.__store.get("t1")!.members as Data[])[0]).toMatchObject({ lineUserId: "U5", points: null });
+    expect(db.__store.get("t1")!.status).toBe("reporting");
+  });
+
+  test("メンバーと点数を同時に変更できる", async () => {
+    seed([null, null, null, null]);
+    const memberIds = ["U5", "U2", "U3", "U4"];
+    const members = [45000, 28000, 18000, 9000].map((points, i) => ({ lineUserId: memberIds[i], points, rank: i + 1 }));
+    const res = await PATCH(req({ memberIds, members }), params("t1"));
+    expect(res.status).toBe(200);
+    expect(db.__store.get("t1")).toMatchObject({ memberIds, members, status: "completed" });
+  });
+
+  test.each([
+    [["U5", "U5", "U3", "U4"]],
+    [["U5", "U2", "U3"]],
+    [["unknown", "U2", "U3", "U4"]],
+  ])("重複・人数不足・未登録のメンバーは拒否する: %p", async (memberIds) => {
+    seed([45000, 28000, 18000, 9000]);
+    const before = structuredClone(db.__store.get("t1"));
+    const res = await PATCH(req({ memberIds }), params("t1"));
+    expect(res.status).toBe(400);
+    expect(db.__store.get("t1")).toEqual(before);
+  });
+
   test.each([1, 99])("半荘番号を %i に変更しても点数と確定状態を維持する", async (round) => {
     seed([120000, 30000, 20000, 10000]);
     Object.assign(db.__store.get("t1")!, { round: 2, tableLabel: "A", status: "completed" });

@@ -763,6 +763,21 @@ function EditTableModal({
   const [error, setError] = useState<string | null>(null);
   const [tableLabel, setTableLabel] = useState(table.tableLabel ?? "");
   const [round, setRound] = useState(table.round != null ? String(table.round) : "");
+  const [candidates, setCandidates] = useState<{ lineUserId: string; displayName: string }[]>([]);
+  const [candidateError, setCandidateError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/games/participants", { credentials: "same-origin" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("候補の取得に失敗しました");
+        return res.json();
+      })
+      .then((data) => { if (active) setCandidates(data.participants ?? []); })
+      .catch(() => { if (active) setCandidateError(true); });
+    return () => { active = false; };
+  }, []);
+  const memberOptions = [...new Map([...table.members, ...candidates].map((m) => [m.lineUserId, m])).values()];
+  const membersChanged = rows.some((r, i) => r.lineUserId !== table.members[i].lineUserId);
 
   const scoresChanged = rows.some((r, i) => {
     const m = table.members[i];
@@ -774,6 +789,10 @@ function EditTableModal({
 
   async function save() {
     setError(null);
+    if (new Set(rows.map((r) => r.lineUserId)).size !== rows.length) {
+      setError("同じユーザーを複数の席に指定できません");
+      return;
+    }
     if ((round !== "" && (!Number.isInteger(Number(round)) || Number(round) < 1 || Number(round) > 99)) ||
         (round === "" && table.round != null)) {
       setError("半荘番号は1〜99の整数で入力してください");
@@ -793,6 +812,7 @@ function EditTableModal({
         credentials: "same-origin",
         body: JSON.stringify({
           tableLabel,
+          ...(membersChanged ? { memberIds: rows.map((r) => r.lineUserId) } : {}),
           ...(round !== "" ? { round: Number(round) } : {}),
           ...(scoresChanged ? { members: rows.map((r) => ({
             lineUserId: r.lineUserId,
@@ -860,9 +880,22 @@ function EditTableModal({
         </label>
 
         <div className="space-y-3">
+          <p className="text-xs text-[#231714]/75">メンバーを変更すると、その席の点数・順位を引き継ぎます。</p>
+          {candidateError && <p className="text-xs text-red-500">参加者候補を取得できませんでした。画面を開き直してください。</p>}
           {rows.map((r, i) => (
-            <div key={r.lineUserId} className="flex items-center gap-2">
-              <span className="flex-1 text-sm font-medium text-[#231714] truncate">{r.displayName}</span>
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label={`${i + 1}席目のメンバー`}
+                value={r.lineUserId}
+                onChange={(e) => setRows((prev) => prev.map((p, j) => j === i ? { ...p, lineUserId: e.target.value } : p))}
+                className="w-full px-2 py-2 text-sm border border-[#231714]/10 rounded-lg bg-white"
+              >
+                {memberOptions.map((m) => (
+                  <option key={m.lineUserId} value={m.lineUserId} disabled={rows.some((other, j) => j !== i && other.lineUserId === m.lineUserId)}>
+                    {m.displayName || m.lineUserId}
+                  </option>
+                ))}
+              </select>
               <select
                 value={r.rank}
                 onChange={(e) =>

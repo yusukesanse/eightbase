@@ -83,8 +83,14 @@ export async function PATCH(
       ...(tableLabel !== undefined ? { tableLabel } : {}),
       ...(round !== undefined ? { round } : {}),
     };
+    const memberIds: unknown = body?.memberIds;
+    if (memberIds !== undefined && (!Array.isArray(memberIds) || memberIds.length !== 4 ||
+        memberIds.some((id) => typeof id !== "string" || !id.trim() || id.includes("/")) ||
+        new Set(memberIds).size !== 4)) {
+      return NextResponse.json({ error: "メンバーは重複しない4名を指定してください" }, { status: 400 });
+    }
     const updates: unknown = body?.members;
-    const metadataOnly = updates === undefined && Object.keys(metadata).length > 0;
+    const metadataOnly = updates === undefined && (Object.keys(metadata).length > 0 || memberIds !== undefined);
     if (!metadataOnly && (!Array.isArray(updates) || updates.length === 0)) {
       return NextResponse.json({ error: "members が不正です" }, { status: 400 });
     }
@@ -111,8 +117,34 @@ export async function PATCH(
     }
 
     const table = doc.data() as MahjongTable;
+    let baseMembers = table.members;
+    if (Array.isArray(memberIds)) {
+      if (table.members.length !== 4) {
+        return NextResponse.json({ error: "4名の卓のみメンバーを変更できます" }, { status: 400 });
+      }
+      const changedIds = memberIds.filter((id, i) => id !== table.members[i].lineUserId);
+      const profiles = new Map<string, { displayName: string; pictureUrl: string }>();
+      if (changedIds.length > 0) {
+        const db = getDb();
+        const authorized = await db.collection("authorizedUsers").where("active", "==", true).get();
+        for (const id of changedIds) {
+          const account = authorized.docs.find((d) => d.data().lineUserId === id)?.data();
+          if (!account) {
+            return NextResponse.json({ error: "利用者として登録されていない人が含まれています（無効化された方は選べません）" }, { status: 400 });
+          }
+          const user = await db.collection("users").doc(id).get();
+          profiles.set(id, {
+            displayName: typeof account.displayName === "string" ? account.displayName : "",
+            pictureUrl: typeof user.data()?.pictureUrl === "string" ? user.data()!.pictureUrl : "",
+          });
+        }
+      }
+      // メンバーの訂正では、その席の点数・順位を引き継ぐ。
+      baseMembers = table.members.map((m, i) => ({ ...m, lineUserId: memberIds[i], ...profiles.get(memberIds[i]) }));
+    }
+    const memberPatch = memberIds !== undefined ? { members: baseMembers, memberIds } : {};
     if (metadataOnly) {
-      await ref.update({ ...metadata, updatedAt: new Date().toISOString() });
+      await ref.update({ ...metadata, ...memberPatch, updatedAt: new Date().toISOString() });
       return NextResponse.json({ success: true, tableStatus: table.status });
     }
     const updateMap = new Map(
@@ -121,7 +153,11 @@ export async function PATCH(
       )
     );
 
-    const members: MahjongTableMember[] = table.members.map((m) => {
+    if (Array.isArray(updates) && (new Set(updates.map((u) => u.lineUserId)).size !== updates.length ||
+        updates.some((u) => !baseMembers.some((m) => m.lineUserId === u.lineUserId)))) {
+      return NextResponse.json({ error: "卓に含まれるメンバーを重複なく指定してください" }, { status: 400 });
+    }
+    const members: MahjongTableMember[] = baseMembers.map((m) => {
       const u = updateMap.get(m.lineUserId);
       return u
         ? {
@@ -138,6 +174,7 @@ export async function PATCH(
 
     await ref.update({
       members,
+      memberIds: members.map((m) => m.lineUserId),
       status,
       ...metadata,
       updatedAt: new Date().toISOString(),
