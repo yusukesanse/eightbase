@@ -7,9 +7,10 @@ import {
   type MahjongStanding,
   type PublicMahjongTable,
   type MahjongSeasonSummary,
-  type MahjongPaymentStatus,
+  type MahjongMyEntry,
 } from "@/types";
 import { completeEntryPayment } from "@/lib/mahjongPayment";
+import { GlassCard, PageHeading, SegmentedTabs } from "@/components/ui/eb";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { JoinTab } from "@/components/mahjong/MahjongJoinTab";
 import { ReportTab } from "@/components/mahjong/MahjongReportTab";
@@ -36,9 +37,8 @@ export function MahjongLeagueView() {
   const [paymentRequired, setPaymentRequired] = useState(false);
   // 管理者が個別に解除した「月1回制限」の免除（表示の出し分けのみ。可否の判定はサーバー）。
   const [monthlyExempt, setMonthlyExempt] = useState(false);
-  const [paymentStatusByDate, setPaymentStatusByDate] = useState<
-    Record<string, MahjongPaymentStatus | null>
-  >({});
+  // 自分の参加（開催日 → entry）。決済URL・仮押さえ期限を持つので参加タブの状態表示に使う。
+  const [myEntries, setMyEntries] = useState<Record<string, MahjongMyEntry>>({});
   const [tables, setTables] = useState<PublicMahjongTable[]>([]);
   const [loading, setLoading] = useState(true);
   // シーズン切替（順位/戦歴の閲覧にのみ効く。参加/申告はアクティブシーズン固定）
@@ -120,17 +120,18 @@ export function MahjongLeagueView() {
       }
       setTables(tData.tables ?? []);
 
-      // 自分の参加日＋支払い状態（月1回制御・カレンダー表示に使う）
+      // 自分の参加日＋支払い状態（月1回制御・カレンダー表示に使う）。
+      // 期限切れの仮押さえはサーバーが除外済み＝ここに来るものは席を持っている。
       const entered = new Set<string>();
-      const payByDate: Record<string, MahjongPaymentStatus | null> = {};
-      for (const e of eData.entries ?? []) {
+      const byDate: Record<string, MahjongMyEntry> = {};
+      for (const e of (eData.entries ?? []) as MahjongMyEntry[]) {
         entered.add(e.eventDate);
-        payByDate[e.eventDate] = e.paymentStatus ?? null;
+        byDate[e.eventDate] = e;
       }
       setEnteredDates(entered);
       setPaymentRequired(!!eData.paymentRequired);
       setMonthlyExempt(!!eData.monthlyExempt);
-      setPaymentStatusByDate(payByDate);
+      setMyEntries(byDate);
     } catch {
       /* noop */
     } finally {
@@ -169,46 +170,43 @@ export function MahjongLeagueView() {
 
   return (
     <div>
+      <PageHeading title="GAME" />
       {payBanner && (
-        <div
-          className={`mb-3 rounded-2xl px-4 py-3 text-[13px] font-bold flex items-center justify-between gap-2 ${
-            payBanner.ok ? "bg-[#eef4dd] text-[#5f7d1e]" : "bg-[#fdece8] text-[#d8533a]"
-          }`}
-        >
-          <span>{payBanner.text}</span>
-          <button onClick={() => setPayBanner(null)} className="shrink-0 font-black opacity-60">
-            ×
-          </button>
-        </div>
+        <GlassCard tone={payBanner.ok ? "green" : "coral"} padding="md" className="mt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`text-[15px] font-bold ${
+                payBanner.ok
+                  ? "text-[color:var(--eb-green-text)]"
+                  : "text-[color:var(--eb-coral-text)]"
+              }`}
+            >
+              {payBanner.text}
+            </span>
+            <button
+              onClick={() => setPayBanner(null)}
+              aria-label="閉じる"
+              className="shrink-0 text-[17px] font-bold text-[color:var(--eb-ink-muted)]"
+            >
+              ×
+            </button>
+          </div>
+        </GlassCard>
       )}
-      {/* サブタブ（選択中は白ピル＋アクセント文字＋太字＋リング＝色だけに頼らず選択を明示） */}
-      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1">
-        {(
-          [
-            { id: "league", label: "リーグ", enabled: true },
-            { id: "join", label: "参加", enabled: true },
-            // タブ自体は常に開ける（他3種目と挙動を揃える）。非参加者には中身でプレースホルダを出す。
-            { id: "report", label: "対戦記録", enabled: true },
-            { id: "cs", label: "CS", enabled: true },
-            { id: "rules", label: "ルール/約款", enabled: true },
-          ] as { id: SubTab; label: string; enabled: boolean }[]
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => t.enabled && setSubTab(t.id)}
-            disabled={!t.enabled}
-            className={`flex-1 py-2 rounded-lg text-xs text-center transition-all ${
-              subTab === t.id
-                ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                : t.enabled
-                  ? "text-[#231714]/80 font-medium"
-                  : "text-[#231714]/75 font-medium"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* サブタブ（タブ自体は常に開ける＝他3種目と挙動を揃える。非参加者には中身でプレースホルダ） */}
+      <SegmentedTabs
+        className="mb-4 mt-3"
+        size="md"
+        value={subTab}
+        onChange={(id) => setSubTab(id as SubTab)}
+        items={[
+          { id: "league", label: "リーグ" },
+          { id: "join", label: "参加" },
+          { id: "report", label: "対戦記録" },
+          { id: "cs", label: "CS" },
+          { id: "rules", label: "ルール/約款" },
+        ]}
+      />
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -240,7 +238,7 @@ export function MahjongLeagueView() {
           seasonStartDate={seasons.find((s) => s.active)?.startDate}
           paymentRequired={paymentRequired}
           monthlyExempt={monthlyExempt}
-          paymentStatusByDate={paymentStatusByDate}
+          myEntries={myEntries}
           onChanged={() => loadCore(true)}
         />
       ) : subTab === "report" ? (
