@@ -10,7 +10,7 @@ import {
   type MahjongMyEntry,
 } from "@/types";
 import { completeEntryPayment } from "@/lib/mahjongPayment";
-import { GlassCard, PageHeading, SegmentedTabs } from "@/components/ui/eb";
+import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { JoinTab } from "@/components/mahjong/MahjongJoinTab";
 import { ReportTab } from "@/components/mahjong/MahjongReportTab";
@@ -170,9 +170,8 @@ export function MahjongLeagueView() {
 
   return (
     <div>
-      <PageHeading title="GAME" />
       {payBanner && (
-        <GlassCard tone={payBanner.ok ? "green" : "coral"} padding="md" className="mt-3">
+        <GlassCard tone={payBanner.ok ? "green" : "coral"} padding="md" className="mb-3">
           <div className="flex items-center justify-between gap-2">
             <span
               className={`text-[15px] font-bold ${
@@ -195,7 +194,7 @@ export function MahjongLeagueView() {
       )}
       {/* サブタブ（タブ自体は常に開ける＝他3種目と挙動を揃える。非参加者には中身でプレースホルダ） */}
       <SegmentedTabs
-        className="mb-4 mt-3"
+        className="mb-4"
         size="md"
         value={subTab}
         onChange={(id) => setSubTab(id as SubTab)}

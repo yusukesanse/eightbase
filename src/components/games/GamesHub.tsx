@@ -7,7 +7,7 @@ import { MahjongLeagueView } from "@/components/mahjong/MahjongLeagueView";
 import { DartsLeagueView } from "@/components/darts/DartsLeagueView";
 import { BilliardsLeagueView } from "@/components/billiards/BilliardsLeagueView";
 import { PokerLeagueView } from "@/components/poker/PokerLeagueView";
-import clsx from "clsx";
+import { SegmentedTabs } from "@/components/ui/eb";
 
 /**
  * ゲームハブ（麻雀/ダーツ/ビリヤード/ポーカーのリーグ・参加・当日・ルール）。
@@ -35,23 +35,14 @@ export function GamesHub() {
 
   return (
     <div>
-      {/* ゲーム選択（選択中は白ピル＋アクセント文字＋太字＋リングで明示） */}
-      <div className="flex gap-1 mb-4 bg-[#231714]/[0.08] rounded-xl p-1 overflow-x-auto">
-        {GAME_CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setGameCategory(cat.id as ScoreboardGameId)}
-            className={clsx(
-              "flex-1 px-2.5 py-2 rounded-lg text-xs whitespace-nowrap transition-all",
-              gameCategory === cat.id
-                ? "bg-white text-[#33636e] font-bold shadow-md ring-1 ring-[#33636e]/25"
-                : "text-[#231714]/80 font-medium"
-            )}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      {/* 種目タブ（新デザイン: 背景なし・選択タブだけ白＋影・高さ48） */}
+      <SegmentedTabs
+        className="mb-4"
+        size="lg"
+        items={GAME_CATEGORIES.map((cat) => ({ id: cat.id, label: cat.label }))}
+        value={gameCategory}
+        onChange={(id) => setGameCategory(id as ScoreboardGameId)}
+      />
 
       {gameCategory === "mahjong" ? (
         <MahjongLeagueView />

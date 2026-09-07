@@ -75,7 +75,7 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 
 ## 麻雀リーグ（現行仕様の要点）
 - シーズンは**種目別**（`Season.gameCategory`）。麻雀の処理は `getActiveSeason("mahjong")`。
-- リーグ戦: 参加表明 → 参加費支払い → **GMがゲーム開始（＝受付締切）** → **GMが半荘ごとに卓を手動振り分け** → 各自スコア申告(ミニアプリ) → 通算アベレージで順位 → 月次でリーグ確定(M1/M2/M3)。
+- リーグ戦: **「参加する」＝参加費の支払い（下記 2026-09-07）** → **GMがゲーム開始（＝受付締切）** → **GMが半荘ごとに卓を手動振り分け** → 各自スコア申告(ミニアプリ) → 通算アベレージで順位 → 月次でリーグ確定(M1/M2/M3)。
 - スコアは利用者がミニアプリで申告。管理画面は確認・修正のみ。
 - CS（チャンピオンシップ）: **誰でも参加可**。リーグ上位はシード権で有利になるだけ（出場制限なし）。
 - 日程の種別は**リーグ戦のみ**（CSは麻雀CSタブで個別管理）。
@@ -85,6 +85,22 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
   ⚠️ 判定は **`if (!day || !day.iAmParticipant)`** と書くこと。`day &&` で条件づけると
   シーズン未作成・APIエラーで day が null のときに進行UI（GM選出ボタン等）が
   非参加者に見えてしまう（実際に本番で発生）。
+
+### 麻雀「参加する」＝参加費の支払い（2026-09-07・参加確定（未払い）を廃止）
+以前は「参加する」（席を押さえる）→ 別ボタン「支払いする」の2段階で、**1回目のボタンで参加できたと思い込み未払いのまま当日を迎える**事故が多発した。
+- `POST /api/mahjong/entries`（会員・ゲスト）は **Square リンクを発行して `paymentStatus:"pending"`（15分＝`PENDING_TTL_MIN`）で entry を作り、`paymentUrl` を返す**。
+  リンク発行に失敗したら entry を作らない（席だけ押さえて払えない状態を残さない）。staff は従来どおり `status:"paid"`。
+  リンク発行と pending 化の実体は `src/lib/mahjongEntryPayment.ts` の1箇所（pay ルートも同じ関数を呼ぶ。**コピーしない**）。
+- **席（定員8名）・月1回制限・参加者一覧は `isActiveMahjongEntry()`（`src/lib/mahjongEntryStatus.ts`）で数える**:
+  有効＝ `paid` / 期限内の `pending` / `cancelRequested`。期限切れ pending と旧 `reserved` は席を持たない（自己回復）。
+  片方だけ別の数え方にすると「画面は満員なのに参加できる」がすぐ起きる。
+- 利用者に見える状態は **未参加 / お支払い確認中（15分） / 参加確定** の3つだけ。参加タブ（`MahjongJoinTab`）は pending 中に
+  「お支払い画面に戻る」（保存済み `paymentUrl`）「支払いを終えたのに確定しない」（`complete` を再実行）「参加をやめる」（DELETE）を出す。
+  タブを開いたとき期限内 pending があれば `complete` を自動で1回試す（戻りが届かなかった人の救済。失敗は黙る）。
+- `POST /api/mahjong/entries/pay` は期限内 pending に **保存済みの paymentUrl を返す**（旧 409 `PENDING_EXISTS` は廃止。参加した瞬間に pending になるため）。
+- `DELETE` は pending（期限内外問わず）を本番でも消せる（入金前なので返金なし）。paid / cancelRequested は従来どおり拒否。
+- ダーツ／ビリヤード／ポーカーは**未変更**（開始時刻が締切・未払いも名簿に出る）。揃えるなら別途設計。
+- 回帰テスト: `__tests__/unit/api/mahjongEntryJoinIsPay.test.ts`。
 
 ### 参加費 Square 決済の戻り先 ← ロールで壊れるので注意（2026-08-03 本番障害）
 **戻り先は必ず `/games`（全ロールが入れる唯一の共通導線）。会員専用ルートにしないこと。**
@@ -602,6 +618,9 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - 共通処理 `runLiffServerLogin()`（`src/lib/liff.ts`）を両画面で使用。
 - 環境判定 `detectEnv()`: `?env` 優先、無ければホスト名（localhost→dev / *.vercel.app→review / その他→prod）。**prodで dev LIFF ID にフォールバックしない**。
 - 連携成功時は `clearAuthCache()`＋`profileComplete` で分岐（未完了は `/setup-profile` 直行で往復を防止）。
+- 利用申請（`AccessRequestForm`）: **ゲストは会社名が任意**（API も `requestedRole==="guest"` のみ空を許可・2026-09-07）。
+  申請後に再度ミニアプリを開いた人には「現在申請中です」を出す（`liff-login` が未連携時に `accessRequests` の pending を1件返し、
+  `runLiffServerLogin` が `kind:"pending-request"` を返す）。`/login` では needs-linking と同じ扱い。
 - 招待は**メールの招待URL（ボタン）方式・全ロール共通**（2026-07-29にOTPから統一）。
   メールのボタン → LINEミニアプリ `/guest` で引き換え → ゲストは氏名確認のみ、会員/社員は `/setup-profile` へ。
   1URL=1回（最初に開いた1名のみ）・既定2日で失効。`usesUrlInvite()` は常に true。
@@ -681,3 +700,12 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
    失敗も `lineNotifyResult` に残らず管理画面から見えなかった。
 5. `multicastMessage` にも `pushMessage` と同じトークン未設定ガードを入れる（`Bearer undefined` で叩かない）。
 - 回帰テスト: `__tests__/unit/lib/lineDelivery.test.ts`（429の扱い・force再送・残量計算を固定）。
+## 利用者アプリの新デザイン（2026-09-07・白背景グラスモーフィズム）
+設計の正は Figma（https://www.figma.com/design/SNUucb2sXvTpYRFBawiu9h ページ 3-0 部品／4 ゲスト／5 入居者）。
+- 共通部品は `src/components/ui/eb/`（`Button` / `GlassCard` / `SegmentedTabs` / `StatusPill` / `Field`+`inputClass` / `PageHeading` / `PageBg`）。
+  トークンは `globals.css` の `--eb-*`。**肌色・生成り系（`#FAF9F6` `#F4F1EA` `#231714` 等の旧色）を新しく書かない。**
+- 方針: 押せるものは高さ56・画面に濃いボタンは1つ・状態は色＋文字ラベル・本文15px以上・説明は1文。
+- `MonthCalendar variant="game"` はゲーム用の44px円セル。**既定の見た目は施設予約と共用なので変えない。**
+- ボトムバーは既存の `RichMenu` をそのまま使う（新部品は作らない・ユーザー指示）。
+- 見出し「GAME」は `/games` ページが出す。各 LeagueView は見出しを出さない（二重見出しを避ける）。
+- 対象外（旧デザインのまま）: 管理画面・Info・メンバー一覧・マイページ・施設予約のカレンダー/時間選択本体。
