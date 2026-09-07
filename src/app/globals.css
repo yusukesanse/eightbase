@@ -98,17 +98,12 @@
   .eb-dartspin, .eb-dartfloat, .eb-dartpulse { animation: none; }
 }
 
-/* リーグのピラミッド（画像）: ゆらぎとアバターの浮遊。旧 3D 版の「sway」「浮遊」を CSS で再現。 */
-@keyframes eb-pyramid-sway {
-  0%, 100% { transform: translateX(-50%) rotate(-2.2deg) translateY(0); }
-  50% { transform: translateX(-50%) rotate(2.2deg) translateY(-4px); }
-}
+/* リーグのピラミッド（画像）: アバターの浮遊だけ（画像は静止・ユーザー指示）。 */
 @keyframes eb-pyramid-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-9px); }
 }
-.eb-pyramid-sway { animation: eb-pyramid-sway 9s ease-in-out infinite; transform-origin: 50% 80%; }
 .eb-pyramid-float { animation: eb-pyramid-float 3.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .eb-pyramid-sway, .eb-pyramid-float { animation: none; }
+  .eb-pyramid-float { animation: none; }
 }

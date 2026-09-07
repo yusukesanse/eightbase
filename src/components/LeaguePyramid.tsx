@@ -25,8 +25,10 @@ const TIER_ORDER: MahjongLeagueTier[] = ["M1", "M2", "M3"];
 const HERO_HEIGHT = 280;
 /** 左ラベルの縦位置（上端からの割合・旧 3D 版と同じ定数）。画像を差し替えたらここを合わせる。 */
 const LABEL_TOP = [0.07, 0.37, 0.645] as const;
-/** 自分のアバターの縦位置（段の中心）。 */
-const AVATAR_TOP = [0.16, 0.44, 0.7] as const;
+/** 自分のアバターの縦位置（各段の面の中心・上端からの割合）。画像を差し替えたらここを合わせる。 */
+const AVATAR_TOP = [0.21, 0.47, 0.73] as const;
+/** ピラミッド画像を中央から右へずらす量（px）。左のラベルと重ならないようにする。 */
+const PYRAMID_OFFSET_X = 22;
 /** 左ラベルのキッカー（段位置で固定・旧 3D 版と同じ）。 */
 const KICKER = ["PREMIER", "CHALLENGER", "CONTENDER"] as const;
 const GOLD = "linear-gradient(180deg,#f9ead0,#e6bd52 42%,#c9962a 70%,#a9781a)";
@@ -70,8 +72,8 @@ export function LeaguePyramid({
         }}
         aria-label="リーグのピラミッド"
       >
-        {/* 画像はゆっくり左右にゆらぐ（reduced-motion では停止） */}
-        <div className="eb-pyramid-sway absolute inset-y-2 left-1/2 aspect-square -translate-x-1/2" style={{ marginLeft: 22 }}>
+        {/* 画像は静止（アニメーションなし・ユーザー指示） */}
+        <div className="absolute inset-y-2 left-1/2 aspect-square -translate-x-1/2" style={{ marginLeft: PYRAMID_OFFSET_X }}>
           <Image
             src="/league-pyramid.jpg"
             alt=""
@@ -103,11 +105,11 @@ export function LeaguePyramid({
           })}
         </div>
 
-        {/* 自分のアバター（所属リーグの高さで浮遊・「あなた」フラッグ付き） */}
+        {/* 自分のアバター: ピラミッドの上（所属する段の面の中央）に重ねる。「あなた」フラッグ付きでゆっくり浮遊 */}
         {me && (
           <div
-            className="eb-pyramid-float pointer-events-none absolute right-4 flex flex-col items-center"
-            style={{ top: `${AVATAR_TOP[TIER_ORDER.indexOf(me.tier)] * 100}%` }}
+            className="eb-pyramid-float pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+            style={{ left: `calc(50% + ${PYRAMID_OFFSET_X}px)`, top: `${AVATAR_TOP[TIER_ORDER.indexOf(me.tier)] * 100}%` }}
           >
             <span
               className="mb-1 rounded-full px-2.5 py-[3px] text-[11px] font-bold text-[color:var(--eb-ink)]"
