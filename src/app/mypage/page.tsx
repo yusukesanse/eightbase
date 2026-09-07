@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { MemberProfile } from "@/types";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { initLiff } from "@/lib/liff";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
+import { Avatar } from "@/components/ui/LineContact";
+import { GlassCard, PageBg, PageHeading, StatusPill } from "@/components/ui/eb";
 
 interface UserData {
   displayName: string;
@@ -47,132 +48,149 @@ export default function MyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <PageBg className="flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-700">読み込み中...</p>
+          <div
+            className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+          />
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">読み込み中...</p>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
   if (!user) return null;
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    clearAuthCache();
+    // LIFF セッションもクリア（init してから logout しないと反映されない）
+    try {
+      const liff = await initLiff();
+      if (liff.isLoggedIn()) liff.logout();
+    } catch {
+      /* LIFF未初期化/環境外は無視 */
+    }
+    // ログアウト直後の自動再ログインを抑止（HomePage が検知して停止）
+    try {
+      sessionStorage.setItem("eb_logged_out", "1");
+    } catch {
+      /* 無視 */
+    }
+    router.replace("/");
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      {/* ヘッダー */}
-      <div className="bg-[#A5C1C8] px-5 pt-12 pb-6">
-        <div className="mb-5">
-          <h1 className="text-[15px] font-medium text-[#231714]">マイページ</h1>
-        </div>
+    <PageBg>
+      <div className="px-5 pt-[52px]">
+        <PageHeading title="MY PAGE" />
+      </div>
 
-        <div className="flex items-center gap-4">
-          {user.pictureUrl ? (
-            <img
-              src={user.pictureUrl}
-              alt=""
-              className="w-16 h-16 rounded-full border-3 border-white object-cover"
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-full border-3 border-white bg-white/30 flex items-center justify-center">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <path d="M14 4a5 5 0 015 5v0a5 5 0 01-10 0v0a5 5 0 015-5z" stroke="white" strokeWidth="1.5" />
-                <path d="M4 24c0-5.523 4.477-10 10-10s10 4.477 10 10" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+      <div className="px-5 pt-4 flex flex-col gap-4">
+        {/* プロフィールカード */}
+        <GlassCard>
+          <div className="flex items-center gap-4">
+            <Avatar src={user.pictureUrl} name={user.displayName || user.lineDisplayName} size={64} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[22px] font-bold text-[color:var(--eb-ink)]">
+                {user.displayName || user.lineDisplayName}
+              </p>
+              {user.catchphrase && (
+                <p className="mt-1 truncate text-[15px] text-[color:var(--eb-ink-muted)]">{user.catchphrase}</p>
+              )}
             </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-[17px] font-medium text-[#231714] truncate">
-              {user.displayName || user.lineDisplayName}
-            </p>
-            {user.catchphrase && (
-              <p className="text-[12px] text-[#231714]/80 mt-1 truncate">{user.catchphrase}</p>
-            )}
           </div>
-        </div>
-      </div>
+        </GlassCard>
 
-      {/* 統計 */}
-      <div className="bg-white border-b border-gray-100 flex">
-        <div className="flex-1 text-center py-3">
-          <p className="text-[20px] font-medium text-[#231714]">{user.skills.length}</p>
-          <p className="text-[10px] text-[#231714]/80 mt-0.5">スキル</p>
+        {/* 統計 */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard value={user.skills.length} label="スキル" />
+          <StatCard value={user.postCount} label="投稿" />
+          <StatCard value={user.reservationCount} label="予約" />
         </div>
-        <div className="flex-1 text-center py-3 border-x border-gray-100">
-          <p className="text-[20px] font-medium text-[#231714]">{user.postCount}</p>
-          <p className="text-[10px] text-[#231714]/80 mt-0.5">投稿</p>
-        </div>
-        <div className="flex-1 text-center py-3">
-          <p className="text-[20px] font-medium text-[#231714]">{user.reservationCount}</p>
-          <p className="text-[10px] text-[#231714]/80 mt-0.5">予約</p>
-        </div>
-      </div>
 
-      {/* スキルタグ */}
-      {user.skills.length > 0 && (
-        <div className="bg-white px-5 py-3 border-b border-gray-100">
-          <div className="flex flex-wrap gap-2">
-            {user.skills.map((skill) => (
-              <span
-                key={skill}
-                className="px-3 py-1 text-[11px] rounded-full bg-[#4f757e] text-white"
-              >
-                {skill}
-              </span>
-            ))}
+        {/* スキルタグ */}
+        {user.skills.length > 0 && (
+          <GlassCard padding="md">
+            <div className="flex flex-wrap gap-1.5">
+              {user.skills.map((skill) => (
+                <StatusPill key={skill} tone="green">
+                  {skill}
+                </StatusPill>
+              ))}
+            </div>
+          </GlassCard>
+        )}
+
+        {/* メニュー */}
+        <GlassCard padding="md">
+          <div className="flex flex-col divide-y divide-[color:var(--eb-line)]">
+            <MenuRow
+              icon={<BriefcaseIcon />}
+              label="スキル・サービス設定"
+              onClick={() => router.push("/mypage/skills")}
+            />
+            <MenuRow
+              icon={<UserEditIcon />}
+              label="プロフィール編集"
+              onClick={() => router.push("/profile")}
+            />
+            <MenuRow
+              icon={<HistoryIcon />}
+              label="マイ予約"
+              onClick={() => router.push("/my-reservations")}
+            />
+            <MenuRow icon={<LogoutIcon />} label="ログアウト" onClick={handleLogout} tone="coral" />
           </div>
-        </div>
-      )}
-
-      {/* メニュー */}
-      <div className="mt-3">
-        <MenuItem
-          icon={<UserEditIcon />}
-          label="プロフィール編集"
-          onClick={() => router.push("/profile")}
-        />
-        <MenuItem
-          icon={<BriefcaseIcon />}
-          label="スキル・サービス設定"
-          onClick={() => router.push("/mypage/skills")}
-        />
-        <MenuItem
-          icon={<HistoryIcon />}
-          label="予約履歴"
-          onClick={() => router.push("/my-reservations")}
-        />
-        <MenuItem
-          icon={<LogoutIcon />}
-          label="ログアウト"
-          onClick={async () => {
-            await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-            clearAuthCache();
-            // LIFF セッションもクリア（init してから logout しないと反映されない）
-            try {
-              const liff = await initLiff();
-              if (liff.isLoggedIn()) liff.logout();
-            } catch { /* LIFF未初期化/環境外は無視 */ }
-            // ログアウト直後の自動再ログインを抑止（HomePage が検知して停止）
-            try { sessionStorage.setItem("eb_logged_out", "1"); } catch { /* 無視 */ }
-            router.replace("/");
-          }}
-          danger
-        />
+        </GlassCard>
       </div>
-    </div>
+    </PageBg>
   );
 }
 
-function MenuItem({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
+function StatCard({ value, label }: { value: number; label: string }) {
+  return (
+    <GlassCard padding="md">
+      <div className="text-center">
+        <p className="text-[24px] font-bold text-[color:var(--eb-ink)]">{value}</p>
+        <p className="mt-0.5 text-[12px] text-[color:var(--eb-ink-muted)]">{label}</p>
+      </div>
+    </GlassCard>
+  );
+}
+
+function MenuRow({
+  icon,
+  label,
+  onClick,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  tone?: "coral";
+}) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-5 py-4 bg-white border-b border-gray-50 hover:bg-gray-50 transition-colors text-left"
+      className="flex h-14 w-full items-center gap-3 text-left active:opacity-70 transition-opacity"
     >
-      <span className={danger ? "text-red-400" : "text-[#4f757e]"}>{icon}</span>
-      <span className={`flex-1 text-[13px] ${danger ? "text-red-500" : "text-[#231714]"}`}>{label}</span>
+      <span style={{ color: tone === "coral" ? "var(--eb-coral-text)" : "var(--eb-ink-muted)" }}>{icon}</span>
+      <span
+        className="flex-1 text-[15px] font-bold"
+        style={{ color: tone === "coral" ? "var(--eb-coral-text)" : "var(--eb-ink)" }}
+      >
+        {label}
+      </span>
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M5 3l4 4-4 4" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path
+          d="M5 3l4 4-4 4"
+          stroke="var(--eb-ink-muted)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </button>
   );

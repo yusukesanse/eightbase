@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { openExternalUrl } from "@/lib/liff";
 import { kanaIncludes } from "@/lib/kana";
@@ -15,6 +16,7 @@ import {
   FacebookGlyph,
   SheetButton,
 } from "@/components/ui/LineContact";
+import { GlassCard, PageBg, PageHeading, StatusPill, inputClass } from "@/components/ui/eb";
 
 interface SocialLinks {
   instagram?: string;
@@ -38,14 +40,6 @@ interface MemberItem {
 }
 
 const EMPTY_MEMBERS: MemberItem[] = [];
-
-// カバー画像が無いメンバー用のブランド系グラデ（本番は LINE プロフィールカバー）
-const BANNERS = [
-  "linear-gradient(120deg, #a5c1c7 0%, #7fa0a6 100%)",
-  "linear-gradient(120deg, #c4d7db 0%, #8fb0b6 100%)",
-  "linear-gradient(120deg, #b9c7cc 0%, #3c4f54 100%)",
-  "linear-gradient(120deg, #d3dee0 0%, #a5c1c7 100%)",
-];
 
 function stripUrl(url: string) {
   return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -113,13 +107,13 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: "#f3f5f6" }}>
+    <PageBg>
       {/* ヘッダー + 検索 */}
-      <div className="px-5 pt-12">
-        <h1 className="text-[18px] font-bold text-[#1c1f21]">メンバー</h1>
-        <p className="text-[12px] text-[#45484d] mt-0.5">{members.length}人のメンバー</p>
+      <div className="px-5 pt-[52px]">
+        <PageHeading title="MEMBERS" subtitle="メンバー一覧" />
+        <p className="mt-2 text-[13px] text-[color:var(--eb-ink-muted)]">{members.length}人のメンバー</p>
         <div className="relative mt-3">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3f4247]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--eb-ink-muted)]">
             <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -128,35 +122,40 @@ export default function MembersPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="名前・スキル・会社名で検索…"
-            className="w-full pl-9 pr-4 py-2.5 text-[14px] bg-white rounded-xl border border-[#eceff1] focus:outline-none focus:border-[#a5c1c7] transition-colors"
+            className={clsx("pl-10", inputClass)}
           />
         </div>
       </div>
 
       {/* スキルチップ */}
       <div className="flex gap-2 overflow-x-auto px-5 py-3.5">
-        {["すべて", ...skillChips].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`shrink-0 px-3.5 py-1.5 text-[12px] font-medium rounded-full border transition-colors ${
-              filter === f
-                ? "bg-[#4f757e] text-white border-[#a5c1c7]"
-                : "bg-white text-[#45484d] border-[#eceff1]"
-            }`}
-          >
-            {f}
-          </button>
-        ))}
+        {["すべて", ...skillChips].map((f) => {
+          const selected = filter === f;
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={clsx(
+                "shrink-0 flex h-10 items-center rounded-full px-4 text-[13px] font-bold transition-colors",
+                selected ? "text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
+              )}
+              style={selected ? { background: "var(--eb-green)" } : { borderColor: "var(--eb-line)" }}
+            >
+              {f}
+            </button>
+          );
+        })}
       </div>
 
       {/* メンバーカード */}
-      <div className="px-5 pb-6 flex flex-col gap-3.5">
-        {list.map((m, i) => (
-          <MemberCard key={m.lineUserId} m={m} banner={BANNERS[i % BANNERS.length]} onOpen={() => openMember(m)} />
+      <div className="px-5 pb-6 flex flex-col gap-3">
+        {list.map((m) => (
+          <MemberCard key={m.lineUserId} m={m} onOpen={() => openMember(m)} />
         ))}
         {list.length === 0 && (
-          <div className="bg-white rounded-[18px] py-7 text-center text-[14px] text-[#3f4247] shadow-sm">該当者なし</div>
+          <GlassCard>
+            <p className="py-2 text-center text-[15px] text-[color:var(--eb-ink-muted)]">該当者なし</p>
+          </GlassCard>
         )}
       </div>
 
@@ -214,53 +213,38 @@ export default function MembersPage() {
           </div>
         )}
       </BottomSheet>
-    </div>
+    </PageBg>
   );
 }
 
-/* ── メンバーカード（プロフィールカバー型） ── */
-function MemberCard({ m, banner, onOpen }: { m: MemberItem; banner: string; onOpen: () => void }) {
-  const more = Math.max(0, m.skills.length - 3);
+/* ── メンバーカード ── */
+function MemberCard({ m, onOpen }: { m: MemberItem; onOpen: () => void }) {
   const roleCompany = [m.jobTitle, m.companyName].filter(Boolean).join(" ・ ");
   return (
-    <button
-      onClick={onOpen}
-      className="relative w-full text-left bg-white rounded-[18px] overflow-hidden active:scale-[0.99] transition-transform"
-      style={{ boxShadow: "0 1px 3px rgba(28,31,33,.05), 0 6px 16px rgba(28,31,33,.05)" }}
-    >
-      {/* カバー */}
-      <div className="relative h-[92px]" style={{ background: banner }}>
-        <span
-          className="absolute right-2.5 bottom-2 inline-flex items-center gap-1 h-[22px] pl-1.5 pr-2 rounded-full"
-          style={{ background: "rgba(255,255,255,.92)" }}
-        >
-          <LineGlyph size={12} />
-          <span className="text-[10.5px] font-bold text-[#45484d]">LINE</span>
-        </span>
-      </div>
-
-      {/* アバター（カバーに重なる） */}
-      <div className="absolute left-4" style={{ top: 50 }}>
-        <Avatar src={m.pictureUrl} name={m.displayName} size={72} style={{ boxShadow: "0 0 0 4px #ffffff" }} />
-      </div>
-
-      {/* テキスト */}
-      <div style={{ padding: "40px 16px 16px" }}>
-        <div className="text-[18px] font-bold text-[#1c1f21] leading-[1.3]">{m.displayName}</div>
-        {roleCompany && (
-          <div className="text-[14px] text-[#45484d] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{roleCompany}</div>
-        )}
+    <button onClick={onOpen} className="w-full text-left active:scale-[0.99] transition-transform">
+      <GlassCard>
+        <div className="flex items-center gap-3.5">
+          <Avatar src={m.pictureUrl} name={m.displayName} size={48} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[17px] font-bold text-[color:var(--eb-ink)] leading-[1.3] truncate">
+              {m.displayName}
+            </div>
+            {roleCompany && (
+              <div className="mt-0.5 text-[13px] text-[color:var(--eb-ink-muted)] truncate">{roleCompany}</div>
+            )}
+          </div>
+          {m.lineUrl && <LineGlyph size={20} />}
+        </div>
         {m.skills.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
+          <div className="flex flex-wrap gap-1.5 mt-3">
             {m.skills.slice(0, 3).map((t) => (
-              <span key={t} className="px-2.5 py-1 text-[11px] rounded-full bg-[#f6f8f9] text-[#45484d]">
+              <StatusPill key={t} tone="muted">
                 {t}
-              </span>
+              </StatusPill>
             ))}
-            {more > 0 && <span className="px-2.5 py-1 text-[11px] rounded-full bg-[#eef4f5] text-[#3c4f54]">+{more}</span>}
           </div>
         )}
-      </div>
+      </GlassCard>
     </button>
   );
 }

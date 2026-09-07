@@ -6,6 +6,8 @@ import Image from "next/image";
 import { getAuthAccessToken } from "@/lib/liff";
 import { clearAuthCache } from "@/components/AuthGuard";
 import { useLiffBoot } from "@/hooks/useLiffBoot";
+import { Avatar } from "@/components/ui/LineContact";
+import { Button, GlassCard, PageBg } from "@/components/ui/eb";
 
 /**
  * ログインページ — LIFF + ワンタイムパスワード認証フロー
@@ -162,77 +164,64 @@ export default function LoginPage() {
   // ── ローディング / LIFF ログイン中 ──
   if (status === "loading" || status === "liff-login" || status === "linking") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <PageBg className="flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-700">
+          <div
+            className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+          />
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">
             {status === "linking" ? "アカウント連携中..." : message}
           </p>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
   // ── アカウント連携フォーム ──
   if (status === "needs-linking" && lineInfo) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* ヘッダー */}
-        <div className="bg-[#A5C1C8] px-5 pt-12 pb-8">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <path d="M11 2a5 5 0 015 5v0a5 5 0 01-10 0v0a5 5 0 015-5z" stroke="#231714" strokeWidth="1.5" />
-              <path d="M3 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#231714" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+      <PageBg>
+        <div className="flex flex-col items-center px-5 pt-[52px] text-center">
+          <div className="mb-4 h-16 w-16">
+            <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={64} height={64} priority />
           </div>
-          <h1 className="text-xl font-bold tracking-wide text-[#231714]">アカウント連携</h1>
-          <p className="text-sm text-[#231714]/80 mt-1">初回ログイン — LINEアカウントと紐づけます</p>
+          <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">ログイン</h1>
+          <p className="mt-1 text-[14px] text-[color:var(--eb-ink-muted)]">
+            初回ログイン — LINEアカウントと紐づけます
+          </p>
         </div>
 
-        <div className="flex-1 px-4 pt-6 pb-8">
+        <div className="px-5 pt-6 pb-10 space-y-4">
           {/* LINE プロフィール表示 */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4 flex items-center gap-3">
-            {lineInfo.pictureUrl ? (
-              <img
-                src={lineInfo.pictureUrl}
-                alt=""
-                className="w-12 h-12 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-[#A5C1C8]/30 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2a4 4 0 014 4v0a4 4 0 01-8 0v0a4 4 0 014-4z" stroke="#A5C1C8" strokeWidth="1.5" />
-                  <path d="M2 18c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#A5C1C8" strokeWidth="1.5" />
-                </svg>
+          <GlassCard padding="md">
+            <div className="flex items-center gap-3">
+              <Avatar src={lineInfo.pictureUrl} name={lineInfo.displayName} size={48} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{lineInfo.displayName}</p>
+                <p className="text-[12px] text-[color:var(--eb-ink-muted)]">LINE アカウント</p>
               </div>
-            )}
-            <div>
-              <p className="text-sm font-medium text-[#231714]">{lineInfo.displayName}</p>
-              <p className="text-xs text-[#231714]/80">LINE アカウント</p>
-            </div>
-            <div className="ml-auto">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#06C755]/10 text-[#06C755] text-xs font-medium rounded-full">
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                  <path d="M8.5 1.5l-5 5L1 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold"
+                style={{ background: "rgba(6,199,85,.12)", color: "#06C755" }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M8.5 1.5l-5 5L1 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 LINE認証済み
               </span>
             </div>
-          </div>
+          </GlassCard>
 
           {/* ワンタイムパスワードフォーム */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h2 className="text-base font-semibold text-[#231714] mb-1">ワンタイムパスワード</h2>
-            <p className="text-xs text-[#231714]/85 mb-4 leading-relaxed">
-              招待メールに記載されたワンタイムパスワードを入力してください。
-              初回のみの操作です。
+          <GlassCard>
+            <h2 className="text-[16px] font-bold text-[color:var(--eb-ink)]">ワンタイムパスワード</h2>
+            <p className="mt-1 mb-4 text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+              招待メールに記載されたワンタイムパスワードを入力してください。初回のみの操作です。
             </p>
 
             <form onSubmit={handleLinkSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-[#231714]/80 mb-1">
-                  ワンタイムパスワード
-                </label>
                 <input
                   ref={passcodeRef}
                   type="text"
@@ -248,48 +237,44 @@ export default function LoginPage() {
                   inputMode="email"
                   lang="en"
                   spellCheck={false}
-                  className="w-full px-3 py-3 text-base font-mono tracking-widest text-center uppercase border border-[#231714]/10 rounded-xl focus:outline-none focus:border-[#231714] focus:ring-1 focus:ring-[#231714] transition-colors"
+                  className="h-14 w-full rounded-2xl border bg-white px-4 text-center text-[26px] font-bold uppercase text-[color:var(--eb-ink)] placeholder:text-[#c3cac6] focus:outline-none focus:border-2"
+                  style={{ borderColor: "var(--eb-line)", letterSpacing: "0.2em" }}
                 />
+                {linkError && (
+                  <p className="mt-1.5 text-[13px] text-[color:var(--eb-coral-text)]">{linkError}</p>
+                )}
               </div>
 
-              {linkError && (
-                <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2.5">
-                  <p className="text-xs text-red-600">{linkError}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="w-full py-3 text-sm font-medium bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 transition-colors mt-2"
-              >
-                登録する
-              </button>
+              <Button type="submit" variant="primary">
+                ログイン
+              </Button>
             </form>
-          </div>
+          </GlassCard>
 
-          <p className="text-xs text-[#231714]/75 text-center mt-4 leading-relaxed">
+          <p className="text-center text-[13px] leading-relaxed text-[color:var(--eb-ink-muted)]">
             ワンタイムパスワードがわからない場合は<br />管理者にお問い合わせください
           </p>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
-  // ── アクセス不可 ──
+  // ── アクセス不可 / LINE未ログイン・外部ブラウザ時 ──
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
-      <div className="text-center max-w-xs">
-        <div className="mx-auto mb-6 w-28 h-28">
-          <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={112} height={112} priority />
+    <PageBg className="flex items-center justify-center px-5">
+      <div className="w-full max-w-sm text-center">
+        <div className="mx-auto mb-6 h-16 w-16">
+          <Image src="/logo.svg" alt="EIGHT BASE UNGA" width={64} height={64} priority />
         </div>
+        <h1 className="text-[22px] font-bold text-[color:var(--eb-ink)]">ログイン</h1>
 
-        <h2 className="text-base font-bold text-[#231714]">
-          アカウントが見つかりません
-        </h2>
-        <p className="text-xs text-[#231714]/85 mt-2 leading-relaxed">
-          ご利用には招待が必要です。招待メールをお持ちの方は、メール内のワンタイムパスワードでログインしてください。わからない場合は管理者にお問い合わせください。
-        </p>
+        <GlassCard className="mt-5 text-left">
+          <h2 className="text-[16px] font-bold text-[color:var(--eb-ink)]">アカウントが見つかりません</h2>
+          <p className="mt-2 text-[14px] leading-relaxed text-[color:var(--eb-ink-muted)]">
+            ご利用には招待が必要です。招待メールをお持ちの方は、メール内のワンタイムパスワードでログインしてください。わからない場合は管理者にお問い合わせください。
+          </p>
+        </GlassCard>
       </div>
-    </div>
+    </PageBg>
   );
 }

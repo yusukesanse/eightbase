@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import { INDUSTRY_OPTIONS } from "@/types";
 import { lookupAddressByPostalCode } from "@/lib/address";
+import { Button, Field, GlassCard, PageBg, PageHeading, inputClass } from "@/components/ui/eb";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -62,35 +64,13 @@ const EMPTY_FORM: FormData = {
   socialLinks: { instagram: "", x: "", facebook: "", other: "" },
 };
 
-type EditSection = "name" | "contact" | "work" | "address" | null;
-
-const INPUT_EDIT = "w-full px-3 py-2.5 text-sm border border-[#A5C1C8] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#A5C1C8] bg-[#A5C1C8]/10";
-
-const EditIcon = ({ onClick }: { onClick: () => void }) => (
-  <button type="button" onClick={onClick} className="p-1.5 rounded-lg hover:bg-[#231714]/5 transition-colors text-[#231714]/75 hover:text-[#231714]/80">
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M10.086 1.914a1.5 1.5 0 012.121 2.121L5.06 11.182l-2.828.707.707-2.828L10.086 1.914z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-    </svg>
-  </button>
-);
-
-function genderLabel(val: string) { return GENDER_OPTIONS.find((o) => o.value === val)?.label ?? val; }
-function formatBirthday(val: string) {
-  if (!val) return "未設定";
-  const p = val.split("-");
-  if (p.length !== 3 || !p[0]) return "未設定";
-  return `${p[0]}年${Number(p[1])}月${Number(p[2])}日`;
-}
-
 export default function ProfilePage() {
   const router = useRouter();
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
-  const [original, setOriginal] = useState<FormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [editing, setEditing] = useState<EditSection>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -113,7 +93,6 @@ export default function ProfilePage() {
             socialLinks: { ...EMPTY_FORM.socialLinks, ...(p.socialLinks || {}) },
           };
           setForm(loaded);
-          setOriginal(loaded);
         }
       } catch { router.replace("/login"); }
       finally { setLoading(false); }
@@ -131,12 +110,10 @@ export default function ProfilePage() {
     setSuccess(false);
   }
 
-  function cancelEdit() { setForm({ ...original }); setEditing(null); setError(null); }
-
   function validate(): string | null {
     if (!form.lastName.trim() || !form.firstName.trim()) return "氏名を入力してください";
     if (!form.lastNameKana.trim() || !form.firstNameKana.trim()) return "氏名（カナ）を入力してください";
-    const kanaRegex = /^[\u30A0-\u30FF\u3000\s]+$/;
+    const kanaRegex = /^[゠-ヿ　\s]+$/;
     if (!kanaRegex.test(form.lastNameKana) || !kanaRegex.test(form.firstNameKana)) return "氏名（カナ）はカタカナで入力してください";
     if (!form.email.trim()) return "メールアドレスを入力してください";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "メールアドレスの形式が正しくありません";
@@ -169,8 +146,6 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setOriginal({ ...form });
-        setEditing(null);
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } else {
@@ -182,167 +157,220 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <PageBg className="flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#A5C1C8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-700">読み込み中...</p>
+          <div
+            className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: "var(--eb-green)", borderTopColor: "transparent" }}
+          />
+          <p className="text-[15px] text-[color:var(--eb-ink-muted)]">読み込み中...</p>
         </div>
-      </div>
+      </PageBg>
     );
   }
 
-  const ReadOnlyRow = ({ label, value }: { label: string; value: string }) => (
-    <div className="flex items-start justify-between py-1.5">
-      <span className="text-[11px] text-[#231714]/80 min-w-[70px] shrink-0">{label}</span>
-      <span className="text-sm text-[#231714] text-right">{value || "未設定"}</span>
-    </div>
-  );
-
-  const SaveButtons = () => (
-    <div className="flex gap-2 mt-3">
-      <button type="button" onClick={cancelEdit} className="flex-1 py-2 text-xs border border-[#231714]/10 rounded-xl text-[#231714]/80 hover:bg-[#231714]/5 transition-colors">キャンセル</button>
-      <button type="button" onClick={handleSave} disabled={submitting} className="flex-1 py-2 text-xs bg-[#231714] text-white rounded-xl hover:bg-[#231714]/80 disabled:opacity-50 transition-colors">{submitting ? "保存中..." : "保存"}</button>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      <header className="bg-[#A5C1C8] px-4 pt-3 pb-4">
-        <h1 className="text-[15px] font-medium leading-tight text-[#231714]">マイプロフィール</h1>
-        <p className="text-[11px] text-[#231714]/85 mt-0.5">登録情報の確認・編集</p>
-      </header>
+    <PageBg>
+      <div className="px-5 pt-[52px]">
+        <PageHeading title="プロフィール編集" subtitle="登録情報の確認・編集" />
+      </div>
 
-      <div className="flex-1 px-4 pt-5 pb-4 space-y-4">
-        {error && <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3"><p className="text-xs text-red-600">{error}</p></div>}
-        {success && <div className="bg-[#B0E401]/20 border border-[#B0E401]/40 rounded-xl px-4 py-3"><p className="text-xs text-[#231714]">プロフィールを更新しました</p></div>}
+      <div className="px-5 pt-6 pb-10 space-y-4">
+        {/* 氏名 */}
+        <GlassCard>
+          <SectionHeading title="氏名" />
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="姓" required>
+              <input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={inputClass} />
+            </Field>
+            <Field label="名" required>
+              <input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={inputClass} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <Field label="セイ" required>
+              <input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={inputClass} />
+            </Field>
+            <Field label="メイ" required>
+              <input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={inputClass} />
+            </Field>
+          </div>
+        </GlassCard>
 
-        {/* ===== 氏名 ===== */}
-        <Section title="氏名" icon="person" editing={editing === "name"} onEdit={() => { setEditing("name"); setError(null); }}>
-          {editing === "name" ? (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className="block text-[11px] text-[#231714]/80 mb-1">姓</label><input type="text" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="山田" className={INPUT_EDIT} /></div>
-                <div><label className="block text-[11px] text-[#231714]/80 mb-1">名</label><input type="text" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="太郎" className={INPUT_EDIT} /></div>
+        {/* 連絡先・基本情報 */}
+        <GlassCard>
+          <SectionHeading title="連絡先・基本情報" />
+          <div className="space-y-3">
+            <Field label="メールアドレス" required>
+              <input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" autoComplete="email" className={inputClass} />
+            </Field>
+            <Field label="電話番号" required>
+              <input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" autoComplete="tel" className={inputClass} />
+            </Field>
+            <Field label="生年月日" required>
+              <BirthdaySelect value={form.birthday} onChange={(v) => updateForm("birthday", v)} />
+            </Field>
+            <Field label="性別" required>
+              <div className="flex flex-wrap gap-2">
+                {GENDER_OPTIONS.map((opt) => (
+                  <ToggleButton key={opt.value} selected={form.gender === opt.value} onClick={() => updateForm("gender", opt.value)} label={opt.label} />
+                ))}
               </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div><label className="block text-[11px] text-[#231714]/80 mb-1">セイ</label><input type="text" value={form.lastNameKana} onChange={(e) => updateForm("lastNameKana", e.target.value)} placeholder="ヤマダ" className={INPUT_EDIT} /></div>
-                <div><label className="block text-[11px] text-[#231714]/80 mb-1">メイ</label><input type="text" value={form.firstNameKana} onChange={(e) => updateForm("firstNameKana", e.target.value)} placeholder="タロウ" className={INPUT_EDIT} /></div>
-              </div>
-              <SaveButtons />
-            </>
-          ) : (
-            <><ReadOnlyRow label="氏名" value={`${form.lastName} ${form.firstName}`} /><ReadOnlyRow label="カナ" value={`${form.lastNameKana} ${form.firstNameKana}`} /></>
-          )}
-        </Section>
+            </Field>
+          </div>
+        </GlassCard>
 
-        {/* ===== 連絡先・基本情報 ===== */}
-        <Section title="連絡先・基本情報" icon="clipboard" editing={editing === "contact"} onEdit={() => { setEditing("contact"); setError(null); }}>
-          {editing === "contact" ? (
-            <>
-              <div><label className="block text-[11px] text-[#231714]/80 mb-1">メールアドレス</label><input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="example@company.com" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">電話番号</label><input type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="090-1234-5678" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">生年月日</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[{ idx: 0, label: "年", count: 80, fmt: (i: number) => new Date().getFullYear() - i }, { idx: 1, label: "月", count: 12, fmt: (i: number) => i + 1 }, { idx: 2, label: "日", count: 31, fmt: (i: number) => i + 1 }].map(({ idx, label, count, fmt }) => (
-                    <select key={idx} value={form.birthday ? form.birthday.split("-")[idx] : ""} onChange={(e) => { const p = (form.birthday || "--").split("-"); p[idx] = e.target.value; updateForm("birthday", p.join("-")); }} className={INPUT_EDIT}>
-                      <option value="">{label}</option>
-                      {Array.from({ length: count }, (_, i) => { const v = idx === 0 ? String(fmt(i)) : String(fmt(i)).padStart(2, "0"); return <option key={v} value={v}>{idx === 0 ? `${v}年` : `${Number(v)}${label}`}</option>; })}
-                    </select>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">性別</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {GENDER_OPTIONS.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => updateForm("gender", opt.value)} className={`py-2 text-xs rounded-xl border transition-colors ${form.gender === opt.value ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/80 border-[#231714]/10"}`}>{opt.label}</button>
-                  ))}
-                </div>
-              </div>
-              <SaveButtons />
-            </>
-          ) : (
-            <><ReadOnlyRow label="メール" value={form.email} /><ReadOnlyRow label="電話番号" value={form.phone} /><ReadOnlyRow label="生年月日" value={formatBirthday(form.birthday)} /><ReadOnlyRow label="性別" value={genderLabel(form.gender)} /></>
-          )}
-        </Section>
-
-        {/* ===== お仕事について ===== */}
-        <Section title="お仕事について" icon="briefcase" editing={editing === "work"} onEdit={() => { setEditing("work"); setError(null); }}>
-          {editing === "work" ? (
-            <>
-              <div><label className="block text-[11px] text-[#231714]/80 mb-1">会社名・屋号</label><input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / フリーランス" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">職種</label><input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 営業" className={INPUT_EDIT} /></div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">業種</label>
-                <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={`${INPUT_EDIT} ${!form.industry ? "text-[#231714]/75" : ""}`}>
+        {/* お仕事について */}
+        <GlassCard>
+          <SectionHeading title="お仕事について" />
+          <div className="space-y-3">
+            <Field label="会社名・屋号" required>
+              <input type="text" value={form.companyName} onChange={(e) => updateForm("companyName", e.target.value)} placeholder="例: 〇〇株式会社 / フリーランス" className={inputClass} />
+            </Field>
+            <Field label="職種" required>
+              <input type="text" value={form.jobTitle} onChange={(e) => updateForm("jobTitle", e.target.value)} placeholder="例: Webデザイナー / 建築士 / 営業" className={inputClass} />
+            </Field>
+            <Field label="業種" required>
+              <SelectShell>
+                <select value={form.industry} onChange={(e) => updateForm("industry", e.target.value)} className={clsx(SELECT_CLASS, !form.industry && "text-[#9AA39E]")}>
                   <option value="">選択してください</option>
                   {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
+              </SelectShell>
+            </Field>
+            <Field label="利用目的" required>
+              <div className="flex flex-wrap gap-2">
+                {PURPOSE_OPTIONS.map((opt) => (
+                  <ToggleButton key={opt} selected={form.purpose === opt} onClick={() => updateForm("purpose", opt)} label={opt} />
+                ))}
               </div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">利用目的</label>
-                <div className="flex flex-wrap gap-2">
-                  {PURPOSE_OPTIONS.map((opt) => (
-                    <button key={opt} type="button" onClick={() => updateForm("purpose", opt)} className={`px-3 py-2 text-xs rounded-xl border transition-colors ${form.purpose === opt ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/80 border-[#231714]/10"}`}>{opt}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-3"><label className="block text-[11px] text-[#231714]/80 mb-1">会社URL <span className="text-[#231714]/75">任意</span></label><input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={INPUT_EDIT} /></div>
-              <SaveButtons />
-            </>
-          ) : (
-            <><ReadOnlyRow label="会社名" value={form.companyName} /><ReadOnlyRow label="職種" value={form.jobTitle} /><ReadOnlyRow label="業種" value={form.industry} /><ReadOnlyRow label="利用目的" value={form.purpose} />{form.companyUrl && <ReadOnlyRow label="URL" value={form.companyUrl} />}</>
-          )}
-        </Section>
+            </Field>
+            <Field label="会社URL" hint="任意">
+              <input type="url" value={form.companyUrl} onChange={(e) => updateForm("companyUrl", e.target.value)} placeholder="https://example.com" className={inputClass} />
+            </Field>
+          </div>
+        </GlassCard>
 
-        {/* ===== 住所 ===== */}
-        <Section title="住所" icon="home" editing={editing === "address"} onEdit={() => { setEditing("address"); setError(null); }}>
-          {editing === "address" ? (
-            <>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/80 mb-1">住所種別</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {["home", "office"].map((t) => (
-                    <button key={t} type="button" onClick={() => updateForm("addressType", t)} className={`py-2.5 text-xs rounded-xl border transition-colors ${form.addressType === t ? "bg-[#231714] text-white border-[#231714]" : "bg-white text-[#231714]/80 border-[#231714]/10"}`}>{t === "home" ? "自宅住所" : "会社住所"}</button>
-                  ))}
-                </div>
+        {/* 住所 */}
+        <GlassCard>
+          <SectionHeading title="住所" />
+          <div className="space-y-3">
+            <Field label="住所種別" required>
+              <div className="flex flex-wrap gap-2">
+                <ToggleButton selected={form.addressType === "home"} onClick={() => updateForm("addressType", "home")} label="自宅住所" />
+                <ToggleButton selected={form.addressType === "office"} onClick={() => updateForm("addressType", "office")} label="会社住所" />
               </div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/80 mb-1">郵便番号</label>
-                <div className="flex gap-2"><input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8} className={`flex-1 ${INPUT_EDIT}`} /><button type="button" onClick={lookupPostalCode} className="px-4 py-2.5 text-xs bg-[#A5C1C8]/30 text-[#231714] rounded-xl hover:bg-[#A5C1C8]/40 transition-colors whitespace-nowrap">住所検索</button></div>
+            </Field>
+            <Field label="郵便番号" required>
+              <div className="flex gap-2">
+                <input type="text" value={form.postalCode} onChange={(e) => updateForm("postalCode", e.target.value)} placeholder="123-4567" maxLength={8} className={clsx("flex-1", inputClass)} />
+                <Button type="button" variant="secondary" fullWidth={false} className="w-[120px]" onClick={lookupPostalCode}>
+                  住所検索
+                </Button>
               </div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/80 mb-1">都道府県</label><select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={`${INPUT_EDIT} ${!form.prefecture ? "text-[#231714]/75" : ""}`}><option value="">選択してください</option>{PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/80 mb-1">市区町村</label><input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={INPUT_EDIT} /></div>
-              <div className="mb-3"><label className="block text-[11px] text-[#231714]/80 mb-1">番地</label><input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={INPUT_EDIT} /></div>
-              <div><label className="block text-[11px] text-[#231714]/80 mb-1">建物名 <span className="text-[#231714]/75">任意</span></label><input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={INPUT_EDIT} /></div>
-              <SaveButtons />
-            </>
-          ) : (
-            <><ReadOnlyRow label="種別" value={form.addressType === "home" ? "自宅住所" : "会社住所"} /><ReadOnlyRow label="郵便番号" value={form.postalCode} /><ReadOnlyRow label="住所" value={`${form.prefecture} ${form.city} ${form.address}${form.building ? ` ${form.building}` : ""}`} /></>
-          )}
-        </Section>
+            </Field>
+            <Field label="都道府県" required>
+              <SelectShell>
+                <select value={form.prefecture} onChange={(e) => updateForm("prefecture", e.target.value)} className={clsx(SELECT_CLASS, !form.prefecture && "text-[#9AA39E]")}>
+                  <option value="">選択してください</option>
+                  {PREFECTURES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </SelectShell>
+            </Field>
+            <Field label="市区町村" required>
+              <input type="text" value={form.city} onChange={(e) => updateForm("city", e.target.value)} placeholder="渋谷区神宮前" className={inputClass} />
+            </Field>
+            <Field label="番地" required>
+              <input type="text" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="1-2-3" className={inputClass} />
+            </Field>
+            <Field label="建物名・部屋番号" hint="任意">
+              <input type="text" value={form.building} onChange={(e) => updateForm("building", e.target.value)} placeholder="〇〇マンション 101号室" className={inputClass} />
+            </Field>
+          </div>
+        </GlassCard>
 
+        {error && <p className="text-[14px] font-bold text-[color:var(--eb-coral-text)]">{error}</p>}
+        {success && (
+          <GlassCard tone="green" padding="md">
+            <p className="text-[15px] font-bold text-[color:var(--eb-green-text)]">プロフィールを更新しました</p>
+          </GlassCard>
+        )}
+
+        <Button type="button" variant="primary" loading={submitting} onClick={handleSave}>
+          保存する
+        </Button>
       </div>
+    </PageBg>
+  );
+}
+
+/* ═══ 共通コンポーネント（この画面専用の見た目部品） ═══ */
+
+const SELECT_CLASS = clsx(inputClass, "appearance-none pr-10");
+
+function SelectShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      {children}
+      <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2" width="12" height="8" viewBox="0 0 12 8" fill="none">
+        <path d="M1 1l5 5 5-5" stroke="var(--eb-ink-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </div>
   );
 }
 
-/* ═══ セクションコンポーネント ═══ */
+function SectionHeading({ title }: { title: string }) {
+  return <h3 className="mb-3 text-[16px] font-bold text-[color:var(--eb-ink)]">{title}</h3>;
+}
 
-function Section({ title, icon, editing, onEdit, children }: { title: string; icon: string; editing: boolean; onEdit: () => void; children: React.ReactNode }) {
-  const icons: Record<string, React.ReactNode> = {
-    person: <><path d="M8 2a3.5 3.5 0 013.5 3.5v0A3.5 3.5 0 018 9v0a3.5 3.5 0 01-3.5-3.5v0A3.5 3.5 0 018 2z" stroke="#A5C1C8" strokeWidth="1.3" /><path d="M2.5 14c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="#A5C1C8" strokeWidth="1.3" strokeLinecap="round" /></>,
-    clipboard: <><path d="M5.5 2H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2h-1.5" stroke="#A5C1C8" strokeWidth="1.3" /><rect x="5" y="1" width="6" height="3" rx="1" stroke="#A5C1C8" strokeWidth="1.3" /></>,
-    briefcase: <><rect x="2" y="4" width="12" height="10" rx="2" stroke="#A5C1C8" strokeWidth="1.3" /><path d="M5 4V3a2 2 0 012-2h2a2 2 0 012 2v1" stroke="#A5C1C8" strokeWidth="1.3" /></>,
-    home: <><path d="M8 1.5l6 5v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5l6-5z" stroke="#A5C1C8" strokeWidth="1.3" strokeLinejoin="round" /><path d="M6 15v-4h4v4" stroke="#A5C1C8" strokeWidth="1.3" /></>,
-    star: <><path d="M8 1.5l1.76 3.52 3.84.56-2.8 2.72.64 3.84L8 10.44l-3.44 1.8.64-3.84-2.8-2.72 3.84-.56L8 1.5z" stroke="#A5C1C8" strokeWidth="1.2" strokeLinejoin="round" /></>,
-  };
+function ToggleButton({ selected, onClick, label }: { selected: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "h-12 rounded-[14px] px-4 text-[14px] font-bold transition-colors",
+        selected ? "border-2 text-white" : "border bg-white/60 text-[color:var(--eb-ink)]"
+      )}
+      style={
+        selected
+          ? { background: "var(--eb-green)", borderColor: "var(--eb-green)" }
+          : { borderColor: "var(--eb-line)" }
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+function BirthdaySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const parts = (value || "--").split("-");
+  function update(idx: number, v: string) {
+    const p = [...parts];
+    p[idx] = v;
+    onChange(p.join("-"));
+  }
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-[#231714] flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">{icons[icon]}</svg>
-          {title}
-        </h3>
-        {!editing && <EditIcon onClick={onEdit} />}
-      </div>
-      {children}
+    <div className="grid grid-cols-3 gap-2">
+      <SelectShell>
+        <select value={parts[0] || ""} onChange={(e) => update(0, e.target.value)} className={clsx(SELECT_CLASS, !parts[0] && "text-[#9AA39E]")}>
+          <option value="">年</option>
+          {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((y) => <option key={y} value={String(y)}>{y}年</option>)}
+        </select>
+      </SelectShell>
+      <SelectShell>
+        <select value={parts[1] || ""} onChange={(e) => update(1, e.target.value)} className={clsx(SELECT_CLASS, !parts[1] && "text-[#9AA39E]")}>
+          <option value="">月</option>
+          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}月</option>)}
+        </select>
+      </SelectShell>
+      <SelectShell>
+        <select value={parts[2] || ""} onChange={(e) => update(2, e.target.value)} className={clsx(SELECT_CLASS, !parts[2] && "text-[#9AA39E]")}>
+          <option value="">日</option>
+          {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => <option key={d} value={d}>{Number(d)}日</option>)}
+        </select>
+      </SelectShell>
     </div>
   );
 }
