@@ -838,7 +838,7 @@ export default function ReservationPage() {
 
       {/* ── フローティングフッター ── */}
       <div
-        className="sticky border-t border-[color:var(--eb-line)] bg-white/80 px-5 py-3 backdrop-blur-lg safe-area-pb"
+        className="sticky border-t border-[color:var(--eb-line)] px-5 py-3 safe-area-pb"
         style={{ bottom: "var(--bottom-nav-height)" }}
       >
         {selectedFacility && selectedDate && selStart && selEnd ? (
