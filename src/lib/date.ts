@@ -55,3 +55,11 @@ export const MAHJONG_CANCEL_POLICY = `キャンセルは開催日の${MAHJONG_CA
 export function canCancelMahjong(eventDate: string, today: string = todayJst()): boolean {
   return daysUntil(eventDate, today) >= MAHJONG_CANCEL_DEADLINE_DAYS;
 }
+
+/** UTC の ISO 文字列を JST の日付 YYYY-MM-DD にする。不正な文字列は空文字。 */
+export function jstDateFromIso(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  // +9h して UTC として読む＝JST の暦日。
+  return new Date(t + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}

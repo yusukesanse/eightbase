@@ -678,6 +678,19 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 ### 詳細ページ
 - `news`/`events`/`games` は個別GET（`/api/news/[id]` `/api/events/[eventId]` `/api/games/[gameId]`）で取得し、一覧の `limit` に依存しない。
 
+### イベント一覧の並び順（LINE「イベントを見る」→ `/events`・2026-09-08）
+- 起きたこと: LINE のトークから「イベントを見る」を開くと**過去のイベントが最上段（Featured）に出た**。
+  `GET /api/events` は公開済みを **startAt 昇順で全件**（過去含む）返し、`/events` が先頭をそのまま Featured にしていたため。
+  `/info` のイベントタブは独自に「今後/過去/すべて」で絞っていたので同じ不具合は出ず、ロジックが2か所に分かれていた。
+- 直したこと: 絞り込みと並びを **`src/lib/eventListing.ts` の `filterAndSortEvents(events, filter, todayJst())`** に1本化し、
+  `/events` にも「今後 / 過去 / すべて」の `SegmentedTabs` を置いた（既定「今後」＝次に開催されるイベントが Featured）。
+  今後＝今日以降を古い順（今日開催は開始時刻を過ぎても含む）／過去＝今日より前を新しい順／すべて＝新しい順。
+  `startAt` が不正な doc は今後・過去に出さず「すべて」の末尾（例外にしない）。
+- ⚠️ 本番は TZ=UTC。「今日」は `todayJst()`、startAt の暦日は `jstDateFromIso()`（`src/lib/date.ts` へ移設。
+  `billing.ts` からの再エクスポートは維持）で **JST に直して比べる**。UTC のまま比べると JST 0〜9時開始のイベントが前日扱いになる。
+- API 側は変えていない（並び替えは表示側。`/info` と SWR キー `events:list` を共有するため片方だけ API を変えると噛み合わない）。
+- 回帰テスト: `__tests__/unit/lib/eventListing.test.ts`（並び・JST 境界・不正日付・入力不変）。
+
 ### LINE 公式アカウント配信（role 別文面・宛先）
 - 一斉配信の宛先は必ず `getActiveLineUserIdsByRoles(roles)`（`src/lib/firebaseAdmin.ts`）で **登録ユーザーの選択 role のみ**に絞る。**friend 全体への broadcast API は使わない**（未登録フォロワー＝第三者に届く）。
 - コンテンツ公開: news/event/game は doc の `lineNotify`（既定ON）＋ `lineBroadcastAudience: UserRole[]`（未設定は種別デフォルト＝news/event: member+staff / game: all）に従い、`broadcastContentPublished(contentType, title, audience)`（`src/lib/line.ts`）が **role 別文面**で送る。ゲストは会員専用ルートに入れないので news/event のゲスト宛リンクは `/info`。管理UIは news/events の編集画面（`LineAudienceField`）。cron 公開（`api/cron/publish`）も同設定を参照。

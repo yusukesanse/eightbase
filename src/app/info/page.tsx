@@ -6,6 +6,8 @@ import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import type { NufEvent, NewsItem } from "@/types";
 import { TimelineBoard } from "@/components/TimelineBoard";
 import { paymentReturnSearch, GAME_PAYMENT_RETURN_BASE } from "@/lib/gamePaymentReturn";
+import { filterAndSortEvents, type EventTimeFilter } from "@/lib/eventListing";
+import { todayJst } from "@/lib/date";
 import { GlassCard, PageBg, PageHeading, SegmentedTabs, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 import clsx from "clsx";
 import dayjs from "dayjs";
@@ -132,8 +134,6 @@ function eventCategoryTone(category: string): EbStatusTone {
   return EVENT_CATEGORY_TONES[category] ?? "muted";
 }
 
-type TimeFilter = "all" | "upcoming" | "past";
-
 function EventsTab({
   events,
   router,
@@ -141,7 +141,7 @@ function EventsTab({
   events: (NufEvent & { goodCount: number })[];
   router: ReturnType<typeof useRouter>;
 }) {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("upcoming");
+  const [timeFilter, setTimeFilter] = useState<EventTimeFilter>("upcoming");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   // カテゴリ一覧を抽出
@@ -152,26 +152,13 @@ function EventsTab({
 
   // フィルタリング・ソート・月別グルーピング
   const grouped = useMemo(() => {
-    const today = dayjs().format("YYYY-MM-DD");
-
-    // 時期フィルタ（イベント開始日ベースで判定）
-    let filtered = events;
-    if (timeFilter === "upcoming") {
-      filtered = events.filter((e) => dayjs(e.startAt).format("YYYY-MM-DD") >= today);
-    } else if (timeFilter === "past") {
-      filtered = events.filter((e) => dayjs(e.startAt).format("YYYY-MM-DD") < today);
-    }
+    // 時期フィルタ＋ソート（/events と同じ関数。今後→直近が上、過去/すべて→新しい順）
+    let sorted = filterAndSortEvents(events, timeFilter, todayJst());
 
     // カテゴリフィルタ
     if (categoryFilter !== "all") {
-      filtered = filtered.filter((e) => e.category === categoryFilter);
+      sorted = sorted.filter((e) => e.category === categoryFilter);
     }
-
-    // ソート: 今後→古い順（直近が上）, 過去/すべて→新しい順
-    const sorted = Array.from(filtered).sort((a, b) => {
-      const diff = dayjs(a.startAt).unix() - dayjs(b.startAt).unix();
-      return timeFilter === "upcoming" ? diff : -diff;
-    });
 
     // 月別グルーピング
     const map = new Map<string, (NufEvent & { goodCount: number })[]>();
@@ -198,7 +185,7 @@ function EventsTab({
           { id: "all", label: "すべて" },
         ]}
         value={timeFilter}
-        onChange={(id) => setTimeFilter(id as TimeFilter)}
+        onChange={(id) => setTimeFilter(id as EventTimeFilter)}
         size="md"
       />
 

@@ -23,6 +23,7 @@
  *   （`new Date(iso).getMonth()` は本番だけ 1 か月ずれる）。
  */
 
+import { jstDateFromIso } from "./date";
 import type { ScoreboardGameId } from "@/types";
 // 4種目の参加ステータス状態機械は同一定義（dartsEntryStatus 等は麻雀版のコピー）。
 // 請求側で 4 本に分岐しても結果は同じなので、代表として麻雀版を使う。
@@ -121,13 +122,8 @@ export interface BillingRecord {
 
 /* ── 日付ユーティリティ（JST 固定） ───────────────────────────────── */
 
-/** UTC の ISO 文字列を JST の日付 YYYY-MM-DD にする。 */
-export function jstDateFromIso(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  // +9h して UTC として読む＝JST の暦日。
-  return new Date(t + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+/** UTC の ISO 文字列を JST の日付 YYYY-MM-DD にする（実体は date.ts。イベント一覧とも共用）。 */
+export { jstDateFromIso };
 
 /** JST の日付 YYYY-MM-DD の 0:00 / 23:59:59.999 を UTC ISO にする（Firestore の範囲クエリ用）。 */
 export function jstDayStartIso(date: string): string {

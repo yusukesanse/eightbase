@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStaleWhileRevalidate } from "@/hooks/useStaleWhileRevalidate";
 import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
+import { filterAndSortEvents, type EventTimeFilter } from "@/lib/eventListing";
+import { todayJst } from "@/lib/date";
 import type { NufEvent } from "@/types";
-import { GlassCard, PageBg, PageHeading, StatusPill, type EbStatusTone } from "@/components/ui/eb";
+import { GlassCard, PageBg, PageHeading, SegmentedTabs, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 
 // キャッシュ即表示と同じ paint 前タイミングでグッド状態を重ねるため layout effect を使う
 // （再訪時に一瞬「イベントなし」が見えるのを防ぐ）。SSR では useEffect にフォールバック。
@@ -99,9 +101,24 @@ export default function EventsPage() {
     }
   }, []);
 
-  // 直近のイベントをフィーチャー (先頭)
-  const featured = events[0];
-  const rest = events.slice(1);
+  // 今後 / 過去 / すべて。既定は「今後」（LINE の「イベントを見る」から開いたとき、
+  // 次に開催されるイベントが先頭に来るようにする。/info のイベントタブと同じ関数で判定）。
+  const [timeFilter, setTimeFilter] = useState<EventTimeFilter>("upcoming");
+  const visible = useMemo(
+    () => filterAndSortEvents(events, timeFilter, todayJst()),
+    [events, timeFilter]
+  );
+
+  // 先頭をフィーチャー（今後＝次のイベント / 過去・すべて＝最新のイベント）
+  const featured = visible[0];
+  const rest = visible.slice(1);
+  const restLabel = timeFilter === "upcoming" ? "Upcoming" : timeFilter === "past" ? "Past" : "All";
+  const emptyMessage =
+    timeFilter === "upcoming"
+      ? "今後のイベントはありません"
+      : timeFilter === "past"
+      ? "過去のイベントはありません"
+      : "該当するイベントはありません";
 
   return (
     <PageBg>
@@ -125,6 +142,25 @@ export default function EventsPage() {
           </GlassCard>
         ) : (
           <div className="flex flex-col gap-4">
+            <SegmentedTabs
+              items={[
+                { id: "upcoming", label: "今後" },
+                { id: "past", label: "過去" },
+                { id: "all", label: "すべて" },
+              ]}
+              value={timeFilter}
+              onChange={(id) => setTimeFilter(id as EventTimeFilter)}
+              size="md"
+            />
+
+            {visible.length === 0 && (
+              <GlassCard>
+                <p className="py-6 text-center text-[15px] text-[color:var(--eb-ink-muted)]">
+                  {emptyMessage}
+                </p>
+              </GlassCard>
+            )}
+
             {/* Featured (大きいカード) */}
             {featured && (
               <div>
@@ -139,7 +175,7 @@ export default function EventsPage() {
             {rest.length > 0 && (
               <div>
                 <p className="mb-2 text-[12px] font-bold uppercase tracking-wider text-[color:var(--eb-ink-muted)]">
-                  Upcoming
+                  {restLabel}
                 </p>
                 <div className="flex flex-col gap-2.5">
                   {rest.map(ev => (
