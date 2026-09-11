@@ -77,3 +77,16 @@ export function isActiveMahjongEntry(
   }
   return false;
 }
+
+/**
+ * 旧方式（WP2 前）の「参加確定（未払い）」= reserved かつ paymentStatus なし。
+ * ⚠️ 一時対応（2026-09-11）。WP2 で `isActiveMahjongEntry` が席なしにした旧entryのうち、
+ * 未来日のものだけを本人の一覧（GET ?mine=1）に限定復活させるための判定。
+ * `isActiveMahjongEntry` の数え方（定員・月1回）には混ぜないこと。
+ */
+export function isLegacyUnpaidMahjongEntry(
+  e: { status?: string; paymentStatus?: string; eventDate: string },
+  today: string, // todayJst()
+): boolean {
+  return deriveStatus(e) === "reserved" && e.paymentStatus == null && e.eventDate >= today;
+}

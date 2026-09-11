@@ -105,6 +105,16 @@ export function JoinTab({
     for (const d of Object.keys(optimistic)) s.delete(d);
     return s;
   }, [enteredDates, optimistic]);
+  // ⚠️ 一時対応（2026-09-11）: 旧・未払いentry（legacyUnpaid）の救済用の日付集合。
+  // 席は持たない（effectiveEntered には入れない）が、「あなたの参加状況」一覧と
+  // SelectedDateCard の「未払い」表示に使う。参加取消の楽観的UIも同様に反映する。
+  const legacyDates = useMemo(() => {
+    const s = new Set<string>();
+    for (const [d, e] of Object.entries(myEntries)) {
+      if (e.legacyUnpaid && !optimistic[d]) s.add(d);
+    }
+    return s;
+  }, [myEntries, optimistic]);
   useEffect(() => {
     setOptimistic((prev) => {
       let changed = false;
@@ -296,7 +306,7 @@ export function JoinTab({
     }
   }
 
-  const enteredArr = Array.from(effectiveEntered).sort();
+  const enteredArr = Array.from(new Set([...effectiveEntered, ...legacyDates])).sort();
   const calCtx = {
     today,
     enteredDates: effectiveEntered,
@@ -349,17 +359,27 @@ export function JoinTab({
               const e = myEntries[d];
               const cancelled = cancelledDates.has(d);
               const pending = isPendingNow(e, nowMs);
+              // ⚠️ 一時対応（2026-09-11）: 旧・未払いentryの判定。
+              // cancelled（中止）が優先＝ SelectedDateCard の分岐順（cancelled → legacyUnpaid）と揃える。
               const label = cancelled
                 ? "中止"
-                : e?.paymentStatus === "cancelRequested"
-                  ? "返金対応中"
-                  : pending
-                    ? "お支払い確認中"
-                    : e?.paymentStatus === "pending"
-                      ? "仮押さえ解除"
-                      : "参加確定";
+                : e?.legacyUnpaid
+                  ? "未払い"
+                  : e?.paymentStatus === "cancelRequested"
+                    ? "返金対応中"
+                    : pending
+                      ? "お支払い確認中"
+                      : e?.paymentStatus === "pending"
+                        ? "仮押さえ解除"
+                        : "参加確定";
               const tone =
-                cancelled ? "coral" : label === "参加確定" ? "green" : label === "仮押さえ解除" ? "muted" : "gold";
+                cancelled || e?.legacyUnpaid
+                  ? "coral"
+                  : label === "参加確定"
+                    ? "green"
+                    : label === "仮押さえ解除"
+                      ? "muted"
+                      : "gold";
               const { md, wd } = dateParts(d);
               return (
                 <button
@@ -532,6 +552,31 @@ function SelectedDateCard({
           </p>
           <Button variant="secondary" onClick={onClearSelection}>
             ほかの開催日を見る
+          </Button>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // ⚠️ 一時対応（2026-09-11）: 旧・未払いentry（legacyUnpaid）の救済。
+  // pending 判定より前に置くこと（後ろに置くと未参加の分岐＝定員・月1回チェックへ落ちてしまう）。
+  // full / monthlyBlocked はここでは見ない（席を保証するのが目的）。isPast は保険（サーバー側で除外済み）。
+  if (entry?.legacyUnpaid && !isPast) {
+    return (
+      <GlassCard tone="coral">
+        <div className="flex flex-col gap-3">
+          {heading}
+          <StatusPill tone="coral" className="self-start">
+            未払い
+          </StatusPill>
+          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
+            以前の参加表明（お支払い前）が残っています。参加費のお支払いで参加が確定します。
+          </p>
+          <Button variant="pay" loading={busy} onClick={onResume}>
+            未払い（お支払いへ進む）
+          </Button>
+          <Button variant="ghost" loading={busy} onClick={onLeave}>
+            参加をやめる
           </Button>
         </div>
       </GlassCard>

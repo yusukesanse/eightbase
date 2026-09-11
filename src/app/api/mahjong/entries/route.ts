@@ -17,7 +17,8 @@ import {
   type MahjongEntry,
   type MahjongMyEntry,
 } from "@/types";
-import { deriveStatus, isActiveMahjongEntry } from "@/lib/mahjongEntryStatus";
+import { deriveStatus, isActiveMahjongEntry, isLegacyUnpaidMahjongEntry } from "@/lib/mahjongEntryStatus";
+import { todayJst } from "@/lib/date";
 import {
   issueMahjongEntryPaymentLink,
   paymentLinkFailedResponse,
@@ -67,18 +68,23 @@ export async function GET(req: NextRequest) {
         .where("seasonId", "==", season.seasonId)
         .where("lineUserId", "==", userId)
         .get();
-      // 期限切れの仮押さえ・旧 reserved は「未参加」として扱う（席を持たない＝WP2）。
+      // 期限切れの仮押さえは「未参加」として扱う（席を持たない＝WP2）。
+      // ⚠️ 一時対応（2026-09-11）: 旧 reserved（未払い・WP2前のデータ）は本来は席を持たないが、
+      // mine=1（本人の一覧）だけは未来日に限り legacyUnpaid として復活させ、支払いへの導線を出す。
+      // 定員判定・?eventDate= の一覧・POSTの参加表明ロジックはこの救済の対象外（isActiveMahjongEntry のまま）。
       // 自分の分だけなので entryId・決済URL・期限も返してよい（お支払い確認中UIに使う）。
       const now = new Date();
+      const today = todayJst();
       const my: MahjongMyEntry[] = snap.docs
         .map((d) => ({ ...(d.data() as MahjongEntry), entryId: d.id }))
-        .filter((e) => isActiveMahjongEntry(e, now))
+        .filter((e) => isActiveMahjongEntry(e, now) || isLegacyUnpaidMahjongEntry(e, today))
         .map((e) => ({
           entryId: e.entryId,
           eventDate: e.eventDate,
           paymentStatus: e.paymentStatus ?? null,
           pendingExpiresAt: e.pendingExpiresAt ?? null,
           paymentUrl: e.paymentUrl ?? null,
+          ...(isLegacyUnpaidMahjongEntry(e, today) ? { legacyUnpaid: true as const } : {}),
         }));
       return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }

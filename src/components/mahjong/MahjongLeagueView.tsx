@@ -122,10 +122,12 @@ export function MahjongLeagueView() {
 
       // 自分の参加日＋支払い状態（月1回制御・カレンダー表示に使う）。
       // 期限切れの仮押さえはサーバーが除外済み＝ここに来るものは席を持っている。
+      // ⚠️ 一時対応（2026-09-11）: legacyUnpaid（旧・未払いentryの救済）は席を持たないので
+      // entered（月1回の表示判定・◎マーク）には入れない。byDate には入れる（JoinTab の「未払い」表示に使う）。
       const entered = new Set<string>();
       const byDate: Record<string, MahjongMyEntry> = {};
       for (const e of (eData.entries ?? []) as MahjongMyEntry[]) {
-        entered.add(e.eventDate);
+        if (!e.legacyUnpaid) entered.add(e.eventDate);
         byDate[e.eventDate] = e;
       }
       setEnteredDates(entered);

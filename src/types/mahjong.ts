@@ -132,6 +132,8 @@ export interface MahjongMyEntry {
   pendingExpiresAt: string | null;
   /** 発行済みの Square 決済URL。pending のときだけ入る。 */
   paymentUrl: string | null;
+  /** ⚠️ 一時対応。旧 reserved（未払い）を本人にだけ返す（2026-09-11）。 */
+  legacyUnpaid?: true;
 }
 
 /**
