@@ -78,9 +78,9 @@ export function JoinTab({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // 残り時間の表示用に一定間隔で進める現在時刻。
   const [nowMs, setNowMs] = useState(() => Date.now());
-  // 選択日の参加者（支払い済みの人だけ表示する）。
+  // 選択日の参加者（支払い済みの人と、旧・未払いの人を表示する）。
   const [dateEntries, setDateEntries] = useState<
-    { displayName: string; displayStatus?: "paid" | "joined_unpaid" }[]
+    { displayName: string; displayStatus?: "paid" | "joined_unpaid" | "legacy_unpaid" }[]
   >([]);
   const [dateFull, setDateFull] = useState(false);
   const [dateCount, setDateCount] = useState(0);
@@ -91,6 +91,9 @@ export function JoinTab({
     rankingMetric: "average" | "total";
   } | null>(null);
   const today = todayJst();
+  // カレンダーが表示している月（"YYYY-MM"）。「あなたの参加状況」はこの月の分だけ出す
+  // （参加を重ねるほど一覧が伸びて見づらくなるため）。
+  const [viewMonth, setViewMonth] = useState(() => today.slice(0, 7));
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 10_000);
@@ -306,7 +309,9 @@ export function JoinTab({
     }
   }
 
-  const enteredArr = Array.from(new Set([...effectiveEntered, ...legacyDates])).sort();
+  const enteredArr = Array.from(new Set([...effectiveEntered, ...legacyDates]))
+    .filter((d) => d.startsWith(viewMonth))
+    .sort();
   const calCtx = {
     today,
     enteredDates: effectiveEntered,
@@ -337,6 +342,7 @@ export function JoinTab({
           marked={(d) => effectiveEntered.has(d)}
           minMonth={minMonth}
           variant="game"
+          onMonthChange={setViewMonth}
         />
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[color:var(--eb-ink-muted)]">
           <span className="whitespace-nowrap">○ 開催日</span>
@@ -430,28 +436,35 @@ export function JoinTab({
         />
       )}
 
-      {/* この日の参加者（支払いが完了した人だけ）。終了した過去日は当日順位を出すので隠す。 */}
+      {/* この日の参加者（支払い済み＋旧・未払い）。終了した過去日は当日順位を出すので隠す。 */}
       {selectedDate && !cancelledDates.has(selectedDate) && !isPastEventDate(selectedDate, calCtx) && (
         <GlassCard>
           <div className="mb-2 whitespace-nowrap text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
             この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
           </div>
           {(() => {
-            const paidOnly = dateEntries.filter((e) => e.displayStatus === "paid");
-            return paidOnly.length === 0 ? (
+            // 旧・未払い（一時対応・2026-09-11）は名前入りで出す。お支払い確認中（15分の仮押さえ）は出さない。
+            const shown = dateEntries.filter(
+              (e) => e.displayStatus === "paid" || e.displayStatus === "legacy_unpaid"
+            );
+            return shown.length === 0 ? (
               <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ参加者がいません。</p>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {paidOnly.map((e, i) => (
-                  <div key={i} className="text-[15px] font-bold text-[color:var(--eb-ink)]">
-                    {e.displayName}
+                {shown.map((e, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between gap-2 text-[15px] font-bold text-[color:var(--eb-ink)]"
+                  >
+                    <span>{e.displayName}</span>
+                    {e.displayStatus === "legacy_unpaid" && <StatusPill tone="coral">未払い</StatusPill>}
                   </div>
                 ))}
               </div>
             );
           })()}
           <p className="mt-2 text-[13px] text-[color:var(--eb-ink-muted)]">
-            ※ 支払いが完了した人だけが表示されます
+            ※ 支払いが完了した人と、以前の参加表明（未払い）が残っている人が表示されます
           </p>
         </GlassCard>
       )}

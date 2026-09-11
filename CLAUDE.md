@@ -103,8 +103,10 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - **旧・未払い entry の一時救済（2026-09-11）**: WP2 前の「参加確定（未払い）」entry（`status:"reserved"` かつ
   `paymentStatus`未設定）は `isActiveMahjongEntry()` で席なし判定されるため一覧から消えていた。
   未来日のものだけ `isLegacyUnpaidMahjongEntry()`（`src/lib/mahjongEntryStatus.ts`）で判定し、
-  `GET /api/mahjong/entries?mine=1` だけに `legacyUnpaid:true` を付けて返す（`?eventDate=`・定員判定・
-  POSTの参加表明ロジックは対象外＝`isActiveMahjongEntry` は変更していない）。参加タブに「未払い」を出し、
+  `GET /api/mahjong/entries?mine=1` に `legacyUnpaid:true` を付けて返す（本人の「未払い」カード用）。
+  `?eventDate=` の一覧にも `displayStatus:"legacy_unpaid"` で**名前入りで**出す（他の参加者にも「未払い」と見える。
+  お支払い確認中の人は従来どおり出さない）。ただし `count`/`full`/定員判定/POST の参加表明ロジックは対象外
+  ＝席は持たない（`isActiveMahjongEntry` は変更していない）。参加タブに「未払い」を出し、
   既存の `pay`/DELETE でそのまま支払い・取消できる。席は「払うまで」持たないため**定員超過を許容**する一時対応。
   撤去条件: 旧 `reserved` で未来日の entry が0件になったら `isLegacyUnpaidMahjongEntry` とUI分岐を消してよい。
 - 回帰テスト: `__tests__/unit/api/mahjongEntryJoinIsPay.test.ts`。

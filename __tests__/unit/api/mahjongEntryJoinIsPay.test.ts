@@ -437,7 +437,7 @@ describe("旧・未払いentry（legacyUnpaid）の救済 ← 一時対応", () 
     expect(body.entries).toHaveLength(1);
   });
 
-  test("GET ?eventDate= は旧entryを参加者数に含めず満員にしない", async () => {
+  test("GET ?eventDate= は旧entryを名前入りで一覧に出すが、参加者数・満員・entered には含めない", async () => {
     db.__set("mahjongEntries", ENTRY_A, {
       seasonId: SEASON,
       eventDate: DATE_A,
@@ -451,7 +451,23 @@ describe("旧・未払いentry（legacyUnpaid）の救済 ← 一時対応", () 
     const body = await res.json();
     expect(body.count).toBe(0);
     expect(body.full).toBe(false);
-    expect(body.entries).toHaveLength(0);
+    expect(body.entered).toBe(false);
+    expect(body.entries).toEqual([
+      expect.objectContaining({ displayName: USER, displayStatus: "legacy_unpaid", isMe: true }),
+    ]);
+
+    // 終了した開催日の旧entryは出さない（もう支払えないため）。
+    const past = "2026-06-01";
+    db.__set("mahjongEntries", buildMahjongEntryId(SEASON, past, "U_other"), {
+      seasonId: SEASON,
+      eventDate: past,
+      lineUserId: "U_other",
+      displayName: "U_other",
+      enteredAt: "2026-05-01T00:00:00.000Z",
+      status: "reserved",
+    });
+    const pastBody = await (await GET(req(undefined, { eventDate: past }))).json();
+    expect(pastBody.entries).toHaveLength(0);
   });
 
   test("PAY は旧entryを pending にして決済URLを返し、enteredAt を保持する", async () => {

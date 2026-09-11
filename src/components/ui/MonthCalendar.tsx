@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import clsx from "clsx";
 
@@ -20,6 +20,7 @@ export default function MonthCalendar({
   size = "sm",
   minMonth,
   variant = "default",
+  onMonthChange,
 }: {
   value: string | null;
   onSelect: (dateStr: string) => void;
@@ -35,10 +36,15 @@ export default function MonthCalendar({
    */
   minMonth?: string;
   variant?: "default" | "game";
+  /** 表示中の月（"YYYY-MM"）が変わったとき（初回表示を含む）に呼ぶ。 */
+  onMonthChange?: (ym: string) => void;
 }) {
   const lg = size === "lg";
   const today = dayjs().format("YYYY-MM-DD");
   const [month, setMonth] = useState(() => (value ? dayjs(value) : dayjs()).startOf("month"));
+  useEffect(() => {
+    onMonthChange?.(month.format("YYYY-MM"));
+  }, [month, onMonthChange]);
   // 下限は当月と minMonth の古い方。minMonth が未来でも当月より前には行けないよう当月で頭打ちにする。
   const currentMonth = dayjs().format("YYYY-MM");
   const floorMonth = minMonth && minMonth < currentMonth ? minMonth : currentMonth;

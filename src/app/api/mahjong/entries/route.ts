@@ -124,19 +124,26 @@ export async function GET(req: NextRequest) {
 
     // 一覧は公開DTOのみ（内部lineUserId/entryId・決済照合情報は返さない）。
     // 他人へは表示名・アイコン・支払い状況だけ。自分の決済状態は下の me で返す。
-    // displayStatus は利用者向けラベル用: "paid"(支払い済み/社員免除) / "joined_unpaid"(お支払い確認中)。
-    // 参加タブは paid の人だけを出す（支払いが終わった人＝当日の卓に入る人）。
-    const entries = rawEntries.map((e) => {
-      const ds = deriveStatus(e);
-      const paid = ds === "paid";
-      return {
-        displayName: e.displayName,
-        pictureUrl: e.pictureUrl ?? "",
-        status: e.status ?? (e.paymentStatus === "paid" ? "paid" : "reserved"),
-        displayStatus: paid ? ("paid" as const) : ("joined_unpaid" as const),
-        isMe: e.lineUserId === userId,
-      };
+    // displayStatus は利用者向けラベル用: "paid"(支払い済み/社員免除) / "joined_unpaid"(お支払い確認中)
+    //   / "legacy_unpaid"(旧・未払い。⚠️ 一時対応 2026-09-11)。
+    // 参加タブは paid と legacy_unpaid を出す（joined_unpaid は15分の仮押さえなので出さない）。
+    // ⚠️ 旧・未払いは表示のためだけに一覧へ足す。席は持たないので count / full / entered には入れない。
+    const today = todayJst();
+    const legacyEntries = snap.docs
+      .map((d) => ({ ...(d.data() as MahjongEntry), entryId: d.id }))
+      .filter((e) => !isActiveMahjongEntry(e, now) && isLegacyUnpaidMahjongEntry(e, today))
+      .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt));
+    const toDto = (e: MahjongEntry, displayStatus: "paid" | "joined_unpaid" | "legacy_unpaid") => ({
+      displayName: e.displayName,
+      pictureUrl: e.pictureUrl ?? "",
+      status: e.status ?? (e.paymentStatus === "paid" ? "paid" : "reserved"),
+      displayStatus,
+      isMe: e.lineUserId === userId,
     });
+    const entries = [
+      ...rawEntries.map((e) => toDto(e, deriveStatus(e) === "paid" ? "paid" : "joined_unpaid")),
+      ...legacyEntries.map((e) => toDto(e, "legacy_unpaid")),
+    ];
 
     return NextResponse.json({
       entries,
