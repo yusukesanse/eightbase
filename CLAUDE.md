@@ -86,29 +86,30 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
   シーズン未作成・APIエラーで day が null のときに進行UI（GM選出ボタン等）が
   非参加者に見えてしまう（実際に本番で発生）。
 
-### 麻雀「参加する」＝参加費の支払い（2026-09-07・参加確定（未払い）を廃止）
+### 麻雀「参加する」＝参加費の支払い（2026-09-07）／未払いも席を持つ（2026-09-11）
 以前は「参加する」（席を押さえる）→ 別ボタン「支払いする」の2段階で、**1回目のボタンで参加できたと思い込み未払いのまま当日を迎える**事故が多発した。
+2026-09-07（WP2）で「参加する＝支払いへ進む」にし、期限切れの仮押さえは席を返す設計にしたが、**支払い前の人が本人にも他の参加者にも見えなくなり
+「予約したのに消えた」が続出**したため、2026-09-11 に**未払いも席を持つ**（旧UIと同じ）へ戻した。払わない人で満員になり得るリスクは表示の分かりやすさを優先して受け入れている。
 - `POST /api/mahjong/entries`（会員・ゲスト）は **Square リンクを発行して `paymentStatus:"pending"`（15分＝`PENDING_TTL_MIN`）で entry を作り、`paymentUrl` を返す**。
   リンク発行に失敗したら entry を作らない（席だけ押さえて払えない状態を残さない）。staff は従来どおり `status:"paid"`。
   リンク発行と pending 化の実体は `src/lib/mahjongEntryPayment.ts` の1箇所（pay ルートも同じ関数を呼ぶ。**コピーしない**）。
 - **席（定員8名）・月1回制限・参加者一覧は `isActiveMahjongEntry()`（`src/lib/mahjongEntryStatus.ts`）で数える**:
-  有効＝ `paid` / 期限内の `pending` / `cancelRequested`。期限切れ pending と旧 `reserved` は席を持たない（自己回復）。
+  有効＝ `paid` / `reserved`（お支払い確認中・未払い） / `cancelRequested`。`refunded` / `cancelRejected` だけ席を持たない。
   片方だけ別の数え方にすると「画面は満員なのに参加できる」がすぐ起きる。
-- 利用者に見える状態は **未参加 / お支払い確認中（15分） / 参加確定** の3つだけ。参加タブ（`MahjongJoinTab`）は pending 中に
+- 利用者に見える状態は **未参加 / お支払い確認中（15分） / 未払い / 参加確定** の4つ。参加タブ（`MahjongJoinTab`）は pending 中に
   「お支払い画面に戻る」（保存済み `paymentUrl`）「支払いを終えたのに確定しない」（`complete` を再実行）「参加をやめる」（DELETE）を出す。
   タブを開いたとき期限内 pending があれば `complete` を自動で1回試す（戻りが届かなかった人の救済。失敗は黙る）。
+- **未払い**（`isUnpaidMahjongEntry()`＝ `reserved` で期限内 pending でない。旧UIの「参加確定（未払い）」と期限切れの仮押さえ）:
+  `GET ?mine=1` は `unpaid:true`、`?eventDate=` は `displayStatus:"unpaid"` で**名前入りで他の参加者にも見せる**（`count`/`full` にも数える）。
+  終了した開催日の未払いは `mine=1` に返さない（もう払えない）。
+  ⚠️ **未払いの人を支払いへ進めるときは保存済み `paymentUrl` を使わず、必ず新しいリンクを発行し直す**
+  （`POST /api/mahjong/entries` の既存 entry 分岐・`pay` ルートとも `isPendingMahjongEntry()` が真のときだけ保存済み URL を返す）。
+  期限切れの古い注文で払うと `complete` が 410 を返して返金対応になる（2026-08-03 と同じ構図）。再発行では entry を作り直さない（`enteredAt`＝先着順を保つ）。
+  払わない・来ない人は本人の「参加をやめる」（DELETE）か、管理画面の参加者削除で外す。
 - `POST /api/mahjong/entries/pay` は期限内 pending に **保存済みの paymentUrl を返す**（旧 409 `PENDING_EXISTS` は廃止。参加した瞬間に pending になるため）。
 - `DELETE` は pending（期限内外問わず）を本番でも消せる（入金前なので返金なし）。paid / cancelRequested は従来どおり拒否。
 - ダーツ／ビリヤード／ポーカーは**未変更**（開始時刻が締切・未払いも名簿に出る）。揃えるなら別途設計。
-- **旧・未払い entry の一時救済（2026-09-11）**: WP2 前の「参加確定（未払い）」entry（`status:"reserved"` かつ
-  `paymentStatus`未設定）は `isActiveMahjongEntry()` で席なし判定されるため一覧から消えていた。
-  未来日のものだけ `isLegacyUnpaidMahjongEntry()`（`src/lib/mahjongEntryStatus.ts`）で判定し、
-  `GET /api/mahjong/entries?mine=1` に `legacyUnpaid:true` を付けて返す（本人の「未払い」カード用）。
-  `?eventDate=` の一覧にも `displayStatus:"legacy_unpaid"` で**名前入りで**出す（他の参加者にも「未払い」と見える。
-  お支払い確認中の人は従来どおり出さない）。ただし `count`/`full`/定員判定/POST の参加表明ロジックは対象外
-  ＝席は持たない（`isActiveMahjongEntry` は変更していない）。参加タブに「未払い」を出し、
-  既存の `pay`/DELETE でそのまま支払い・取消できる。席は「払うまで」持たないため**定員超過を許容**する一時対応。
-  撤去条件: 旧 `reserved` で未来日の entry が0件になったら `isLegacyUnpaidMahjongEntry` とUI分岐を消してよい。
+- 参加タブの「あなたの参加状況」はカレンダーが表示している月の分だけ出す（`MonthCalendar` の `onMonthChange`）。
 - 回帰テスト: `__tests__/unit/api/mahjongEntryJoinIsPay.test.ts`。
 
 ### 参加費 Square 決済の戻り先 ← ロールで壊れるので注意（2026-08-03 本番障害）

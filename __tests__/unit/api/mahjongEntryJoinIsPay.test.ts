@@ -7,8 +7,10 @@
  *  - staff は従来どおり `paid`（参加確定）で、決済リンクは発行しない
  *  - **リンク発行に失敗したら entry を作らない**（席だけ押さえて支払えない状態を残さない）
  *  - 席（定員8名・月1回）を数えるのは `isActiveMahjongEntry` が true のものだけ。
- *    期限切れの仮押さえ・旧 `reserved` は数えない＝満員にしない
+ *    2026-09-11: **未払い（期限切れの仮押さえ・旧 `reserved`）も席を持つ**（WP2 の「期限切れは席を返す」を撤回。
+ *    払わない人で満員になり得るリスクは表示の分かりやすさを優先して受け入れた）
  *  - 期限内の仮押さえがある状態で再 POST しても **新しい注文を切らず**同じ paymentUrl を返す
+ *  - 期限切れの仮押さえの再 POST は **古い URL を返さず**新しいリンクを発行し直す（古い注文で払うと 410→返金になる）
  *  - 本番でも `pending` の参加は取り消せる（月ロックも解放される）
  */
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: jest.fn() }));
@@ -33,7 +35,7 @@ jest.mock("@/lib/date", () => ({
   todayJst: () => "2026-07-05",
 }));
 
-import { isLegacyUnpaidMahjongEntry } from "@/lib/mahjongEntryStatus";
+import { isUnpaidMahjongEntry } from "@/lib/mahjongEntryStatus";
 import { POST as PAY } from "@/app/api/mahjong/entries/pay/route";
 
 import { getDb } from "@/lib/firebaseAdmin";
@@ -204,13 +206,14 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
     expect(db.__size("mahjongMonthlyLocks")).toBe(0);
   });
 
-  test("期限切れの仮押さえ8件は満員にしない / 期限内の仮押さえ8件は満員", async () => {
+  test("仮押さえは期限切れでも席を持つ＝8件で満員（期限内8件も満員）", async () => {
     for (let i = 0; i < 8; i++) {
       db.__set("mahjongEntries", `expired-${i}`, pendingEntry(DATE_A, `U_o${i}`, -1));
     }
-    expect((await POST(req({ eventDate: DATE_A }))).status).toBe(201);
+    const expiredRes = await POST(req({ eventDate: DATE_A }));
+    expect(expiredRes.status).toBe(409);
+    expect((await expiredRes.json()).full).toBe(true);
 
-    // 別ユーザーの期限内 pending が8件 → 満員
     db = makeDb();
     (getDb as jest.Mock).mockReturnValue(db);
     db.__set("users", USER, { displayName: "テスト太郎" });
@@ -220,6 +223,25 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
     const res = await POST(req({ eventDate: DATE_A }));
     expect(res.status).toBe(409);
     expect((await res.json()).full).toBe(true);
+  });
+
+  test("期限切れ pending の再 POST は古い URL を返さず、新しいリンクを発行し直して enteredAt を維持する", async () => {
+    db.__set("mahjongEntries", ENTRY_A, {
+      ...pendingEntry(DATE_A, USER, -1),
+      paymentUrl: "https://square.link/old",
+    });
+    (createReservationPaymentLink as jest.Mock).mockResolvedValue({
+      url: "https://square.link/pay-2",
+      orderId: "ORDER2",
+    });
+    const res = await POST(req({ eventDate: DATE_A }));
+    expect(res.status).toBe(201);
+    expect((await res.json()).paymentUrl).toBe("https://square.link/pay-2");
+    const saved = db.__get("mahjongEntries", ENTRY_A)!;
+    expect(saved.paymentTransactionId).toBe("ORDER2");
+    expect(saved.paymentUrl).toBe("https://square.link/pay-2");
+    expect(new Date(saved.pendingExpiresAt as string).getTime()).toBeGreaterThan(Date.now());
+    expect(saved.enteredAt).toBe("2026-07-01T00:00:00.000Z");
   });
 
   test("期限内 pending の再 POST は同じ paymentUrl（注文を二重に切らない）", async () => {
@@ -252,8 +274,7 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
     expect(createReservationPaymentLink).not.toHaveBeenCalled();
   });
 
-  test("期限切れの自分の仮押さえは、当月の別日の参加を塞がない（月1回の判定）", async () => {
-    // DATE_A に期限切れ pending ＋ 月ロックが残っている状態。
+  test("期限切れの自分の仮押さえ（未払い）も、当月の別日の参加を塞ぐ（席を持つため）", async () => {
     db.__set("mahjongEntries", ENTRY_A, pendingEntry(DATE_A, USER, -1));
     db.__set("mahjongMonthlyLocks", `${SEASON}_${USER}_2026-07`, {
       seasonId: SEASON,
@@ -262,7 +283,8 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
       eventDate: DATE_A,
     });
     const res = await POST(req({ eventDate: DATE_B }));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(409);
+    expect((await res.json()).monthlyLimit).toBe(true);
   });
 
   test("期限内の自分の仮押さえは、当月の別日の参加を塞ぐ（従来どおり 409）", async () => {
@@ -280,7 +302,7 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
 });
 
 describe("GET /api/mahjong/entries", () => {
-  test("?mine=1 は期限切れの仮押さえを返さない（＝未参加として扱う）", async () => {
+  test("?mine=1 は期限切れの仮押さえを unpaid:true で返し、期限内は unpaid なしで返す", async () => {
     db.__set("mahjongEntries", ENTRY_A, pendingEntry(DATE_A, USER, -1));
     db.__set(
       "mahjongEntries",
@@ -288,17 +310,16 @@ describe("GET /api/mahjong/entries", () => {
       pendingEntry(DATE_B, USER, 10)
     );
     const body = await (await GET(req(undefined, { mine: "1" }))).json();
-    expect(body.entries).toHaveLength(1);
-    expect(body.entries[0]).toMatchObject({
-      eventDate: DATE_B,
-      paymentStatus: "pending",
-      paymentUrl: null,
-    });
-    expect(typeof body.entries[0].pendingExpiresAt).toBe("string");
-    expect(body.entries[0].entryId).toBe(buildMahjongEntryId(SEASON, DATE_B, USER));
+    expect(body.entries).toHaveLength(2);
+    const byDate = Object.fromEntries(body.entries.map((e: { eventDate: string }) => [e.eventDate, e]));
+    expect(byDate[DATE_A]).toMatchObject({ paymentStatus: "pending", unpaid: true });
+    expect(byDate[DATE_B]).toMatchObject({ paymentStatus: "pending", paymentUrl: null });
+    expect(byDate[DATE_B].unpaid).toBeUndefined();
+    expect(typeof byDate[DATE_B].pendingExpiresAt).toBe("string");
+    expect(byDate[DATE_B].entryId).toBe(buildMahjongEntryId(SEASON, DATE_B, USER));
   });
 
-  test("開催日の一覧は期限切れを数えず、支払い済みだけ paid と出す", async () => {
+  test("開催日の一覧は期限切れも数え、期限切れは unpaid・支払い済みは paid と出す", async () => {
     db.__set("mahjongEntries", "e-expired", pendingEntry(DATE_A, "U_x", -1));
     db.__set("mahjongEntries", "e-pending", pendingEntry(DATE_A, "U_y", 10));
     db.__set("mahjongEntries", "e-paid", {
@@ -311,11 +332,12 @@ describe("GET /api/mahjong/entries", () => {
       paymentStatus: "paid",
     });
     const body = await (await GET(req(undefined, { eventDate: DATE_A }))).json();
-    expect(body.count).toBe(2);
+    expect(body.count).toBe(3);
     expect(body.full).toBe(false);
     expect(body.entries.map((e: { displayStatus: string }) => e.displayStatus).sort()).toEqual([
       "joined_unpaid",
       "paid",
+      "unpaid",
     ]);
   });
 });
@@ -351,170 +373,129 @@ describe("DELETE /api/mahjong/entries", () => {
 });
 
 describe("isActiveMahjongEntry（席を持っているか）", () => {
-  const now = new Date("2026-07-01T00:00:00.000Z");
-
   test("支払い済み・返金対応中は席を持つ", () => {
-    expect(isActiveMahjongEntry({ status: "paid" }, now)).toBe(true);
-    expect(isActiveMahjongEntry({ paymentStatus: "paid" }, now)).toBe(true);
-    expect(isActiveMahjongEntry({ status: "cancelRequested" }, now)).toBe(true);
+    expect(isActiveMahjongEntry({ status: "paid" })).toBe(true);
+    expect(isActiveMahjongEntry({ paymentStatus: "paid" })).toBe(true);
+    expect(isActiveMahjongEntry({ status: "cancelRequested" })).toBe(true);
   });
 
-  test("仮押さえは期限内だけ。期限ちょうどは失効扱い", () => {
+  test("仮押さえは期限内・期限切れを問わず席を持つ（2026-09-11: 未払いも席を保持）", () => {
     expect(
-      isActiveMahjongEntry(
-        { paymentStatus: "pending", pendingExpiresAt: "2026-07-01T00:00:01.000Z" },
+      isActiveMahjongEntry({ paymentStatus: "pending", pendingExpiresAt: "2999-01-01T00:00:00.000Z" })
+    ).toBe(true);
+    expect(
+      isActiveMahjongEntry({ paymentStatus: "pending", pendingExpiresAt: "2000-01-01T00:00:00.000Z" })
+    ).toBe(true);
+    expect(isActiveMahjongEntry({ paymentStatus: "pending" })).toBe(true);
+    expect(isActiveMahjongEntry({ status: "reserved" })).toBe(true);
+  });
+
+  test("refunded・cancelRejected は席を持たない", () => {
+    expect(isActiveMahjongEntry({ status: "refunded" })).toBe(false);
+    expect(isActiveMahjongEntry({ status: "cancelRejected" })).toBe(false);
+  });
+});
+
+describe("isUnpaidMahjongEntry（席は持つが支払いが済んでいない）", () => {
+  const now = new Date("2026-07-01T00:00:00.000Z");
+
+  test("旧 reserved（paymentStatus なし）と期限切れ pending は未払い", () => {
+    expect(isUnpaidMahjongEntry({ status: "reserved" }, now)).toBe(true);
+    expect(
+      isUnpaidMahjongEntry(
+        { status: "reserved", paymentStatus: "pending", pendingExpiresAt: "2026-06-30T23:59:59.000Z" },
         now
       )
     ).toBe(true);
+    // 期限ちょうどは失効扱い＝未払い。
     expect(
-      isActiveMahjongEntry(
-        { paymentStatus: "pending", pendingExpiresAt: "2026-07-01T00:00:00.000Z" },
+      isUnpaidMahjongEntry(
+        { status: "reserved", paymentStatus: "pending", pendingExpiresAt: "2026-07-01T00:00:00.000Z" },
         now
       )
-    ).toBe(false);
-    expect(
-      isActiveMahjongEntry(
-        { paymentStatus: "pending", pendingExpiresAt: "2026-06-30T23:59:59.000Z" },
-        now
-      )
-    ).toBe(false);
-    // 期限が入っていない pending（想定外データ）は席を持たない扱い＝満員にしない。
-    expect(isActiveMahjongEntry({ paymentStatus: "pending" }, now)).toBe(false);
+    ).toBe(true);
   });
 
-  test("旧 reserved・refunded・空データは席を持たない", () => {
-    expect(isActiveMahjongEntry({ status: "reserved" }, now)).toBe(false);
-    expect(isActiveMahjongEntry({ status: "refunded" }, now)).toBe(false);
-    expect(isActiveMahjongEntry({ status: "cancelRejected" }, now)).toBe(false);
-    expect(isActiveMahjongEntry({}, now)).toBe(false);
+  test("期限内 pending（お支払い確認中）・paid・cancelRequested・refunded は未払いではない", () => {
+    expect(
+      isUnpaidMahjongEntry(
+        { status: "reserved", paymentStatus: "pending", pendingExpiresAt: "2026-07-01T00:00:01.000Z" },
+        now
+      )
+    ).toBe(false);
+    expect(isUnpaidMahjongEntry({ status: "paid" }, now)).toBe(false);
+    expect(isUnpaidMahjongEntry({ paymentStatus: "paid" }, now)).toBe(false);
+    expect(isUnpaidMahjongEntry({ status: "cancelRequested" }, now)).toBe(false);
+    expect(isUnpaidMahjongEntry({ status: "refunded" }, now)).toBe(false);
   });
 });
 
 
-describe("旧・未払いentry（legacyUnpaid）の救済 ← 一時対応", () => {
-  test("isLegacyUnpaidMahjongEntry は当日以降の旧 reserved だけを救済対象にする", () => {
-    const today = "2026-07-05";
-    expect(isLegacyUnpaidMahjongEntry({ status: "reserved", eventDate: DATE_A }, today)).toBe(true);
-    expect(isLegacyUnpaidMahjongEntry({ status: "reserved", eventDate: today }, today)).toBe(true);
-    expect(
-      isLegacyUnpaidMahjongEntry({ status: "reserved", eventDate: "2026-07-01" }, today)
-    ).toBe(false);
-    expect(
-      isLegacyUnpaidMahjongEntry(
-        { status: "reserved", paymentStatus: "pending", eventDate: DATE_A }, today
-      )
-    ).toBe(false);
-    for (const minutesFromNow of [-1, 10]) {
-      const entry = { ...pendingEntry(DATE_A, USER, minutesFromNow), eventDate: DATE_A };
-      expect(isLegacyUnpaidMahjongEntry(entry, today)).toBe(false);
-    }
-    expect(isLegacyUnpaidMahjongEntry({ status: "paid", eventDate: DATE_A }, today)).toBe(false);
-    // staff の支払い免除による paid も対象外。
-    const staffEntry = { status: "paid", eventDate: DATE_A };
-    expect(isLegacyUnpaidMahjongEntry(staffEntry, today)).toBe(false);
+describe("未払い（席は持つ・支払い前）の表示と支払い", () => {
+  const reservedEntry = (eventDate: string, lineUserId: string): Data => ({
+    seasonId: SEASON,
+    eventDate,
+    lineUserId,
+    displayName: lineUserId,
+    enteredAt: "2026-07-01T00:00:00.000Z",
+    status: "reserved",
   });
 
-  test("GET ?mine=1 は未来の旧entryに legacyUnpaid を付けて返し、過去日は返さない", async () => {
+  test("GET ?mine=1 は未払いに unpaid:true を付け、終了した開催日の未払いは返さない", async () => {
     for (const eventDate of [DATE_A, "2026-06-01"]) {
-      db.__set("mahjongEntries", buildMahjongEntryId(SEASON, eventDate, USER), {
-        seasonId: SEASON,
-        eventDate,
-        lineUserId: USER,
-        displayName: USER,
-        enteredAt: "2026-07-01T00:00:00.000Z",
-        status: "reserved",
-      });
+      db.__set("mahjongEntries", buildMahjongEntryId(SEASON, eventDate, USER), reservedEntry(eventDate, USER));
     }
-    const res = await GET(req(undefined, { mine: "1" }));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.entries).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ eventDate: "2026-06-01" }),
-    ]));
-    expect(body.entries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ eventDate: DATE_A, legacyUnpaid: true, paymentStatus: null }),
-    ]));
+    const body = await (await GET(req(undefined, { mine: "1" }))).json();
     expect(body.entries).toHaveLength(1);
+    expect(body.entries[0]).toMatchObject({ eventDate: DATE_A, unpaid: true, paymentStatus: null });
   });
 
-  test("GET ?eventDate= は旧entryを名前入りで一覧に出すが、参加者数・満員・entered には含めない", async () => {
-    db.__set("mahjongEntries", ENTRY_A, {
-      seasonId: SEASON,
-      eventDate: DATE_A,
-      lineUserId: USER,
-      displayName: USER,
-      enteredAt: "2026-07-01T00:00:00.000Z",
-      status: "reserved",
-    });
-    const res = await GET(req(undefined, { eventDate: DATE_A }));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.count).toBe(0);
+  test("GET ?eventDate= は未払いを名前入り・席ありで出す（count / entered に含む）", async () => {
+    db.__set("mahjongEntries", ENTRY_A, reservedEntry(DATE_A, USER));
+    const body = await (await GET(req(undefined, { eventDate: DATE_A }))).json();
+    expect(body.count).toBe(1);
     expect(body.full).toBe(false);
-    expect(body.entered).toBe(false);
+    expect(body.entered).toBe(true);
     expect(body.entries).toEqual([
-      expect.objectContaining({ displayName: USER, displayStatus: "legacy_unpaid", isMe: true }),
+      expect.objectContaining({ displayName: USER, displayStatus: "unpaid", isMe: true }),
     ]);
-
-    // 終了した開催日の旧entryは出さない（もう支払えないため）。
-    const past = "2026-06-01";
-    db.__set("mahjongEntries", buildMahjongEntryId(SEASON, past, "U_other"), {
-      seasonId: SEASON,
-      eventDate: past,
-      lineUserId: "U_other",
-      displayName: "U_other",
-      enteredAt: "2026-05-01T00:00:00.000Z",
-      status: "reserved",
-    });
-    const pastBody = await (await GET(req(undefined, { eventDate: past }))).json();
-    expect(pastBody.entries).toHaveLength(0);
   });
 
-  test("PAY は旧entryを pending にして決済URLを返し、enteredAt を保持する", async () => {
-    db.__set("mahjongEntries", ENTRY_A, {
-      seasonId: SEASON,
-      eventDate: DATE_A,
-      lineUserId: USER,
-      displayName: USER,
-      enteredAt: "2026-07-01T00:00:00.000Z",
-      status: "reserved",
-    });
+  test("PAY は未払い entry に新しい決済リンクを発行して pending に戻し、enteredAt を保持する", async () => {
+    db.__set("mahjongEntries", ENTRY_A, reservedEntry(DATE_A, USER));
     const res = await PAY(req({ eventDate: DATE_A }));
     expect(res.status).toBe(200);
     expect((await res.json()).paymentUrl).toBe("https://square.link/pay-1");
     const saved = db.__get("mahjongEntries", ENTRY_A)!;
     expect(saved.paymentStatus).toBe("pending");
-    expect(typeof saved.pendingExpiresAt).toBe("string");
     expect(new Date(saved.pendingExpiresAt as string).getTime()).toBeGreaterThan(Date.now());
     expect(saved.paymentTransactionId).toBe("ORDER1");
     expect(saved.enteredAt).toBe("2026-07-01T00:00:00.000Z");
   });
 
-  test("POST は paid 7件と旧entry 1件を7席と数え、新規ユーザーが参加できる", async () => {
-    for (const lineUserId of [...Array.from({ length: 7 }, (_, i) => `U_paid_${i}`), "U_legacy"]) {
-      db.__set("mahjongEntries", buildMahjongEntryId(SEASON, DATE_A, lineUserId), {
-        seasonId: SEASON,
-        eventDate: DATE_A,
-        lineUserId,
-        displayName: lineUserId,
-        enteredAt: "2026-07-01T00:00:00.000Z",
-        ...(lineUserId === "U_legacy"
-          ? { status: "reserved" }
-          : { status: "paid", paymentStatus: "paid" }),
+  test("PAY は期限切れ pending に古い URL を返さず、発行し直す", async () => {
+    db.__set("mahjongEntries", ENTRY_A, { ...pendingEntry(DATE_A, USER, -1), paymentUrl: "https://square.link/old" });
+    const res = await PAY(req({ eventDate: DATE_A }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).paymentUrl).toBe("https://square.link/pay-1");
+    expect(db.__get("mahjongEntries", ENTRY_A)!.paymentTransactionId).toBe("ORDER1");
+  });
+
+  test("POST は paid 7件と未払い 1件を8席と数えて満員にする", async () => {
+    for (let i = 0; i < 7; i++) {
+      db.__set("mahjongEntries", buildMahjongEntryId(SEASON, DATE_A, `U_paid_${i}`), {
+        ...reservedEntry(DATE_A, `U_paid_${i}`),
+        status: "paid",
+        paymentStatus: "paid",
       });
     }
-    setUser("member");
-    (requireGameUserWithRole as jest.Mock).mockResolvedValue({
-      lineUserId: "U_new",
-      role: "member",
-      monthlyEntryExempt: false,
-    });
+    db.__set("mahjongEntries", buildMahjongEntryId(SEASON, DATE_A, "U_unpaid"), reservedEntry(DATE_A, "U_unpaid"));
+    (requireGameUserWithRole as jest.Mock).mockResolvedValue({ lineUserId: "U_new", role: "member", monthlyEntryExempt: false });
     (requireGameUser as jest.Mock).mockResolvedValue("U_new");
     db.__set("users", "U_new", { displayName: "新規参加者" });
     const res = await POST(req({ eventDate: DATE_A }));
-    expect(res.status).toBe(201);
-    expect((await res.json()).paymentUrl).toBe("https://square.link/pay-1");
-    expect(db.__get("mahjongEntries", buildMahjongEntryId(SEASON, DATE_A, "U_new")))
-      .toMatchObject({ paymentStatus: "pending", paymentTransactionId: "ORDER1" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).full).toBe(true);
+    expect(db.__get("mahjongEntries", buildMahjongEntryId(SEASON, DATE_A, "U_new"))).toBeUndefined();
   });
 });

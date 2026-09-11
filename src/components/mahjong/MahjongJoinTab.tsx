@@ -20,11 +20,11 @@ import { dateParts, formatJpDate, todayJst } from "@/components/mahjong/leagueSh
 /**
  * 麻雀リーグ 参加タブ（WP2: 参加＝支払い）。
  *
- * 利用者に見せる状態は3つだけ:
+ * 利用者に見せる状態は4つ:
  *   未参加 → 「参加する（お支払いへ進む）」で Square へ
  *   お支払い確認中 → 15分の仮押さえ。支払いが終われば自動で参加確定
+ *   未払い → 仮押さえが切れた／旧UIで支払い前のまま。席は持っている（2026-09-11）。「お支払いへ進む」で新しいリンクを発行し直す
  *   参加確定 → 支払い済み（staff は参加した時点で確定）
- * 「参加確定（未払い）」は廃止した（席だけ押さえて払わない人が定員を埋めていたため）。
  */
 
 /** 仮押さえの残り分数（切り上げ）。0以下は失効。 */
@@ -35,6 +35,16 @@ function minutesLeft(expiresAt: string, nowMs: number): number {
 /** その entry が「お支払い確認中（期限内の仮押さえ）」か。 */
 function isPendingNow(e: MahjongMyEntry | undefined, nowMs: number): boolean {
   return !!e && e.paymentStatus === "pending" && !!e.pendingExpiresAt && new Date(e.pendingExpiresAt).getTime() > nowMs;
+}
+
+/**
+ * その entry が「未払い（席は持つが支払い前）」か。サーバーの unpaid に加え、画面を開いたまま
+ * 仮押さえが切れた直後（次のポーリングまで）もこちらで拾う。
+ */
+function isUnpaidNow(e: MahjongMyEntry | undefined, nowMs: number): boolean {
+  if (!e) return false;
+  if (e.unpaid) return true;
+  return e.paymentStatus === "pending" && !isPendingNow(e, nowMs);
 }
 
 /** キャンセルできる最終日（開催日の7日前）を「M月D日」で。※UTC基準で日付だけ扱う。 */
@@ -80,7 +90,7 @@ export function JoinTab({
   const [nowMs, setNowMs] = useState(() => Date.now());
   // 選択日の参加者（支払い済みの人と、旧・未払いの人を表示する）。
   const [dateEntries, setDateEntries] = useState<
-    { displayName: string; displayStatus?: "paid" | "joined_unpaid" | "legacy_unpaid" }[]
+    { displayName: string; displayStatus?: "paid" | "joined_unpaid" | "unpaid" }[]
   >([]);
   const [dateFull, setDateFull] = useState(false);
   const [dateCount, setDateCount] = useState(0);
@@ -108,16 +118,6 @@ export function JoinTab({
     for (const d of Object.keys(optimistic)) s.delete(d);
     return s;
   }, [enteredDates, optimistic]);
-  // ⚠️ 一時対応（2026-09-11）: 旧・未払いentry（legacyUnpaid）の救済用の日付集合。
-  // 席は持たない（effectiveEntered には入れない）が、「あなたの参加状況」一覧と
-  // SelectedDateCard の「未払い」表示に使う。参加取消の楽観的UIも同様に反映する。
-  const legacyDates = useMemo(() => {
-    const s = new Set<string>();
-    for (const [d, e] of Object.entries(myEntries)) {
-      if (e.legacyUnpaid && !optimistic[d]) s.add(d);
-    }
-    return s;
-  }, [myEntries, optimistic]);
   useEffect(() => {
     setOptimistic((prev) => {
       let changed = false;
@@ -309,7 +309,7 @@ export function JoinTab({
     }
   }
 
-  const enteredArr = Array.from(new Set([...effectiveEntered, ...legacyDates]))
+  const enteredArr = Array.from(effectiveEntered)
     .filter((d) => d.startsWith(viewMonth))
     .sort();
   const calCtx = {
@@ -365,27 +365,18 @@ export function JoinTab({
               const e = myEntries[d];
               const cancelled = cancelledDates.has(d);
               const pending = isPendingNow(e, nowMs);
-              // ⚠️ 一時対応（2026-09-11）: 旧・未払いentryの判定。
-              // cancelled（中止）が優先＝ SelectedDateCard の分岐順（cancelled → legacyUnpaid）と揃える。
+              // cancelled（中止）が優先＝ SelectedDateCard の分岐順（cancelled → 未払い）と揃える。
+              const unpaid = isUnpaidNow(e, nowMs);
               const label = cancelled
                 ? "中止"
-                : e?.legacyUnpaid
+                : unpaid
                   ? "未払い"
                   : e?.paymentStatus === "cancelRequested"
                     ? "返金対応中"
                     : pending
                       ? "お支払い確認中"
-                      : e?.paymentStatus === "pending"
-                        ? "仮押さえ解除"
-                        : "参加確定";
-              const tone =
-                cancelled || e?.legacyUnpaid
-                  ? "coral"
-                  : label === "参加確定"
-                    ? "green"
-                    : label === "仮押さえ解除"
-                      ? "muted"
-                      : "gold";
+                      : "参加確定";
+              const tone = cancelled || unpaid ? "coral" : label === "参加確定" ? "green" : "gold";
               const { md, wd } = dateParts(d);
               return (
                 <button
@@ -429,6 +420,7 @@ export function JoinTab({
           demo={demo}
           onJoin={() => join(selectedDate)}
           onResume={() => resumePayment(selectedDate, myEntries[selectedDate]?.paymentUrl)}
+          onRepay={() => resumePayment(selectedDate)}
           onLeave={() => leave(selectedDate)}
           onComplete={(entryId) => runComplete(entryId, false)}
           onRequestCancel={() => setCancelDate(selectedDate)}
@@ -443,9 +435,9 @@ export function JoinTab({
             この日の参加者（{dateCapacity != null ? `${dateCount} / ${dateCapacity}名` : `${dateCount}名`}）
           </div>
           {(() => {
-            // 旧・未払い（一時対応・2026-09-11）は名前入りで出す。お支払い確認中（15分の仮押さえ）は出さない。
+            // 未払いも名前入りで出す（席を持っているため）。お支払い確認中（15分の仮押さえ）は出さない。
             const shown = dateEntries.filter(
-              (e) => e.displayStatus === "paid" || e.displayStatus === "legacy_unpaid"
+              (e) => e.displayStatus === "paid" || e.displayStatus === "unpaid"
             );
             return shown.length === 0 ? (
               <p className="py-1 text-[15px] text-[color:var(--eb-ink-muted)]">まだ参加者がいません。</p>
@@ -457,14 +449,14 @@ export function JoinTab({
                     className="flex items-center justify-between gap-2 text-[15px] font-bold text-[color:var(--eb-ink)]"
                   >
                     <span>{e.displayName}</span>
-                    {e.displayStatus === "legacy_unpaid" && <StatusPill tone="coral">未払い</StatusPill>}
+                    {e.displayStatus === "unpaid" && <StatusPill tone="coral">未払い</StatusPill>}
                   </div>
                 ))}
               </div>
             );
           })()}
           <p className="mt-2 text-[13px] text-[color:var(--eb-ink-muted)]">
-            ※ 支払いが完了した人と、以前の参加表明（未払い）が残っている人が表示されます
+            ※ 支払いが完了した人と、未払いの人が表示されます
           </p>
         </GlassCard>
       )}
@@ -516,6 +508,7 @@ function SelectedDateCard({
   demo,
   onJoin,
   onResume,
+  onRepay,
   onLeave,
   onComplete,
   onRequestCancel,
@@ -535,6 +528,8 @@ function SelectedDateCard({
   demo: boolean;
   onJoin: () => void;
   onResume: () => void;
+  /** 未払い（期限切れ）から支払いへ。保存済み URL は使わず pay API で発行し直す。 */
+  onRepay: () => void;
   onLeave: () => void;
   onComplete: (entryId: string) => void;
   onRequestCancel: () => void;
@@ -571,10 +566,14 @@ function SelectedDateCard({
     );
   }
 
-  // ⚠️ 一時対応（2026-09-11）: 旧・未払いentry（legacyUnpaid）の救済。
-  // pending 判定より前に置くこと（後ろに置くと未参加の分岐＝定員・月1回チェックへ落ちてしまう）。
-  // full / monthlyBlocked はここでは見ない（席を保証するのが目的）。isPast は保険（サーバー側で除外済み）。
-  if (entry?.legacyUnpaid && !isPast) {
+  const pending = isPendingNow(entry, nowMs);
+  const paid = entered && (!paymentRequired || entry?.paymentStatus === "paid");
+  const cancelRequested = entry?.paymentStatus === "cancelRequested";
+
+  // 未払い（席は持つ・支払い前）。pending 判定より前に置く（後ろだと未参加の分岐へ落ちる）。
+  // full / monthlyBlocked は見ない（席は持っている）。
+  // ⚠️ ボタンは onRepay（pay API で発行し直す）。保存済みの古い URL に飛ばすと、期限切れの注文で払って返金対応になる。
+  if (isUnpaidNow(entry, nowMs) && !isPast) {
     return (
       <GlassCard tone="coral">
         <div className="flex flex-col gap-3">
@@ -583,10 +582,10 @@ function SelectedDateCard({
             未払い
           </StatusPill>
           <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
-            以前の参加表明（お支払い前）が残っています。参加費のお支払いで参加が確定します。
+            参加表明済みですが、参加費のお支払いがまだです。お支払いが完了すると参加確定になります。
           </p>
-          <Button variant="pay" loading={busy} onClick={onResume}>
-            未払い（お支払いへ進む）
+          <Button variant="pay" loading={busy} onClick={onRepay}>
+            お支払いへ進む
           </Button>
           <Button variant="ghost" loading={busy} onClick={onLeave}>
             参加をやめる
@@ -595,10 +594,6 @@ function SelectedDateCard({
       </GlassCard>
     );
   }
-
-  const pending = isPendingNow(entry, nowMs);
-  const paid = entered && (!paymentRequired || entry?.paymentStatus === "paid");
-  const cancelRequested = entry?.paymentStatus === "cancelRequested";
 
   // お支払い確認中（15分の仮押さえ）
   if (pending && entry) {
@@ -622,27 +617,6 @@ function SelectedDateCard({
           </Button>
           <Button variant="ghost" loading={busy} onClick={onLeave}>
             参加をやめる
-          </Button>
-        </div>
-      </GlassCard>
-    );
-  }
-
-  // 仮押さえが切れた（画面を開いたまま15分過ぎた等）。サーバー上も席は解放されている。
-  // ここを作らないと「参加中なのに何も操作できないカード」が出る（次のポーリングまで数秒〜十数秒）。
-  if (entry?.paymentStatus === "pending" && !pending) {
-    return (
-      <GlassCard>
-        <div className="flex flex-col gap-3">
-          {heading}
-          <StatusPill tone="muted" className="self-start">
-            仮押さえ解除
-          </StatusPill>
-          <p className="text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
-            お支払いの時間（15分）が過ぎたため、席の仮押さえを解除しました。もう一度お手続きください。
-          </p>
-          <Button variant="primary" loading={busy} onClick={onJoin}>
-            参加する（お支払いへ進む）
           </Button>
         </div>
       </GlassCard>

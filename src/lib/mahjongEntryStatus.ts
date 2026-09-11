@@ -2,10 +2,11 @@
  * 麻雀参加エントリーの状態機械。サーバーで不正遷移を拒否するための単一定義。
  * reserved → paid → cancelRequested → refunded / cancelRejected
  *
- * ※ 状態名は内部表現。利用者に見せる状態は「未参加 / お支払い確認中 / 参加確定」の3つだけ（WP2）。
- *   reserved + paymentStatus:"pending" = お支払い確認中（15分の仮押さえ・席を保持）
+ * ※ 状態名は内部表現。利用者に見せる状態は「未参加 / お支払い確認中 / 未払い / 参加確定」。
+ *   reserved + 期限内の paymentStatus:"pending" = お支払い確認中（15分の仮押さえ）
+ *   reserved（paymentStatus なし／期限切れの pending） = 未払い（2026-09-11: 席は保持する）
  *   paid = 参加確定（支払い済み。staff は免除で最初から paid）
- *   ※ 「参加確定（未払い）」は廃止した。席を持つかどうかは {@link isActiveMahjongEntry} で判定する。
+ *   席を持つかどうかは {@link isActiveMahjongEntry}、未払いかは {@link isUnpaidMahjongEntry} で判定する。
  */
 export type MahjongEntryStatus =
   | "reserved"
@@ -47,46 +48,51 @@ export function deriveStatus(e: { status?: string; paymentStatus?: string }): Ma
 }
 
 /**
- * 「席（定員8名の枠）と月1回の枠を保持しているエントリー」か（WP2: 参加＝支払い）。
+ * 「席（定員8名の枠）と月1回の枠を保持しているエントリー」か。
  *
- * ■ なぜ必要か
- *   「参加する」= Square のお支払いへ進む に変えたため、entry は作成直後から
- *   `paymentStatus:"pending"`（15分の仮押さえ）になる。支払わずに放置された pending が
- *   席を占め続けると、定員8名も月1回制限も「幽霊の参加者」で埋まってしまう。
- *   逆に pending の間に他人へ席を明け渡すと、支払い完了しても座れない。
- *   → **有効なのは「支払い済み」「期限内の仮押さえ」「返金対応中（席は保持）」だけ**。
+ * ■ 2026-09-11 の決定（WP2 の「期限切れの仮押さえは席を返す」を撤回）
+ *   WP2（2026-09-07）では、支払わずに放置された pending が席を占め続けると定員も月1回制限も
+ *   「幽霊の参加者」で埋まるため、期限内の仮押さえだけを有効にしていた。
+ *   しかしその結果、支払い前の人が本人にも他の参加者にも見えなくなり「予約したのに消えた」が続出した。
+ *   → **参加表明した時点で席を持つ**（旧UIと同じ）。支払い前は「未払い」と表示して支払いを促す。
+ *   払わない人で満員になり得るリスクは、表示の分かりやすさを優先して受け入れた。
+ *   来ない・払わない人は本人の「参加をやめる」か、管理画面の参加者削除で外す。
  *
- * ■ 数えない
- *   - 期限切れの pending（仮押さえ解除＝未参加に戻る）
- *   - `reserved`（旧データ。「参加確定（未払い）」は廃止したので席を持たない）
- *   - `refunded` / `cancelRejected`（終端）
+ * ■ 席を持つ: paid / cancelRequested（返金対応中も席は保持） / reserved（未払い・お支払い確認中）
+ * ■ 持たない: refunded / cancelRejected（終端）
  *
  * 定員判定・月1回判定・参加者一覧（GET）はすべてこの関数で数えること。
  * 片方だけ別の数え方にすると「画面は満員なのに参加できる」等がすぐ起きる。
  */
-export function isActiveMahjongEntry(
-  e: { status?: string; paymentStatus?: string; pendingExpiresAt?: string | null },
+export function isActiveMahjongEntry(e: {
+  status?: string;
+  paymentStatus?: string;
+  pendingExpiresAt?: string | null;
+}): boolean {
+  const status = deriveStatus(e);
+  return status === "paid" || status === "cancelRequested" || status === "reserved";
+}
+
+/** 期限内の仮押さえ（お支払い確認中）か。期限ちょうど（==）は失効扱い。 */
+export function isPendingMahjongEntry(
+  e: { paymentStatus?: string; pendingExpiresAt?: string | null },
   now: Date = new Date()
 ): boolean {
-  const status = deriveStatus(e);
-  // 支払い済み（staff の免除 paid を含む）と返金対応中は席を保持する。
-  if (status === "paid" || status === "cancelRequested") return true;
-  // 仮押さえは期限内だけ。期限ちょうど（==）は失効扱い＝席を返す。
-  if (e.paymentStatus === "pending" && e.pendingExpiresAt) {
-    return new Date(e.pendingExpiresAt).getTime() > now.getTime();
-  }
-  return false;
+  return (
+    e.paymentStatus === "pending" &&
+    !!e.pendingExpiresAt &&
+    new Date(e.pendingExpiresAt).getTime() > now.getTime()
+  );
 }
 
 /**
- * 旧方式（WP2 前）の「参加確定（未払い）」= reserved かつ paymentStatus なし。
- * ⚠️ 一時対応（2026-09-11）。WP2 で `isActiveMahjongEntry` が席なしにした旧entryのうち、
- * 未来日のものだけを本人の一覧（GET ?mine=1）に限定復活させるための判定。
- * `isActiveMahjongEntry` の数え方（定員・月1回）には混ぜないこと。
+ * 席は持つが支払いが済んでいない（旧 reserved／期限切れの仮押さえ）。
+ * ⚠️ この状態の人に支払いへ進ませるときは、保存済みの paymentUrl を使わず**必ず新しいリンクを発行し直す**。
+ *   期限切れの古い注文で払うと complete が 410 を返して返金対応になる（2026-08-03 と同じ構図）。
  */
-export function isLegacyUnpaidMahjongEntry(
-  e: { status?: string; paymentStatus?: string; eventDate: string },
-  today: string, // todayJst()
+export function isUnpaidMahjongEntry(
+  e: { status?: string; paymentStatus?: string; pendingExpiresAt?: string | null },
+  now: Date = new Date()
 ): boolean {
-  return deriveStatus(e) === "reserved" && e.paymentStatus == null && e.eventDate >= today;
+  return deriveStatus(e) === "reserved" && !isPendingMahjongEntry(e, now);
 }

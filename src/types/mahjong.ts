@@ -122,7 +122,7 @@ export interface MahjongEntry {
 /**
  * `GET /api/mahjong/entries?mine=1` が返す「自分の参加」1件（利用者UI用）。
  * 自分の分だけなので entryId・決済URL・仮押さえ期限を含めてよい。
- * 期限切れの仮押さえ（席を持たない）はサーバー側で除外済み＝ここに現れるものは全て有効。
+ * ここに現れるものは全て席を持っている（未払いも席を持つ・2026-09-11）。
  */
 export interface MahjongMyEntry {
   entryId: string;
@@ -132,8 +132,11 @@ export interface MahjongMyEntry {
   pendingExpiresAt: string | null;
   /** 発行済みの Square 決済URL。pending のときだけ入る。 */
   paymentUrl: string | null;
-  /** ⚠️ 一時対応。旧 reserved（未払い）を本人にだけ返す（2026-09-11）。 */
-  legacyUnpaid?: true;
+  /**
+   * 未払い（旧 reserved／期限切れの仮押さえ）。席は持つが支払いが済んでいない。
+   * ⚠️ この人を支払いへ進めるときは paymentUrl を使わず pay API で発行し直す（古い注文で払うと返金対応になる）。
+   */
+  unpaid?: true;
 }
 
 /**
