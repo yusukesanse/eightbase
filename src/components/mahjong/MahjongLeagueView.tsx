@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { LeaguePyramid } from "@/components/LeaguePyramid";
 import { PlayerHistorySheet } from "@/components/mahjong/PlayerHistorySheet";
 import {
+  isValidMahjongEntryFee,
   type MahjongStanding,
   type PublicMahjongTable,
   type MahjongSeasonSummary,
   type MahjongMyEntry,
+  type MahjongScheduleEntry,
 } from "@/types";
 import { completeEntryPayment } from "@/lib/mahjongPayment";
 import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
@@ -55,6 +57,7 @@ export function MahjongLeagueView() {
   // 人数不足で自動中止（流会）になった開催日
   const [cancelledDates, setCancelledDates] = useState<Set<string>>(new Set());
   // 管理者が登録した開催日（mahjongSchedule）。1件でもあればスケジュール駆動（曜日不問＝日曜も可）。
+  const [entryFees, setEntryFees] = useState<Map<string, number>>(new Map());
   const [scheduledDates, setScheduledDates] = useState<Set<string>>(new Set());
 
   // シーズン一覧＋休催日＋中止日＋開催日（初回のみ）
@@ -68,10 +71,13 @@ export function MahjongLeagueView() {
     fetch("/api/mahjong/schedule", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        const s = (d.schedule ?? [])
-          .filter((x: { type?: string }) => !x.type || x.type === "league")
-          .map((x: { date: string }) => x.date);
-        setScheduledDates(new Set<string>(s));
+        const schedule = (d.schedule ?? []) as MahjongScheduleEntry[];
+        const league = schedule.filter((x) => !x.type || x.type === "league");
+        setScheduledDates(new Set(league.map((x) => x.date)));
+        setEntryFees(new Map(league.flatMap((x) =>
+          isValidMahjongEntryFee(x.entryFee)
+            ? [[x.date, x.entryFee] as const] : []
+        )));
       })
       .catch(() => {
         /* noop */
@@ -233,6 +239,7 @@ export function MahjongLeagueView() {
           closedDates={closedDates}
           cancelledDates={cancelledDates}
           scheduledDates={scheduledDates}
+          entryFees={entryFees}
           // 参加タブはアクティブシーズン固定。カレンダーを遡れる下限に使う（成績閲覧用）。
           seasonStartDate={seasons.find((s) => s.active)?.startDate}
           paymentRequired={paymentRequired}

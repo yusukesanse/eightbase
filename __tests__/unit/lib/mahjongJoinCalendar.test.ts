@@ -84,9 +84,9 @@ describe("isSaturdayDate / isPastSaturday", () => {
 });
 
 describe("isMonthlyBlocked — 当月別日参加済み", () => {
-  test("同月に別日参加があれば true（自分自身の日は除外）", () => {
+  test("停止中は同月別日もブロックしない", () => {
     const entered = new Set([SAT_PAST]); // 7月に参加済み
-    expect(isMonthlyBlocked(SAT_FUTURE, entered)).toBe(true); // 別の7月土曜
+    expect(isMonthlyBlocked(SAT_FUTURE, entered)).toBe(false); // 別の7月土曜
     expect(isMonthlyBlocked(SAT_PAST, entered)).toBe(false); // 自身は除外
     expect(isMonthlyBlocked("2026-08-01", entered)).toBe(false); // 別月
   });
@@ -125,10 +125,10 @@ describe("canJoinDate — 参加ボタン可否", () => {
   test("満員は不可", () => {
     expect(canJoinDate(SAT_FUTURE, { ...baseCtx(), full: true })).toBe(false);
   });
-  test("当月別日参加済みは不可", () => {
+  test("停止中は当月別日参加済みも可", () => {
     expect(
       canJoinDate(SAT_FUTURE, { ...baseCtx(), enteredDates: new Set([SAT_TODAY]), full: false })
-    ).toBe(false);
+    ).toBe(true);
   });
   test("既に参加済みの日は不可（参加ボタンは出さない）", () => {
     expect(

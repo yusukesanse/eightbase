@@ -1,3 +1,4 @@
+import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
 /**
  * 麻雀リーグ参加タブのカレンダー判定（純関数・DOM/React 非依存でテスト可能）。
  *
@@ -29,7 +30,7 @@ export function isMonthlyBlocked(
   enteredDates: Set<string>,
   monthlyExempt = false
 ): boolean {
-  if (monthlyExempt) return false;
+  if (!MONTHLY_ENTRY_LIMIT_ENABLED || monthlyExempt) return false;
   const ym = dateStr.slice(0, 7);
   return Array.from(enteredDates).some((e) => e !== dateStr && e.slice(0, 7) === ym);
 }

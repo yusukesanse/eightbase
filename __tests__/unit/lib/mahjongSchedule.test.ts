@@ -5,7 +5,7 @@
  */
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: () => ({}) }));
 
-import { resolveMahjongEventDate, generateWeeklySaturdays } from "@/lib/mahjongSchedule";
+import { isValidMahjongEntryFee, resolveMahjongEntryFee, resolveMahjongEventDate, generateWeeklySaturdays } from "@/lib/mahjongSchedule";
 
 describe("resolveMahjongEventDate", () => {
   test("schedule 駆動: 集合に含まれる日のみ有効（曜日は不問＝日曜もOK）", () => {
@@ -34,4 +34,22 @@ describe("generateWeeklySaturdays", () => {
     expect(generateWeeklySaturdays("2026-08-01", "2026-07-01")).toEqual([]);
     expect(generateWeeklySaturdays("bad", "2026-07-01")).toEqual([]);
   });
+});
+
+ describe("開催日別料金の検証とフォールバック", () => {
+   test.each([1, 3000, 100000])("有効: %s", (v) => {
+     expect(isValidMahjongEntryFee(v)).toBe(true);
+   });
+   test.each([undefined, null, 0, -1, 1.5, "5000", 100001, NaN, Infinity])("無効: %s", (v) => {
+     expect(isValidMahjongEntryFee(v)).toBe(false);
+   });
+   test("未設定は3000", () => {
+     expect(resolveMahjongEntryFee(new Map(), "2026-07-17")).toBe(3000);
+     expect(resolveMahjongEntryFee(new Map([["2026-07-17", 5000]]), "2026-07-17")).toBe(5000);
+   });
+ });
+
+test("G: サーバーの料金判定はクライアント安全な純関数と同一", () => {
+  const shared = jest.requireActual("@/types/mahjong");
+  expect(shared.isValidMahjongEntryFee).toBe(isValidMahjongEntryFee);
 });

@@ -1,3 +1,4 @@
+import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
 import { NextRequest, NextResponse } from "next/server";
 import { isEntryClosedByTime, ENTRY_DEADLINE_PASSED_MESSAGE } from "@/lib/entryDeadline";
 import { getDb } from "@/lib/firebaseAdmin";
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
           if (dateSnap.size >= POKER_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         }
         // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
-        if (!entrySnap.exists && lockSnap.exists && !monthlyExempt) {
+        if (MONTHLY_ENTRY_LIMIT_ENABLED && !entrySnap.exists && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             const otherRef = db.collection("pokerEntries").doc(buildPokerEntryId(season.seasonId, lockedDate, userId));

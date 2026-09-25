@@ -4,6 +4,7 @@
  * ただし、名簿に未払いで載っている人の paid 更新だけは、既存の支払い完了処理と同じ扱いで許可する。
  */
 
+import { getMahjongEntryFee, isValidMahjongEntryFee } from "@/lib/mahjongSchedule";
 import type { ScoreboardGameId } from "@/types";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getActiveSeason } from "@/lib/mahjong";
@@ -122,6 +123,9 @@ export async function addGameEntryByAdmin(input: {
     // Firestore transaction は書き込み開始後に read できないため、必要な read を最初に完了させる。
     const [entrySnap, daySnap] = await Promise.all([tx.get(entryRef), tx.get(dayRef)]);
     const prev = entrySnap.exists ? (entrySnap.data() as EntryLike) : null;
+    // 必要な場合だけ料金を読む。tx の書き込み開始前に解決する。
+    const fee = input.markPaid && input.game === "mahjong" && !isValidMahjongEntryFee(prev?.paymentAmount)
+      ? await getMahjongEntryFee(seasonId, input.eventDate) : cfg.fee;
     const previousStatus = prev ? DERIVE_STATUS[input.game](prev) : null;
     const nowIso = new Date().toISOString();
     let rosterUpdated = false;
@@ -175,7 +179,9 @@ export async function addGameEntryByAdmin(input: {
       ...(input.markPaid
         ? {
             paymentStatus: "paid",
-            paymentAmount: prev?.paymentAmount ?? cfg.fee,
+            paymentAmount: input.game === "mahjong"
+              ? (isValidMahjongEntryFee(prev?.paymentAmount) ? prev.paymentAmount : fee)
+              : prev?.paymentAmount ?? fee,
             paidAt: prev?.paidAt || nowIso,
           }
         : {}),

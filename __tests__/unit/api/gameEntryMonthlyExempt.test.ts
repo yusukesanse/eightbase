@@ -1,14 +1,4 @@
-/**
- * 単体テスト: POST /api/{mahjong,darts}/entries の「月1回まで」と、その管理者免除。
- *
- * 固定する仕様:
- *  - 免除なし: 同月の別日に参加表明すると 409 MONTHLY_LIMIT（従来どおり）
- *  - 免除あり（authorizedUsers.monthlyEntryExempt=true）: 同月の別日でも 201
- *  - 免除しても**定員は免除しない**（満員なら 409 FULL）
- *  - 免除ユーザーでも月ロック doc は今までどおり書く（免除を外したあとに壊れないため）
- *
- * ※ 判定はサーバーが正。クライアントのカレンダー表示は monthlyEntryExempt.test.ts 側で固定。
- */
+/** 月制限停止: 4種目で免除にかかわらず同月別日へ参加でき、月ロックと定員は維持する。 */
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: jest.fn() }));
 jest.mock("@/lib/auth", () => ({
   requireGameUser: jest.fn(),
@@ -16,11 +6,12 @@ jest.mock("@/lib/auth", () => ({
 }));
 jest.mock("@/lib/mahjong", () => ({ getActiveSeason: jest.fn() }));
 jest.mock("@/lib/mahjongDay", () => ({ getDayState: jest.fn(), isEntryClosed: () => false }));
-jest.mock("@/lib/mahjongSchedule", () => ({ listMahjongScheduleDates: jest.fn() }));
 jest.mock("@/lib/dartsSchedule", () => ({
   isScheduledDartsDate: async () => true,
   isDartsCancelledDate: async () => false,
 }));
+jest.mock("@/lib/billiardsSchedule", () => ({ isScheduledBilliardsDate: async () => true, isBilliardsCancelledDate: async () => false }));
+jest.mock("@/lib/pokerSchedule", () => ({ isScheduledPokerDate: async () => true, isPokerCancelledDate: async () => false }));
 jest.mock("@/lib/dartsDay", () => ({ getDartsDayState: async () => null, isDartsEntryClosed: () => false }));
 jest.mock("@/lib/entryDeadline", () => ({
   isEntryClosedByTime: async () => false,
@@ -38,8 +29,9 @@ jest.mock("@/lib/liffUrl", () => ({ liffUrl: (p: string) => `https://liff.exampl
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { listMahjongScheduleDates } from "@/lib/mahjongSchedule";
 import { POST as mahjongPost } from "@/app/api/mahjong/entries/route";
+import { POST as billiardsPost } from "@/app/api/billiards/entries/route";
+import { POST as pokerPost } from "@/app/api/poker/entries/route";
 import { POST as dartsPost } from "@/app/api/darts/entries/route";
 import type { NextRequest } from "next/server";
 
@@ -127,19 +119,18 @@ beforeEach(() => {
   db = makeDb();
   (getDb as jest.Mock).mockReturnValue(db);
   (getActiveSeason as jest.Mock).mockResolvedValue({ seasonId: SEASON });
-  (listMahjongScheduleDates as jest.Mock).mockResolvedValue(new Set([DATE_A, DATE_B, DATE_C]));
+  for (const date of [DATE_A, DATE_B, DATE_C]) db.__set("mahjongSchedule", `legacy-${date}`, { seasonId: SEASON, date });
   db.__set("users", USER, { displayName: "テスト太郎", pictureUrl: "" });
 });
 
 describe("麻雀: 月1回の制限と免除", () => {
-  test("免除なし: 同月の別日は 409（従来どおり）", async () => {
+  test("免除なし: 同月の別日も 201", async () => {
     setUser(false);
     expect((await mahjongPost(req({ eventDate: DATE_A }))).status).toBe(201);
 
     const res = await mahjongPost(req({ eventDate: DATE_B }));
-    expect(res.status).toBe(409);
-    expect((await res.json()).monthlyLimit).toBe(true);
-    expect(db.__size("mahjongEntries")).toBe(1);
+    expect(res.status).toBe(201);
+    expect(db.__size("mahjongEntries")).toBe(2);
   });
 
   test("免除あり: 同月の別日も参加できる", async () => {
@@ -156,11 +147,10 @@ describe("麻雀: 月1回の制限と免除", () => {
     const lock = db.__get("mahjongMonthlyLocks", `${SEASON}_${USER}_2026-07`);
     expect(lock?.eventDate).toBe(DATE_B);
 
-    // 免除を外すと、そのロックが指す参加が実在するので再び月1回に戻る。
+    // 機能停止中は免除を外しても参加でき、ロックは残る。
     setUser(false);
     const res = await mahjongPost(req({ eventDate: DATE_C }));
-    expect(res.status).toBe(409);
-    expect((await res.json()).monthlyLimit).toBe(true);
+    expect(res.status).toBe(201);
   });
 
   test("免除しても定員は免除しない（満員なら 409）", async () => {
@@ -183,17 +173,22 @@ describe("麻雀: 月1回の制限と免除", () => {
   });
 });
 
-describe("ダーツ: 同じ免除フラグが効く（4種目共通）", () => {
-  test("免除なしは 409 / 免除ありは 201", async () => {
+describe.each([
+  ["darts", dartsPost, 8], ["billiards", billiardsPost, 8], ["poker", pokerPost, 9],
+] as const)("%s: 月制限停止", (game, post, capacity) => {
+  test.each([false, true])("免除=%s でも同月2日目は201・ロックは書く", async (exempt) => {
+    setUser(exempt);
+    expect((await post(req({ eventDate: DATE_A }))).status).toBe(201);
+    expect((await post(req({ eventDate: DATE_B }))).status).toBe(201);
+    expect(db.__get(`${game}MonthlyLocks`, `${SEASON}_${USER}_2026-07`)?.eventDate).toBe(DATE_B);
+  });
+  test("定員は維持", async () => {
     setUser(false);
-    expect((await dartsPost(req({ eventDate: DATE_A }))).status).toBe(201);
-    expect((await dartsPost(req({ eventDate: DATE_B }))).status).toBe(409);
-
-    db = makeDb();
-    (getDb as jest.Mock).mockReturnValue(db);
-    db.__set("users", USER, { displayName: "テスト太郎", pictureUrl: "" });
-    setUser(true);
-    expect((await dartsPost(req({ eventDate: DATE_A }))).status).toBe(201);
-    expect((await dartsPost(req({ eventDate: DATE_B }))).status).toBe(201);
+    for (let i = 0; i < capacity; i++) db.__set(`${game}Entries`, `other-${i}`, {
+      seasonId: SEASON, eventDate: DATE_B, lineUserId: `other-${i}`, status: "paid",
+    });
+    const res = await post(req({ eventDate: DATE_B }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).full).toBe(true);
   });
 });

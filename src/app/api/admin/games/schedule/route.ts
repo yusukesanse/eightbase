@@ -1,3 +1,5 @@
+import { isValidMahjongEntryFee } from "@/lib/mahjongSchedule";
+import { MAHJONG_ENTRY_FEE } from "@/types/mahjong";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
@@ -12,6 +14,8 @@ export const dynamic = "force-dynamic";
  *  GET    ?gameCategory=&seasonId=            … 開催日一覧（date 昇順・重複排除）
  *  POST   { gameCategory, seasonId, date }     … 開催日を1件追加（決定的ID・冪等）
  *  POST   { gameCategory, seasonId, bulk:true, startDate?, count? } … 既定日を一括投入
+ *  麻雀のPOSTは entryFee 必須。単日・一括とも既存リーグ日には entryFee を書かず、変更はPATCHのみ。
+ *  未設定の既存料金は MAHJONG_ENTRY_FEE（3,000円）のまま維持する。
  *  DELETE ?gameCategory=&seasonId=&date=       … 開催日を1件削除（その日の doc を全消し）
  *
  * 麻雀は追加時に同日の休催(mahjongClosedDates)を解除する（土曜を戻したときの整合）。
@@ -45,12 +49,14 @@ export async function GET(req: NextRequest) {
     | undefined;
   const set = new Set<string>();
   // 日付ごとの時刻（既定値と違う日をUIで出し分けるため date -> {startTime,endTime} で返す）。
+  const entryFees: Record<string, number> = {};
   const times: Record<string, { startTime: string; endTime: string; overridden: boolean }> = {};
   for (const d of snap.docs) {
-    const x = d.data() as { date?: string; type?: string; startTime?: string; endTime?: string; timeOverridden?: boolean };
+    const x = d.data() as { date?: string; type?: string; startTime?: string; endTime?: string; timeOverridden?: boolean; entryFee?: unknown };
     if (x.type && x.type !== "league") continue;
     if (!x.date) continue;
     set.add(x.date);
+    if (game === "mahjong") entryFees[x.date] = isValidMahjongEntryFee(x.entryFee) ? x.entryFee : (entryFees[x.date] ?? MAHJONG_ENTRY_FEE);
     times[x.date] = {
       startTime: x.startTime || season?.defaultStartTime || CFG[game].start,
       endTime: x.endTime || season?.defaultEndTime || CFG[game].end,
@@ -60,6 +66,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     dates: Array.from(set).sort(),
     times,
+    ...(game === "mahjong" ? { entryFees } : {}),
     // シーズンの既定時刻（未設定なら種目のコード既定値）
     startTime: season?.defaultStartTime || CFG[game].start,
     endTime: season?.defaultEndTime || CFG[game].end,
@@ -73,6 +80,9 @@ export async function POST(req: NextRequest) {
   const seasonId: unknown = body?.seasonId;
   if (!game || typeof seasonId !== "string" || !seasonId) {
     return NextResponse.json({ error: "gameCategory と seasonId が必要です" }, { status: 400 });
+  }
+  if (game === "mahjong" && !isValidMahjongEntryFee(body?.entryFee)) {
+    return NextResponse.json({ error: "参加費は1〜100000円の整数で指定してください" }, { status: 400 });
   }
   const db = getDb();
   const cfg = CFG[game];
@@ -91,6 +101,7 @@ export async function POST(req: NextRequest) {
     endTime: defEnd,
     createdAt: now,
     ...(cfg.extra ?? {}),
+    ...(game === "mahjong" ? { entryFee: body.entryFee as number } : {}),
   });
 
   // 一括投入（繰り返し設定）: 曜日 × 間隔（毎週/2週/3週…）× 期間。
@@ -125,11 +136,18 @@ export async function POST(req: NextRequest) {
         .filter((x) => x.timeOverridden === true && x.date)
         .map((x) => x.date as string)
     );
+    // 一括投入は開催日を作る操作。設定済み料金の変更は PATCH だけで行う。
+    const existingDates = new Set<string>();
+    if (game === "mahjong") for (const d of existingSnap.docs) {
+      const x = d.data();
+      if ((!x.type || x.type === "league") && x.date) existingDates.add(x.date);
+    }
     const CHUNK = 200;
     for (let i = 0; i < dates.length; i += CHUNK) {
       const batch = db.batch();
       for (const date of dates.slice(i, i + CHUNK)) {
         const doc = makeDoc(date);
+        if (existingDates.has(date)) delete doc.entryFee;
         if (overridden.has(date)) {
           // 個別変更済みの日は時刻を触らない（他フィールドだけ揃える）。
           const { startTime: _s, endTime: _e, ...rest } = doc;
@@ -147,12 +165,33 @@ export async function POST(req: NextRequest) {
   // 1件追加。schedule 作成とロック解除を原子化（addGameScheduleDate）。
   const date: unknown = body?.date;
   if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
-  await addGameScheduleDate(db, game, seasonId, date, { startTime: defStart, endTime: defEnd });
+  let entryFee: number | undefined;
+  if (game === "mahjong") {
+    // 日程と削除ロック解除を同じ transaction に保存する。再追加でも設定済み料金は維持。
+    const ref = db.collection(cfg.col).doc(schedId(seasonId, date));
+    const lock = scheduleLockRef(db, game, seasonId, date);
+    await db.runTransaction(async (tx) => {
+      const [, existing] = await Promise.all([
+        tx.get(lock),
+        tx.get(db.collection(cfg.col).where("seasonId", "==", seasonId).where("date", "==", date)),
+      ]);
+      const matches = existing.docs.map((d) => d.data()).filter((x) => !x.type || x.type === "league");
+      if (matches.length > 0) {
+        entryFee = matches.map((x) => x.entryFee).find(isValidMahjongEntryFee) ?? MAHJONG_ENTRY_FEE;
+      } else {
+        entryFee = body.entryFee;
+        tx.set(ref, makeDoc(date), { merge: true });
+      }
+      tx.delete(lock);
+    });
+  } else {
+    await addGameScheduleDate(db, game, seasonId, date, { startTime: defStart, endTime: defEnd });
+  }
   if (game === "mahjong") {
     // 土曜を開催に戻したときに旧「休催」doc が残っていると弾かれるため解除（best-effort）。
     await db.collection("mahjongClosedDates").doc(date).delete().catch(() => {});
   }
-  return NextResponse.json({ success: true, date }, { status: 201 });
+  return NextResponse.json({ success: true, date, ...(game === "mahjong" ? { entryFee } : {}) }, { status: 201 });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -220,7 +259,13 @@ export async function PATCH(req: NextRequest) {
   }
   if (!isRealDate(date)) return NextResponse.json({ error: "date が不正です" }, { status: 400 });
 
-  const updates: Record<string, string> = {};
+  const updates: { startTime?: string; endTime?: string; entryFee?: number } = {};
+  if (game === "mahjong" && body?.entryFee !== undefined) {
+    if (!isValidMahjongEntryFee(body.entryFee)) {
+      return NextResponse.json({ error: "参加費は1〜100000円の整数で指定してください" }, { status: 400 });
+    }
+    updates.entryFee = body.entryFee;
+  }
   for (const key of ["startTime", "endTime"] as const) {
     if (body?.[key] === undefined) continue;
     if (!isValidHhMm(body[key])) {
@@ -229,7 +274,7 @@ export async function PATCH(req: NextRequest) {
     updates[key] = body[key];
   }
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "startTime か endTime を指定してください" }, { status: 400 });
+    return NextResponse.json({ error: game === "mahjong" ? "時刻または参加費を指定してください" : "startTime か endTime を指定してください" }, { status: 400 });
   }
   if (updates.startTime && updates.endTime && updates.startTime >= updates.endTime) {
     return NextResponse.json({ error: "終了時刻は開始時刻より後にしてください" }, { status: 400 });
@@ -237,22 +282,32 @@ export async function PATCH(req: NextRequest) {
 
   const db = getDb();
   const ref = db.collection(CFG[game].col).doc(schedId(seasonId, date));
-  const snap = await ref.get();
-  if (!snap.exists) return NextResponse.json({ error: "開催日が見つかりません" }, { status: 404 });
+  // 麻雀は旧自動採番IDも存在する。同日が重複していても料金を揃える。
+  const matches = game === "mahjong"
+    ? (await db.collection(CFG[game].col).where("seasonId", "==", seasonId).where("date", "==", date).get()).docs
+        .filter((d) => !d.data().type || d.data().type === "league")
+    : [];
+  const snap = game === "mahjong" ? (matches.find((d) => d.id === ref.id) ?? matches[0]) : await ref.get();
+  if (!snap?.exists) return NextResponse.json({ error: "開催日が見つかりません" }, { status: 404 });
   // 片方だけ変更された場合も前後関係を検証する（保存済みの値と突き合わせ）。
   const cur = snap.data() as { startTime?: string; endTime?: string };
   const nextStart = updates.startTime ?? cur.startTime;
   const nextEnd = updates.endTime ?? cur.endTime;
-  if (nextStart && nextEnd && nextStart >= nextEnd) {
+  const changesTime = updates.startTime !== undefined || updates.endTime !== undefined;
+  if (changesTime && nextStart && nextEnd && nextStart >= nextEnd) {
     return NextResponse.json({ error: "終了時刻は開始時刻より後にしてください" }, { status: 400 });
   }
 
   // 個別変更した日として印を付ける（シーズン既定を変えても上書きされないようにする）。
   // resetToDefault=true なら印を外し、以後は既定の変更に追随する。
   const resetToDefault = body?.resetToDefault === true;
-  await ref.set(
-    { ...updates, timeOverridden: !resetToDefault, updatedAt: new Date().toISOString() },
-    { merge: true }
-  );
-  return NextResponse.json({ success: true, date, startTime: nextStart, endTime: nextEnd });
+  const fields = { ...updates, ...(changesTime ? { timeOverridden: !resetToDefault } : {}), updatedAt: new Date().toISOString() };
+  if (game === "mahjong") {
+    const batch = db.batch();
+    for (const d of matches) batch.set(db.collection(CFG[game].col).doc(d.id), fields, { merge: true });
+    await batch.commit();
+  } else {
+    await ref.set(fields, { merge: true });
+  }
+  return NextResponse.json({ success: true, date, startTime: nextStart, endTime: nextEnd, ...(game === "mahjong" ? { entryFee: updates.entryFee } : {}) });
 }

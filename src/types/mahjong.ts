@@ -103,7 +103,7 @@ export interface MahjongEntry {
   // ─ WP3: 参加費支払い（会員/ゲストのみ。staffは免除＝未設定）─
   paymentStatus?: MahjongPaymentStatus;
   paymentTransactionId?: string; // Square orderId（決済照合用・本人以外へは非公開）
-  paymentAmount?: number;        // 決済額（円）＝ MAHJONG_ENTRY_FEE
+  paymentAmount?: number;        // 参加表明時の開催日の参加費（円）
   paidAt?: string;               // 決済確定時刻 ISO8601
   cancelRequestedAt?: string;    // キャンセル依頼時刻 ISO8601（監査用）
   refundProcessedAt?: string;    // 返金/却下の処理時刻 ISO8601（監査用）
@@ -125,6 +125,8 @@ export interface MahjongEntry {
  * ここに現れるものは全て席を持っている（未払いも席を持つ・2026-09-11）。
  */
 export interface MahjongMyEntry {
+  /** 発行時の参加費。日程料金の変更後もこの金額を表示する。 */
+  paymentAmount?: number;
   entryId: string;
   eventDate: string;
   paymentStatus: MahjongPaymentStatus | null;
@@ -160,6 +162,11 @@ export const MAHJONG_MAX_ENTRIES_PER_DATE = 8;
 
 /** リーグ戦の参加費（円・税込）。支払い対象は staff 以外（member / guest）。 */
 export const MAHJONG_ENTRY_FEE = 3000;
+
+/** 参加費は円単位の正の整数（上限10万円）。 */
+export function isValidMahjongEntryFee(v: unknown): v is number {
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 100000;
+}
 
 /** 通算成績（standings APIの計算結果） */
 export interface MahjongStanding {
@@ -369,6 +376,8 @@ export type MahjongScheduleType = "league" | "championship";
 
 /** 麻雀の開催日（リーグ戦 / チャンピオンシップ） */
 export interface MahjongScheduleEntry {
+  /** 開催日の参加費（円）。未設定は MAHJONG_ENTRY_FEE。 */
+  entryFee?: number;
   scheduleId: string;
   seasonId: string;
   date: string;        // YYYY-MM-DD

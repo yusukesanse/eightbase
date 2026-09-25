@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { MAHJONG_ENTRY_FEE, type MahjongMyEntry } from "@/types";
+import { isValidMahjongEntryFee, MAHJONG_ENTRY_FEE, type MahjongMyEntry } from "@/types";
 import { completeEntryPayment, cancelEntryPayment, startEntryPayment } from "@/lib/mahjongPayment";
 import { isDevLoginEnabled } from "@/lib/env";
 import { canCancelMahjong, MAHJONG_CANCEL_DEADLINE_DAYS } from "@/lib/date";
@@ -61,6 +61,7 @@ export function JoinTab({
   closedDates,
   cancelledDates,
   scheduledDates,
+  entryFees,
   seasonStartDate,
   paymentRequired,
   monthlyExempt = false,
@@ -72,6 +73,7 @@ export function JoinTab({
   closedDates: Set<string>;
   cancelledDates: Set<string>;
   scheduledDates?: Set<string>;
+  entryFees?: Map<string, number>;
   /**
    * アクティブシーズンの開始日（"YYYY-MM-DD"）。カレンダーを遡れる下限に使う。
    * 日程未登録（毎週土曜フォールバック）のシーズンでも過去の開催日まで戻れるようにするため。
@@ -325,7 +327,7 @@ export function JoinTab({
   return (
     <div className="flex flex-col gap-4">
       <p className="px-0.5 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
-        土曜日が開催日です。参加したい日を選んでください。
+        {scheduledDates?.size ? "開催日から参加したい日を選んでください。" : "土曜日が開催日です。参加したい日を選んでください。"}
       </p>
 
       {msg && (
@@ -405,6 +407,7 @@ export function JoinTab({
         <SelectedDateCard
           date={selectedDate}
           entry={myEntries[selectedDate]}
+          entryFee={entryFees?.get(selectedDate) ?? MAHJONG_ENTRY_FEE}
           entered={effectiveEntered.has(selectedDate)}
           paymentRequired={paymentRequired}
           cancelled={cancelledDates.has(selectedDate)}
@@ -496,6 +499,7 @@ export function JoinTab({
 function SelectedDateCard({
   date,
   entry,
+  entryFee,
   entered,
   paymentRequired,
   cancelled,
@@ -516,6 +520,7 @@ function SelectedDateCard({
 }: {
   date: string;
   entry?: MahjongMyEntry;
+  entryFee: number;
   entered: boolean;
   paymentRequired: boolean;
   cancelled: boolean;
@@ -535,6 +540,7 @@ function SelectedDateCard({
   onRequestCancel: () => void;
   onClearSelection: () => void;
 }) {
+  const amount = isValidMahjongEntryFee(entry?.paymentAmount) ? entry.paymentAmount : entryFee;
   const { md, wd } = dateParts(date);
   const heading = (
     <div className="flex items-baseline gap-2">
@@ -542,6 +548,7 @@ function SelectedDateCard({
         {md}（{wd}）
       </span>
       <span className="whitespace-nowrap text-[15px] text-[color:var(--eb-ink-muted)]">リーグ戦</span>
+      {entry && paymentRequired && <span className="text-[15px] font-bold">¥{amount.toLocaleString()}</span>}
     </div>
   );
 
@@ -729,7 +736,7 @@ function SelectedDateCard({
             >
               <span className="whitespace-nowrap text-[15px] text-[color:var(--eb-ink)]">参加費</span>
               <span className="shrink-0 whitespace-nowrap text-[20px] font-bold text-[color:var(--eb-ink)]">
-                ¥{MAHJONG_ENTRY_FEE.toLocaleString()}
+                ¥{amount.toLocaleString()}
               </span>
             </div>
             <Button variant="primary" loading={busy} onClick={onJoin}>

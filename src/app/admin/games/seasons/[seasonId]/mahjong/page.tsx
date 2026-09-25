@@ -62,8 +62,10 @@ function monthsInRange(startDate: string, endDate: string): string[] {
 function eventDatesInMonth(
   ym: string,
   range: { startDate: string; endDate: string } | null,
-  closed: Set<string>
+  closed: Set<string>,
+  scheduled: Set<string>
 ): string[] {
+  if (scheduled.size > 0) return Array.from(scheduled).filter((d) => d.startsWith(`${ym}-`)).sort();
   const [y, m] = ym.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const res: string[] = [];
@@ -94,12 +96,19 @@ export default function SeasonMahjongPage() {
   const [tableDate, setTableDate] = useState<string | null>(null);
   const [selMonth, setSelMonth] = useState<string | null>(null);
   const [seasonRange, setSeasonRange] = useState<{ startDate: string; endDate: string } | null>(null);
+  const [scheduledDates, setScheduledDates] = useState<Set<string>>(new Set());
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
 
   // 卓が存在する開催日（新しい順）。日付セレクタの選択肢に使う。
   const tableDates = useMemo(
     () => Array.from(new Set(tables.map((t) => t.eventDate))).sort((a, b) => b.localeCompare(a)),
     [tables]
+  );
+
+  // 日程駆動時は、日程から外れた卓も管理画面で選べるようにする。
+  const selectableDates = useMemo(
+    () => scheduledDates.size > 0 ? new Set([...scheduledDates, ...tableDates]) : scheduledDates,
+    [scheduledDates, tableDates]
   );
 
   // シーズン開催期間（月プルダウン用）と休催日（開催日から除外）を取得。
@@ -112,6 +121,10 @@ export default function SeasonMahjongPage() {
         if (s?.startDate && s?.endDate) setSeasonRange({ startDate: s.startDate, endDate: s.endDate });
       })
       .catch(() => {});
+    fetch(`/api/admin/games/schedule?gameCategory=mahjong&seasonId=${seasonId}`, { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((d) => setScheduledDates(new Set<string>(d.dates ?? [])))
+      .catch(() => {});
     fetch("/api/admin/mahjong/closed-dates", { credentials: "same-origin" })
       .then((r) => r.json())
       .then((d) => setClosedDates(new Set<string>(d.dates ?? [])))
@@ -120,14 +133,15 @@ export default function SeasonMahjongPage() {
 
   // 月の選択肢（シーズン開催期間の各月・昇順）。期間未取得時は卓のある月でフォールバック。
   const monthOptions = useMemo(() => {
+    if (selectableDates.size > 0) return Array.from(new Set(Array.from(selectableDates, (d) => d.slice(0, 7)))).sort();
     if (seasonRange) return monthsInRange(seasonRange.startDate, seasonRange.endDate);
     return Array.from(new Set(tableDates.map((d) => d.slice(0, 7)))).sort((a, b) => a.localeCompare(b));
-  }, [seasonRange, tableDates]);
+  }, [seasonRange, tableDates, selectableDates]);
 
   // 選択月の開催日（日プルダウン・昇順）。日程の開催日（毎週土曜−休催）と連携。
   const dayOptions = useMemo(
-    () => (selMonth ? eventDatesInMonth(selMonth, seasonRange, closedDates) : []),
-    [selMonth, seasonRange, closedDates]
+    () => (selMonth ? eventDatesInMonth(selMonth, seasonRange, closedDates, selectableDates) : []),
+    [selMonth, seasonRange, closedDates, selectableDates]
   );
 
   // 初期選択: 最新の開催日（卓のある日）→ その月を選択。
@@ -143,7 +157,7 @@ export default function SeasonMahjongPage() {
   // 月を変えたら、その月の開催日（卓のある日を優先）に切り替える。
   function changeMonth(ym: string) {
     setSelMonth(ym);
-    const days = eventDatesInMonth(ym, seasonRange, closedDates);
+    const days = eventDatesInMonth(ym, seasonRange, closedDates, selectableDates);
     const withTables = days.find((d) => tableDates.includes(d));
     setTableDate(withTables ?? days[0] ?? null);
   }

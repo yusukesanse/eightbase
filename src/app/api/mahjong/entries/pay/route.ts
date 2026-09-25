@@ -1,3 +1,5 @@
+import { isActiveMahjongEntry } from "@/lib/mahjongEntryStatus";
+import { getMahjongEntryFee, isValidMahjongEntryFee } from "@/lib/mahjongSchedule";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
@@ -19,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mahjong/entries/pay  Body: { eventDate }
- * 参加費（3,000円）の「決済前 仮押さえ」。トレーラー予約と同型の Square 動的リンク方式。
+ * 開催日別参加費の「決済前 仮押さえ」。トレーラー予約と同型の Square 動的リンク方式。
  *  1. role が支払い対象（member/guest）か・参加表明済みか・**開催当日かつ開始時刻前**かを検証
  *  2. 参加費専用の Square 決済リンクを生成（戻り先 /games?mjpay=エントリーID＝麻雀ハブ）
  *  3. エントリーを pending 化し注文ID(orderId)を保存 → 決済URLを返す
@@ -131,7 +133,11 @@ export async function POST(req: NextRequest) {
     // 失敗時は pending 化する前に中断する（不要な pending を残さない）。
     let paymentUrl: string;
     try {
-      ({ paymentUrl } = await issueMahjongEntryPaymentLink({ req, entryRef, entryId }));
+      ({ paymentUrl } = await issueMahjongEntryPaymentLink({
+        req, entryRef, entryId,
+        amount: isActiveMahjongEntry(entry) && isValidMahjongEntryFee(entry.paymentAmount)
+          ? entry.paymentAmount : await getMahjongEntryFee(season.seasonId, eventDate),
+      }));
     } catch (e) {
       return paymentLinkFailedResponse(e);
     }

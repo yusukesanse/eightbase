@@ -228,3 +228,18 @@ describe("削除", () => {
     );
   });
 });
+
+ test.each([undefined, 4500])("日程5000を管理追加に使い、既存金額 %s は維持", async (previousAmount) => {
+   db.__set("mahjongSchedule", "legacy-id", { seasonId: SEASON, date: DATE, entryFee: 5000 });
+   if (previousAmount) db.__set("mahjongEntries", ENTRY_ID, { seasonId: SEASON, eventDate: DATE, lineUserId: "U1", status: "reserved", paymentAmount: previousAmount });
+   const res = await POST(req({ seasonId: SEASON, eventDate: DATE, lineUserId: "U1", markPaid: true }));
+   expect(res.status).toBe(201);
+   expect(db.__get("mahjongEntries", ENTRY_ID)?.paymentAmount).toBe(previousAmount ?? 5000);
+ });
+
+test("F: 管理追加は保存額0を日程料金に置き換える", async () => {
+  db.__set("mahjongSchedule", "legacy", { seasonId: SEASON, date: DATE, entryFee: 7000 });
+  db.__set("mahjongEntries", ENTRY_ID, { seasonId: SEASON, eventDate: DATE, lineUserId: "U1", status: "reserved", paymentAmount: 0 });
+  expect((await add()).status).toBe(201);
+  expect(db.__get("mahjongEntries", ENTRY_ID)?.paymentAmount).toBe(7000);
+});

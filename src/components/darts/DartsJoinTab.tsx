@@ -1,5 +1,7 @@
 "use client";
 
+import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
+
 import { useState, useEffect } from "react";
 import MonthCalendar from "@/components/ui/MonthCalendar";
 import { calendarMinMonth, canBrowsePastMonths } from "@/lib/gameCalendarRange";
@@ -151,7 +153,7 @@ export function DartsJoinTab({
   return (
     <div className="flex flex-col gap-4">
       <p className="px-0.5 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
-        隔週木曜が開催日です。カレンダーの開催日から参加日を選んでください{monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）"}。
+        隔週木曜が開催日です。カレンダーの開催日から参加日を選んでください{MONTHLY_ENTRY_LIMIT_ENABLED && (monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）")}。
         {paymentRequired &&
           `「参加する」で参加枠を確保し、参加費 ¥${DARTS_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${DARTS_MAX_ENTRIES_PER_DATE}名）。`}
         参加費のキャンセルは開催7日前まで。<b>開始時刻を過ぎると参加表明・取消はできません。</b>

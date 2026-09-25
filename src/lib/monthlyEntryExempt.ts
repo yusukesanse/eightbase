@@ -23,3 +23,6 @@ export function isMonthlyEntryExempt(
 ): boolean {
   return user?.monthlyEntryExempt === true;
 }
+
+/** true に戻せば4種目の月1回制限・免除・表示がすべて復活する。 */
+export const MONTHLY_ENTRY_LIMIT_ENABLED: boolean = false;

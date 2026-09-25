@@ -98,9 +98,9 @@ describe("参加カレンダー（麻雀）— 免除で同月の別日が開く
     monthlyExempt,
   });
 
-  test("免除なし: 同月の別日はブロック", () => {
-    expect(isMonthlyBlocked(SAT_B, new Set([SAT_A]))).toBe(true);
-    expect(canJoinDate(SAT_B, { ...ctx(false), full: false })).toBe(false);
+  test("免除なし: 機能停止中は同月の別日も参加可", () => {
+    expect(isMonthlyBlocked(SAT_B, new Set([SAT_A]))).toBe(false);
+    expect(canJoinDate(SAT_B, { ...ctx(false), full: false })).toBe(true);
   });
 
   test("免除あり: 同月の別日も参加可", () => {

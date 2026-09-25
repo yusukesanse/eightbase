@@ -245,3 +245,10 @@ describe("POST /api/admin/games/entries", () => {
     expect(entry.paymentStatus).toBeUndefined();
   });
 });
+
+ test.each([["darts", 1000], ["billiards", 1500], ["poker", 1000]])("%s は固定料金を維持", async (gameCategory, amount) => {
+   db.__set(`${gameCategory}Schedule`, "day", { seasonId: SEASON, date: DATE, entryFee: 7000 });
+   const res = await add({ gameCategory, markPaid: true });
+   expect(res.status).toBe(201);
+   expect(db.__get(`${gameCategory}Entries`, `${SEASON}_${DATE}_${USER_ID}`)?.paymentAmount).toBe(amount);
+ });

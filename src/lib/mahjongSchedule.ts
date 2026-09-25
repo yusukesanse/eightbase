@@ -8,6 +8,7 @@
  * スケジュール doc が1件でもあれば、そのシーズンは schedule 駆動（＝doc にある日のみ開催）。
  */
 
+import { MAHJONG_ENTRY_FEE, isValidMahjongEntryFee } from "@/types/mahjong";
 import { getDb } from "@/lib/firebaseAdmin";
 import { isSaturdayMahjongDate } from "@/lib/mahjongEntryValidation";
 
@@ -16,16 +17,34 @@ export function buildMahjongScheduleId(seasonId: string, date: string): string {
   return `${seasonId}_${date}`;
 }
 
-/** そのシーズンのリーグ開催日（type!=="league" は除外）の集合。 */
-export async function listMahjongScheduleDates(seasonId: string): Promise<Set<string>> {
+export { isValidMahjongEntryFee } from "@/types/mahjong";
+
+/** 旧自動採番IDも含め、開催日と料金を1回のシーズンクエリで取得する。 */
+export async function listMahjongSchedule(seasonId: string): Promise<{ dates: Set<string>; fees: Map<string, number> }> {
   const snap = await getDb().collection("mahjongSchedule").where("seasonId", "==", seasonId).get();
   const dates = new Set<string>();
+  const fees = new Map<string, number>();
   for (const d of snap.docs) {
-    const x = d.data() as { date?: string; type?: string };
-    if (x.type && x.type !== "league") continue; // CS などは開催日に含めない
-    if (x.date) dates.add(x.date);
+    const x = d.data() as { date?: string; type?: string; entryFee?: unknown };
+    if (x.type && x.type !== "league") continue;
+    if (!x.date) continue;
+    dates.add(x.date);
+    if (isValidMahjongEntryFee(x.entryFee)) fees.set(x.date, x.entryFee);
   }
-  return dates;
+  return { dates, fees };
+}
+
+/** そのシーズンのリーグ開催日の集合。 */
+export async function listMahjongScheduleDates(seasonId: string): Promise<Set<string>> {
+  return (await listMahjongSchedule(seasonId)).dates;
+}
+
+export function resolveMahjongEntryFee(fees: Map<string, number>, date: string): number {
+  return fees.get(date) ?? MAHJONG_ENTRY_FEE;
+}
+
+export async function getMahjongEntryFee(seasonId: string, date: string): Promise<number> {
+  return resolveMahjongEntryFee((await listMahjongSchedule(seasonId)).fees, date);
 }
 
 /**

@@ -20,7 +20,6 @@ jest.mock("@/lib/auth", () => ({
 }));
 jest.mock("@/lib/mahjong", () => ({ getActiveSeason: jest.fn() }));
 jest.mock("@/lib/mahjongDay", () => ({ getDayState: jest.fn(), isEntryClosed: () => false }));
-jest.mock("@/lib/mahjongSchedule", () => ({ listMahjongScheduleDates: jest.fn() }));
 jest.mock("@/lib/gameSchedule", () => ({ isScheduleDateBlockedInTx: async () => false }));
 jest.mock("@/lib/square", () => ({
   createReservationPaymentLink: jest.fn(),
@@ -41,7 +40,6 @@ import { POST as PAY } from "@/app/api/mahjong/entries/pay/route";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser, requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { listMahjongScheduleDates } from "@/lib/mahjongSchedule";
 import { createReservationPaymentLink } from "@/lib/square";
 import { isActiveMahjongEntry } from "@/lib/mahjongEntryStatus";
 import { buildMahjongEntryId } from "@/lib/mahjongEntryValidation";
@@ -59,6 +57,7 @@ const ENTRY_A = buildMahjongEntryId(SEASON, DATE_A, USER);
 /** トランザクション（tx.get で docRef と where クエリの両方を扱う）に対応する簡易 Firestore。 */
 function makeDb() {
   const store = new Map<string, Map<string, Data>>();
+  const reads: string[] = [];
   const col = (n: string) => {
     if (!store.has(n)) store.set(n, new Map());
     return store.get(n)!;
@@ -81,6 +80,7 @@ function makeDb() {
     __conds: conds,
     where: (f: string, _op: string, v: unknown) => query(c, [...conds, [f, v]]),
     get: async () => {
+      reads.push(c);
       const docs = [...col(c).entries()]
         .filter(([, v]) => conds.every(([f, val]) => v[f] === val))
         .map(([id, v]) => ({ id, data: () => v }));
@@ -109,6 +109,7 @@ function makeDb() {
     },
     __set: (c: string, id: string, d: Data) => col(c).set(id, d),
     __get: (c: string, id: string) => col(c).get(id),
+    __reads: reads,
     __size: (c: string) => col(c).size,
   };
   return db;
@@ -152,7 +153,7 @@ beforeEach(() => {
   db = makeDb();
   (getDb as jest.Mock).mockReturnValue(db);
   (getActiveSeason as jest.Mock).mockResolvedValue({ seasonId: SEASON });
-  (listMahjongScheduleDates as jest.Mock).mockResolvedValue(new Set([DATE_A, DATE_B]));
+  for (const date of [DATE_A, DATE_B]) db.__set("mahjongSchedule", `legacy-${date}`, { seasonId: SEASON, date });
   (createReservationPaymentLink as jest.Mock).mockReset();
   (createReservationPaymentLink as jest.Mock).mockResolvedValue({
     url: "https://square.link/pay-1",
@@ -274,7 +275,7 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
     expect(createReservationPaymentLink).not.toHaveBeenCalled();
   });
 
-  test("期限切れの自分の仮押さえ（未払い）も、当月の別日の参加を塞ぐ（席を持つため）", async () => {
+  test("期限切れの自分の仮押さえ（未払い）も、月制限停止中は別日も参加できる", async () => {
     db.__set("mahjongEntries", ENTRY_A, pendingEntry(DATE_A, USER, -1));
     db.__set("mahjongMonthlyLocks", `${SEASON}_${USER}_2026-07`, {
       seasonId: SEASON,
@@ -283,11 +284,10 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
       eventDate: DATE_A,
     });
     const res = await POST(req({ eventDate: DATE_B }));
-    expect(res.status).toBe(409);
-    expect((await res.json()).monthlyLimit).toBe(true);
+    expect(res.status).toBe(201);
   });
 
-  test("期限内の自分の仮押さえは、当月の別日の参加を塞ぐ（従来どおり 409）", async () => {
+  test("期限内の自分の仮押さえは、月制限停止中は別日も参加できる", async () => {
     db.__set("mahjongEntries", ENTRY_A, pendingEntry(DATE_A, USER, 10));
     db.__set("mahjongMonthlyLocks", `${SEASON}_${USER}_2026-07`, {
       seasonId: SEASON,
@@ -296,8 +296,7 @@ describe("参加する＝お支払いへ進む（POST /api/mahjong/entries）", 
       eventDate: DATE_A,
     });
     const res = await POST(req({ eventDate: DATE_B }));
-    expect(res.status).toBe(409);
-    expect((await res.json()).monthlyLimit).toBe(true);
+    expect(res.status).toBe(201);
   });
 });
 
@@ -498,4 +497,65 @@ describe("未払い（席は持つ・支払い前）の表示と支払い", () =
     expect((await res.json()).full).toBe(true);
     expect(db.__get("mahjongEntries", buildMahjongEntryId(SEASON, DATE_A, "U_new"))).toBeUndefined();
   });
+});
+
+
+describe("開催日別参加費", () => {
+  const FRIDAY = "2026-07-17";
+  test("金曜・旧自動IDの日程料金5000をリンクとentryに使う（日程クエリは1回）", async () => {
+    db.__set("mahjongSchedule", "legacy-friday", { seasonId: SEASON, date: FRIDAY, entryFee: 5000 });
+    const res = await POST(req({ eventDate: FRIDAY }));
+    expect(res.status).toBe(201);
+    expect(createReservationPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ amount: 5000 }));
+    expect(db.__get("mahjongEntries", buildMahjongEntryId(SEASON, FRIDAY, USER))?.paymentAmount).toBe(5000);
+    expect(db.__reads.filter((c) => c === "mahjongSchedule")).toHaveLength(1);
+  });
+  test("日程0件の土曜フォールバックは3000", async () => {
+    db = makeDb(); (getDb as jest.Mock).mockReturnValue(db);
+    expect((await POST(req({ eventDate: DATE_A }))).status).toBe(201);
+    expect(db.__get("mahjongEntries", ENTRY_A)?.paymentAmount).toBe(3000);
+  });
+  test("日程7000へ変更後も期限内PAYは保存URLと5000を維持", async () => {
+    db.__set("mahjongSchedule", `legacy-${DATE_A}`, { seasonId: SEASON, date: DATE_A, entryFee: 7000 });
+    db.__set("mahjongEntries", ENTRY_A, { ...pendingEntry(DATE_A, USER, 10), paymentAmount: 5000, paymentUrl: "https://square.link/original" });
+    const res = await PAY(req({ eventDate: DATE_A }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).paymentUrl).toBe("https://square.link/original");
+    expect(createReservationPaymentLink).not.toHaveBeenCalled();
+    expect(db.__get("mahjongEntries", ENTRY_A)?.paymentAmount).toBe(5000);
+  });
+  test.each([POST, PAY])("期限切れ再発行は保存済み5000を維持", async (post) => {
+    db.__set("mahjongSchedule", `legacy-${DATE_A}`, { seasonId: SEASON, date: DATE_A, entryFee: 7000 });
+    db.__set("mahjongEntries", ENTRY_A, { ...pendingEntry(DATE_A, USER, -1), paymentAmount: 5000 });
+    expect((await post(req({ eventDate: DATE_A }))).status).toBeLessThan(300);
+    expect(createReservationPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ amount: 5000 }));
+    expect(db.__get("mahjongEntries", ENTRY_A)?.paymentAmount).toBe(5000);
+  });
+  test.each([undefined, "5000", 0, -1, 1.5, 100001])("旧entryの無効金額 %s は日程へフォールバック", async (paymentAmount) => {
+    for (const post of [POST, PAY]) {
+      (createReservationPaymentLink as jest.Mock).mockClear();
+      db.__set("mahjongSchedule", `legacy-${DATE_A}`, { seasonId: SEASON, date: DATE_A, entryFee: 7000 });
+      db.__set("mahjongEntries", ENTRY_A, { ...pendingEntry(DATE_A, USER, -1), paymentAmount });
+      expect((await post(req({ eventDate: DATE_A }))).status).toBeLessThan(300);
+      expect(createReservationPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ amount: 7000 }));
+    }
+  });
+});
+
+test("本人の参加一覧は発行済み金額を返す（日程変更後の画面表示用）", async () => {
+  db.__set("mahjongEntries", ENTRY_A, { ...pendingEntry(DATE_A, USER, -1), paymentAmount: 5000 });
+  const body = await (await GET(req(undefined, { mine: "1" }))).json();
+  expect(body.entries[0].paymentAmount).toBe(5000);
+});
+
+test.each(["refunded", "cancelRejected"])("E: %sの再発行は古い保存額でなく現在の日程料金", async (status) => {
+  db.__set("mahjongSchedule", `legacy-${DATE_A}`, { seasonId: SEASON, date: DATE_A, entryFee: 7000 });
+  db.__set("mahjongEntries", ENTRY_A, { ...pendingEntry(DATE_A, USER, -1), status, paymentAmount: 5000 });
+  expect((await PAY(req({ eventDate: DATE_A }))).status).toBe(200);
+  expect(createReservationPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ amount: 7000 }));
+  expect(db.__get("mahjongEntries", ENTRY_A)?.paymentAmount).toBe(7000);
+});
+test("H: 参加POSTは本人DTOに保存額を含める", async () => {
+  db.__set("mahjongSchedule", `legacy-${DATE_A}`, { seasonId: SEASON, date: DATE_A, entryFee: 5000 });
+  expect(await (await POST(req({ eventDate: DATE_A }))).json()).toMatchObject({ entry: { paymentAmount: 5000 } });
 });

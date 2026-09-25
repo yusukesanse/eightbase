@@ -1,5 +1,5 @@
 /**
- * 麻雀の参加費（3,000円）Square 決済リンクの発行。
+ * 麻雀の開催日別参加費の Square 決済リンクの発行。
  *
  * ■ なぜ切り出したか（WP2: 参加＝支払い）
  *   「参加する」＝ そのまま Square のお支払いへ進む に変えたため、リンク発行が
@@ -19,7 +19,6 @@ import { liffUrl } from "@/lib/liffUrl";
 import { gamePaymentReturnPath } from "@/lib/gamePaymentReturn";
 import { isDevLoginEnabled, isProduction } from "@/lib/env";
 import { PENDING_TTL_MIN } from "@/lib/trailerPending";
-import { MAHJONG_ENTRY_FEE } from "@/types";
 
 /** 仮押さえ（pending）としてエントリーに書き込むフィールド一式。 */
 export interface MahjongEntryPaymentFields {
@@ -67,6 +66,7 @@ export interface IssueMahjongEntryPaymentLinkArgs {
   /** 対象エントリーの docRef（決定的ID なので参加表明の前でも作れる）。 */
   entryRef: FirebaseFirestore.DocumentReference;
   entryId: string;
+  amount: number;
   /**
    * 発行したフィールドを entryRef へ merge 保存するか。
    * - pay ルート（既存エントリーの再発行）は true（既定）
@@ -84,6 +84,7 @@ export async function issueMahjongEntryPaymentLink({
   req,
   entryRef,
   entryId,
+  amount,
   persist = true,
 }: IssueMahjongEntryPaymentLinkArgs): Promise<{
   paymentUrl: string;
@@ -98,7 +99,7 @@ export async function issueMahjongEntryPaymentLink({
   let paymentLink: { url: string; orderId: string };
   try {
     paymentLink = await createReservationPaymentLink({
-      amount: MAHJONG_ENTRY_FEE,
+      amount,
       name: "麻雀リーグ参加費",
       redirectUrl,
       purpose: "mahjong",
@@ -115,7 +116,7 @@ export async function issueMahjongEntryPaymentLink({
 
   const fields: MahjongEntryPaymentFields = {
     paymentStatus: "pending",
-    paymentAmount: MAHJONG_ENTRY_FEE,
+    paymentAmount: amount,
     paymentTransactionId: paymentLink.orderId,
     pendingExpiresAt: dayjs().add(PENDING_TTL_MIN, "minute").toISOString(),
     paymentUrl: paymentLink.url,

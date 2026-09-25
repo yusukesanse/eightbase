@@ -93,7 +93,7 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - `POST /api/mahjong/entries`（会員・ゲスト）は **Square リンクを発行して `paymentStatus:"pending"`（15分＝`PENDING_TTL_MIN`）で entry を作り、`paymentUrl` を返す**。
   リンク発行に失敗したら entry を作らない（席だけ押さえて払えない状態を残さない）。staff は従来どおり `status:"paid"`。
   リンク発行と pending 化の実体は `src/lib/mahjongEntryPayment.ts` の1箇所（pay ルートも同じ関数を呼ぶ。**コピーしない**）。
-- **席（定員8名）・月1回制限・参加者一覧は `isActiveMahjongEntry()`（`src/lib/mahjongEntryStatus.ts`）で数える**:
+- **席（定員8名）・参加者一覧（および再有効化時の月1回制限）は `isActiveMahjongEntry()`（`src/lib/mahjongEntryStatus.ts`）で数える**:
   有効＝ `paid` / `reserved`（お支払い確認中・未払い） / `cancelRequested`。`refunded` / `cancelRejected` だけ席を持たない。
   片方だけ別の数え方にすると「画面は満員なのに参加できる」がすぐ起きる。
 - 利用者に見える状態は **未参加 / お支払い確認中（15分） / 未払い / 参加確定** の4つ。参加タブ（`MahjongJoinTab`）は pending 中に
@@ -111,6 +111,20 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - ダーツ／ビリヤード／ポーカーは**未変更**（開始時刻が締切・未払いも名簿に出る）。揃えるなら別途設計。
 - 参加タブの「あなたの参加状況」はカレンダーが表示している月の分だけ出す（`MonthCalendar` の `onMonthChange`）。
 - 回帰テスト: `__tests__/unit/api/mahjongEntryJoinIsPay.test.ts`。
+
+### 麻雀の任意開催日と開催日別参加費（2026-09-25）
+- `mahjongSchedule` のリーグ日程が1件以上あれば、曜日に関係なく登録日を開催日とする。
+  管理の参加者・卓一覧の日付候補は日程と卓が存在する日の和集合。0件のときだけ従来の毎週土曜−休催にフォールバック。
+- 日程の `entryFee` は1〜100,000円の整数。未設定・不正な旧値・日程0件では `MAHJONG_ENTRY_FEE`（3,000円）。
+  旧自動採番IDを含め `where("seasonId", "==", ...)` で解決し、新規参加は開催日と料金を1回のクエリで読む。
+- 管理の単日/一括追加は料金必須。既存リーグ日程docがある日には entryFee を一切書かず、未設定も維持する。料金変更は日程のPATCHのみ。
+  PATCHは既存entriesに触れない。他3種目には料金フィールドを保存・返却しない。
+- 決済発行時の **`entry.paymentAmount` が正**。後から日程料金を変えても既存entryには影響しない。
+  期限内pendingは保存URLを再利用。再発行は席を保持するentryの有効な保存額（1〜100,000円の整数）を優先し、失効済み・保存額不正の場合は日程料金を使う。
+  管理者の支払い済み追加も日程料金を使い、有効な既存のpaymentAmountは保持する。
+- 休催API `POST /api/admin/mahjong/closed-dates` は実在する日付なら任意の曜日を受け付ける。
+- 回帰テスト: `mahjongEntryJoinIsPay.test.ts`、`adminScheduleFees.test.ts`、`mahjongEntryCompleteAmount.test.ts`、
+  `adminMahjongEntryAdd.test.ts`、`adminGamesEntryAdd.test.ts`、`gameEntryFees.test.tsx`。
 
 ### 参加費 Square 決済の戻り先 ← ロールで壊れるので注意（2026-08-03 本番障害）
 **戻り先は必ず `/games`（全ロールが入れる唯一の共通導線）。会員専用ルートにしないこと。**
@@ -180,19 +194,19 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - 入金照合はしない・月ロックは書く・監査 `entry.adminAdded`（`meta.rosterUpdated` 付き）は麻雀と同じ。
 - 回帰テスト: `__tests__/unit/api/adminGamesEntryAdd.test.ts`。
 
-### 「参加は同じ月に1回まで」と、その解除（管理者が特定ユーザーだけ免除）
+### 「参加は同じ月に1回まで」と、その解除（2026-09-25 機能停止）
+- **2026-09-25: `src/lib/monthlyEntryExempt.ts` の `MONTHLY_ENTRY_LIMIT_ENABLED: boolean = false` で4種目共通の月1回制限を停止。**
+  同月の別日にも参加できる。利用者の月1回案内・管理ユーザー詳細の免除操作も非表示。
+  コード・データ・月ロックの読み取り/書き込み/解放・409応答は残置し、**true に戻せば制限・免除・表示がすべて復活する**。
 - 制限の実体は各種目の `POST /api/{game}/entries` と月ロック `{game}MonthlyLocks/{seasonId}_{userId}_{YYYY-MM}`。
-  ロックが指す**別日の entry が実在するときだけ** 409（`monthlyLimit: true`）＝stale ロックは自己回復する。
-- 免除は `authorizedUsers.monthlyEntryExempt`（boolean）。**4種目共通の1フラグ**（`src/lib/monthlyEntryExempt.ts`）。
-  管理画面 → ユーザー詳細 → 「ゲーム参加の月1回制限」で ON/OFF（`PATCH /api/admin/users` に
-  `{ id, monthlyEntryExempt }`。boolean 以外は無視する）。
-- ⚠️ 免除するのは**月1回だけ**。定員・受付締切・参加費・支払い要否は免除しない。
-- ⚠️ **免除ユーザーでも月ロックは今までどおり書く。** 書かないと、免除を後から外したときに
-  その月が無制限のまま残る。ロックは「最後に参加した日」を指すだけで判定には実在確認が入るため壊れない。
-- 判定は必ずサーバー。`GET /api/{game}/entries?mine=1` が返す `monthlyExempt` は
-  **UIの出し分け専用**（麻雀は `mahjongJoinCalendar` の `canJoinDate`／他3種目は案内文のみ）。
-- 回帰テスト: `__tests__/unit/api/gameEntryMonthlyExempt.test.ts`（同月2日目が通る／定員は免除しない／
-  免除を外すと戻る）・`__tests__/unit/lib/monthlyEntryExempt.test.ts`。
+  有効化時は、ロックが指す別日の entry が実在するときだけ409（`monthlyLimit: true`）。stale ロックは自己回復する。
+- 個別免除は `authorizedUsers.monthlyEntryExempt`（boolean）。`isMonthlyEntryExempt` と
+  `PATCH /api/admin/users` の保存処理は変更しない。再有効化時はユーザー詳細で免除を操作できる。
+- 停止中も免除ユーザーと同様に月ロックを書き、最後に参加した日を保持する。
+  定員・受付締切・参加費・支払い要否は従来どおり。
+- `GET /api/{game}/entries?mine=1` の `monthlyExempt` は引き続き返すが、停止中は表示・参加可否を分岐させない。
+- 回帰テスト: `__tests__/unit/api/gameEntryMonthlyExempt.test.ts`（4種目で同月2日目の参加・月ロック維持・定員）、
+  `__tests__/unit/lib/monthlyEntryExempt.test.ts`。
 
 ### 参加受付の締切 ← 種目で違うので注意
 - **麻雀**: 従来どおり **GMが「ゲーム開始」を押した瞬間が締切**（`entryClosedAt`）。

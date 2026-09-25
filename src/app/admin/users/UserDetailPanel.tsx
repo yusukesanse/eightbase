@@ -1,5 +1,7 @@
 "use client";
 
+import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
+
 import dayjs from "dayjs";
 import { ROLE_LABELS, type UserRole } from "@/lib/roles";
 import type { User } from "./types";
@@ -284,6 +286,7 @@ export function UserDetailPanel({
           </div>
 
           {/* ゲーム参加の月1回制限（このユーザーだけ解除できる。4種目共通） */}
+          {MONTHLY_ENTRY_LIMIT_ENABLED && (
           <div className="pt-3">
             <p className="text-xs font-bold text-[#231714]/85 mb-1.5">ゲーム参加の月1回制限</p>
             <button
@@ -301,6 +304,7 @@ export function UserDetailPanel({
               定員・受付締切・参加費は今までどおりです。
             </p>
           </div>
+          )}
 
           {/* 完全削除ボタン */}
           <div className="pt-4 border-t border-[#231714]/5">

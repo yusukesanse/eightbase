@@ -1,3 +1,4 @@
+import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getDayState, isEntryClosed } from "@/lib/mahjongDay";
@@ -10,7 +11,7 @@ import {
   isSaturdayMahjongDate,
   isValidMahjongDate,
 } from "@/lib/mahjongEntryValidation";
-import { listMahjongScheduleDates } from "@/lib/mahjongSchedule";
+import { listMahjongSchedule, isValidMahjongEntryFee, resolveMahjongEntryFee } from "@/lib/mahjongSchedule";
 import { isScheduleDateBlockedInTx } from "@/lib/gameSchedule";
 import {
   MAHJONG_MAX_ENTRIES_PER_DATE,
@@ -86,6 +87,7 @@ export async function GET(req: NextRequest) {
           entryId: e.entryId,
           eventDate: e.eventDate,
           paymentStatus: e.paymentStatus ?? null,
+          paymentAmount: e.paymentAmount,
           pendingExpiresAt: e.pendingExpiresAt ?? null,
           paymentUrl: e.paymentUrl ?? null,
           ...(isUnpaidMahjongEntry(e, now) ? { unpaid: true as const } : {}),
@@ -178,6 +180,7 @@ function ownEntryDto(e: MahjongEntry) {
     status: e.status,
     paymentStatus: e.paymentStatus ?? null,
     pendingExpiresAt: e.pendingExpiresAt ?? null,
+    paymentAmount: e.paymentAmount ?? null,
   };
 }
 
@@ -221,7 +224,7 @@ export async function POST(req: NextRequest) {
 
     // 開催日はスケジュール（mahjongSchedule）が正。未移行シーズンは「毎週土曜 − 休催」にフォールバック。
     // scheduleDriven は下の tx で「削除との競合」を閉じる再確認に使う。
-    const scheduleDates = await listMahjongScheduleDates(season.seasonId);
+    const { dates: scheduleDates, fees: scheduleFees } = await listMahjongSchedule(season.seasonId);
     const scheduleDriven = scheduleDates.size > 0;
     let isEvent = false;
     if (scheduleDriven) {
@@ -286,7 +289,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "この開催日は休催（中止）になりました" }, { status: 409 });
       }
       try {
-        const issued = await issueMahjongEntryPaymentLink({ req, entryRef: ref, entryId });
+        const issued = await issueMahjongEntryPaymentLink({
+          req, entryRef: ref, entryId,
+          amount: isValidMahjongEntryFee(existing.paymentAmount)
+            ? existing.paymentAmount : resolveMahjongEntryFee(scheduleFees, eventDate),
+        });
         return NextResponse.json(
           { entry: ownEntryDto({ ...existing, ...issued.fields }), paymentUrl: issued.paymentUrl },
           { status: 201 }
@@ -322,6 +329,7 @@ export async function POST(req: NextRequest) {
           entryId,
           // pending 化は下のトランザクションで entry と一緒に書く（中途半端な状態を作らない）。
           persist: false,
+          amount: resolveMahjongEntryFee(scheduleFees, eventDate),
         });
         paymentFields = issued.fields;
       } catch (e) {
@@ -374,7 +382,7 @@ export async function POST(req: NextRequest) {
           if (active >= MAHJONG_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         }
         // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
-        if (!heldSeat && lockSnap.exists && !monthlyExempt) {
+        if (MONTHLY_ENTRY_LIMIT_ENABLED && !heldSeat && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             // 別日ロックだが、その予約が実在するときだけ拒否（無ければstale＝上書き許可）。
