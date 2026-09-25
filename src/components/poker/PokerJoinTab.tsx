@@ -123,7 +123,7 @@ export function PokerJoinTab({
     setPayMsg(null);
     try {
       await cancelPokerEntryPayment(date);
-      setPayMsg("返金しました");
+      setPayMsg("キャンセルしました");
       setCancelDate(null);
       onChanged();
     } catch (e) {

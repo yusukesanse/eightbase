@@ -304,7 +304,7 @@ export function JoinTab({
     try {
       const r = await cancelEntryPayment(date);
       if (!r.ok) setMsg(r.message ?? "キャンセルに失敗しました");
-      else setMsg("返金しました");
+      else setMsg("キャンセルしました");
       setCancelDate(null);
       onChanged();
     } finally {

@@ -138,7 +138,7 @@ export function DartsJoinTab({
     setPayMsg(null);
     try {
       await cancelDartsEntryPayment(date);
-      setPayMsg("返金しました");
+      setPayMsg("キャンセルしました");
       setCancelDate(null);
       onChanged();
     } catch (e) {

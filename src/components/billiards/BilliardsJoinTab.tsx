@@ -81,7 +81,7 @@ export function BilliardsJoinTab({
     setBusy(date); setPayMsg(null);
     try {
       await cancelBilliardsEntryPayment(date);
-      setPayMsg("返金しました");
+      setPayMsg("キャンセルしました");
       setCancelDate(null);
       onChanged();
     } catch (e) { setPayMsg(e instanceof Error ? e.message : "キャンセルに失敗しました"); }
