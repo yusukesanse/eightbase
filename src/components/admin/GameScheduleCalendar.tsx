@@ -53,9 +53,11 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   const [bulkFee, setBulkFee] = useState(String(MAHJONG_ENTRY_FEE));
   const validFee = (v: string) => v.trim() !== "" && isValidMahjongEntryFee(Number(v));
   const [dates, setDates] = useState<Set<string>>(new Set());
-  // 日付ごとの開催時刻と、シーズンの既定時刻（イレギュラー日の判別に使う）。
+  // 日付ごとの開催時刻と、登録・個別編集の入力値。
   const [times, setTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
-  const [defaultTimes, setDefaultTimes] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [addTimes, setAddTimes] = useState({ startTime: "", endTime: "" });
+  const [bulkTimes, setBulkTimes] = useState({ startTime: "", endTime: "" });
+  const validTimes = (t: { startTime: string; endTime: string }) => !!t.startTime && !!t.endTime && t.startTime < t.endTime;
   const [timeDraft, setTimeDraft] = useState<{ startTime: string; endTime: string } | null>(null);
   const [timeSaving, setTimeSaving] = useState(false);
   const [closedDates, setClosedDates] = useState<Set<string>>(new Set());
@@ -93,7 +95,6 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
         setDates(new Set<string>(sched.dates ?? []));
         setTimes(sched.times ?? {});
         setEntryFees(sched.entryFees ?? {});
-        setDefaultTimes(sched.startTime ? { startTime: sched.startTime, endTime: sched.endTime } : null);
         setClosedDates(new Set<string>(closed.closedDates ?? []));
       })
       .catch(() => {})
@@ -116,9 +117,9 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   // 選択日の時刻をドラフトに読み込む（保存するまで反映しない）。
   useEffect(() => {
     if (!selected) { setTimeDraft(null); return; }
-    const t = times[selected] ?? defaultTimes;
+    const t = times[selected];
     setTimeDraft(t ? { ...t } : null);
-  }, [selected, times, defaultTimes]);
+  }, [selected, times]);
 
   useEffect(() => {
     setFeeDraft(String(selected ? entryFees[selected] ?? MAHJONG_ENTRY_FEE : MAHJONG_ENTRY_FEE));
@@ -177,6 +178,7 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
 
   function select(date: string) {
     setSelected(date);
+    setAddTimes({ startTime: "", endTime: "" });
     setConfirmClose(false);
     setAddOpen(false);
     setAddQuery("");
@@ -187,16 +189,17 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   }
 
   async function addDate(date: string) {
-    if (isMahjong && !validFee(feeDraft)) return;
+    if (!validTimes(addTimes) || (isMahjong && !validFee(feeDraft))) return;
     setBusy(true); setMsg(null);
     try {
       const res = await fetch("/api/admin/games/schedule", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
-        body: JSON.stringify({ gameCategory, seasonId, date, ...(isMahjong ? { entryFee: Number(feeDraft) } : {}) }),
+        body: JSON.stringify({ gameCategory, seasonId, date, ...addTimes, ...(isMahjong ? { entryFee: Number(feeDraft) } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setMsg({ ok: false, text: data.error ?? "追加に失敗しました" }); return; }
       setDates((prev) => new Set(prev).add(date));
+      setTimes((prev) => ({ ...prev, [date]: { ...addTimes } }));
       if (isMahjong) setEntryFees((prev) => ({ ...prev, [date]: data.entryFee }));
       setClosedDates((prev) => { const n = new Set(prev); n.delete(date); return n; });
       setMsg({ ok: true, text: `${date} を開催日に追加しました` });
@@ -310,13 +313,13 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   }
 
   async function generate() {
-    if (isMahjong && !validFee(bulkFee)) return;
+    if (!validTimes(bulkTimes) || (isMahjong && !validFee(bulkFee))) return;
     if (!rangeStart || !rangeEnd) { setMsg({ ok: false, text: "期間（開始日・終了日）を設定してください" }); return; }
     setBusy(true); setMsg(null);
     try {
       const res = await fetch("/api/admin/games/schedule", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
-        body: JSON.stringify({ gameCategory, seasonId, bulk: true, weekday, intervalWeeks, startDate: rangeStart, endDate: rangeEnd, ...(isMahjong ? { entryFee: Number(bulkFee) } : {}) }),
+        body: JSON.stringify({ gameCategory, seasonId, bulk: true, weekday, intervalWeeks, startDate: rangeStart, endDate: rangeEnd, ...bulkTimes, ...(isMahjong ? { entryFee: Number(bulkFee) } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setMsg({ ok: false, text: data.error ?? "一括投入に失敗しました" }); return; }
@@ -399,10 +402,13 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
               <input type="number" min={1} max={100000} step={1} value={bulkFee} onChange={(e) => setBulkFee(e.target.value)} className={inputClass} />
             </label>
           )}
-          <button onClick={generate} disabled={busy || (isMahjong && !validFee(bulkFee))} className="rounded-xl text-white text-sm font-bold px-4 py-2 disabled:opacity-40" style={{ background: ACCENT }}>
+          <TimePicker value={bulkTimes.startTime} onChange={(v) => setBulkTimes((t) => ({ ...t, startTime: v }))} placeholder="一括登録の開始時刻" />
+          <TimePicker value={bulkTimes.endTime} onChange={(v) => setBulkTimes((t) => ({ ...t, endTime: v }))} placeholder="一括登録の終了時刻" />
+          <button onClick={generate} disabled={busy || !validTimes(bulkTimes) || (isMahjong && !validFee(bulkFee))} className="rounded-xl text-white text-sm font-bold px-4 py-2 disabled:opacity-40" style={{ background: ACCENT }}>
             一括登録
           </button>
         </div>
+        <p className="text-xs text-[#231714]/70">登録済みの日の時刻も上書きされます（明日以降の日のみ。今日と過去の日は変わりません。ダーツ・ビリヤード・ポーカーは開始時刻が参加の受付締切です）</p>
         <p className="text-[11px] text-[#231714]/70">期間はシーズン終了日でクランプされます。個別の追加/削除はカレンダーから。</p>
       </div>
 
@@ -457,8 +463,12 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
               {!selScheduled && (
                 <>
                   <p className="text-sm text-[#231714]/70">この日はまだ開催日ではありません。</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TimePicker value={addTimes.startTime} onChange={(v) => setAddTimes((t) => ({ ...t, startTime: v }))} placeholder="単日追加の開始時刻" />
+                    <TimePicker value={addTimes.endTime} onChange={(v) => setAddTimes((t) => ({ ...t, endTime: v }))} placeholder="単日追加の終了時刻" />
+                  </div>
                   {!selPast && (
-                    <button onClick={() => addDate(selected)} disabled={busy || (isMahjong && !validFee(feeDraft))} className="rounded-xl text-white text-sm font-bold px-4 py-2.5 disabled:opacity-40" style={{ background: ACCENT }}>
+                    <button onClick={() => addDate(selected)} disabled={busy || !validTimes(addTimes) || (isMahjong && !validFee(feeDraft))} className="rounded-xl text-white text-sm font-bold px-4 py-2.5 disabled:opacity-40" style={{ background: ACCENT }}>
                       この日を開催日にする
                     </button>
                   )}
@@ -468,16 +478,10 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
               {/* 開催日: 時刻 ＋ 参加者 ＋ 休催/削除 */}
               {selScheduled && (
                 <>
-                  {/* 開催時刻（この日だけの上書き）。既定値はシーズン編集の「開催の既定時刻」。 */}
+                  {/* 開催時刻（この日だけの上書き）。 */}
                   <div className="rounded-xl border border-gray-100 p-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="text-xs font-bold text-[#231714]/70">開催時刻</div>
-                      {defaultTimes && timeDraft &&
-                        (timeDraft.startTime !== defaultTimes.startTime || timeDraft.endTime !== defaultTimes.endTime) && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#fff6e5", color: "#a1702c" }}>
-                            既定と異なる
-                          </span>
-                        )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <TimePicker
@@ -500,15 +504,6 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
                       >
                         {timeSaving ? "保存中…" : "この日の時刻を保存"}
                       </button>
-                      {defaultTimes && (
-                        <button
-                          onClick={() => setTimeDraft({ ...defaultTimes })}
-                          disabled={timeSaving}
-                          className="rounded-lg text-xs font-bold px-3 py-1.5 border border-gray-200 text-[#231714]/70 disabled:opacity-40"
-                        >
-                          既定に戻す（{defaultTimes.startTime}〜{defaultTimes.endTime}）
-                        </button>
-                      )}
                     </div>
                   </div>
 

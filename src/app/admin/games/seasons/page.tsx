@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Season, ScoreboardGameId } from "@/types";
 import DatePicker from "@/components/ui/DatePicker";
-import TimePicker from "@/components/ui/TimePicker";
 import { TermsEditor } from "@/app/admin/calendars/TermsEditor";
 
 /* ───────── 定数 ───────── */
@@ -34,9 +33,6 @@ const EMPTY_FORM = {
   startDate: "",
   endDate: "",
   rankingMetric: "average" as "average" | "total",
-  // 開催の既定時刻（日程追加時の初期値。空=種目のコード既定値）
-  defaultStartTime: "",
-  defaultEndTime: "",
   gameMasterIds: [] as string[], // ゲームマスター（当日進行の担当）。空=GM未設定＝当日「ゲーム開始」で受付を締め切れず開始不可
   mahjongAllowByeSeats: false, // 抜け番許容。false=8名で締切 / true=8名以上の予約可
   rulesMarkdown: "", // ルール（Markdown）。利用者アプリの「ルール/約款」タブに表示
@@ -123,8 +119,6 @@ export default function SeasonsPage() {
       startDate: s.startDate,
       endDate: s.endDate,
       rankingMetric: s.rankingMetric === "total" ? "total" : "average",
-      defaultStartTime: s.defaultStartTime ?? "",
-      defaultEndTime: s.defaultEndTime ?? "",
       gameMasterIds: s.gameMasterIds ?? [],
       mahjongAllowByeSeats: s.mahjongAllowByeSeats ?? false,
       rulesMarkdown: s.rulesMarkdown ?? "",
@@ -163,8 +157,6 @@ export default function SeasonsPage() {
         startDate: form.startDate,
         endDate: form.endDate,
         rankingMetric: form.rankingMetric,
-        defaultStartTime: form.defaultStartTime,
-        defaultEndTime: form.defaultEndTime,
         gameMasterIds: form.gameMasterIds,
         mahjongAllowByeSeats: form.mahjongAllowByeSeats,
         rulesMarkdown: form.rulesMarkdown,
@@ -432,32 +424,6 @@ export default function SeasonsPage() {
                     required
                   />
                 </div>
-              </div>
-
-              {/* 開催の既定時刻（日程追加時の初期値。個別の開催日は日程カレンダーで上書きできる） */}
-              <div>
-                <label className={labelClass}>開催の既定時刻</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <TimePicker
-                    value={form.defaultStartTime}
-                    onChange={(v) => setForm({ ...form, defaultStartTime: v })}
-                    placeholder="開始時刻"
-                  />
-                  <TimePicker
-                    value={form.defaultEndTime}
-                    onChange={(v) => setForm({ ...form, defaultEndTime: v })}
-                    placeholder="終了時刻"
-                  />
-                </div>
-                <p className="text-xs text-gray-700 mt-1">
-                  保存すると<b>今後の開催日にも反映</b>されます（「日程」カレンダーで個別に変更した日は保護され、そのまま）。
-                  <b>イレギュラーな日だけ「日程」カレンダーで個別に変更</b>できます。未入力なら種目の既定値を使います。
-                </p>
-                <p className="text-xs mt-1" style={{ color: form.gameCategory === "mahjong" ? "#6b7280" : "#a1702c" }}>
-                  {form.gameCategory === "mahjong"
-                    ? "麻雀は受付締切をGMの「ゲーム開始」で行うため、この時刻は表示・目安です（締切には影響しません）。"
-                    : "この種目はGMを事前に決めないため、開始時刻が**参加受付の締切**になります。利用者には「開始時刻までに支払う」よう案内されます。"}
-                </p>
               </div>
 
               {/* 麻雀: 順位方式（アベレージ / 合計点） */}

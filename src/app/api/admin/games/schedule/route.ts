@@ -6,6 +6,7 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { generateRecurringDates } from "@/lib/scheduleRecurrence";
 import { GAME_SCHEDULE_CFG, buildGameScheduleId, deleteGameScheduleDate, addGameScheduleDate, scheduleLockRef, type ScheduleGame } from "@/lib/gameSchedule";
 import { isValidHhMm } from "@/lib/scoreboardSeason";
+import { todayJst } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -84,21 +85,21 @@ export async function POST(req: NextRequest) {
   if (game === "mahjong" && !isValidMahjongEntryFee(body?.entryFee)) {
     return NextResponse.json({ error: "参加費は1〜100000円の整数で指定してください" }, { status: 400 });
   }
+  if (!isValidHhMm(body?.startTime) || !isValidHhMm(body?.endTime)) {
+    return NextResponse.json({ error: "時刻は HH:MM 形式で入力してください" }, { status: 400 });
+  }
+  if (body.startTime >= body.endTime) {
+    return NextResponse.json({ error: "終了時刻は開始時刻より後にしてください" }, { status: 400 });
+  }
   const db = getDb();
   const cfg = CFG[game];
   const now = new Date().toISOString();
-  // 開催時刻はシーズンの既定値を優先（未設定は種目のコード既定値）。
-  const seasonDoc = (await db.collection("seasons").doc(seasonId).get()).data() as
-    | { defaultStartTime?: string; defaultEndTime?: string }
-    | undefined;
-  const defStart = seasonDoc?.defaultStartTime || cfg.start;
-  const defEnd = seasonDoc?.defaultEndTime || cfg.end;
   const makeDoc = (date: string) => ({
     scheduleId: schedId(seasonId, date),
     seasonId,
     date,
-    startTime: defStart,
-    endTime: defEnd,
+    startTime: body.startTime,
+    endTime: body.endTime,
     createdAt: now,
     ...(cfg.extra ?? {}),
     ...(game === "mahjong" ? { entryFee: body.entryFee as number } : {}),
@@ -127,15 +128,10 @@ export async function POST(req: NextRequest) {
     const dates = generateRecurringDates({ weekday, intervalWeeks, startDate: start, endDate: end });
     // 1日 = set(schedule)+delete(lock) の2書き込み。Firestore の batch 上限(500 write)を
     // 超えないよう 200日単位（=400 write）で分割コミットする（長期間×毎週でも失敗させない）。
-    // 既存日の「日付ごとに変更した時刻」（timeOverridden）は巻き戻さない。
-    // 一括投入は「開催日を作る」操作であって、設定済みの時刻を上書きする操作ではない。
+    // 登録済みの日の時刻は明日以降だけ上書きする。参加費は既存値を維持する。
     const existingSnap = await db.collection(cfg.col).where("seasonId", "==", seasonId).get();
-    const overridden = new Set<string>(
-      existingSnap.docs
-        .map((d) => d.data() as { date?: string; timeOverridden?: boolean })
-        .filter((x) => x.timeOverridden === true && x.date)
-        .map((x) => x.date as string)
-    );
+    const scheduledDates = new Set(existingSnap.docs.map((d) => d.data().date));
+    const today = todayJst();
     // 一括投入は開催日を作る操作。設定済み料金の変更は PATCH だけで行う。
     const existingDates = new Set<string>();
     if (game === "mahjong") for (const d of existingSnap.docs) {
@@ -148,13 +144,11 @@ export async function POST(req: NextRequest) {
       for (const date of dates.slice(i, i + CHUNK)) {
         const doc = makeDoc(date);
         if (existingDates.has(date)) delete doc.entryFee;
-        if (overridden.has(date)) {
-          // 個別変更済みの日は時刻を触らない（他フィールドだけ揃える）。
-          const { startTime: _s, endTime: _e, ...rest } = doc;
-          batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), rest, { merge: true });
-        } else {
-          batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), doc, { merge: true });
+        if (scheduledDates.has(date) && date <= today) {
+          delete doc.startTime;
+          delete doc.endTime;
         }
+        batch.set(db.collection(cfg.col).doc(schedId(seasonId, date)), doc, { merge: true });
         batch.delete(scheduleLockRef(db, game, seasonId, date)); // 削除トゥームストーンを解除（再追加で受付再開）
       }
       await batch.commit();
@@ -185,7 +179,7 @@ export async function POST(req: NextRequest) {
       tx.delete(lock);
     });
   } else {
-    await addGameScheduleDate(db, game, seasonId, date, { startTime: defStart, endTime: defEnd });
+    await addGameScheduleDate(db, game, seasonId, date, { startTime: body.startTime, endTime: body.endTime });
   }
   if (game === "mahjong") {
     // 土曜を開催に戻したときに旧「休催」doc が残っていると弾かれるため解除（best-effort）。
