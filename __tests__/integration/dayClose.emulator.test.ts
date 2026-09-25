@@ -17,6 +17,9 @@ jest.mock("@/lib/auditLog", () => ({ writeAuditLog: jest.fn().mockResolvedValue(
 jest.mock("@/lib/line", () => ({ sendMahjongForfeitNotice: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/adminNotify", () => ({ notifyAdmin: jest.fn().mockResolvedValue(undefined) }));
 
+jest.mock("@/lib/square", () => ({ ...jest.requireActual("@/lib/square"), refundSquarePayment: jest.fn() }));
+import { refundSquarePayment } from "@/lib/square";
+
 import { initializeApp, getApps, deleteApp, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { NextRequest } from "next/server";
@@ -28,6 +31,9 @@ let db: Firestore;
 let seq = 0;
 const freshSeason = () => `emu-close-s${++seq}-${process.pid}`;
 const DATE = "2026-07-18";
+
+beforeEach(() => { (refundSquarePayment as jest.Mock).mockClear(); });
+afterEach(() => { expect(refundSquarePayment).not.toHaveBeenCalled(); });
 
 beforeAll(async () => {
   const projectId = process.env.GCLOUD_PROJECT || "eightbase-emulator-test";

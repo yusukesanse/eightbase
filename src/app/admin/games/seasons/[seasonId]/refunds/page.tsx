@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import type { Season } from "@/types";
+import GameFailedRefundsPanel from "@/components/admin/GameFailedRefundsPanel";
 import GameRefundsPanel from "@/components/admin/GameRefundsPanel";
 import GameUnconfirmedPaymentsPanel from "@/components/admin/GameUnconfirmedPaymentsPanel";
 
 /**
  * 参加費・返金タブ（種目で分岐・全シーズン横断表示）。4種目で共通パネルを使う。
  * 上段=入金確認待ち（課金済みなのに未払いのまま残ったものを支払い済みに戻す）、
- * 下段=返金対応（キャンセル依頼の処理）。
+ * 中段=自動返金失敗のSquare照合・記録、下段=返金対応（キャンセル依頼の処理）。
  */
 export default function SeasonRefundsPage() {
   const { seasonId } = useParams<{ seasonId: string }>();
@@ -32,6 +33,7 @@ export default function SeasonRefundsPage() {
   return (
     <div>
       <GameUnconfirmedPaymentsPanel gameCategory={category} />
+      <GameFailedRefundsPanel gameCategory={category} />
       <GameRefundsPanel gameCategory={category} />
     </div>
   );

@@ -45,7 +45,7 @@ export async function completeEntryPayment(
   }
 }
 
-/** 支払い済み参加費のキャンセル依頼（自動返金なし・管理者へ手動返金通知）。 */
+/** 支払い済み参加費のキャンセル（Squareへ全額自動返金）。 */
 export async function cancelEntryPayment(
   eventDate: string
 ): Promise<{ ok: boolean; message?: string }> {

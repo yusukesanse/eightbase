@@ -27,6 +27,7 @@ export async function completePokerEntryPayment(rid: string): Promise<{ paid: bo
   return data;
 }
 
+/** 支払い済み参加費のキャンセル（Squareへ全額自動返金）。 */
 export async function cancelPokerEntryPayment(eventDate: string): Promise<{ success: boolean }> {
   const res = await fetch("/api/poker/entries/cancel-payment", {
     method: "POST",

@@ -11,6 +11,9 @@ import { getDb } from "@/lib/firebaseAdmin";
 export type AuditGameCategory = "mahjong" | "darts" | "billiards" | "poker";
 
 export type AuditEventType =
+  | "entry.autoRefunded" // 本人の期日前キャンセルをSquareで自動返金
+  | "entry.refundSynced" // 管理者がSquare照合のうえ自動返金失敗entryを返金済みに記録
+  | "entry.autoRefundFailed" // 自動返金失敗（entryは変更せず管理者へ通知）
   | "payment.cancelRequested" // 支払い済みのキャンセル依頼（利用者）
   | "payment.markedPaid" // 入金済みなのに未払いのまま残ったエントリーを管理者が支払い済みに戻した
   | "entry.adminAdded" // 管理者が参加者を追加（既定は「支払い済み」扱い。Square照合なしなので実行者を必ず残す）

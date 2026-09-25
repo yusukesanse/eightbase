@@ -151,6 +151,7 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 #### 取りこぼしの復旧（管理画面「参加費・返金」タブ → 入金確認待ち）
 課金は成立しているのに未払いのまま残ったエントリーを、管理者が支払い済みに戻せる。
 上記障害の復旧用に作ったが、通常運用の取りこぼしの受け皿でもある。
+- 管理者が却下（cancelRejected）した依頼も、期限内なら本人が再度キャンセルして自動返金できる（意図した仕様。却下は「参加を続ける」意思表示ではなく、単に自動返金ができなかった／保留にしたという記録に過ぎないため）。
 - 実体は `src/lib/gameEntryPayment.ts`（4種目共通）。API は `/api/admin/games/payments`
   （GET=候補一覧 / POST=確定）。**種目別に4本コピーしない**（同じ処理の分散が今回の事故の温床）。
 - ⚠️ **必ず `verifySquareOrderPayment()` で入金を照合してから paid にする。**
@@ -162,6 +163,27 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - 監査ログ `payment.markedPaid` に実行者・注文ID・決済IDを残す。
 - 回帰テスト: `__tests__/unit/lib/gameEntryPayment.test.ts`（未入金は paid にしない／
   返金済み注文は拒否／当日名簿へ反映／冪等）。
+
+
+#### 参加費の期日前キャンセルは Square 自動返金（2026-09-25・例外は本人操作のみ）
+4種目の `POST /api/{game}/entries/cancel-payment`（本人・支払い済み・開催日の前日まで）だけが
+Square の返金 API を呼ぶ。利用者操作で全額返金し、entry を `refunded` にするための例外。
+- 実体は `src/lib/gameEntryPayment.ts` の `cancelPaidGameEntryWithRefund()`。**4種目でコピーしない**。
+- 流会・施設予約・管理者の返金記録・入金確認待ちの取りこぼしは、従来どおり Firestore の状態だけを書き換える。
+  実返金が必要な場合は Square へ手動でログインして返金する。
+- Square の返金呼び出しが失敗（例外・REJECTED・FAILED）し、既に全額返金済みとも確認できなければ、
+  entry は `paid` のまま一切書き換えない（`cancelRejected` からの再依頼も元の状態を保持）。
+  利用者へ 502 を返し、管理者へ通知する。成功時は管理者通知を出さない。
+- idempotency key は `gr_` + `sha256(game:entryId:orderId)` の先頭40文字。
+  同じ entry・同じ注文への再実行は必ず同じキーで、Square 側の二重返金を防ぐ。
+- `canTransition` の遷移表は変更しない。`paid→refunded` は表に無いため、
+  この関数は `deriveStatus` を明示チェックしてから書き込む、状態機械を経由しない例外的な書き込み。
+- PENDING / COMPLETED の受付、または既存の全額返金を確認したら `refunded` を反映する。
+  `paymentStatus` は `cancelRequested` に揃え、月ロックは元の開催日と一致するときだけ解放する。
+- 返金済みかどうかの判定は必ず `deriveStatus` で行う。`paymentStatus` を直接見ない
+  （ダーツ/ビリヤード/ポーカーの `paymentStatus` は返金後も `cancelRequested` のまま残るため）。
+- 返金済みの entry へ再度参加表明すると、新規の参加として扱われる（定員・月1回を再判定し、
+  前回サイクルの決済フィールドは消える）。
 
 #### 管理者が参加者を「支払い済み」で追加する（麻雀・2026-08-22）
 参加費を受け取り済みの人を、管理画面から**その開催日の参加者（支払い済み）として足せる**。
@@ -613,6 +635,8 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
   そのため `POST /api/admin/reservations/[id]/refund` を追加し、請求管理から記録できるようにした。
   - ⚠️ **Square の返金操作自体はアプリからは行わない**（4種目と同じ「実返金は Square 管理画面で手動・アプリは記録」方式）。
     実返金APIを足すなら**予約と4種目を一緒に設計する**こと。片側だけ増やすと運用が食い違う。
+    ※ 2026-09-25 に例外として4種目の本人による期日前キャンセルだけ自動返金にした
+    （`cancelPaidGameEntryWithRefund`）。予約・流会・期限後・入金確認待ちは変えていない。
   - ⚠️ **記録前に Square の `refundedMoney` で返金を照合する**（`evaluateSquareRefund()`）。
     確認できなければ 409 `REFUND_NOT_FOUND`。現金対応など例外は `force: true` でのみ記録し、
     予約に `refundVerified: false` を残す（あとから「照合できていない記録」を洗い出せるように）。

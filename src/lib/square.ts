@@ -145,6 +145,8 @@ export async function getSquarePayment(
   return response.payment;
 }
 
+export const SQUARE_CURRENCY = "JPY" as const;
+
 /**
  * 取得済みの payment が「完了済み・金額一致・JPY」かを検証する純粋関数（テスト容易化）。
  * @throws 不一致時にエラー
@@ -170,7 +172,7 @@ export function assertSquarePaymentValid(
     throw new Error("決済金額が予約金額と一致しません");
   }
   const currency = payment.amountMoney?.currency;
-  if (currency && currency !== "JPY") {
+  if (currency && currency !== SQUARE_CURRENCY) {
     throw new Error("決済通貨が不正です");
   }
 }
@@ -273,7 +275,7 @@ export async function createReservationPaymentLink({
     idempotencyKey: randomUUID(),
     quickPay: {
       name,
-      priceMoney: { amount: BigInt(amount), currency: "JPY" },
+      priceMoney: { amount: BigInt(amount), currency: SQUARE_CURRENCY },
       locationId: credentials ? credentials.locationId : getSquareLocationId(purpose),
     },
     checkoutOptions: { redirectUrl },
@@ -283,4 +285,26 @@ export async function createReservationPaymentLink({
     throw new Error("決済リンクの生成に失敗しました");
   }
   return { url: link.url, orderId: link.orderId };
+}
+
+/** 本人キャンセル用の全額返金。受付状態の判定と例外処理は呼び出し元が行う。 */
+export async function refundSquarePayment({
+  paymentId, amount, idempotencyKey, purpose, reason,
+}: {
+  paymentId: string;
+  amount: number;
+  idempotencyKey: string;
+  purpose: SquarePurpose;
+  reason?: string;
+}): Promise<{ refundId: string; status: string }> {
+  const client = getSquareClient(purpose);
+  const res = await client.refunds.refundPayment({
+    idempotencyKey,
+    paymentId,
+    amountMoney: { amount: BigInt(amount), currency: SQUARE_CURRENCY },
+    reason,
+  });
+  const refund = res.refund;
+  if (!refund?.id) throw new Error("返金の作成に失敗しました");
+  return { refundId: refund.id, status: refund.status ?? "UNKNOWN" };
 }

@@ -48,10 +48,10 @@ export function daysUntil(eventDate: string, today: string = todayJst()): number
   return Math.round((target - start) / 86400000);
 }
 
-/** 麻雀参加費のキャンセル期限（7日前まで可・6日前以降は返金不可）。 */
-export const MAHJONG_CANCEL_DEADLINE_DAYS = 7;
+/** 麻雀参加費のキャンセル期限（前日まで可・当日以降は返金不可）。 */
+export const MAHJONG_CANCEL_DEADLINE_DAYS = 1;
 /** 全画面/APIで共通のキャンセル規定文言。 */
-export const MAHJONG_CANCEL_POLICY = `キャンセルは開催日の${MAHJONG_CANCEL_DEADLINE_DAYS}日前まで可能です（6日前以降は返金できません）。`;
+export const MAHJONG_CANCEL_POLICY = `キャンセルは開催日の前日まで可能です（当日は返金できません）。`;
 export function canCancelMahjong(eventDate: string, today: string = todayJst()): boolean {
   return daysUntil(eventDate, today) >= MAHJONG_CANCEL_DEADLINE_DAYS;
 }

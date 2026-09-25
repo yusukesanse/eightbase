@@ -1,3 +1,5 @@
+import { STALE_REFUND_FIELDS } from "@/lib/gameEntryPayment";
+import { FieldValue } from "firebase-admin/firestore";
 import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
 import { NextRequest, NextResponse } from "next/server";
 import { isEntryClosedByTime, ENTRY_DEADLINE_PASSED_MESSAGE } from "@/lib/entryDeadline";
@@ -50,6 +52,7 @@ export async function GET(req: NextRequest) {
         .get();
       const my = snap.docs
         .map((d) => d.data() as PokerEntry)
+        .filter((e) => deriveStatus(e) !== "refunded")
         .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
       return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }
@@ -69,7 +72,8 @@ export async function GET(req: NextRequest) {
       .get();
     const rawEntries = snap.docs
       .map((d) => ({ ...(d.data() as PokerEntry), entryId: d.id }))
-      .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt));
+      .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
+      .filter((e) => deriveStatus(e) !== "refunded");
 
     const myEntry = rawEntries.find((e) => e.lineUserId === userId);
     const full = rawEntries.length >= POKER_MAX_ENTRIES_PER_DATE;
@@ -154,16 +158,18 @@ export async function POST(req: NextRequest) {
         if (daySnap.data()?.entryClosedAt) throw new Error("ENTRY_CLOSED");
         const lockSnap = await tx.get(lockRef);
         const entrySnap = await tx.get(ref);
-        if (!entrySnap.exists) {
+        const heldSeat = entrySnap.exists && deriveStatus(entrySnap.data() as PokerEntry) !== "refunded";
+        if (!heldSeat) {
           // 開催日の削除（scheduleLocks の blocked）と直列化＝ID指定の読み取りで競合検知。
           if (await isScheduleDateBlockedInTx(tx, db, "poker", season.seasonId, eventDate)) throw new Error("NOT_SCHEDULED");
           const dateSnap = await tx.get(
             db.collection("pokerEntries").where("seasonId", "==", season.seasonId).where("eventDate", "==", eventDate)
           );
-          if (dateSnap.size >= POKER_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
+          const active = dateSnap.docs.filter((d) => d.id !== entryId && deriveStatus(d.data() as PokerEntry) !== "refunded").length;
+          if (active >= POKER_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         }
         // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
-        if (MONTHLY_ENTRY_LIMIT_ENABLED && !entrySnap.exists && lockSnap.exists && !monthlyExempt) {
+        if (MONTHLY_ENTRY_LIMIT_ENABLED && !heldSeat && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;
           if (lockedDate && lockedDate !== eventDate) {
             const otherRef = db.collection("pokerEntries").doc(buildPokerEntryId(season.seasonId, lockedDate, userId));
@@ -172,7 +178,10 @@ export async function POST(req: NextRequest) {
           }
         }
         tx.set(lockRef, { seasonId: season.seasonId, lineUserId: userId, ym, eventDate, updatedAt: new Date().toISOString() });
-        tx.set(ref, entry, { merge: true });
+        const clears = entrySnap.exists && !heldSeat
+          ? Object.fromEntries(STALE_REFUND_FIELDS.map((field) => [field, FieldValue.delete()]))
+          : {};
+        tx.set(ref, { ...clears, ...entry }, { merge: true });
       });
     } catch (e) {
       if (e instanceof Error && e.message === "ENTRY_CLOSED") {

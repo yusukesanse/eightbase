@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
         .get();
       const my = snap.docs
         .map((d) => d.data() as DartsEntry)
+        .filter((e) => deriveStatus(e) !== "refunded")
         .map((e) => ({ eventDate: e.eventDate, paymentStatus: e.paymentStatus ?? null }));
       return NextResponse.json({ entries: my, paymentRequired, monthlyExempt });
     }
@@ -80,7 +81,8 @@ export async function GET(req: NextRequest) {
 
     const rawEntries = snap.docs
       .map((d) => ({ ...(d.data() as DartsEntry), entryId: d.id }))
-      .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt));
+      .sort((a, b) => a.enteredAt.localeCompare(b.enteredAt))
+      .filter((e) => deriveStatus(e) !== "refunded");
 
     const myEntry = rawEntries.find((e) => e.lineUserId === userId);
     const full = rawEntries.length >= DARTS_MAX_ENTRIES_PER_DATE;
@@ -189,13 +191,16 @@ export async function POST(req: NextRequest) {
         // 開催日の削除（scheduleLocks の blocked）と直列化＝ID指定の読み取りで競合検知。
         const scheduleBlocked = await isScheduleDateBlockedInTx(tx, db, "darts", season.seasonId, eventDate);
 
-        // 既存 entry がある＝冪等成功。paid/cancelRequested/refunded などを reserved へ戻さず、
+        // 席を保持中の entry は冪等成功。paid/cancelRequested などを reserved へ戻さず、
         // enteredAt も上書きしない（再POSTで状態を壊さない）。
         if (entrySnap.exists) {
           const cur = entrySnap.data() as DartsEntry;
           if (cur.lineUserId !== userId || cur.seasonId !== season.seasonId || cur.eventDate !== eventDate) {
             throw new Error("MISMATCH");
           }
+        }
+        const heldSeat = entrySnap.exists && deriveStatus(entrySnap.data() as DartsEntry) !== "refunded";
+        if (heldSeat) {
           // 月ロックが欠落しているときだけ、既存 entry と整合するロックを復元（既存ロックは触らない）。
           if (!lockSnap.exists) {
             tx.set(lockRef, { seasonId: season.seasonId, lineUserId: userId, ym, eventDate, updatedAt: new Date().toISOString() });
@@ -215,7 +220,8 @@ export async function POST(req: NextRequest) {
             .where("seasonId", "==", season.seasonId)
             .where("eventDate", "==", eventDate)
         );
-        if (dateSnap.size >= DARTS_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
+        const active = dateSnap.docs.filter((d) => d.id !== entryId && deriveStatus(d.data() as DartsEntry) !== "refunded").length;
+        if (active >= DARTS_MAX_ENTRIES_PER_DATE) throw new Error("FULL");
         // 月1回の判定（免除ユーザーはスキップ。ロック自体は下で今までどおり書く）。
         if (MONTHLY_ENTRY_LIMIT_ENABLED && lockSnap.exists && !monthlyExempt) {
           const lockedDate = lockSnap.data()?.eventDate as string | undefined;

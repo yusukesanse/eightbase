@@ -1,21 +1,15 @@
+import { cancelPaidGameEntryWithRefund } from "@/lib/gameEntryPayment";
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUserWithRole } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { notifyAdmin } from "@/lib/adminNotify";
-import { canCancelMahjong, MAHJONG_CANCEL_POLICY } from "@/lib/date";
-import { canTransition, deriveStatus } from "@/lib/billiardsEntryStatus";
-import { writeAuditLog } from "@/lib/auditLog";
+import { MAHJONG_CANCEL_POLICY } from "@/lib/date";
 import { isValidBilliardsDate, buildBilliardsEntryId } from "@/lib/billiardsEntryValidation";
-import type { BilliardsEntry } from "@/types/billiards";
-import dayjs from "dayjs";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/billiards/entries/cancel-payment  Body: { eventDate }
- * 支払い済み参加費のキャンセル依頼。**自動返金はしない**。cancelRequested にし管理者へ手動返金通知。
- * キャンセル期限は開催日の7日前まで（麻雀/ダーツと共通）。
+ * 支払い済み参加費をSquareへ全額自動返金。期限は開催日の前日まで。
  */
 export async function POST(req: NextRequest) {
   try {
@@ -32,48 +26,24 @@ export async function POST(req: NextRequest) {
     const season = await getActiveSeason("billiards");
     if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
 
-    const db = getDb();
     const entryId = buildBilliardsEntryId(season.seasonId, eventDate, userId);
-    const entryRef = db.collection("billiardsEntries").doc(entryId);
-    const snap = await entryRef.get();
-    if (!snap.exists) return NextResponse.json({ error: "参加表明が見つかりません" }, { status: 404 });
-    const entry = { ...(snap.data() as BilliardsEntry), entryId };
-    if (entry.lineUserId !== userId) {
-      return NextResponse.json({ error: "NOT_OWNER", message: "対象の参加表明が見つかりません。" }, { status: 400 });
+    const result = await cancelPaidGameEntryWithRefund("billiards", entryId, userId);
+    switch (result.kind) {
+      case "NOT_FOUND":
+        return NextResponse.json({ error: "参加表明が見つかりません" }, { status: 404 });
+      case "NOT_OWNER":
+        return NextResponse.json({ error: "NOT_OWNER", message: "対象の参加表明が見つかりません。" }, { status: 400 });
+      case "NOT_PAID":
+        return NextResponse.json({ error: "NOT_PAID", message: "お支払い済みの参加費のみキャンセルできます。" }, { status: 400 });
+      case "DEADLINE_PASSED":
+        return NextResponse.json({ error: "DEADLINE_PASSED", message: MAHJONG_CANCEL_POLICY }, { status: 409 });
+      case "INVALID_TRANSITION":
+        return NextResponse.json({ error: "INVALID_TRANSITION", message: "現在の状態ではキャンセルできません。" }, { status: 409 });
+      case "REFUND_FAILED":
+        return NextResponse.json({ error: "REFUND_FAILED", message: result.message }, { status: 502 });
+      case "OK":
+        return NextResponse.json({ success: true });
     }
-    if (entry.paymentStatus !== "paid") {
-      return NextResponse.json({ error: "NOT_PAID", message: "お支払い済みの参加費のみキャンセルできます。" }, { status: 400 });
-    }
-    if (!canCancelMahjong(eventDate)) {
-      return NextResponse.json({ error: "DEADLINE_PASSED", message: MAHJONG_CANCEL_POLICY }, { status: 409 });
-    }
-    const from = deriveStatus(entry);
-    if (!canTransition(from, "cancelRequested")) {
-      return NextResponse.json({ error: "INVALID_TRANSITION", message: "現在の状態ではキャンセルできません。" }, { status: 409 });
-    }
-
-    const nowIso = dayjs().toISOString();
-    await entryRef.set(
-      { status: "cancelRequested", paymentStatus: "cancelRequested", cancelRequestedAt: nowIso, updatedAt: nowIso },
-      { merge: true }
-    );
-
-    await writeAuditLog({
-      eventType: "payment.cancelRequested",
-      gameCategory: "billiards",
-      actor: userId,
-      target: { entryId, date: eventDate },
-      beforeStatus: from,
-      afterStatus: "cancelRequested",
-    });
-
-    await notifyAdmin(
-      "billiards_refund",
-      `参加費のキャンセル依頼がありました。Squareで返金対応をお願いします（${entry.displayName} / エントリー ${entryId} / 注文 ${entry.paymentTransactionId ?? "-"}）。`,
-      { entryId, orderId: entry.paymentTransactionId ?? null, lineUserId: userId, eventDate }
-    );
-
-    return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[billiards/entries/cancel-payment] POST error:", message, err);

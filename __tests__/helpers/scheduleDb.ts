@@ -1,3 +1,4 @@
+import { FieldValue } from "firebase-admin/firestore";
 type Data = Record<string, unknown>;
 
 /** トランザクション（tx.get で docRef と where クエリの両方を扱う）に対応する簡易 Firestore。 */
@@ -63,7 +64,14 @@ export function makeDb() {
       deletes.forEach((ref) => col(ref.__c).delete(ref.id));
       // 例外が出たら writes は捨てる＝ロールバック相当。
       writes.forEach(([c, id, d, merge]) => {
-        col(c).set(id, merge ? { ...(col(c).get(id) ?? {}), ...d } : { ...d });
+        const saved = merge ? { ...(col(c).get(id) ?? {}), ...d } : { ...d };
+        for (const [field, value] of Object.entries(d)) {
+          if (value instanceof FieldValue && value.isEqual(FieldValue.delete())) {
+            if (!merge) throw new Error("FieldValue.delete requires merge");
+            delete saved[field];
+          }
+        }
+        col(c).set(id, saved);
       });
     },
     __set: (c: string, id: string, d: Data) => col(c).set(id, d),

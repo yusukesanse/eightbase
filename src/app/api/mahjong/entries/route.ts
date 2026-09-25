@@ -1,3 +1,5 @@
+import { STALE_REFUND_FIELDS } from "@/lib/gameEntryPayment";
+import { FieldValue } from "firebase-admin/firestore";
 import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
@@ -399,7 +401,10 @@ export async function POST(req: NextRequest) {
         }
         tx.set(lockRef, { seasonId: season.seasonId, lineUserId: userId, ym, eventDate, updatedAt: new Date().toISOString() });
         // 参加表明と仮押さえ（pending・注文ID・決済URL・失効時刻）を1回で書く。
-        tx.set(ref, { ...entry, ...(paymentFields ?? {}) }, { merge: true });
+        const clears = entrySnap.exists && !heldSeat
+          ? Object.fromEntries(STALE_REFUND_FIELDS.map((field) => [field, FieldValue.delete()]))
+          : {};
+        tx.set(ref, { ...clears, ...entry, ...(paymentFields ?? {}) }, { merge: true });
       });
     } catch (e) {
       if (e instanceof Error && e.message === "NOT_SCHEDULED") {

@@ -1,5 +1,6 @@
 "use client";
 
+import { canCancelMahjong } from "@/lib/date";
 import { MONTHLY_ENTRY_LIMIT_ENABLED } from "@/lib/monthlyEntryExempt";
 
 import { useState, useEffect } from "react";
@@ -78,8 +79,12 @@ export function BilliardsJoinTab({
   }
   async function confirmCancel(date: string) {
     setBusy(date); setPayMsg(null);
-    try { await cancelBilliardsEntryPayment(date); setCancelDate(null); onChanged(); }
-    catch (e) { setPayMsg(e instanceof Error ? e.message : "キャンセルに失敗しました"); }
+    try {
+      await cancelBilliardsEntryPayment(date);
+      setPayMsg("返金しました");
+      setCancelDate(null);
+      onChanged();
+    } catch (e) { setPayMsg(e instanceof Error ? e.message : "キャンセルに失敗しました"); }
     finally { setBusy(null); }
   }
 
@@ -93,7 +98,7 @@ export function BilliardsJoinTab({
         第2・第4土曜が開催日です。カレンダーの開催日から参加日を選んでください
         {MONTHLY_ENTRY_LIMIT_ENABLED && (monthlyExempt ? "（同じ月に何度でも参加できます）" : "（参加は1か月に1回）")}。
         {paymentRequired && `「参加する」で参加枠を確保し、参加費 ¥${BILLIARDS_ENTRY_FEE.toLocaleString()} のお支払いで確定します（定員${BILLIARDS_MAX_ENTRIES_PER_DATE}名）。`}
-        参加費のキャンセルは開催7日前まで。開始時刻を過ぎると参加表明・取消はできません。
+        参加費のキャンセルは開催日の前日まで。開始時刻を過ぎると参加表明・取消はできません。
       </p>
 
       {payMsg && (
@@ -226,6 +231,7 @@ export function BilliardsJoinTab({
       {cancelDate && (
         <CancelPayModal
           date={cancelDate}
+          amount={BILLIARDS_ENTRY_FEE}
           busy={busy === cancelDate}
           onConfirm={() => confirmCancel(cancelDate)}
           onClose={() => setCancelDate(null)}
@@ -340,7 +346,7 @@ function SelectedDateCard({
             当日はゲーム開始までに会場へお越しください。
           </p>
           {needsPay ? (
-            !isPast && (
+            canCancelMahjong(date) && (
               <Button variant="secondary" loading={busy} onClick={onRequestCancel}>
                 支払いをキャンセルする
               </Button>
@@ -416,14 +422,16 @@ function SelectedDateCard({
   );
 }
 
-/* 参加費キャンセル依頼の確認（自動返金なし・管理者が手動返金） */
+/* 参加費キャンセルの確認（Squareへ全額自動返金） */
 function CancelPayModal({
   date,
+  amount,
   busy,
   onConfirm,
   onClose,
 }: {
   date: string;
+  amount: number;
   busy: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -434,14 +442,13 @@ function CancelPayModal({
         <GlassCard>
           <h3 className="text-[17px] font-bold text-[color:var(--eb-ink)]">参加費のキャンセル</h3>
           <p className="mt-2 text-[15px] leading-relaxed text-[color:var(--eb-ink)]">
-            {formatJpDate(date)} の参加費のキャンセルを依頼します。
+            {formatJpDate(date)} の参加費のキャンセルです。
             <br />
-            <span className="font-bold">アプリ内では自動返金されません。</span>
-            管理者へ返金依頼の通知が送られ、後日Squareから手動で返金対応します。
+            キャンセルすると参加費 ¥{amount.toLocaleString("ja-JP")} を全額返金します（カード明細への反映はカード会社により数日かかります）。
           </p>
           <div className="mt-5 flex flex-col gap-2">
             <Button variant="danger" loading={busy} onClick={onConfirm}>
-              キャンセルを依頼
+              キャンセルして返金する
             </Button>
             <Button variant="ghost" onClick={onClose}>
               やめる

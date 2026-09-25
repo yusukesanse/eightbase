@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
+import { deriveStatus } from "@/lib/mahjongEntryStatus";
 import { writeAuditLog } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   await db.collection("mahjongClosedDates").doc(date).set({ date, closedAt: new Date().toISOString() });
   // 既存参加者を返金対応の判断材料として返す（休催後は startDay で卓を組まない）。
   const entries = (await db.collection("mahjongEntries").where("eventDate", "==", date).get()).docs.map((d) => d.data());
-  const paid = entries.filter((e) => e.paymentStatus === "paid" || e.status === "paid").length;
+  const paid = entries.filter((e) => deriveStatus(e) === "paid").length;
   await writeAuditLog({ eventType: "schedule.closed", actor: admin, target: { date }, meta: { affected: entries.length, paid } });
   return NextResponse.json({ success: true, affected: { total: entries.length, paid } });
 }

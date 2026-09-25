@@ -116,7 +116,11 @@ export interface MahjongEntry {
    */
   paymentUrl?: string;
   /** キャンセル/返金の理由。"forfeit"=人数不足による自動中止（流会）。返金管理UIの絞り込みに使う。 */
-  cancelReason?: "forfeit";
+  cancelReason?: "forfeit" | "self"; // self: 本人の自動返金キャンセル
+  refundedAt?: string; // 自動返金の反映日時
+  squareRefundId?: string | null; // Square返金ID
+  squareRefundStatus?: string | null; // Square返金状態
+  refundMethod?: "auto" | "manualSync"; // 自動返金 / 管理者によるSquare照合同期
 }
 
 /**
