@@ -33,6 +33,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     <>
       <AuthGuard>
         <div className="w-full max-w-4xl mx-auto flex flex-col flex-1">
+          {/* ⚠️ pb-20 は /reservation の PageBg が -mb-20 で打ち消している。値を変えるときは両方そろえること。 */}
           <main className={`flex-1 ${showNav ? "pb-20" : ""}`}>{children}</main>
         </div>
       </AuthGuard>

@@ -495,8 +495,9 @@ export default function ReservationPage() {
   const activities = facilities.filter((f) => f.type === "activity");
 
   // ─── レンダリング ──────────────────────────────────────────────────────────
+  // ⚠️ -mb-20 は ClientLayout の <main pb-20> を打ち消す（main の余白に body の白が透けるため）。値を変えるときは両方そろえること。
   return (
-    <PageBg className="flex flex-col">
+    <PageBg className="flex flex-col -mb-20 !pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))]">
       {/* ── ヘッダー ── */}
       <div className="px-5 pt-8">
         <PageHeading
@@ -692,7 +693,7 @@ export default function ReservationPage() {
       {selectedDate && selectedFacility && (
         <>
           <div className="mx-5 h-px bg-[color:var(--eb-line)]" />
-          <section className="px-5 pt-4 pb-2 flex-1">
+          <section data-testid="reservation-timeslots" className="px-5 pt-4 pb-2 flex-1">
             <GlassCard>
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-[13px] font-bold text-[color:var(--eb-ink-muted)]">
@@ -766,7 +767,7 @@ export default function ReservationPage() {
 
           {/* ── 同伴者（サウナ等）: 日時が決まってから選ぶ ── */}
           {requiresCompanions && selectedDate && selStart && selEnd && (
-            <section className="px-5 pb-4">
+            <section data-testid="reservation-companions" className="px-5 pb-4">
               <CompanionPicker
                 enabled
                 value={companions}
@@ -836,10 +837,10 @@ export default function ReservationPage() {
         </div>
       )}
 
-      {/* ── フローティングフッター ── */}
+      {/* ── フッター ── */}
       <div
-        className="sticky border-t border-[color:var(--eb-line)] px-5 py-3 safe-area-pb"
-        style={{ bottom: "var(--bottom-nav-height)" }}
+        data-testid="reservation-footer"
+        className="border-t border-[color:var(--eb-line)] px-5 py-3"
       >
         {selectedFacility && selectedDate && selStart && selEnd ? (
           <div className="space-y-3">
