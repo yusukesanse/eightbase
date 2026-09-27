@@ -122,6 +122,29 @@ describe("トレーラー仮押さえ（POST /api/reservations/pending）", () =
     expect(mockCreatePaymentLink).not.toHaveBeenCalled();
   });
 
+  test("transparent の予定と重なると 409・決済リンクも仮押さえも作らない", async () => {
+    mockListCalendarEvents.mockResolvedValue([
+      { transparency: "transparent", start: { dateTime: `${DATE}T14:00:00+09:00` }, end: { dateTime: `${DATE}T16:00:00+09:00` } },
+    ]);
+    const res = await pendingPost(req(slot));
+    expect(res.status).toBe(409);
+    expect((res as unknown as { _data: { error: string } })._data.error).toBe("ALREADY_BOOKED");
+    expect(mockCreatePaymentLink).not.toHaveBeenCalled();
+    expect(writes).toHaveLength(0);
+  });
+
+  test.each(["opaque", "transparent"])("cancelled の予定は transparency=%s でも仮押さえを妨げない", async (transparency) => {
+    mockListCalendarEvents.mockResolvedValue([
+      { status: "cancelled", transparency, start: { dateTime: `${DATE}T14:00:00+09:00` }, end: { dateTime: `${DATE}T16:00:00+09:00` } },
+    ]);
+    expect((await pendingPost(req(slot))).status).toBe(200);
+    expect(mockCreatePaymentLink).toHaveBeenCalledTimes(1);
+    expect(writes).toEqual(expect.arrayContaining([
+      { collection: "set", id: expect.any(String) },
+      { collection: "create", id: "auto-reservations" },
+    ]));
+  });
+
   test("GCalが空いていれば従来どおり仮押さえ＋決済リンクを作る", async () => {
     mockListCalendarEvents.mockResolvedValue([]);
     const res = await pendingPost(req(slot));
@@ -149,6 +172,17 @@ describe("通常予約（POST /api/reservations）", () => {
     const res = await reservationPost(req({ ...slot, facilityId: meetingRoom.id }));
     expect(res.status).toBe(409);
     expect((res as unknown as { _data: { error: string } })._data.error).toBe("ALREADY_BOOKED");
+  });
+
+  test("transparent の予定と重なると通常予約も 409・書き込みなし", async () => {
+    mockListCalendarEvents.mockResolvedValue([
+      { transparency: "transparent", start: { dateTime: `${DATE}T14:00:00+09:00` }, end: { dateTime: `${DATE}T16:00:00+09:00` } },
+    ]);
+    const res = await reservationPost(req({ ...slot, facilityId: meetingRoom.id }));
+    expect(res.status).toBe(409);
+    expect((res as unknown as { _data: { error: string } })._data.error).toBe("ALREADY_BOOKED");
+    expect(writes).toHaveLength(0);
+    expect(mockCreatePaymentLink).not.toHaveBeenCalled();
   });
 
   test("GCalが読めないときは 503", async () => {

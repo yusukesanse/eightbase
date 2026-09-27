@@ -1,3 +1,4 @@
+import { notifyCalendarUnreadable } from "@/lib/calendarAlert";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
@@ -67,7 +68,9 @@ export async function GET(req: NextRequest) {
           })
         )
       ),
-      getCalendarBusySlotsSafe(facility.calendarId, openDates),
+      getCalendarBusySlotsSafe(facility.calendarId, openDates, {
+        onUnreadable: () => notifyCalendarUnreadable(facilityId, facility.name),
+      }),
     ]);
 
     for (const date of dates) {

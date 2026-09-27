@@ -8,7 +8,7 @@
  * 固定する仕様:
  *  - 終日予定はその日を丸ごと塞ぐ（00:00〜24:00）
  *  - 日をまたぐ予定はその日の範囲に切り詰める（JST基準・本番 TZ=UTC でもズレない）
- *  - cancelled / transparency=transparent は塞がない
+ *  - cancelled は塞がない。transparency=transparent も予約済みとして塞ぐ
  *  - 予約確定前ガードは、重なれば ALREADY_BOOKED、GCalが読めなければ CALENDAR_UNAVAILABLE を投げる
  *  - calendarId 未設定（GCal連携なし）の施設は GCal を叩かない
  * TZ=UTC で実行（package.json）。
@@ -20,6 +20,9 @@ jest.mock("@/lib/googleCalendar", () => ({
 
 import {
   busyIntervalsForDate,
+  summarizeEventsForDate,
+  dayRangeIso,
+  readCalendarDay,
   getCalendarBusySlotsByDate,
   getCalendarBusySlotsSafe,
   assertCalendarSlotFree,
@@ -68,13 +71,13 @@ describe("busyIntervalsForDate — GCalの予定を その日(JST)の占有時�
     expect(busyIntervalsForDate(ev, "2026-08-09")).toEqual([{ start: "00:00", end: "02:00" }]);
   });
 
-  test("キャンセル済み・空き時間(transparent)・別日の予定は塞がない", () => {
+  test("transparent は予約済みに含め、キャンセル済み・別日の予定は除外する", () => {
     const events = [
       { status: "cancelled", start: { dateTime: `${DATE}T10:00:00+09:00` }, end: { dateTime: `${DATE}T11:00:00+09:00` } },
       { transparency: "transparent", start: { dateTime: `${DATE}T12:00:00+09:00` }, end: { dateTime: `${DATE}T13:00:00+09:00` } },
       { start: { dateTime: "2026-08-09T10:00:00+09:00" }, end: { dateTime: "2026-08-09T11:00:00+09:00" } },
     ];
-    expect(busyIntervalsForDate(events, DATE)).toEqual([]);
+    expect(busyIntervalsForDate(events, DATE)).toEqual([{ start: "12:00", end: "13:00" }]);
   });
 
   test("ignoreEventIds のイベントは無視する（自分のミラーを除外する用途）", () => {
@@ -153,5 +156,46 @@ describe("assertCalendarSlotFree — 予約確定前のガード", () => {
       assertCalendarSlotFree("", { date: DATE, startTime: "10:00", endTime: "12:00" })
     ).resolves.toBeUndefined();
     expect(mockList).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("calendar connection helpers", () => {
+  test("summary sorts busy/free/all-day events and excludes cancelled", () => {
+    const timed = { start: { dateTime: `${DATE}T10:00:00+09:00` }, end: { dateTime: `${DATE}T11:00:00+09:00` } };
+    expect(summarizeEventsForDate([
+      timed, { ...timed, status: "cancelled" },
+      { transparency: "transparent", start: { dateTime: `${DATE}T08:00:00+09:00` }, end: { dateTime: `${DATE}T09:00:00+09:00` } },
+      { start: { date: DATE } },
+    ], DATE)).toEqual([
+      { start: "00:00", end: "24:00", busy: true },
+      { start: "08:00", end: "09:00", busy: false },
+      { start: "10:00", end: "11:00", busy: true },
+    ]);
+  });
+  test("dayRangeIso uses JST midnight under UTC", () => {
+    expect(dayRangeIso("2026-09-28")).toEqual({ timeMin: "2026-09-27T15:00:00.000Z", timeMax: "2026-09-28T15:00:00.000Z" });
+  });
+  test("readCalendarDay returns raw events and uses the JST range", async () => {
+    const events = [{ start: { date: DATE } }];
+    mockList.mockResolvedValue(events);
+    expect(await readCalendarDay("cal", DATE)).toEqual({ ok: true, events });
+    expect(mockList).toHaveBeenCalledWith("cal", "2026-08-07T15:00:00.000Z", "2026-08-08T15:00:00.000Z");
+  });
+  test.each([[404, "not_found"], [403, "forbidden"], [500, "other"], [undefined, "other"], ["404", "other"]])("readCalendarDay classifies status %s", async (status, errorKind) => {
+    mockList.mockRejectedValue({ status });
+    expect(await readCalendarDay("cal", DATE)).toEqual({ ok: false, errorKind });
+  });
+  test("Safe success does not notify", async () => {
+    mockList.mockResolvedValue([]);
+    const onUnreadable = jest.fn();
+    expect(await getCalendarBusySlotsSafe("cal", [DATE], { onUnreadable })).toEqual({ [DATE]: [] });
+    expect(onUnreadable).not.toHaveBeenCalled();
+  });
+  test.each([false, true])("Safe failure notifies and survives callback rejection=%s", async (reject) => {
+    mockList.mockRejectedValue(new Error("unreadable"));
+    const onUnreadable = reject ? jest.fn().mockRejectedValue(new Error("notify")) : jest.fn();
+    await expect(getCalendarBusySlotsSafe("cal", [DATE], { onUnreadable })).resolves.toEqual({});
+    expect(onUnreadable).toHaveBeenCalledTimes(1);
   });
 });

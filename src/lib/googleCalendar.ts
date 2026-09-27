@@ -53,7 +53,7 @@ export async function listCalendarEvents(
 // ⚠️ 旧 `getBookedSlots` / `checkAvailability` は削除した（2026-08-06）。
 //    終日予定（`start.date` のみ）を 00:00〜00:00 の長さゼロとして扱っており、
 //    GCal から入れた終日の予約を素通りさせていた。判定は `src/lib/calendarBusy.ts` に一本化する
-//    （終日・日跨ぎ・transparent の扱いを純関数にまとめ、回帰テストで固定）。
+//    （終日・日跨ぎの扱いを純関数にまとめ、回帰テストで固定。transparent も予約済み扱い＝2026-09-25）。
 
 // ─── 予約作成 ─────────────────────────────────────────────────────────────────
 /**

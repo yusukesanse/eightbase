@@ -1,15 +1,87 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Facility, FacilitySquareStatus, FacilityType } from "@/types";
 import { MAX_COMPANIONS } from "@/lib/companions";
 import { BOOKING_HORIZON_DAYS } from "@/lib/reservations";
+import DatePicker from "@/components/ui/DatePicker";
+import { todayJst } from "@/lib/date";
+import type { CalendarEventSummary, CalendarReadErrorKind } from "@/lib/calendarBusy";
 import TimePicker from "@/components/ui/TimePicker";
 import { type FacilityForm, DAY_LABELS, EMPTY_FORM } from "./facilityForm";
 import { TermsEditor } from "./TermsEditor";
 
 /** 管理APIの施設（Square設定の状態つき。トークン等の実値はAPIが返さない） */
 type AdminFacility = Facility & { square?: FacilitySquareStatus };
+
+const CALENDAR_CHECK_ERRORS = {
+  not_configured: "この施設にはカレンダーIDが設定されていません",
+  not_found: "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）",
+  forbidden: "アプリ用アカウントに共有されていません",
+  other: "読み取りに失敗しました（時間をおいて再度お試しください）",
+};
+type CalendarCheckResult =
+  | { ok: true; events: CalendarEventSummary[] }
+  | { ok: false; errorKind: CalendarReadErrorKind | "not_configured" };
+
+function CalendarConnectionCheck({ facilityId }: { facilityId: string }) {
+  const [date, setDate] = useState(todayJst);
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<CalendarCheckResult | null>(null);
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current += 1; }, []);
+
+  async function checkConnection() {
+    const id = ++requestId.current;
+    setChecking(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/facilities/calendar-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ facilityId, date }),
+      });
+      if (!res.ok) throw new Error("calendar check failed");
+      const data: CalendarCheckResult = await res.json();
+      if (requestId.current === id) setResult(data);
+    } catch {
+      if (requestId.current === id) setResult({ ok: false, errorKind: "other" });
+    } finally {
+      if (requestId.current === id) setChecking(false);
+    }
+  }
+
+  return (
+    <section className="space-y-2 rounded-lg border border-[#231714]/20 bg-[#231714]/5 p-3">
+      <h3 className="text-sm font-medium text-[#231714]">カレンダー接続チェック</h3>
+      <p className="text-xs text-[#231714]/80">保存済みのカレンダーIDを確認します。IDを変更した場合は先に保存してください。</p>
+      <DatePicker value={date} onChange={(value) => {
+        requestId.current += 1;
+        setDate(value);
+        setResult(null);
+        setChecking(false);
+      }} placeholder="確認する日付" />
+      <button type="button" disabled={checking || !date} onClick={checkConnection}
+        className="rounded-lg bg-[#231714] px-3 py-2 text-sm text-white disabled:opacity-50">
+        {checking ? "確認中…" : "接続チェックを実行"}
+      </button>
+      <div aria-live="polite" className="text-sm text-[#231714]">
+        {result && (result.ok ? (
+          <>
+            <p>読めました：予定{result.events.length}件</p>
+            <ul className="mt-1 space-y-1">
+              {result.events.map((event, i) => (
+                <li key={i}>{event.busy ? "予定あり" : "予定なし（アプリでは予約済みとして扱います）"} {event.start}〜{event.end}</li>
+              ))}
+            </ul>
+          </>
+        ) : <p>{CALENDAR_CHECK_ERRORS[result.errorKind] ?? CALENDAR_CHECK_ERRORS.other}</p>)}
+      </div>
+    </section>
+  );
+}
 
 /* ───────── メインコンポーネント ───────── */
 
@@ -22,6 +94,7 @@ export default function CalendarsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [calendarWarning, setCalendarWarning] = useState("");
 
   // モーダル制御
   const [showModal, setShowModal] = useState(false);
@@ -164,6 +237,7 @@ export default function CalendarsPage() {
         return;
       }
     }
+    setCalendarWarning("");
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -205,6 +279,7 @@ export default function CalendarsPage() {
           const data = await res.json();
           throw new Error(data.error || "更新に失敗しました");
         }
+        setCalendarWarning((await res.json()).calendarWarning ?? "");
         setSuccess("施設情報を更新しました");
       } else {
         // 新規作成
@@ -218,6 +293,7 @@ export default function CalendarsPage() {
           const data = await res.json();
           throw new Error(data.error || "作成に失敗しました");
         }
+        setCalendarWarning((await res.json()).calendarWarning ?? "");
         setSuccess("新しい施設を追加しました");
       }
       closeModal();
@@ -296,6 +372,11 @@ export default function CalendarsPage() {
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
+        </div>
+      )}
+      {calendarWarning && (
+        <div role="status" className="mb-4 rounded-lg border border-[#231714]/20 bg-[#231714]/5 p-3 text-sm text-[#231714]">
+          {calendarWarning}
         </div>
       )}
       {success && (
@@ -504,6 +585,8 @@ export default function CalendarsPage() {
                   Googleカレンダーの設定 → カレンダーID からコピーしてください
                 </p>
               </div>
+
+              {editingId && <CalendarConnectionCheck key={editingId} facilityId={editingId} />}
 
               {/* 施設タイプ */}
               <div>

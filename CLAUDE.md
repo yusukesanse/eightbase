@@ -538,8 +538,17 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
 2. 旧 `getBookedSlots` が **終日予定（`start.date` のみ）を 00:00〜00:00 の長さゼロ**として扱い、
    終日で入れた予約を素通りさせていた。
 - 判定は `src/lib/calendarBusy.ts` に一本化（**種目別・経路別にコピーしない**）。
-  `busyIntervalsForDate()` が終日・日跨ぎ・`cancelled`・`transparency: transparent` を正規化する。
+  `busyIntervalsForDate()` が終日・日跨ぎ・`cancelled` を正規化する（`transparency: transparent` は除外せず予約済み扱い＝下記 2026-09-25 追記）。
   旧 `getBookedSlots` / `checkAvailability` は削除済み。
+- ⚠️ **2026-09-25 追記**: MTGスペースで、社員が入れた予定が「予定なし」（`transparency: "transparent"`）に
+  なっており、`busyIntervalsForDate` がこれを空き扱いにしていたため、二重予約が起きかけた。
+  社員がGoogleカレンダーの「予定あり/予定なし」設定に慣れていないため、その設定に運用で頼らない方針にした:
+  **施設カレンダーの予定は、transparency に関係なくすべて予約済み（busy）として扱う**（`busyIntervalsForDate`）。
+  cancelled の予定は引き続き除外する。
+  そのため、施設カレンダーに「清掃」などのメモ予定を入れると、その時間帯はアプリから予約できなくなる
+  （運用上の注意点として周知すること）。**終日予定は Google の既定が「予定なし」**なので、終日でメモを入れるとその日が丸ごと予約不可になる。
+  接続チェック画面（`summarizeEventsForDate`）では予定ごとの Google 上の「予定あり/予定なし」表示は残しつつ、
+  「予定なし（アプリでは予約済みとして扱います）」と注記する。
 - 呼ぶ場所: 空き状況API 2本（表示）＋ `POST /api/reservations`・`POST /api/reservations/pending`（確定前ガード）。
 - ⚠️ **判定の向きは意図的に非対称**。予約側は GCal が読めなければ **503 `CALENDAR_UNAVAILABLE` で通さない**
   （読めないまま通すのが今回の事故）。表示側は読めなければ Firestore ぶんだけ出す（画面を止めない）。
@@ -550,6 +559,19 @@ dayState の1 readだけにする。開始前のみ日程doc＋自分のエン�
   `__tests__/unit/api/reservationCalendarConflict.test.ts`（終日予定で 409・決済リンクを作らない）。
 - 残っている未対応: **管理画面の予約日時変更(PATCH)は GCal の手動予定を見ない**（自分のミラーを除外する
   必要があるため別対応）。
+
+##### カレンダー接続チェックと読み取り失敗の検知（2026-09-25 再発防止）
+- 管理画面の施設編集に「カレンダー接続チェック」ボタン（`POST /api/admin/facilities/calendar-check`）。
+  管理者が指定日の予定件数・予定あり／空き時間・時間帯を確認できる（タイトル等の個人情報・calendarId 自体は返さない）。
+- 施設の保存（POST/PUT `/api/admin/facilities`）時、calendarId を含む保存のたびに同じ読み取りを試す。
+  読めなければ `calendarWarning` を返す（保存は失敗させない）。**5秒でタイムアウトし、応答を止めない。**
+- 空き状況API（`availability`/`week-availability`）で GCal の読み取りに失敗したら、管理者通知
+  `calendar_unreadable` を出す。`calendarAlerts/{facilityId}` で施設ごとに**6時間に1回**まで間引く。
+- ⚠️ **404 は「calendarId の入力ミス」と「共有漏れ」のどちらもあり得る**（Google Calendar API は、
+  存在しないIDにも、存在するが共有されていないIDにも 404 を返すため、レスポンスだけでは区別できない）。
+- ⚠️ **別の（無関係な）カレンダーを誤って指定しているケースは、この仕組みでは自動検知できない**
+  （calendarId が有効で共有もされていれば「読めた」ことになるため）。予定がある日を選んで
+  接続チェックの結果を目視で確認する運用でカバーする。
 
 ##### カレンダー予約が「無料・パスコードなし」なのは仕様（欠陥ではない・2026-08-06 確認）
 GCal に直接入れられるのは**社員だけ**（カレンダーの共有設定で担保する。一般会員に編集権限を渡さないこと。

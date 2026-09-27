@@ -8,7 +8,7 @@
  * （終日は `start.date` しか無く、旧実装は 00:00〜00:00 の長さゼロとして扱っていた）。
  *
  * この2つを塞ぐため、
- *  - GCal の予定を「その日(JST)の busy 時間帯」に正規化する純関数（終日・日跨ぎ・キャンセル・空き時間を処理）
+ *  - GCal の予定を「その日(JST)の busy 時間帯」に正規化する純関数（終日・日跨ぎ・キャンセルを処理し、transparent（予定なし）も予約済みとして扱う）
  *  - 空き状況API用の取得関数（1リクエストで複数日ぶん）
  *  - 予約確定前のガード（`assertCalendarSlotFree`）
  * をここに集約する。**Firestore のロックと GCal の両方を見て初めて「空き」**とする。
@@ -34,7 +34,7 @@ export interface BusyInterval {
 export interface CalendarEventLike {
   id?: string | null;
   status?: string | null;
-  /** "transparent" = 予定ありだが「空き時間」扱い（GCalの仕様どおり塞がない）。 */
+  /** "transparent" = Googleカレンダー上は「予定なし」表示だが、施設カレンダーではアプリ側は予約済みとして扱う（2026-09-25）。 */
   transparency?: string | null;
   start?: { dateTime?: string | null; date?: string | null } | null;
   end?: { dateTime?: string | null; date?: string | null } | null;
@@ -54,55 +54,88 @@ function minutesToTime(min: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-/**
- * GCal のイベント一覧 → 指定日(JST)の busy 時間帯。
- *
- * - 終日予定（`start.date`）は **その日全体を塞ぐ**（`end.date` は排他的な翌日）。
- * - 日跨ぎ・複数日の予定はその日の範囲に切り詰める。
- * - `cancelled` と `transparency: "transparent"`（空き時間）は塞がない。
- * - `ignoreEventIds` に入れた ID は無視する（アプリが作った自分のミラーを除外する用途）。
- */
+/** 指定日(JST)に重なる区間へクリップする。transparent の扱いは呼び出し側で決める。 */
+function clipEventToDate(e: CalendarEventLike, date: string): { start: number; end: number } | null {
+  if (!e || e.status === "cancelled") return null;
+  const dayStart = jstDayStartMs(date);
+  let s: number;
+  let t: number;
+  if (e.start?.dateTime) {
+    s = new Date(e.start.dateTime).getTime();
+    t = e.end?.dateTime ? new Date(e.end.dateTime).getTime() : s;
+  } else if (e.start?.date) {
+    // 終日予定の end.date は排他。未設定なら1日ぶん。
+    s = jstDayStartMs(e.start.date);
+    t = e.end?.date ? jstDayStartMs(e.end.date) : s + DAY_MS;
+  } else {
+    return null;
+  }
+  if (!Number.isFinite(s) || !Number.isFinite(t)) return null;
+  const start = Math.max(s, dayStart);
+  const end = Math.min(t, dayStart + DAY_MS);
+  return end <= start ? null : { start, end };
+}
+
+function formatClippedInterval(interval: { start: number; end: number }, date: string): BusyInterval {
+  const dayStart = jstDayStartMs(date);
+  return {
+    start: minutesToTime(Math.round((interval.start - dayStart) / 60000)),
+    end: minutesToTime(Math.round((interval.end - dayStart) / 60000)),
+  };
+}
+
+/** 終日・日跨ぎをクリップし、キャンセル・指定IDを除外する（transparent＝予定なしも予約済みとして扱う）。 */
 export function busyIntervalsForDate(
   events: CalendarEventLike[],
   date: string,
   opts: { ignoreEventIds?: Iterable<string> } = {}
 ): BusyInterval[] {
-  const dayStart = jstDayStartMs(date);
-  const dayEnd = dayStart + DAY_MS;
   const ignore = new Set(opts.ignoreEventIds ?? []);
   const out: BusyInterval[] = [];
-
   for (const e of events) {
-    if (!e) continue;
-    if (e.status === "cancelled") continue;
-    if (e.transparency === "transparent") continue;
-    if (e.id && ignore.has(e.id)) continue;
-
-    let s: number;
-    let t: number;
-    if (e.start?.dateTime) {
-      s = new Date(e.start.dateTime).getTime();
-      t = e.end?.dateTime ? new Date(e.end.dateTime).getTime() : s;
-    } else if (e.start?.date) {
-      // 終日予定。end.date は「翌日」（排他的）。未設定なら1日ぶんとみなす。
-      s = jstDayStartMs(e.start.date);
-      t = e.end?.date ? jstDayStartMs(e.end.date) : s + DAY_MS;
-    } else {
-      continue;
-    }
-    if (!Number.isFinite(s) || !Number.isFinite(t)) continue;
-
-    const from = Math.max(s, dayStart);
-    const to = Math.min(t, dayEnd);
-    if (to <= from) continue; // その日にかからない／長さゼロ
-
-    out.push({
-      start: minutesToTime(Math.round((from - dayStart) / 60000)),
-      end: minutesToTime(Math.round((to - dayStart) / 60000)),
-    });
+    if (!e || (e.id && ignore.has(e.id))) continue;
+    const interval = clipEventToDate(e, date);
+    if (interval) out.push(formatClippedInterval(interval, date));
   }
-
   return out.sort((a, b) => a.start.localeCompare(b.start));
+}
+
+export interface CalendarEventSummary {
+  start: string;
+  end: string;
+  busy: boolean;
+}
+
+/** 指定日(JST)の予定を個人情報なしで要約する。空き時間も残す。 */
+export function summarizeEventsForDate(events: CalendarEventLike[], date: string): CalendarEventSummary[] {
+  const out: CalendarEventSummary[] = [];
+  for (const e of events) {
+    const interval = clipEventToDate(e, date);
+    if (interval) out.push({ ...formatClippedInterval(interval, date), busy: e.transparency !== "transparent" });
+  }
+  return out.sort((a, b) => a.start.localeCompare(b.start));
+}
+
+/** 指定日(JST)の0時〜24時を API 用の ISO 範囲にする。 */
+export function dayRangeIso(date: string): { timeMin: string; timeMax: string } {
+  const start = jstDayStartMs(date);
+  return { timeMin: new Date(start).toISOString(), timeMax: new Date(start + DAY_MS).toISOString() };
+}
+
+export type CalendarReadErrorKind = "not_found" | "forbidden" | "other";
+
+/** 管理チェックと保存時検証用。失敗は HTTP status に応じた分類だけを返す。 */
+export async function readCalendarDay(
+  calendarId: string,
+  date: string
+): Promise<{ ok: true; events: CalendarEventLike[] } | { ok: false; errorKind: CalendarReadErrorKind }> {
+  try {
+    const { timeMin, timeMax } = dayRangeIso(date);
+    return { ok: true, events: await listCalendarEvents(calendarId, timeMin, timeMax) };
+  } catch (e) {
+    const status = e && typeof e === "object" && "status" in e ? e.status : undefined;
+    return { ok: false, errorKind: status === 404 ? "not_found" : status === 403 ? "forbidden" : "other" };
+  }
 }
 
 /**
@@ -129,8 +162,8 @@ export async function getCalendarBusySlotsByDate(
   const sorted = [...dates].sort();
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
-  const timeMin = new Date(jstDayStartMs(first)).toISOString();
-  const timeMax = new Date(jstDayStartMs(last) + DAY_MS).toISOString();
+  const { timeMin } = dayRangeIso(first);
+  const { timeMax } = dayRangeIso(last);
 
   const events = await listCalendarEvents(calendarId, timeMin, timeMax);
   const out: Record<string, BusyInterval[]> = {};
@@ -174,12 +207,18 @@ export async function assertCalendarSlotFree(
 /** 空き状況API用: GCal が読めなくても表示を止めない（Firestore ぶんだけで続行する）。 */
 export async function getCalendarBusySlotsSafe(
   calendarId: string | null | undefined,
-  dates: string[]
+  dates: string[],
+  opts?: { onUnreadable?: () => Promise<void> | void }
 ): Promise<Record<string, BusyInterval[]>> {
   try {
     return await getCalendarBusySlotsByDate(calendarId, dates);
   } catch (e) {
     console.error("[calendarBusy] 空き状況の GCal 取得に失敗（Firestore のみで続行）:", e);
+    try {
+      await opts?.onUnreadable?.();
+    } catch (notifyErr) {
+      console.error("[calendarBusy] onUnreadable 失敗:", notifyErr);
+    }
     return {};
   }
 }

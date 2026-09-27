@@ -10,6 +10,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import dayjs from "dayjs";
 
 export type AdminNotificationType =
+  | "calendar_unreadable" // 施設のGoogleカレンダーが読み取れない（共有設定ミス等の疑い）
   | "switchbot_failed" // 解錠コード発行失敗（要手動再発行）
   | "switchbot_manual" // SwitchBot未連携のため手動解錠対応が必要
   | "trailer_cancel" // トレーラー予約の取消（手動返金対応依頼）

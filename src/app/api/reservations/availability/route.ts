@@ -1,3 +1,4 @@
+import { notifyCalendarUnreadable } from "@/lib/calendarAlert";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
@@ -53,7 +54,9 @@ export async function GET(req: NextRequest) {
   // GCal が読めないときは Firestore ぶんだけ返す（表示は止めない）。確定時は必ずサーバーが再検証する。
   const [locked, gcalByDate] = await Promise.all([
     getBlockingLockedSlots(getDb(), facilityId, date, nowIso),
-    getCalendarBusySlotsSafe(facility.calendarId, [date]),
+    getCalendarBusySlotsSafe(facility.calendarId, [date], {
+      onUnreadable: () => notifyCalendarUnreadable(facilityId, facility.name),
+    }),
   ]);
   const booked = [...locked, ...(gcalByDate[date] ?? [])];
 

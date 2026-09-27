@@ -1,3 +1,6 @@
+const mockReadCalendarDay = jest.fn().mockResolvedValue({ ok: true, events: [] });
+jest.mock("@/lib/calendarBusy", () => ({ readCalendarDay: (...args: unknown[]) => mockReadCalendarDay(...args) }));
+import { todayJst } from "@/lib/date";
 /**
  * 単体テスト: 管理施設API /api/admin/facilities
  * 認証チェック、CRUD操作、バリデーション、Square認証情報の分離保存のテスト
@@ -556,5 +559,79 @@ describe("管理施設API — /api/admin/facilities", () => {
       const res = asMock(await DELETE(req));
       expect(res.status).toBe(400);
     });
+  });
+});
+
+
+describe("保存後カレンダー検証", () => {
+  beforeEach(() => {
+    jest.clearAllMocks(); mockIsAdmin = true;
+    mockReadCalendarDay.mockReset().mockResolvedValue({ ok: true, events: [] });
+  });
+  test.each(["PUT", "POST"])("%s unreadable calendar warns after successful save", async (method) => {
+    mockReadCalendarDay.mockImplementation(async () => ({ ok: false, errorKind: "forbidden" }));
+    const res = await (method === "PUT" ? PUT : POST)(new NextRequest("http://localhost/api/admin/facilities", {
+      method, body: JSON.stringify({ id: "room", name: "Room", calendarId: "cal@google.com", type: "booth", capacity: 1 }),
+    }));
+    expect(res.status).toBe(method === "PUT" ? 200 : 201);
+    expect(await res.json()).toHaveProperty("calendarWarning", "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）");
+    expect(mockReadCalendarDay).toHaveBeenCalledTimes(1);
+    expect(mockReadCalendarDay).toHaveBeenCalledWith("cal@google.com", todayJst());
+    const saveCall = method === "PUT" ? mockUpdateFacility : mockCreateFacility;
+    expect(saveCall.mock.invocationCallOrder[0]).toBeLessThan(mockReadCalendarDay.mock.invocationCallOrder[0]);
+  });
+  test("PUT readable calendar has no warning", async () => {
+    const res = await PUT(new NextRequest("http://localhost", { method: "PUT", body: JSON.stringify({ id: "room", calendarId: "cal" }) }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).not.toHaveProperty("calendarWarning");
+    expect(mockReadCalendarDay).toHaveBeenCalledTimes(1);
+  });
+  test("PUT without calendarId skips validation", async () => {
+    const res = await PUT(new NextRequest("http://localhost", { method: "PUT", body: JSON.stringify({ id: "room", name: "Updated" }) }));
+    expect(res.status).toBe(200);
+    expect(mockReadCalendarDay).not.toHaveBeenCalled();
+  });
+  test.each(["PUT", "POST"])("%s unexpected validation exception preserves save success", async (method) => {
+    mockReadCalendarDay.mockRejectedValue(new Error("unexpected"));
+    const res = await (method === "PUT" ? PUT : POST)(new NextRequest("http://localhost", { method, body: JSON.stringify({ id: "room", name: "Room", calendarId: "cal", type: "booth", capacity: 1 }) }));
+    expect(res.status).toBe(method === "PUT" ? 200 : 201);
+    expect(await res.json()).toHaveProperty("calendarWarning");
+  });
+});
+
+
+describe("保存後カレンダー検証のタイムアウト", () => {
+  const CALENDAR_CHECK_TIMEOUT_MS = 5000;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockIsAdmin = true;
+    mockReadCalendarDay.mockReset();
+  });
+  afterEach(() => { jest.useRealTimers(); });
+
+  test.each(["PUT", "POST"])("%s stalled calendar warns after 5 seconds and clears timer", async (method) => {
+    mockReadCalendarDay.mockImplementation(() => new Promise(() => {}));
+    let settled = false;
+    const response = (method === "PUT" ? PUT : POST)(new NextRequest("http://localhost/api/admin/facilities", {
+      method, body: JSON.stringify({ id: "room", name: "Room", calendarId: "cal@google.com", type: "booth", capacity: 1 }),
+    })).then((res) => { settled = true; return res; });
+    await jest.advanceTimersByTimeAsync(CALENDAR_CHECK_TIMEOUT_MS - 1);
+    expect(mockReadCalendarDay).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(settled).toBe(true);
+    const res = await response;
+    expect(res.status).toBe(method === "PUT" ? 200 : 201);
+    expect(await res.json()).toHaveProperty("calendarWarning", "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）");
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  test.each(["readable", "unreadable", "rejected"])("%s calendar clears timer before timeout", async (outcome) => {
+    if (outcome === "rejected") mockReadCalendarDay.mockRejectedValue(new Error("unavailable"));
+    else mockReadCalendarDay.mockResolvedValue(outcome === "readable" ? { ok: true, events: [] } : { ok: false, errorKind: "forbidden" });
+    const res = await PUT(new NextRequest("http://localhost", { method: "PUT", body: JSON.stringify({ id: "room", calendarId: "cal" }) }));
+    expect(res.status).toBe(200);
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

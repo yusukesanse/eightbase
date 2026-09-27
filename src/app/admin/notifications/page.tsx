@@ -12,6 +12,7 @@ interface AdminNotification {
 }
 
 const TYPE_LABEL: Record<string, { label: string; color: string }> = {
+  calendar_unreadable: { label: "カレンダー読取不可", color: "#d8533a" },
   switchbot_failed: { label: "解錠コード発行失敗", color: "#d8533a" },
   switchbot_manual: { label: "手動解錠対応", color: "#d8533a" },
   trailer_cancel: { label: "取消・返金対応", color: "#b48f13" },
