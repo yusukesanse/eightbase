@@ -23,6 +23,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { upcomingSaturdayJst } from "@/lib/date";
 import { buildReservationSlotKey, earliestBookableDate } from "@/lib/reservations";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
+import { safeErrorMessage } from "@/lib/calendarBusy";
 // ⚠️ 参加者種別は `@/lib/roles` の UserRole（member/guest/staff）。
 //    `@/types` の同名 UserRole は別物（tenant/coworking/admin）なので取り違えない。
 import type { UserRole } from "@/lib/roles";
@@ -400,7 +401,7 @@ async function clearSaunaReservations(
         calendarEvents++;
       } catch (error) {
         // 消えていた / 権限が無い等。予約データの削除は続ける。
-        console.warn("[saunaDemoSeed] calendar event delete failed:", eventId, error);
+        console.warn(`[saunaDemoSeed] calendar event delete failed: eventId=${eventId} message=${safeErrorMessage(error)}`);
       }
     }
   }

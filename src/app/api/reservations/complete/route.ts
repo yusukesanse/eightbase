@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { requireMemberProfileComplete } from "@/lib/auth";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
+import { getErrorStatus, safeErrorMessage } from "@/lib/calendarBusy";
 import { sendReservationConfirmed, sendTrailerPasscodeNotice } from "@/lib/line";
 import { verifySquareOrderPayment } from "@/lib/square";
 import { getFacilitySquareCredentials } from "@/lib/facilitySecrets";
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
           ),
       });
     } catch (e) {
-      console.error("[reservations/complete] calendar failed:", e);
+      console.error(`[reservations/complete] calendar failed: status=${getErrorStatus(e) ?? "-"} message=${safeErrorMessage(e)}`);
     }
 
     const slotRef = db

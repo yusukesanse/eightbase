@@ -7,7 +7,7 @@ import {
   assertSlotFreeInTx,
   buildReservationSlotKey,
 } from "@/lib/reservations";
-import { assertCalendarSlotFree } from "@/lib/calendarBusy";
+import { assertCalendarSlotFree, getErrorStatus, safeErrorMessage, redactUrls } from "@/lib/calendarBusy";
 import { createReservationPaymentLink } from "@/lib/square";
 import { getFacilitySquareCredentials } from "@/lib/facilitySecrets";
 import { liffUrl } from "@/lib/liffUrl";
@@ -195,7 +195,10 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    console.error("[reservations/pending] POST error:", message, err);
+    console.error(
+      `[reservations/pending] POST error: status=${getErrorStatus(err) ?? "-"} code=${(err as { code?: unknown })?.code ?? "-"} message=${safeErrorMessage(err)}`,
+      err instanceof Error && err.stack ? redactUrls(err.stack) : ""
+    );
     return NextResponse.json(
       { error: "INTERNAL_ERROR", message: "仮押さえ処理中にエラーが発生しました" },
       { status: 500 }

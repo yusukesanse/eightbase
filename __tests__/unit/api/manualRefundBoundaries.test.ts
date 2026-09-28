@@ -34,13 +34,14 @@ jest.mock("@/lib/firebaseAdmin", () => ({ getDb: () => ({
 jest.mock("@/lib/square", () => ({ ...jest.requireActual("@/lib/square"), refundSquarePayment: jest.fn() }));
 jest.mock("@/lib/auth", () => ({ requireMember: async () => "U1" }));
 jest.mock("@/lib/adminAuth", () => ({ checkAdminAuth: async () => true }));
-jest.mock("@/lib/facilities", () => ({ getFacilityById: async () => ({ calendarId: "cal" }) }));
+jest.mock("@/lib/facilities", () => ({ getFacilityById: async () => ({ calendarId: "secret-cal@group.calendar.google.com" }) }));
 jest.mock("@/lib/googleCalendar", () => ({ deleteCalendarEvent: jest.fn() }));
 jest.mock("@/lib/line", () => ({ sendReservationCancelled: jest.fn(), sendMahjongForfeitNotice: jest.fn() }));
 jest.mock("@/lib/switchbot", () => ({ deletePasscodeByName: jest.fn() }));
 jest.mock("@/lib/adminNotify", () => ({ notifyAdmin: jest.fn() }));
 import { cancelDay } from "@/lib/mahjongForfeit";
 import { DELETE } from "@/app/api/reservations/[id]/route";
+import { deleteCalendarEvent } from "@/lib/googleCalendar";
 import { refundSquarePayment } from "@/lib/square";
 import { notifyAdmin } from "@/lib/adminNotify";
 import { GET as mahjong } from "@/app/api/admin/mahjong/refunds/route";
@@ -78,4 +79,20 @@ test.each([["mahjong", mahjong], ["darts", darts], ["billiards", billiards], ["p
   expect(items).toEqual(expect.arrayContaining([expect.objectContaining({ entryId: "auto", state: "refunded", forfeit: false })]));
   expect(items.filter((i: { state: string }) => i.state === "pending").map((i: { entryId: string }) => i.entryId)).toEqual(["manual"]);
   expect(refundSquarePayment).not.toHaveBeenCalled();
+});
+
+test("URL埋め込みの calendarId はカレンダー削除失敗のログに出ない", async () => {
+  const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  store.set("reservations/r2", { lineUserId: "U1", status: "confirmed", facilityId: "f1", facilityName: "施設", date: "2026-10-10", startTime: "10:00", endTime: "12:00", googleEventId: "gcal-1" });
+  (deleteCalendarEvent as jest.Mock).mockRejectedValueOnce(
+    new Error("request to https://www.googleapis.com/calendar/v3/calendars/secret-cal%40group.calendar.google.com/events/gcal-1 failed, reason: getaddrinfo ENOTFOUND")
+  );
+  const res = await DELETE(new NextRequest("http://localhost/api/reservations/r2", { method: "DELETE" }), { params: Promise.resolve({ id: "r2" }) });
+  expect(res.status).toBe(200);
+  expect(store.get("reservations/r2")?.status).toBe("cancelled");
+  expect(errorSpy).toHaveBeenCalled();
+  for (const call of errorSpy.mock.calls) {
+    expect(call.map(String).join(" ")).not.toContain("secret-cal");
+  }
+  errorSpy.mockRestore();
 });

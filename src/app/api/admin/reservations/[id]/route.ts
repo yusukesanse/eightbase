@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { deleteCalendarEvent, updateCalendarEvent, createCalendarEvent } from "@/lib/googleCalendar";
+import { getErrorStatus, safeErrorMessage } from "@/lib/calendarBusy";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import {
   buildReservationSlotKey,
@@ -55,7 +56,7 @@ export async function DELETE(
       try {
         await deleteCalendarEvent(facility.calendarId, data.googleEventId);
       } catch (calErr) {
-        console.error("[admin/reservations] Calendar delete error:", calErr);
+        console.error(`[admin/reservations] Calendar delete error: status=${getErrorStatus(calErr) ?? "-"} message=${safeErrorMessage(calErr)}`);
       }
     }
 
@@ -227,7 +228,7 @@ export async function PATCH(
           await docRef.update({ googleEventId: newEventId });
         }
       } catch (calErr) {
-        console.error("[admin/reservations] Calendar update error:", calErr);
+        console.error(`[admin/reservations] Calendar update error: status=${getErrorStatus(calErr) ?? "-"} message=${safeErrorMessage(calErr)}`);
         // 補償: ロックと予約を旧状態へ戻す（GCal は未変更のまま＝旧時間で整合）。
         await db
           .runTransaction(async (tx) => {

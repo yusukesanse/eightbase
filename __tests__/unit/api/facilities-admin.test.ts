@@ -1,5 +1,6 @@
 const mockReadCalendarDay = jest.fn().mockResolvedValue({ ok: true, events: [] });
 jest.mock("@/lib/calendarBusy", () => ({ readCalendarDay: (...args: unknown[]) => mockReadCalendarDay(...args) }));
+import { CALENDAR_CHECK_ERRORS } from "@/lib/calendarCheckMessages";
 import { todayJst } from "@/lib/date";
 /**
  * 単体テスト: 管理施設API /api/admin/facilities
@@ -574,11 +575,21 @@ describe("保存後カレンダー検証", () => {
       method, body: JSON.stringify({ id: "room", name: "Room", calendarId: "cal@google.com", type: "booth", capacity: 1 }),
     }));
     expect(res.status).toBe(method === "PUT" ? 200 : 201);
-    expect(await res.json()).toHaveProperty("calendarWarning", "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）");
+    const data = await res.json();
+    expect(data).toHaveProperty("calendarWarning", CALENDAR_CHECK_ERRORS.forbidden);
+    expect(data).toHaveProperty("calendarWarningKind", "forbidden");
     expect(mockReadCalendarDay).toHaveBeenCalledTimes(1);
     expect(mockReadCalendarDay).toHaveBeenCalledWith("cal@google.com", todayJst());
     const saveCall = method === "PUT" ? mockUpdateFacility : mockCreateFacility;
     expect(saveCall.mock.invocationCallOrder[0]).toBeLessThan(mockReadCalendarDay.mock.invocationCallOrder[0]);
+  });
+  test("PUT not_found calendar warns after successful save", async () => {
+    mockReadCalendarDay.mockResolvedValue({ ok: false, errorKind: "not_found" });
+    const res = await PUT(new NextRequest("http://localhost", { method: "PUT", body: JSON.stringify({ id: "room", calendarId: "missing" }) }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data).toHaveProperty("calendarWarning", CALENDAR_CHECK_ERRORS.not_found);
+    expect(data).toHaveProperty("calendarWarningKind", "not_found");
   });
   test("PUT readable calendar has no warning", async () => {
     const res = await PUT(new NextRequest("http://localhost", { method: "PUT", body: JSON.stringify({ id: "room", calendarId: "cal" }) }));
@@ -595,7 +606,9 @@ describe("保存後カレンダー検証", () => {
     mockReadCalendarDay.mockRejectedValue(new Error("unexpected"));
     const res = await (method === "PUT" ? PUT : POST)(new NextRequest("http://localhost", { method, body: JSON.stringify({ id: "room", name: "Room", calendarId: "cal", type: "booth", capacity: 1 }) }));
     expect(res.status).toBe(method === "PUT" ? 200 : 201);
-    expect(await res.json()).toHaveProperty("calendarWarning");
+    const data = await res.json();
+    expect(data).toHaveProperty("calendarWarning", CALENDAR_CHECK_ERRORS.other);
+    expect(data).toHaveProperty("calendarWarningKind", "other");
   });
 });
 
@@ -623,7 +636,9 @@ describe("保存後カレンダー検証のタイムアウト", () => {
     expect(settled).toBe(true);
     const res = await response;
     expect(res.status).toBe(method === "PUT" ? 200 : 201);
-    expect(await res.json()).toHaveProperty("calendarWarning", "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）");
+    const data = await res.json();
+    expect(data).toHaveProperty("calendarWarning", CALENDAR_CHECK_ERRORS.timeout);
+    expect(data).toHaveProperty("calendarWarningKind", "timeout");
     expect(jest.getTimerCount()).toBe(0);
   });
 

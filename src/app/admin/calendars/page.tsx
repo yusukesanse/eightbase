@@ -5,6 +5,7 @@ import type { Facility, FacilitySquareStatus, FacilityType } from "@/types";
 import { MAX_COMPANIONS } from "@/lib/companions";
 import { BOOKING_HORIZON_DAYS } from "@/lib/reservations";
 import DatePicker from "@/components/ui/DatePicker";
+import { CALENDAR_CHECK_ERRORS } from "@/lib/calendarCheckMessages";
 import { todayJst } from "@/lib/date";
 import type { CalendarEventSummary, CalendarReadErrorKind } from "@/lib/calendarBusy";
 import TimePicker from "@/components/ui/TimePicker";
@@ -14,12 +15,6 @@ import { TermsEditor } from "./TermsEditor";
 /** 管理APIの施設（Square設定の状態つき。トークン等の実値はAPIが返さない） */
 type AdminFacility = Facility & { square?: FacilitySquareStatus };
 
-const CALENDAR_CHECK_ERRORS = {
-  not_configured: "この施設にはカレンダーIDが設定されていません",
-  not_found: "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）",
-  forbidden: "アプリ用アカウントに共有されていません",
-  other: "読み取りに失敗しました（時間をおいて再度お試しください）",
-};
 type CalendarCheckResult =
   | { ok: true; events: CalendarEventSummary[] }
   | { ok: false; errorKind: CalendarReadErrorKind | "not_configured" };
@@ -77,7 +72,7 @@ function CalendarConnectionCheck({ facilityId }: { facilityId: string }) {
               ))}
             </ul>
           </>
-        ) : <p>{CALENDAR_CHECK_ERRORS[result.errorKind] ?? CALENDAR_CHECK_ERRORS.other}</p>)}
+        ) : <p>{CALENDAR_CHECK_ERRORS[result.errorKind]}</p>)}
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { deleteCalendarEvent } from "@/lib/googleCalendar";
+import { getErrorStatus, safeErrorMessage } from "@/lib/calendarBusy";
 import { sendReservationCancelled } from "@/lib/line";
 import { requireMember } from "@/lib/auth";
 import { buildReservationSlotKey } from "@/lib/reservations";
@@ -68,7 +69,7 @@ export async function DELETE(
     try {
       await deleteCalendarEvent(facility.calendarId, reservation.googleEventId);
     } catch (err) {
-      console.error("Calendar delete failed:", err);
+      console.error(`Calendar delete failed: status=${getErrorStatus(err) ?? "-"} message=${safeErrorMessage(err)}`);
       // カレンダー削除失敗でも Firestore は更新する（管理者が手動対処）
     }
   }

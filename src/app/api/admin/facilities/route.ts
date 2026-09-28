@@ -1,5 +1,4 @@
-import { readCalendarDay } from "@/lib/calendarBusy";
-import { todayJst } from "@/lib/date";
+import { calendarWarningAfterSave } from "@/lib/calendarCheck";
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminAuth, validateFields, pickAllowedFields } from "@/lib/adminAuth";
 import {
@@ -178,26 +177,6 @@ function validateScheduleFields(body: Record<string, unknown>): string | null {
   return null;
 }
 
-const CALENDAR_CHECK_TIMEOUT_MS = 5000;
-
-/** calendarId を body に含む保存のとき、毎回チェックする。保存は成功として扱い、読み取り不可・タイムアウトだけを警告する。 */
-async function calendarWarningAfterSave(calendarId: unknown): Promise<string | undefined> {
-  if (typeof calendarId !== "string" || !calendarId) return undefined;
-  const warning = "カレンダーが見つからないか、アプリ用アカウントに共有されていません（カレンダーIDと共有設定の両方を確認してください）";
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<{ ok: false }>((resolve) => {
-    timer = setTimeout(() => resolve({ ok: false }), CALENDAR_CHECK_TIMEOUT_MS);
-  });
-  try {
-    const result = await Promise.race([readCalendarDay(calendarId, todayJst()), timeout]);
-    return result.ok ? undefined : warning;
-  } catch {
-    return warning;
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
-
 /**
  * GET /api/admin/facilities
  * 施設一覧取得（非アクティブ含む）
@@ -317,8 +296,8 @@ export async function POST(req: NextRequest) {
         body.requireCompanions === true ? Number(body.minPartySize) : undefined,
     });
     await applySquareSecrets(facility.id, squareSecretsInput);
-    const calendarWarning = await calendarWarningAfterSave(facility.calendarId);
-    return NextResponse.json({ facility, ...(calendarWarning ? { calendarWarning } : {}) }, { status: 201 });
+    const calendarCheck = await calendarWarningAfterSave(facility.calendarId);
+    return NextResponse.json({ facility, ...(calendarCheck ? { calendarWarning: calendarCheck.message, calendarWarningKind: calendarCheck.kind } : {}) }, { status: 201 });
   } catch (error) {
     console.error("[admin/facilities] POST error:", error);
     return NextResponse.json({ error: "施設の作成に失敗しました" }, { status: 500 });
@@ -403,8 +382,8 @@ export async function PUT(req: NextRequest) {
   try {
     await updateFacility(id, updateData);
     await applySquareSecrets(id, squareSecretsInput);
-    const calendarWarning = await calendarWarningAfterSave(updateData.calendarId);
-    return NextResponse.json({ success: true, ...(calendarWarning ? { calendarWarning } : {}) });
+    const calendarCheck = await calendarWarningAfterSave(updateData.calendarId);
+    return NextResponse.json({ success: true, ...(calendarCheck ? { calendarWarning: calendarCheck.message, calendarWarningKind: calendarCheck.kind } : {}) });
   } catch (error) {
     console.error("[admin/facilities] PUT error:", error);
     return NextResponse.json({ error: "施設の更新に失敗しました" }, { status: 500 });

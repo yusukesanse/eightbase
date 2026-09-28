@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { getFacilityById } from "@/lib/facilities";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/googleCalendar";
-import { assertCalendarSlotFree } from "@/lib/calendarBusy";
+import { assertCalendarSlotFree, getErrorStatus, safeErrorMessage, redactUrls } from "@/lib/calendarBusy";
 import { sendReservationConfirmed } from "@/lib/line";
 import { requireMember, requireMemberProfileComplete } from "@/lib/auth";
 import {
@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
         try {
           await deleteCalendarEvent(facility.calendarId, googleEventId);
         } catch (deleteError) {
-          console.error("[reservations] Calendar compensation failed:", deleteError);
+          console.error(`[reservations] Calendar compensation failed: status=${getErrorStatus(deleteError) ?? "-"} message=${safeErrorMessage(deleteError)}`);
         }
       }
       if (lockAcquired && !reservationSaved) {
@@ -312,7 +312,10 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    console.error("[reservations] POST error:", message, err);
+    console.error(
+      `[reservations] POST error: status=${getErrorStatus(err) ?? "-"} code=${(err as { code?: unknown })?.code ?? "-"} message=${safeErrorMessage(err)}`,
+      err instanceof Error && err.stack ? redactUrls(err.stack) : ""
+    );
     return NextResponse.json(
       { error: "INTERNAL_ERROR", message: "予約処理中にエラーが発生しました" },
       { status: 500 }

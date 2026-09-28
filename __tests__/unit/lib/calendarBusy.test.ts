@@ -23,6 +23,7 @@ import {
   summarizeEventsForDate,
   dayRangeIso,
   readCalendarDay,
+  redactUrls,
   getCalendarBusySlotsByDate,
   getCalendarBusySlotsSafe,
   assertCalendarSlotFree,
@@ -161,6 +162,10 @@ describe("assertCalendarSlotFree — 予約確定前のガード", () => {
 
 
 describe("calendar connection helpers", () => {
+  let errorSpy: jest.SpiedFunction<typeof console.error>;
+  beforeEach(() => { errorSpy = jest.spyOn(console, "error").mockImplementation(() => {}); });
+  afterEach(() => { errorSpy.mockRestore(); });
+
   test("summary sorts busy/free/all-day events and excludes cancelled", () => {
     const timed = { start: { dateTime: `${DATE}T10:00:00+09:00` }, end: { dateTime: `${DATE}T11:00:00+09:00` } };
     expect(summarizeEventsForDate([
@@ -185,6 +190,52 @@ describe("calendar connection helpers", () => {
   test.each([[404, "not_found"], [403, "forbidden"], [500, "other"], [undefined, "other"], ["404", "other"]])("readCalendarDay classifies status %s", async (status, errorKind) => {
     mockList.mockRejectedValue({ status });
     expect(await readCalendarDay("cal", DATE)).toEqual({ ok: false, errorKind });
+  });
+  test("readCalendarDay logs the failure reason without the calendarId", async () => {
+    mockList.mockRejectedValue(Object.assign(new Error("No key or keyFile set."), { status: undefined }));
+    expect(await readCalendarDay("secret-cal@group.calendar.google.com", DATE)).toEqual({ ok: false, errorKind: "other" });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const logged = errorSpy.mock.calls[0].map(String).join(" ");
+    expect(logged).toContain("[calendarBusy]");
+    expect(logged).toContain("other");
+    expect(logged).toContain("No key or keyFile set.");
+    expect(logged).not.toContain("secret-cal");
+  });
+  test("gaxios のURLに埋め込まれた calendarId をログから伏せる（readCalendarDay / assertCalendarSlotFree / getCalendarBusySlotsSafe）", async () => {
+    const leakyError = () => Object.assign(
+      new Error(
+        "request to https://www.googleapis.com/calendar/v3/calendars/secret-cal%40group.calendar.google.com/events?timeMin=x failed, reason: getaddrinfo ENOTFOUND"
+      ),
+      { status: undefined }
+    );
+
+    mockList.mockRejectedValueOnce(leakyError());
+    await readCalendarDay("secret-cal@group.calendar.google.com", DATE);
+
+    mockList.mockRejectedValueOnce(leakyError());
+    await expect(
+      assertCalendarSlotFree("secret-cal@group.calendar.google.com", { date: DATE, startTime: "09:00", endTime: "10:00" })
+    ).rejects.toThrow("CALENDAR_UNAVAILABLE");
+
+    mockList.mockRejectedValueOnce(leakyError());
+    await getCalendarBusySlotsSafe("secret-cal@group.calendar.google.com", [DATE]);
+
+    expect(errorSpy).toHaveBeenCalledTimes(3);
+    expect(errorSpy.mock.calls[0].map(String).join(" ")).toContain("ENOTFOUND");
+    for (const call of errorSpy.mock.calls) {
+      const logged = call.map(String).join(" ");
+      expect(logged).not.toContain("secret-cal");
+    }
+  });
+  test("onUnreadable の失敗ログもURLを伏せて理由を残す", async () => {
+    mockList.mockRejectedValue(new Error("unreadable"));
+    const onUnreadable = jest.fn().mockRejectedValue(new Error("request to https://example.com/secret-cal failed, reason: ENOTFOUND"));
+    await expect(getCalendarBusySlotsSafe("cal", [DATE], { onUnreadable })).resolves.toEqual({});
+    expect(errorSpy).toHaveBeenLastCalledWith("[calendarBusy] onUnreadable 失敗: request to <url> failed, reason: ENOTFOUND");
+  });
+  test("redactUrls hides URLs but leaves plain text untouched", () => {
+    expect(redactUrls("request to https://example.com/a/b?x=1 failed")).toBe("request to <url> failed");
+    expect(redactUrls("plain message without a url")).toBe("plain message without a url");
   });
   test("Safe success does not notify", async () => {
     mockList.mockResolvedValue([]);

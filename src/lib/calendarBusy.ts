@@ -124,6 +124,19 @@ export function dayRangeIso(date: string): { timeMin: string; timeMax: string } 
 
 export type CalendarReadErrorKind = "not_found" | "forbidden" | "other";
 
+export function getErrorStatus(e: unknown): unknown {
+  return e && typeof e === "object" && "status" in e ? (e as { status?: unknown }).status : undefined;
+}
+
+/** ログに calendarId 入りのURL（gaxios の例外メッセージ等）を残さない。 */
+export function redactUrls(message: string): string {
+  return message.replace(/https?:\/\/\S+/g, "<url>");
+}
+
+export function safeErrorMessage(e: unknown): string {
+  return redactUrls(e instanceof Error ? e.message : String(e));
+}
+
 /** 管理チェックと保存時検証用。失敗は HTTP status に応じた分類だけを返す。 */
 export async function readCalendarDay(
   calendarId: string,
@@ -133,8 +146,14 @@ export async function readCalendarDay(
     const { timeMin, timeMax } = dayRangeIso(date);
     return { ok: true, events: await listCalendarEvents(calendarId, timeMin, timeMax) };
   } catch (e) {
-    const status = e && typeof e === "object" && "status" in e ? e.status : undefined;
-    return { ok: false, errorKind: status === 404 ? "not_found" : status === 403 ? "forbidden" : "other" };
+    const status = getErrorStatus(e);
+    const errorKind = status === 404 ? "not_found" : status === 403 ? "forbidden" : "other";
+    // 原因を後から追えるように理由だけ残す（calendarId・認証情報は出さない。URLは redactUrls で伏せる）。
+    console.error(
+      `[calendarBusy] readCalendarDay failed: errorKind=${errorKind} status=${status ?? "-"} date=${date}`,
+      safeErrorMessage(e)
+    );
+    return { ok: false, errorKind };
   }
 }
 
@@ -192,7 +211,7 @@ export async function assertCalendarSlotFree(
     const events = await listCalendarEvents(calendarId, timeMin, timeMax);
     busy = busyIntervalsForDate(events, date, { ignoreEventIds: params.ignoreEventIds });
   } catch (e) {
-    console.error("[calendarBusy] Google Calendar の取得に失敗:", e);
+    console.error(`[calendarBusy] Google Calendar の取得に失敗: status=${getErrorStatus(e) ?? "-"} message=${safeErrorMessage(e)}`);
     throw new Error("CALENDAR_UNAVAILABLE");
   }
 
@@ -213,11 +232,11 @@ export async function getCalendarBusySlotsSafe(
   try {
     return await getCalendarBusySlotsByDate(calendarId, dates);
   } catch (e) {
-    console.error("[calendarBusy] 空き状況の GCal 取得に失敗（Firestore のみで続行）:", e);
+    console.error(`[calendarBusy] 空き状況の GCal 取得に失敗（Firestore のみで続行）: status=${getErrorStatus(e) ?? "-"} message=${safeErrorMessage(e)}`);
     try {
       await opts?.onUnreadable?.();
     } catch (notifyErr) {
-      console.error("[calendarBusy] onUnreadable 失敗:", notifyErr);
+      console.error(`[calendarBusy] onUnreadable 失敗: ${safeErrorMessage(notifyErr)}`);
     }
     return {};
   }

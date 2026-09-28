@@ -64,6 +64,7 @@ const mockDb = {
   },
 };
 
+import { createCalendarEvent } from "@/lib/googleCalendar";
 import { getFacilityById } from "@/lib/facilities";
 import { POST as pendingPost } from "@/app/api/reservations/pending/route";
 import { POST as reservationPost } from "@/app/api/reservations/route";
@@ -190,4 +191,25 @@ describe("通常予約（POST /api/reservations）", () => {
     const res = await reservationPost(req({ ...slot, facilityId: meetingRoom.id }));
     expect(res.status).toBe(503);
   });
+  test("GCal作成に失敗したとき、ログに calendarId（URL経由）が出ない", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    (getFacilityById as jest.Mock).mockResolvedValueOnce({
+      ...meetingRoom,
+      calendarId: "secret-cal@group.calendar.google.com",
+    });
+    mockListCalendarEvents.mockResolvedValueOnce([]);
+    (createCalendarEvent as jest.Mock).mockRejectedValueOnce(
+      new Error("request to https://www.googleapis.com/calendar/v3/calendars/secret-cal%40group.calendar.google.com/events failed, reason: getaddrinfo ENOTFOUND")
+    );
+    const res = await reservationPost(req({ ...slot, facilityId: meetingRoom.id }));
+    expect(res.status).toBe(500);
+    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy.mock.calls[0]?.length).toBe(2);
+    expect(String(errorSpy.mock.calls[0]?.[1] ?? "")).not.toContain("secret-cal");
+    for (const call of errorSpy.mock.calls) {
+      expect(call.map(String).join(" ")).not.toContain("secret-cal");
+    }
+    errorSpy.mockRestore();
+  });
+
 });
