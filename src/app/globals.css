@@ -32,7 +32,8 @@
   --eb-gold-text: #8A6A12;
   --eb-coral: #D9483A;
   --eb-coral-text: #B23A24;
-  --eb-bg: linear-gradient(180deg, #FFFFFF 0%, #ECF3EF 100%);
+  --eb-bg-end: #ECF3EF;
+  --eb-bg: linear-gradient(180deg, #FFFFFF 0%, var(--eb-bg-end) 100%);
   --eb-glass: rgba(255, 255, 255, .72);
   --eb-line: rgba(15, 29, 25, .10);
   --eb-tint: rgba(15, 29, 25, .06);
