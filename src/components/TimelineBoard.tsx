@@ -9,6 +9,7 @@ import {
   writePostsCache,
 } from "@/lib/timelineCache";
 import { openExternalUrl } from "@/lib/liff";
+import { LikersSheet } from "@/components/LikersSheet";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { Avatar, SheetButton } from "@/components/ui/LineContact";
 import { Button, GlassCard, PageBg, PageHeading, SegmentedTabs, StatusPill, inputClass, type EbStatusTone } from "@/components/ui/eb";
@@ -57,6 +58,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
 
   // 詳細シート対象
   const [open, setOpen] = useState<Post | null>(null);
+  const [likersOpen, setLikersOpen] = useState(false);
 
   const postsRef = useRef<Post[]>([]);
   useEffect(() => {
@@ -194,6 +196,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
     setOpen(p);
   }
   function closeAll() {
+    setLikersOpen(false);
     setOpen(null);
   }
 
@@ -374,6 +377,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
       {/* 投稿詳細シート */}
       <BottomSheet
         open={!!open}
+        dismissible={!likersOpen}
         title="投稿の詳細"
         onClose={closeAll}
         footer={
@@ -402,6 +406,11 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
             )}
             <div className="flex items-center gap-[18px] border-t border-[color:var(--eb-line)] pt-3">
               <LikeStat count={open.likes.length} active={open.likes.includes(currentUserId)} />
+              {open.likes.length > 0 && (
+                <button type="button" onClick={() => setLikersOpen(true)} className="min-h-14 px-3 text-[15px] font-bold text-[color:var(--eb-green-text)]" aria-label="いいねした人を見る">
+                  見る
+                </button>
+              )}
             </div>
             {!open.authorLineUrl && (
               <p className="text-[12px] leading-relaxed text-[color:var(--eb-ink-muted)]">
@@ -420,6 +429,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
           </div>
         )}
       </BottomSheet>
+      {open && <LikersSheet open={likersOpen} onClose={() => setLikersOpen(false)} fetchUrl={`/api/posts/${open.postId}/likes`} />}
     </>
   );
 

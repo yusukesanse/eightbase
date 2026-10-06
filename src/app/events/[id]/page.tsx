@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { RichText } from "@/components/ui/RichText";
+import { LikersSheet } from "@/components/LikersSheet";
 import { Avatar } from "@/components/ui/LineContact";
 import { getGoodSet, saveGoodSet } from "@/lib/eventGoods";
 import { COMMENT_MAX_LENGTH } from "@/lib/eventComments";
@@ -53,6 +54,7 @@ export default function EventDetailPage() {
   const router = useRouter();
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [likersOpen, setLikersOpen] = useState(false);
   const [liked, setLiked] = useState(false);
 
   // コメント（E-2）
@@ -276,7 +278,7 @@ export default function EventDetailPage() {
         />
 
         {/* グッドボタン */}
-        <div className="mt-8">
+        <div className="mt-8 flex flex-wrap items-center gap-3">
           <Button variant={liked ? "ghost" : "primary"} onClick={handleToggleGood}>
             <span className="inline-flex items-center gap-2">
               <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -285,6 +287,9 @@ export default function EventDetailPage() {
               いいね {event.goodCount}
             </span>
           </Button>
+          {event.goodCount > 0 && (
+            <button type="button" onClick={() => setLikersOpen(true)} className="min-h-14 px-3 text-[15px] font-bold text-[color:var(--eb-green-text)]" aria-label="いいねした人を見る">いいねした人を見る</button>
+          )}
         </div>
 
         {/* コメント（E-2・会員のみ・フラット一覧） */}
@@ -360,6 +365,7 @@ export default function EventDetailPage() {
           )}
         </div>
       </div>
+      <LikersSheet open={likersOpen} onClose={() => setLikersOpen(false)} fetchUrl={`/api/events/${id}/goods`} />
     </PageBg>
   );
 }

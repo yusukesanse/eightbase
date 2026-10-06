@@ -729,6 +729,7 @@ GCal に直接入れられるのは**社員だけ**（カレンダーの共有�
 - メンバー: プロフィールカバー型カード＋スキルチップ絞り込み、タップで詳細ボトムシート（bio/スキル/リンク欄[会社URL・SNS]）。
 - 掲示板: 下線タブ＋カード（状態Badge・いいね）、タップで詳細シート、FABから新規投稿シート（種別＋本文＋タグ最大5）。**コメント機能は無し**。
 - どちらも詳細は**ボトムシート**（`/members/[id]`・`/timeline/[id]` ルートはディープリンク用に残置）。
+- 「いいねした人」一覧（掲示板・イベント詳細の件数横「見る」）は `GET /api/posts/[id]/likes` / `GET /api/events/[eventId]/goods` → 共通 `LikersSheet`。lineUserId→名前・アイコンの解決は `resolveUserSummaries`（`src/lib/userSummaries.ts`・active のみ・ID は返さない）を使い、**ルートごとにコピーしない**。
 
 ### 「LINEで連絡」= 友だち追加URL方式（botは使わない）
 - 各メンバーが **LINE友だち追加URL**（`memberProfile.lineUrl`）を登録（初回プロフィール=任意、マイページ→スキル・サービス設定でも編集可）。`profileComplete` の必須項目にはしない。

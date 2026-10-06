@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { type CachedPost as Post, findCachedPost } from "@/lib/timelineCache";
+import { LikersSheet } from "@/components/LikersSheet";
 import { Avatar } from "@/components/ui/LineContact";
 import { GlassCard, PageBg, StatusPill, type EbStatusTone } from "@/components/ui/eb";
 
@@ -28,6 +29,7 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [likersOpen, setLikersOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("");
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
@@ -259,6 +261,9 @@ export default function PostDetailPage() {
                 {post.likes.length}
               </span>
             </button>
+            {post.likes.length > 0 && (
+              <button type="button" onClick={() => setLikersOpen(true)} className="min-h-14 px-3 text-[15px] font-bold text-[color:var(--eb-green-text)]" aria-label="いいねした人を見る">見る</button>
+            )}
             <button
               onClick={() => commentInputRef.current?.focus()}
               className="flex items-center gap-1.5"
@@ -339,6 +344,7 @@ export default function PostDetailPage() {
           </button>
         </div>
       </div>
+      <LikersSheet open={likersOpen} onClose={() => setLikersOpen(false)} fetchUrl={`/api/posts/${postId}/likes`} />
     </PageBg>
   );
 }
