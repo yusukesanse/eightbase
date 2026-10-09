@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { jstDateFromIso } from "@/lib/date";
 import { isIsoWithOffset } from "@/lib/mahjongCsEntry";
 import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import type {
@@ -20,11 +21,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    let seasonId = req.nextUrl.searchParams.get("seasonId");
+    const activeSeasonId = (await getActiveSeason())?.seasonId ?? null;
+    const seasonId = req.nextUrl.searchParams.get("seasonId") || activeSeasonId;
     if (!seasonId) {
-      const season = await getActiveSeason();
-      if (!season) return NextResponse.json({ events: [], seasonId: null, priorityPreviewCount: 0 });
-      seasonId = season.seasonId;
+      return NextResponse.json({ events: [], seasonId: null, activeSeasonId, priorityPreviewCount: 0 });
     }
     const snap = await getDb()
       .collection("mahjongCsEvents")
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     // 受付締切を過ぎた新方式の CS は参加者を確定する
     const closed = await Promise.all(events.map((e) => ensureCsClosed(e)));
     const priorityPreviewCount = (await fetchPriorityUserIds(getDb(), seasonId)).length;
-    return NextResponse.json({ events: closed, seasonId, priorityPreviewCount });
+    return NextResponse.json({ events: closed, seasonId, activeSeasonId, priorityPreviewCount });
   } catch (error) {
     console.error("[admin/mahjong/cs] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
@@ -74,12 +74,18 @@ export async function POST(req: NextRequest) {
       || Date.parse(entryClosesAt) <= Date.parse(entryOpensAt)) {
       return NextResponse.json({ error: "受付期間が不正です" }, { status: 400 });
     }
+    if (eventDate < jstDateFromIso(entryClosesAt)) {
+      return NextResponse.json({ error: "開催日は参加受付の締切日以降にしてください" }, { status: 400 });
+    }
     const season = await getActiveSeason();
     if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
     const db = getDb();
     const priorityUserIds = await fetchPriorityUserIds(db, season.seasonId);
     if (capacity < priorityUserIds.length) {
-      return NextResponse.json({ error: `定員が優先枠（M1・M2 の ${priorityUserIds.length} 名）より少なくなっています` }, { status: 400 });
+      return NextResponse.json(
+        { error: `定員が優先枠（M1・M2 の ${priorityUserIds.length} 名）より少なくなっています` },
+        { status: 400 },
+      );
     }
     const now = new Date().toISOString();
     const event: Omit<MahjongCsEvent, "csEventId"> = {

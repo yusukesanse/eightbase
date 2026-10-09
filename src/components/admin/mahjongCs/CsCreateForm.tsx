@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { jstDateFromIso, todayJst } from "@/lib/date";
 import DatePicker from "@/components/ui/DatePicker";
 import DateTimePicker from "@/components/ui/DateTimePicker";
 import type { MahjongCsEvent } from "@/types/mahjong";
@@ -35,7 +36,7 @@ export default function CsCreateForm({
   onCreated: (event: MahjongCsEvent) => void;
 }) {
   const [name, setName] = useState("チャンピオンシップ");
-  const [eventDate, setEventDate] = useState(() => jstInput(new Date()).split("T")[0]);
+  const [eventDate, setEventDate] = useState(todayJst);
   const [capacity, setCapacity] = useState(40);
   const [opens, setOpens] = useState(() => jstInput(new Date()));
   const [closes, setCloses] = useState(() => jstInput(new Date(Date.now() + 7 * 86400000)));
@@ -47,6 +48,10 @@ export default function CsCreateForm({
     setError(null);
     if (!name.trim() || !eventDate || !opens || !closes) {
       setError("すべての項目を入力してください");
+      return;
+    }
+    if (eventDate < jstDateFromIso(`${closes}:00+09:00`)) {
+      setError("開催日は参加受付の締切日以降にしてください");
       return;
     }
     setBusy(true);
@@ -110,7 +115,23 @@ export default function CsCreateForm({
             >
               −
             </button>
-            <span className="text-sm font-bold">{capacity}名</span>
+            <label className="flex items-center gap-1 text-sm font-bold">
+              <input
+                type="number"
+                aria-label="定員"
+                min={4}
+                max={200}
+                step={1}
+                value={capacity}
+                onChange={(e) => {
+                  if (e.target.value === "") return;
+                  const value = Number(e.target.value);
+                  if (Number.isFinite(value)) setCapacity(Math.max(4, Math.min(200, Math.trunc(value))));
+                }}
+                className="w-20 px-2 py-2 border border-[#231714]/10 rounded-lg"
+              />
+              名
+            </label>
             <button
               type="button"
               aria-label="定員を増やす"

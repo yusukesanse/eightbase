@@ -14,11 +14,12 @@ export default function SeasonMahjongCsPage() {
   const [events, setEvents] = useState<MahjongCsEvent[]>([]);
   // undefined = 初回は最新を選択、null = 新規作成。
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
+  const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
   const [priorityPreviewCount, setPriorityPreviewCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmation, setConfirmation] = useState<"reopenBracket" | "delete" | null>(null);
+  const [confirmation, setConfirmation] = useState<"resetBracket" | "delete" | null>(null);
   const [editMatch, setEditMatch] = useState<MahjongCsMatch | null>(null);
   const selected = events.find((event) => event.csEventId === selectedId) ?? null;
   const legacy = selected !== null && selected.capacity === undefined;
@@ -30,6 +31,8 @@ export default function SeasonMahjongCsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "取得に失敗しました");
+      setError(null);
+      setActiveSeasonId(data.activeSeasonId ?? null);
       setEvents(data.events ?? []);
       setPriorityPreviewCount(data.priorityPreviewCount ?? 0);
       setSelectedId((id) => (id === undefined ? (data.events?.[0]?.csEventId ?? null) : id));
@@ -48,18 +51,19 @@ export default function SeasonMahjongCsPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/mahjong/cs/${selected.csEventId}`, {
-        method: confirmation === "delete" ? "DELETE" : "PATCH",
+      const suffix = confirmation === "resetBracket" ? "/fix" : "";
+      const res = await fetch(`/api/admin/mahjong/cs/${selected.csEventId}${suffix}`, {
+        method: confirmation === "delete" ? "DELETE" : "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        ...(confirmation === "reopenBracket"
-          ? { body: JSON.stringify({ action: "reopenBracket" }) }
+        ...(confirmation === "resetBracket"
+          ? { body: JSON.stringify({ action: "resetBracket" }) }
           : {}),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "更新に失敗しました");
-        if (res.status === 409) await fetchEvents();
+        if (res.status === 404 || res.status === 409) await fetchEvents();
       } else {
         if (confirmation === "delete") setSelectedId(undefined);
         await fetchEvents();
@@ -115,7 +119,7 @@ export default function SeasonMahjongCsPage() {
             {event.name}（{event.eventDate}）
           </button>
         ))}
-        {!legacy && (
+        {seasonId === activeSeasonId ? (
           <button
             disabled={busy}
             className={csButton}
@@ -127,9 +131,11 @@ export default function SeasonMahjongCsPage() {
           >
             新しいCSを作る
           </button>
+        ) : (
+          <p className="text-xs text-[#231714]/80">CSの作成は現在のシーズンでだけできます</p>
         )}
       </div>
-      {!selected && (
+      {!selected && seasonId === activeSeasonId && (
         <CsCreateForm
           priorityPreviewCount={priorityPreviewCount}
           onCreated={(event) => {
@@ -159,11 +165,11 @@ export default function SeasonMahjongCsPage() {
             </div>
             {!legacy && (
               <div className="flex flex-wrap gap-2">
-                {selected.status === "running" && (
+                {(selected.status === "running" || selected.status === "finished") && (
                   <button
                     disabled={busy}
                     className={csButton}
-                    onClick={() => setConfirmation("reopenBracket")}
+                    onClick={() => setConfirmation("resetBracket")}
                   >
                     編成に戻す
                   </button>
@@ -184,7 +190,7 @@ export default function SeasonMahjongCsPage() {
           {confirmation && !legacy && (
             <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
               <p className="text-xs">
-                {confirmation === "reopenBracket"
+                {confirmation === "resetBracket"
                   ? "編成に戻すと、記録済みの結果は消えます。"
                   : "このCSを削除しますか？"}
               </p>
@@ -194,7 +200,7 @@ export default function SeasonMahjongCsPage() {
                   className={csButton}
                   onClick={performAction}
                 >
-                  {confirmation === "reopenBracket" ? "編成に戻す" : "削除する"}
+                  {confirmation === "resetBracket" ? "編成に戻す" : "削除する"}
                 </button>
                 <button
                   disabled={busy}
@@ -345,6 +351,7 @@ export default function SeasonMahjongCsPage() {
           csEventId={selected.csEventId}
           match={editMatch}
           onClose={() => setEditMatch(null)}
+          onChanged={fetchEvents}
           onSaved={() => {
             setEditMatch(null);
             fetchEvents();
@@ -362,11 +369,13 @@ function MatchResultModal({
   match,
   onClose,
   onSaved,
+  onChanged,
 }: {
   csEventId: string;
   match: MahjongCsMatch;
   onClose: () => void;
   onSaved: () => void;
+  onChanged: () => void;
 }) {
   const [rows, setRows] = useState(
     match.players.map((p) => ({
@@ -421,8 +430,12 @@ function MatchResultModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error ?? "保存に失敗しました");
-      else onSaved();
+      if (!res.ok) {
+        setError(data.error ?? "保存に失敗しました");
+        if (res.status === 404 || res.status === 409) onChanged();
+      } else {
+        onSaved();
+      }
     } catch {
       setError("保存に失敗しました");
     } finally {

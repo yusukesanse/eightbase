@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DateTimePicker from "@/components/ui/DateTimePicker";
+import { rebalanceEntries, waitlistPosition } from "@/lib/mahjongCsEntry";
 import { isProduction } from "@/lib/env";
-import type { MahjongCsEvent } from "@/types/mahjong";
+import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
 import { csButton, csPrimary, jstInput } from "./CsCreateForm";
 
 const filters = ["すべて", "優先枠", "M3", "キャンセル待ち"] as const;
@@ -39,6 +40,8 @@ export default function CsEntryAdminPanel({
   const [opens, setOpens] = useState(() => jstInput(event.entryOpensAt ?? new Date()));
   const [closes, setCloses] = useState(() => jstInput(event.entryClosesAt ?? new Date()));
   const [confirmClose, setConfirmClose] = useState(false);
+  const [removeEntry, setRemoveEntry] = useState<MahjongCsEntry | null>(null);
+  const notifiedDeadline = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -53,6 +56,22 @@ export default function CsEntryAdminPanel({
   const waiting = entries.filter((e) => e.state === "waitlisted");
   const priority = new Set(event.priorityUserIds ?? []);
   const remaining = Math.max(0, Math.ceil((Date.parse(event.entryClosesAt ?? "") - now) / 60000));
+  useEffect(() => {
+    const deadline = `${event.csEventId}:${event.entryClosesAt}`;
+    if (remaining === 0 && notifiedDeadline.current !== deadline) {
+      notifiedDeadline.current = deadline;
+      onChanged();
+    }
+  }, [remaining, event.csEventId, event.entryClosesAt, onChanged]);
+  const preview = rebalanceEntries(entries, {
+    capacity,
+    priorityUserIds: event.priorityUserIds ?? [],
+    phase: "entry",
+  });
+  const additionalWaiting = Math.max(
+    0,
+    preview.filter((entry) => entry.state === "waitlisted").length - waiting.length,
+  );
   const remainingText =
     remaining > 0
       ? `${Math.floor(remaining / 1440)}日 ${Math.floor((remaining % 1440) / 60)}時間 ${remaining % 60}分`
@@ -71,7 +90,7 @@ export default function CsEntryAdminPanel({
       const data = await res.json();
       if (!res.ok) {
         onError(data.error ?? "更新に失敗しました");
-        if (res.status === 409) onChanged();
+        if (res.status === 404 || res.status === 409) onChanged();
       } else {
         setEditing(false);
         setConfirmClose(false);
@@ -81,6 +100,7 @@ export default function CsEntryAdminPanel({
       onError("更新に失敗しました");
     } finally {
       setBusy(false);
+      setRemoveEntry(null);
     }
   }
 
@@ -148,7 +168,9 @@ export default function CsEntryAdminPanel({
               max={200}
               step={1}
               value={capacity}
-              onChange={(e) => setCapacity(Number(e.target.value))}
+              onChange={(e) => {
+                if (e.target.value !== "") setCapacity(Number(e.target.value));
+              }}
               className="block mt-1 w-24 border border-[#231714]/10 rounded-lg px-3 py-2 text-sm"
             />
           </label>
@@ -168,13 +190,13 @@ export default function CsEntryAdminPanel({
               className="max-sm:flex-col"
             />
           </div>
-          {capacity < confirmed && (
+          {additionalWaiting > 0 && (
             <p
               role="alert"
               className="rounded-lg bg-orange-50 p-3 text-xs text-orange-800"
             >
-              {"定員を減らすと、参加確定のM3の人が" +
-                "キャンセル待ちに戻ることがあります（通知は届きません）"}
+              {`定員を減らすと、参加確定のM3の人が${additionalWaiting}名` +
+                "キャンセル待ちに戻ります（通知は届きません）"}
             </p>
           )}
           <div className="flex gap-2">
@@ -199,6 +221,27 @@ export default function CsEntryAdminPanel({
             </button>
           </div>
         </fieldset>
+      )}
+      {removeEntry && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
+          <p className="text-xs">{removeEntry.displayName}さんを参加者から外しますか？</p>
+          <div className="flex gap-2">
+            <button
+              disabled={busy}
+              className={csPrimary}
+              onClick={() => patch({ action: "removeEntry", lineUserId: removeEntry.lineUserId })}
+            >
+              外す
+            </button>
+            <button
+              disabled={busy}
+              className={csButton}
+              onClick={() => setRemoveEntry(null)}
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
       )}
       {confirmClose && (
         <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
@@ -256,7 +299,7 @@ export default function CsEntryAdminPanel({
                   (filter === "優先枠"
                     ? priority.has(e.lineUserId)
                     : filter === "M3"
-                      ? e.tier === "M3"
+                      ? !priority.has(e.lineUserId)
                       : e.state === "waitlisted"),
               )
               .map((entry) => (
@@ -273,14 +316,15 @@ export default function CsEntryAdminPanel({
                   <td className="p-3">
                     {entry.state === "confirmed"
                       ? "参加確定"
-                      : `キャンセル待ち${waiting.findIndex((e) => e.lineUserId === entry.lineUserId) + 1}番目`}
+                      : `キャンセル待ち${waitlistPosition(event.entries ?? [], entry.lineUserId)}番目`}
                   </td>
                   <td className="p-3">{displayDate(entry.enteredAt)}</td>
                   <td className="p-3">
                     <button
                       disabled={busy}
                       className={csButton}
-                      onClick={() => patch({ action: "removeEntry", lineUserId: entry.lineUserId })}
+                      aria-label={`${entry.displayName}さんを外す`}
+                      onClick={() => setRemoveEntry(entry)}
                     >
                       外す
                     </button>
