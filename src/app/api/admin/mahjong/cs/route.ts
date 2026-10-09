@@ -1,10 +1,11 @@
+import { randomUUID } from "node:crypto";
+import { writeAuditLog } from "@/lib/auditLog";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import type {
-  MahjongCsEntrant,
   MahjongCsEvent,
   MahjongLeagueAssignment,
 } from "@/types";
@@ -41,68 +42,59 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * POST /api/admin/mahjong/cs
- * CSイベントを作成。CSは誰でも参加可。最新の確定リーグ編成にいる全員を
- * 参戦候補として取り込み（M1=シード権で有利になるだけ）。status=setup
- * body: { name: string, eventDate: string }
- */
+/** 最新の確定編成の M1・M2 を作成時の優先枠として固定する。 */
+async function fetchPriorityUserIds(db: ReturnType<typeof getDb>, seasonId: string) {
+  const snap = await db.collection("mahjongLeagueAssignments")
+    .where("seasonId", "==", seasonId).get();
+  const assignments = snap.docs.map((d) => d.data() as MahjongLeagueAssignment)
+    .sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt));
+  return (assignments[0]?.entries ?? [])
+    .filter((e) => e.tier === "M1" || e.tier === "M2")
+    .map((e) => e.lineUserId);
+}
+
+/** POST /api/admin/mahjong/cs — 定員と受付期間を指定して作成する。 */
 export async function POST(req: NextRequest) {
-  if (!(await checkAdminAuth(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const admin = await checkAdminAuth(req);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await req.json().catch(() => null);
-    const name: unknown = body?.name;
-    const eventDate: unknown = body?.eventDate;
+    const { name, eventDate, capacity, entryOpensAt, entryClosesAt } = body ?? {};
     if (typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "name は必須です" }, { status: 400 });
     }
     if (typeof eventDate !== "string" || !DATE_RE.test(eventDate)) {
       return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
     }
-
+    if (!Number.isInteger(capacity) || capacity < 4 || capacity > 200) {
+      return NextResponse.json({ error: "定員は4〜200の整数にしてください" }, { status: 400 });
+    }
+    if (typeof entryOpensAt !== "string" || typeof entryClosesAt !== "string"
+      || !Number.isFinite(Date.parse(entryOpensAt)) || !Number.isFinite(Date.parse(entryClosesAt))
+      || Date.parse(entryClosesAt) <= Date.parse(entryOpensAt)) {
+      return NextResponse.json({ error: "受付期間が不正です" }, { status: 400 });
+    }
     const season = await getActiveSeason();
-    if (!season) {
-      return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
-    }
+    if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
     const db = getDb();
-
-    // 最新の確定リーグ編成からシード・参戦候補を作る
-    const asgnSnap = await db
-      .collection("mahjongLeagueAssignments")
-      .where("seasonId", "==", season.seasonId)
-      .get();
-    const assignments = asgnSnap.docs
-      .map((d) => d.data() as MahjongLeagueAssignment)
-      .sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt));
-
-    let entrants: MahjongCsEntrant[] = [];
-    if (assignments.length > 0) {
-      // CSは誰でも参加可。確定編成にいる全員を取り込み（M1のみシード）
-      entrants = assignments[0].entries
-        .map((e) => ({
-          lineUserId: e.lineUserId,
-          displayName: e.displayName,
-          pictureUrl: e.pictureUrl,
-          tier: e.tier,
-          rank: e.rank,
-          seed: e.tier === "M1",
-        }));
+    const priorityUserIds = await fetchPriorityUserIds(db, season.seasonId);
+    if (capacity < priorityUserIds.length) {
+      return NextResponse.json({ error: `定員が優先枠（M1・M2 の ${priorityUserIds.length} 名）より少なくなっています` }, { status: 400 });
     }
-
     const now = new Date().toISOString();
     const event: Omit<MahjongCsEvent, "csEventId"> = {
-      seasonId: season.seasonId,
-      name: name.trim(),
-      eventDate,
-      status: "setup",
-      entrants,
-      rounds: [],
-      createdAt: now,
-      updatedAt: now,
+      seasonId: season.seasonId, name: name.trim(), eventDate, status: "entry",
+      capacity, entryOpensAt, entryClosesAt, priorityUserIds, entries: [], entrants: [], rounds: [],
+      createdAt: now, updatedAt: now,
     };
-    const ref = await db.collection("mahjongCsEvents").add(event);
+    const ref = db.collection("mahjongCsEvents").doc(randomUUID());
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if (doc.exists) throw new Error("CS already exists");
+      tx.set(ref, event);
+    });
+    await writeAuditLog({ eventType: "cs.created", actor: admin, target: { date: eventDate },
+      afterStatus: "entry", meta: { csEventId: ref.id } });
     return NextResponse.json({ event: { ...event, csEventId: ref.id } }, { status: 201 });
   } catch (error) {
     console.error("[admin/mahjong/cs] POST error:", error);
