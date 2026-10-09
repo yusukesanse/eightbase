@@ -7,6 +7,13 @@
  */
 import type { MahjongCsEntrant, MahjongCsEntry, MahjongCsEvent } from "@/types";
 
+/** タイムゾーンを明示した、解釈可能な ISO 日時だけを受け付ける。 */
+export function isIsoWithOffset(s: unknown): s is string {
+  return typeof s === "string"
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(s)
+    && Number.isFinite(Date.parse(s));
+}
+
 export function isManualCs(event: Pick<MahjongCsEvent, "capacity">): boolean {
   return typeof event.capacity === "number";
 }
