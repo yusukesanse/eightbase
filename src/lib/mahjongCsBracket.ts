@@ -7,6 +7,17 @@ import type { MahjongCsEntrant, MahjongCsMatch, MahjongCsMatchPlayer, MahjongCsR
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
+function isPlayerSeat(seat: unknown): seat is Extract<MahjongCsSeat, { kind: "player" }> {
+  return typeof seat === "object" && seat !== null && "kind" in seat && seat.kind === "player"
+    && "lineUserId" in seat && typeof seat.lineUserId === "string";
+}
+
+function isTicketSeat(seat: unknown): seat is Extract<MahjongCsSeat, { kind: "ticket" }> {
+  return typeof seat === "object" && seat !== null && "kind" in seat && seat.kind === "ticket"
+    && "fromMatchId" in seat && typeof seat.fromMatchId === "string"
+    && "place" in seat && typeof seat.place === "number";
+}
+
 function findMatch(rounds: MahjongCsRound[], matchId: string): { ri: number; match: MahjongCsMatch } | null {
   for (let ri = 0; ri < rounds.length; ri++) {
     const match = rounds[ri].matches.find((m) => m.matchId === matchId);
@@ -22,7 +33,7 @@ export function ticketLabel(rounds: MahjongCsRound[], fromMatchId: string, place
 
 function playerIds(rounds: MahjongCsRound[]): string[] {
   return rounds.flatMap((r) => r.matches.flatMap((m) => (m.seats ?? [])
-    .flatMap((s) => (s?.kind === "player" ? [s.lineUserId] : []))));
+    .flatMap((s) => (isPlayerSeat(s) ? [s.lineUserId] : []))));
 }
 
 export function unplacedEntrantIds(rounds: MahjongCsRound[], entrantIds: string[]): string[] {
@@ -34,6 +45,7 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
   const errs: string[] = [];
   if (rounds.length === 0) return ["ラウンドがありません"];
   const entrantSet = new Set(entrantIds);
+  const matchIds = new Set<string>();
 
   rounds.forEach((r, ri) => {
     if (!Number.isInteger(r.advanceCount) || r.advanceCount < 1 || r.advanceCount > 3) {
@@ -41,9 +53,11 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
     }
     if (r.matches.length === 0) errs.push(`${r.label}: 卓がありません`);
     for (const m of r.matches) {
+      if (matchIds.has(m.matchId)) errs.push(`${m.label}: 卓IDが重複しています`);
+      matchIds.add(m.matchId);
       const seats = m.seats ?? [];
-      if (seats.length !== 4 || seats.some((s) => s == null)) errs.push(`${m.label}: 空いている席があります`);
-      if (ri === 0 && seats.some((s) => s?.kind === "ticket")) {
+      if (seats.length !== 4 || seats.some((s) => !isPlayerSeat(s) && !isTicketSeat(s))) errs.push(`${m.label}: 空いている席があります`);
+      if (ri === 0 && seats.some((s) => isTicketSeat(s))) {
         errs.push(`${m.label}: 最初のラウンドに勝ち抜けの札は置けません`);
       }
     }
@@ -65,12 +79,12 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
     const prevIds = new Set(prev.matches.map((m) => m.matchId));
     const used = new Map<string, number>();
     for (const m of rounds[ri].matches) for (const s of m.seats ?? []) {
-      if (s?.kind !== "ticket") continue;
+      if (!isTicketSeat(s)) continue;
       if (!prevIds.has(s.fromMatchId)) {
         errs.push(`${m.label}: 札は直前のラウンドの卓から置いてください`);
         continue;
       }
-      if (s.place < 1 || s.place > prev.advanceCount) {
+      if (!Number.isInteger(s.place) || s.place < 1 || s.place > prev.advanceCount) {
         errs.push(`${m.label}: ${ticketLabel(rounds, s.fromMatchId, s.place)}は勝ち抜け人数を超えています`);
         continue;
       }
@@ -106,7 +120,13 @@ export function buildRunningRounds(rounds: MahjongCsRound[], entrants: MahjongCs
     matches: r.matches.map((m) => ({
       ...m,
       status: "reporting" as const,
-      players: (m.seats ?? []).flatMap((s) => (s?.kind === "player" ? [toPlayer(s.lineUserId, byId)] : [])),
+      seats: m.seats?.map((s) => {
+        if (isTicketSeat(s)) {
+          delete s.lineUserId;
+        }
+        return s;
+      }),
+      players: (m.seats ?? []).flatMap((s) => (isPlayerSeat(s) ? [toPlayer(s.lineUserId, byId)] : [])),
     })),
   }));
 }
@@ -118,6 +138,7 @@ export function applyCompletedMatch(
   const found = findMatch(next, matchId);
   if (!found) throw new Error("MATCH_NOT_FOUND");
   const { ri, match } = found;
+  if (match.status !== "completed") throw new Error("MATCH_NOT_COMPLETED");
 
   if (ri === next.length - 1) {
     const champ = match.players.find((p) => p.rank === 1);
@@ -126,15 +147,21 @@ export function applyCompletedMatch(
 
   const byId = new Map(entrants.map((e) => [e.lineUserId, e]));
   const ranked = [...match.players].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-  for (const target of next[ri + 1].matches) {
+  const targets = next[ri + 1].matches.filter((target) =>
+    (target.seats ?? []).some((s) => isTicketSeat(s) && s.fromMatchId === matchId));
+  if (targets.some((target) => target.players.some((p) => p.points != null))) {
+    throw new Error("DOWNSTREAM_REPORTED");
+  }
+  for (const target of targets) {
     for (const s of target.seats ?? []) {
-      if (s?.kind !== "ticket" || s.fromMatchId !== matchId) continue;
-      if (target.players.some((p) => p.points != null)) throw new Error("DOWNSTREAM_REPORTED");
-      if (s.lineUserId) target.players = target.players.filter((p) => p.lineUserId !== s.lineUserId);
-      const winner = ranked[s.place - 1];
-      s.lineUserId = winner?.lineUserId;
-      if (winner) target.players.push(toPlayer(winner.lineUserId, byId));
+      if (!isTicketSeat(s) || s.fromMatchId !== matchId) continue;
+      s.lineUserId = ranked[s.place - 1]?.lineUserId;
     }
+  }
+  for (const target of targets) {
+    target.players = (target.seats ?? []).flatMap((s) =>
+      (isPlayerSeat(s) || isTicketSeat(s)) && typeof s.lineUserId === "string"
+        ? [toPlayer(s.lineUserId, byId)] : []);
   }
   return { rounds: next, finished: false };
 }

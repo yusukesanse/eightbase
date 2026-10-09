@@ -156,3 +156,105 @@ describe("applyCompletedMatch", () => {
     expect(JSON.stringify(r)).toBe(before);
   });
 });
+
+describe("結果の再適用", () => {
+  it.each([
+    [["b", "a", "c", "d"], ["b", "a"]],
+    [["b", "c", "a", "d"], ["b", "c"]],
+  ])("勝ち抜け者が重なる編集 %j でも座席順に全員残る", (order, expected) => {
+    const r = buildRunningRounds(sample(), ids.map(ent));
+    complete(r, "A", ["a", "b", "c", "d"]);
+    const first = applyCompletedMatch(r, "A", ids.map(ent));
+    complete(first.rounds, "A", order);
+    const out = applyCompletedMatch(first.rounds, "A", ids.map(ent));
+    expect(out.rounds[1].matches[0].players.map((p) => p.lineUserId)).toEqual(expected);
+  });
+});
+
+it.each([0, 1])("卓IDの重複はラウンド%dでも拒否する", (ri) => {
+  const r = sample();
+  r[ri].matches[ri === 0 ? 1 : 0].matchId = "A";
+  expect(validateBracket(r, ids).join()).toContain("卓IDが重複");
+});
+
+it("札の順位が小数ならその卓のラベル付きエラー", () => {
+  const r = sample();
+  r[1].matches[0].seats![0] = T("A", 1.5);
+  expect(validateBracket(r, ids).some((err) => err.includes("決勝卓"))).toBe(true);
+});
+
+describe("不正な席", () => {
+  it.each([
+    { kind: "foo" },
+    { kind: "player" },
+    { kind: "player", lineUserId: 123 },
+    { kind: "ticket", fromMatchId: "A" },
+    { kind: "ticket", fromMatchId: 123, place: 1 },
+    { kind: "ticket", fromMatchId: "A", place: "1" },
+  ])("%j は空席として扱いヘルパーで無視する", (invalid) => {
+    const r = sample();
+    r[0].matches[0].seats![0] = invalid as unknown as MahjongCsSeat;
+    expect(validateBracket(r, ids).join()).toContain("空いている席");
+    expect(unplacedEntrantIds(r, ids)).toEqual(["a"]);
+    expect(buildRunningRounds(r, ids.map(ent))[0].matches[0].players.map((p) => p.lineUserId))
+      .toEqual(["b", "c", "d"]);
+  });
+
+  it("不正な下流席から選手を作らない", () => {
+    const r = buildRunningRounds(sample(), ids.map(ent));
+    r[1].matches[0].seats![1] = { kind: "ticket", fromMatchId: "A", place: "1", lineUserId: "e" } as unknown as MahjongCsSeat;
+    r[1].matches[0].seats![3] = { kind: "player", lineUserId: 123 } as unknown as MahjongCsSeat;
+    complete(r, "A", ["a", "b", "c", "d"]);
+    expect(applyCompletedMatch(r, "A", ids.map(ent)).rounds[1].matches[0].players.map((p) => p.lineUserId))
+      .toEqual(["a", "b"]);
+  });
+});
+
+it("再確定は札の解決済みlineUserIdを削除して白紙から始める", () => {
+  const r = sample();
+  r[1].matches[0].seats![0] = { kind: "ticket", fromMatchId: "A", place: 1, lineUserId: "a" };
+  const before = JSON.stringify(r);
+  const out = buildRunningRounds(r, ids.map(ent));
+  expect(out[1].matches[0].seats![0]).toEqual({ kind: "ticket", fromMatchId: "A", place: 1 });
+  expect(out[1].matches[0].players).toEqual([]);
+  expect(JSON.stringify(r)).toBe(before);
+});
+
+it.each(["A", "F"])("未完了の卓 %s は適用を拒否する", (matchId) => {
+  const r = buildRunningRounds(sample(), ids.map(ent));
+  expect(() => applyCompletedMatch(r, matchId, ids.map(ent))).toThrow("MATCH_NOT_COMPLETED");
+});
+
+it("予選→準決→決勝の編成が有効で2段階の勝ち上がりが通る", () => {
+  const r = sample();
+  r[1] = {
+    type: "prelim", label: "準決勝", advanceCount: 2,
+    matches: [
+      match("S1", "準決1卓", [T("A", 1), P("i"), T("B", 2), P("j")]),
+      match("S2", "準決2卓", [T("B", 1), P("k"), T("A", 2), P("l")]),
+    ],
+  };
+  r.push({
+    type: "final", label: "決勝", advanceCount: 3,
+    matches: [match("F", "決勝卓", [T("S1", 1), T("S2", 1), T("S1", 2), T("S2", 2)])],
+  });
+  const allIds = [...ids, "i", "j", "k", "l"];
+  const entrants = allIds.map(ent);
+  expect(validateBracket(r, allIds)).toEqual([]);
+  let running = buildRunningRounds(r, entrants);
+  complete(running, "A", ["a", "b", "c", "d"]);
+  running = applyCompletedMatch(running, "A", entrants).rounds;
+  complete(running, "B", ["e", "f", "g", "h"]);
+  running = applyCompletedMatch(running, "B", entrants).rounds;
+  expect(running[1].matches[0].players.map((p) => p.lineUserId)).toEqual(["a", "i", "f", "j"]);
+  expect(running[1].matches[1].players.map((p) => p.lineUserId)).toEqual(["e", "k", "b", "l"]);
+  complete(running, "S1", ["a", "f", "i", "j"]);
+  const semifinal = applyCompletedMatch(running, "S1", entrants);
+  expect(semifinal.finished).toBe(false);
+  running = semifinal.rounds;
+  complete(running, "S2", ["b", "e", "k", "l"]);
+  running = applyCompletedMatch(running, "S2", entrants).rounds;
+  expect(running[2].matches[0].players.map((p) => p.lineUserId)).toEqual(["a", "b", "f", "e"]);
+  complete(running, "F", ["b", "a", "f", "e"]);
+  expect(applyCompletedMatch(running, "F", entrants)).toMatchObject({ finished: true, championId: "b" });
+});

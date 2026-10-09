@@ -18,13 +18,13 @@ export interface RebalanceOptions {
 }
 
 const byEnteredAt = (a: MahjongCsEntry, b: MahjongCsEntry) =>
-  a.enteredAt < b.enteredAt ? -1 : a.enteredAt > b.enteredAt ? 1 : 0;
+  Date.parse(a.enteredAt) - Date.parse(b.enteredAt);
 
 export function rebalanceEntries(entries: MahjongCsEntry[], opts: RebalanceOptions): MahjongCsEntry[] {
   const priority = new Set(opts.priorityUserIds);
   const sorted = [...entries].sort(byEnteredAt);
   const enteredPriority = sorted.filter((x) => priority.has(x.lineUserId)).length;
-  const reserved = opts.phase === "entry" ? opts.priorityUserIds.length : enteredPriority;
+  const reserved = opts.phase === "entry" ? priority.size : enteredPriority;
   let budget = Math.max(0, opts.capacity - reserved);
   return sorted.map((x) => {
     if (priority.has(x.lineUserId)) return { ...x, state: "confirmed" };
@@ -56,7 +56,9 @@ export function entrantsFromEntries(entries: MahjongCsEntry[]): MahjongCsEntrant
 /** 締切時刻を過ぎていれば、締切後の状態（差分）を返す。まだなら null。 */
 export function closeEntriesIfDue(event: MahjongCsEvent, nowIso: string): Partial<MahjongCsEvent> | null {
   if (event.status !== "entry" || !event.entryClosesAt) return null;
-  if (Date.parse(nowIso) < Date.parse(event.entryClosesAt)) return null;
+  const now = Date.parse(nowIso);
+  const closesAt = Date.parse(event.entryClosesAt);
+  if (Number.isNaN(now) || Number.isNaN(closesAt) || now < closesAt) return null;
   const entries = rebalanceEntries(event.entries ?? [], {
     capacity: event.capacity ?? 0,
     priorityUserIds: event.priorityUserIds ?? [],
