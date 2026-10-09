@@ -20,6 +20,7 @@ type Data = Record<string, unknown>;
 function makeDb() {
   const store = new Map<string, Map<string, Data>>();
   let nextId = 1;
+  const transactionUpdates: Data[][] = [];
   const applyUpdate = (current: Data, update: Data): Data => {
     const result = { ...current };
     for (const [key, value] of Object.entries(update)) {
@@ -64,6 +65,8 @@ function makeDb() {
       set: (ref: ReturnType<typeof docRef>, d: Data, opt?: { merge?: boolean }) => void;
       update: (ref: ReturnType<typeof docRef>, d: Data) => void;
     }) => Promise<T>) => {
+      const updates: Data[] = [];
+      transactionUpdates.push(updates);
       const tx = {
         get: (ref: ReturnType<typeof docRef>) => ref.get(),
         set: (ref: ReturnType<typeof docRef>, d: Data, opt?: { merge?: boolean }) => {
@@ -71,6 +74,7 @@ function makeDb() {
           col(ref.__c).set(ref.id, { ...cur, ...d });
         },
         update: (ref: ReturnType<typeof docRef>, d: Data) => {
+          updates.push(d);
           const cur = col(ref.__c).get(ref.id) ?? {};
           col(ref.__c).set(ref.id, applyUpdate(cur, d));
         },
@@ -108,6 +112,7 @@ function makeDb() {
       where: (f: string, op: string, v: unknown) => query(c, [[f, op, v]]),
     }),
     __store: store,
+    transactionUpdates,
     // Match Firestore data() typing so the brief's assertions remain verbatim.
     _get: (c: string, id: string): DocumentData => store.get(c)!.get(id)!,
     _set: (c: string, id: string, d: Data) => col(c).set(id, d),
@@ -434,6 +439,12 @@ it.each(["updateEntry", "saveBracket", "GET"])(
     if (action === "updateEntry") expect(stored.capacity).toBe(create.capacity);
     else expect((await res.json()).event.status).toBe("closed");
     if (action === "saveBracket") expect(stored.bracket.rounds).toHaveLength(1);
+    expect(writeAuditLog).toHaveBeenCalledTimes(1);
+    expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: "cs.entryClosed", actor: "system", beforeStatus: "entry", afterStatus: "closed",
+      meta: { csEventId: "cs1", entrants: 4 },
+    }));
+    expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
   },
 );
 
@@ -489,4 +500,79 @@ it("未知の action は 400", async () => {
   const before = db._get("mahjongCsEvents", "cs1");
   expect((await PATCH(body({ action: "unknown" }), params)).status).toBe(400);
   expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+});
+
+
+it("closeNow: 期限切れ entry も成功し、管理者の締切監査だけを記録する", async () => {
+  const db = makeDb();
+  entryEvent(db, { entryClosesAt: "2000-01-01T00:00:00Z", entries: [entry("a", 0)] });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ action: "closeNow" }), params);
+  expect(res.status).toBe(200);
+  expect((await res.json()).event.status).toBe("closed");
+  expect(db._get("mahjongCsEvents", "cs1").entrants).toHaveLength(1);
+  expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
+  expect(writeAuditLog).toHaveBeenCalledTimes(1);
+  expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: "cs.entryClosed", actor: "admin@example.com", beforeStatus: "entry", afterStatus: "closed",
+  }));
+});
+
+it.each(["entry", "expired", "closed"])("removeEntry: 未登録の ID は %s でも書込・監査なしで 404", async (phase) => {
+  const db = makeDb();
+  if (phase === "closed") closedEvent(db);
+  else entryEvent(db, { entries: [entry("a", 0)],
+    ...(phase === "expired" ? { entryClosesAt: "2000-01-01T00:00:00Z" } : {}) });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  const res = await PATCH(body({ action: "removeEntry", lineUserId: "missing" }), params);
+  expect(res.status).toBe(404);
+  expect(await res.json()).toEqual({ error: "参加者が見つかりません" });
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+it.each(["confirmBracket", "removeEntry"])("%s: 遅延締切後も操作監査は元の entry 状態を記録し、書込は1回", async (action) => {
+  const db = makeDb();
+  entryEvent(db, { entryClosesAt: "2000-01-01T00:00:00Z",
+    entries: ["a", "b", "c", "d"].map((id, i) => entry(id, i)) });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ action, lineUserId: "a", seedUserIds: [],
+    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+  expect(res.status).toBe(200);
+  expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
+  expect(writeAuditLog).toHaveBeenCalledTimes(2);
+  expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: "cs.entryClosed", actor: "system", beforeStatus: "entry", afterStatus: "closed",
+    meta: { csEventId: "cs1", entrants: 4 },
+  }));
+  expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: action === "removeEntry" ? "cs.entryRemoved" : "cs.bracketConfirmed",
+    actor: "admin@example.com", beforeStatus: "entry",
+  }));
+});
+
+it.each([
+  { action: "fillDummies", status: 409 },
+  { action: "reopenBracket", status: 409 },
+  { action: "removeEntry", lineUserId: "", status: 400 },
+  { action: "saveBracket", seedUserIds: [], rounds: [], invalid: true, status: 400 },
+  { action: "saveBracket", seedUserIds: ["missing"], status: 400 },
+  { action: "confirmBracket", seedUserIds: [], status: 400 },
+])("遅延締切後の拒否は締切だけを1回書き込み監査する (%j)", async (input) => {
+  const db = makeDb();
+  entryEvent(db, { entryClosesAt: "2000-01-01T00:00:00Z", entries: [entry("a", 0)] });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ ...input,
+    rounds: input.invalid ? null : oneTable([P("a"), null, null, null]) }), params);
+  expect(res.status).toBe(input.status);
+  expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
+  expect(db._get("mahjongCsEvents", "cs1")).toMatchObject({ status: "closed" });
+  expect(db._get("mahjongCsEvents", "cs1")).not.toHaveProperty("bracket");
+  expect(writeAuditLog).toHaveBeenCalledTimes(1);
+  expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: "cs.entryClosed", actor: "system", beforeStatus: "entry", afterStatus: "closed",
+    meta: { csEventId: "cs1", entrants: 1 },
+  }));
 });

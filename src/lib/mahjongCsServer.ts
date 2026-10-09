@@ -6,6 +6,17 @@ import type { MahjongCsEvent } from "@/types";
 
 type CsEvent = MahjongCsEvent & { csEventId: string };
 
+export async function auditLazyClose(event: CsEvent): Promise<void> {
+  await writeAuditLog({
+    eventType: "cs.entryClosed",
+    actor: "system",
+    target: { date: event.eventDate },
+    beforeStatus: "entry",
+    afterStatus: "closed",
+    meta: { csEventId: event.csEventId, entrants: event.entrants.length },
+  });
+}
+
 export async function ensureCsClosed(event: CsEvent): Promise<CsEvent> {
   if (!isManualCs(event) || closeEntriesIfDue(event, new Date().toISOString()) === null) return event;
 
@@ -23,16 +34,7 @@ export async function ensureCsClosed(event: CsEvent): Promise<CsEvent> {
     return { event: { ...cur, ...update }, applied: true };
   });
 
-  if (result.applied) {
-    await writeAuditLog({
-      eventType: "cs.entryClosed",
-      actor: "system",
-      target: { date: result.event.eventDate },
-      beforeStatus: "entry",
-      afterStatus: "closed",
-      meta: { csEventId: event.csEventId, entrants: result.event.entrants.length },
-    });
-  }
+  if (result.applied) await auditLazyClose(result.event);
   return result.event;
 }
 
