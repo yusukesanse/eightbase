@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { validateCsMatch, isRoundComplete, advanceCsRound } from "@/lib/mahjongCs";
+import { afterMatchCompleted } from "@/lib/mahjongCsBracket";
+import { isManualCs } from "@/lib/mahjongCsEntry";
 import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongCsEvent } from "@/types";
 
@@ -37,11 +40,15 @@ export async function POST(
       const ok = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         if (!snap.exists) return false;
+        if (isManualCs(snap.data() as MahjongCsEvent)) {
+          tx.update(ref, { status: "closed", rounds: [], championId: FieldValue.delete(), updatedAt: now });
+          return "cs.bracketReopened" as const;
+        }
         tx.update(ref, { rounds: [], status: "setup", championId: null, updatedAt: now });
-        return true;
+        return "cs.reset" as const;
       });
       if (!ok) return NextResponse.json({ error: "CSが見つかりません" }, { status: 404 });
-      await writeAuditLog({ eventType: "cs.reset", actor: admin, target: {}, meta: { csEventId } });
+      await writeAuditLog({ eventType: ok, actor: admin, target: {}, meta: { csEventId } });
       return NextResponse.json({ success: true });
     }
 
@@ -59,7 +66,7 @@ export async function POST(
         const snap = await tx.get(ref);
         if (!snap.exists) return { status: 404 as const, error: "CSが見つかりません" };
         const event = snap.data() as MahjongCsEvent;
-        const rounds = event.rounds ?? [];
+        const rounds = isManualCs(event) ? structuredClone(event.rounds ?? []) : event.rounds ?? [];
         let ri = -1;
         let mi = -1;
         for (let i = 0; i < rounds.length; i++) {
@@ -80,6 +87,20 @@ export async function POST(
         const v = validateCsMatch(match.players);
         if (!v.ok) return { status: 400 as const, error: v.error };
         match.status = "completed";
+
+        if (isManualCs(event)) {
+          let completed;
+          try {
+            completed = afterMatchCompleted(event, rounds, matchId);
+          } catch (error) {
+            if (error instanceof Error && error.message === "DOWNSTREAM_REPORTED") {
+              return { status: 409 as const, error: "次の卓に結果が入っているため修正できません。先に次の卓の結果を直すか、編成に戻してください" };
+            }
+            throw error;
+          }
+          tx.update(ref, { ...completed, updatedAt: now });
+          return { status: 200 as const, championId: completed.championId ?? null };
+        }
 
         // この結果に依存する後続ラウンドは破棄し、整合を取り直す。
         const trimmed = rounds.slice(0, ri + 1);

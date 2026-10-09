@@ -3,6 +3,8 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
 import { advanceCsRound, isRoundComplete, validateCsMatch } from "@/lib/mahjongCs";
+import { afterMatchCompleted } from "@/lib/mahjongCsBracket";
+import { isManualCs } from "@/lib/mahjongCsEntry";
 import { MAHJONG_TABLE_TOTAL, type MahjongCsEvent } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +59,7 @@ export async function PATCH(req: NextRequest) {
       const event = doc.data() as MahjongCsEvent & { demoDummy?: boolean };
       const isDemo = !!event.demoDummy && !isProduction();
 
-      const rounds = event.rounds ?? [];
+      let rounds = event.rounds ?? [];
       let roundIdx = -1;
       let matchIdx = -1;
       for (let i = 0; i < rounds.length; i++) {
@@ -71,6 +73,10 @@ export async function PATCH(req: NextRequest) {
       if (roundIdx < 0) return { status: 404 as const, error: "対象の試合が見つかりません" };
       const round = rounds[roundIdx];
       const match = round.matches[matchIdx];
+      if (isManualCs(event)) {
+        if (event.status !== "running") return { status: 409 as const, error: "対戦はまだ始まっていません" };
+        if (match.players.length < 4) return { status: 409 as const, error: "この卓はまだ全員そろっていません" };
+      }
       if (match.status === "completed") return { status: 400 as const, error: "この試合は確定済みです" };
 
       const n = match.players.length;
@@ -128,7 +134,14 @@ export async function PATCH(req: NextRequest) {
 
       let championId = event.championId;
       let status = event.status;
-      if (v.ok && isRoundComplete(round) && roundIdx === rounds.length - 1) {
+      if (isManualCs(event)) {
+        if (v.ok) {
+          const completed = afterMatchCompleted(event, rounds, matchId);
+          rounds = completed.rounds;
+          status = completed.status;
+          if (status === "finished") championId = completed.championId;
+        }
+      } else if (v.ok && isRoundComplete(round) && roundIdx === rounds.length - 1) {
         if (round.type === "final") {
           const winner = round.matches.flatMap((m) => m.players).find((p) => p.rank === 1);
           championId = winner?.lineUserId;
@@ -139,7 +152,11 @@ export async function PATCH(req: NextRequest) {
         }
       }
 
-      tx.update(ref, { rounds, status, championId: championId ?? null, updatedAt: now });
+      tx.update(ref, {
+        rounds, status,
+        ...(!isManualCs(event) || status === "finished" ? { championId: championId ?? null } : {}),
+        updatedAt: now,
+      });
       return {
         status: 200 as const,
         completed: v.ok,
