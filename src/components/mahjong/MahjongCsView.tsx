@@ -124,9 +124,10 @@ export function MahjongCsView() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setEntryError(data?.error ?? (join ? "エントリーに失敗しました" : "取消に失敗しました"));
-          return;
         }
         await load();
+      } catch {
+        setEntryError("通信に失敗しました。もう一度お試しください");
       } finally {
         setBusy(false);
       }
@@ -151,6 +152,8 @@ export function MahjongCsView() {
 
   const manual = event.capacity != null;
   const champ = event.champion;
+  const hasSeed = event.entrants.some((player) => player.seed)
+    || event.rounds.some((round) => round.matches.some((match) => match.players.some((player) => player.seed)));
   // 木は上から 決勝→準決→予選。rounds は予選→決勝の順なので反転。
   const roundsTopDown = [...event.rounds].reverse();
 
@@ -160,9 +163,11 @@ export function MahjongCsView() {
       <GlassCard className="text-center">
         <div className="truncate text-[20px] font-bold text-[color:var(--eb-ink)]">{event.name}</div>
         <div className="whitespace-nowrap text-[14px] text-[color:var(--eb-ink-muted)] mt-0.5">{event.eventDate}</div>
-        <p className="text-[14px] text-[color:var(--eb-ink-muted)] leading-relaxed mt-3">
+        <p
+          className={`${manual ? "text-[15px]" : "text-[14px]"} text-[color:var(--eb-ink-muted)] leading-relaxed mt-3`}
+        >
           {manual ? (
-            <span className="text-[15px]">各卓の上位が勝ち上がり、決勝1位が優勝。</span>
+            "各卓の上位が勝ち上がり、決勝1位が優勝。"
           ) : (
             <>
               M1リーグ所属者は<b className="text-[color:var(--eb-ink)]">準決勝シード</b>
@@ -170,6 +175,9 @@ export function MahjongCsView() {
             </>
           )}
         </p>
+        {manual && hasSeed && (
+          <p className="mt-1 text-[15px] text-[color:var(--eb-ink-muted)]">SEED＝シード（予選免除）</p>
+        )}
       </GlassCard>
 
       {/* WP6: 受付中（トーナメント未生成）は誰でも自己エントリー可 */}
@@ -204,7 +212,9 @@ export function MahjongCsView() {
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <span className="whitespace-nowrap text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
-                    <StatusPill tone="muted">1着通過</StatusPill>
+                    <StatusPill tone="muted">
+                      {manual && round.advanceCount > 1 ? `${round.advanceCount}着まで通過` : "1着通過"}
+                    </StatusPill>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
                     {round.matches.map((m) => (
@@ -214,6 +224,7 @@ export function MahjongCsView() {
                           gold={gold}
                           demo={demo}
                           manual={manual}
+                          advanceCount={round.advanceCount}
                           running={event.status === "running"}
                           onInput={() => setInputMatch(m)}
                         />
@@ -256,6 +267,9 @@ function CapacityEntryPanel({ event, busy, error, onToggle }: {
 }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const mine = event.myEntry;
+  useEffect(() => {
+    setConfirmCancel(false);
+  }, [mine?.state]);
   const waiting = mine?.state === "waitlisted";
   const now = Date.now();
   const closed = event.status === "closed"
@@ -290,7 +304,9 @@ function CapacityEntryPanel({ event, busy, error, onToggle }: {
       {mine && (
         <div>
           <StatusPill tone={waiting ? "gold" : "green"}>
-            {waiting ? `キャンセル待ち ${mine.waitlistPosition}番目` : "参加確定"}
+            {waiting
+              ? `キャンセル待ち${mine.waitlistPosition == null ? "" : ` ${mine.waitlistPosition}番目`}`
+              : "参加確定"}
           </StatusPill>
         </div>
       )}
@@ -301,9 +317,12 @@ function CapacityEntryPanel({ event, busy, error, onToggle }: {
           <div className="flex flex-col gap-3">
             <p>{waiting ? "キャンセル待ちを取り消しますか？" : "参加を取り消しますか？"}</p>
             <Button variant="secondary" disabled={busy} onClick={() => setConfirmCancel(false)}>戻る</Button>
-            <Button disabled={busy} onClick={async () => {
-              await onToggle(false);
-              setConfirmCancel(false);
+            <Button variant="danger" disabled={busy} onClick={async () => {
+              try {
+                await onToggle(false);
+              } finally {
+                setConfirmCancel(false);
+              }
             }}>取り消す</Button>
           </div>
         ) : (
@@ -405,6 +424,7 @@ function MatchCard({
   gold,
   demo,
   manual,
+  advanceCount,
   running,
   onInput,
 }: {
@@ -412,6 +432,7 @@ function MatchCard({
   gold: boolean;
   demo: boolean;
   manual: boolean;
+  advanceCount: number;
   running: boolean;
   onInput: () => void;
 }) {
@@ -440,7 +461,8 @@ function MatchCard({
               p={p}
               me={p.isMe}
               seed={p.seed}
-              advanced={done && p.rank === 1}
+              advanced={done && p.rank != null && p.rank <= (manual && !gold ? advanceCount : 1)}
+              champion={manual && gold && done && p.rank === 1}
               pending={!done}
             />
           ))}
@@ -470,23 +492,27 @@ function BracketSlot({
   me,
   seed,
   advanced,
+  champion,
   pending,
 }: {
   p: PubCsPlayer;
   me: boolean;
   seed: boolean;
   advanced: boolean;
+  champion: boolean;
   pending: boolean;
 }) {
   return (
     <div
       className="flex items-center gap-1 px-1.5 py-1 rounded-lg"
       style={
-        advanced
-          ? { background: "rgba(35,147,94,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
-          : me
-            ? { background: "var(--eb-tint)", boxShadow: "inset 0 0 0 1px var(--eb-line)" }
-            : { background: "transparent" }
+        champion
+          ? { background: "rgba(216,165,38,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-gold)" }
+          : advanced
+            ? { background: "rgba(35,147,94,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
+            : me
+              ? { background: "var(--eb-tint)", boxShadow: "inset 0 0 0 1px var(--eb-line)" }
+              : { background: "transparent" }
       }
     >
       <span className="flex-1 min-w-0 text-[13px] font-bold text-[color:var(--eb-ink)] truncate">
@@ -496,8 +522,11 @@ function BracketSlot({
       {seed && (
         <StatusPill tone="gold" className="shrink-0 px-1.5 py-0.5 text-[10px]">S</StatusPill>
       )}
-      {advanced ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      {champion ? (
+        <span className="shrink-0 text-[11px] text-[color:var(--eb-gold-text)]" aria-label="優勝">👑</span>
+      ) : advanced ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)"
+          strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
           <path d="M5 12.5l4.5 4.5L19 7.5" />
         </svg>
       ) : pending ? (

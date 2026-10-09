@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
 
@@ -13,7 +14,7 @@ const baseEvent = {
     type: string; label: string; advanceCount: number;
     matches: {
       matchId: string; label: string; status: string; pendingSeats: string[];
-      players: { displayName: string; points: null; rank: null; seed: boolean; isMe: boolean }[];
+      players: { displayName: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }[];
     }[];
   }[],
 };
@@ -168,4 +169,130 @@ test("legacy two-player table still allows self reporting", async () => {
   event.capacity = null;
   render(<MahjongCsView />);
   await waitFor(() => expect(screen.getByRole("button", { name: "結果を申告" })).toBeTruthy());
+});
+
+
+test.each(["POST", "DELETE"])("rejected %s shows a retry message and closes confirmation", async (method) => {
+  if (method === "DELETE") event.myEntry = { state: "confirmed", waitlistPosition: null };
+  render(<MahjongCsView />);
+  const action = await screen.findByRole("button", { name: method === "POST" ? "参加する" : "参加をやめる" });
+  (fetch as jest.Mock).mockImplementationOnce(() => Promise.reject(new Error("offline")));
+  fireEvent.click(action);
+  if (method === "DELETE") fireEvent.click(screen.getByRole("button", { name: "取り消す" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("通信に失敗しました。もう一度お試しください");
+  expect(screen.queryByText("参加を取り消しますか？")).toBeNull();
+  expect(screen.getByRole("button", { name: method === "POST" ? "参加する" : "参加をやめる" })).toBeEnabled();
+});
+
+function completedTable(advanceCount: number, type = "preliminary") {
+  runningTable(4);
+  const round = event.rounds[0];
+  round.type = type;
+  round.advanceCount = advanceCount;
+  round.matches[0].status = "completed";
+  round.matches[0].players.forEach((player, index) => { player.rank = index + 1; });
+}
+
+test.each([1, 2, 3])("new completed table highlights the top %s players", async (advanceCount) => {
+  completedTable(advanceCount);
+  render(<MahjongCsView />);
+  expect(await screen.findByText(advanceCount === 1 ? "1着通過" : `${advanceCount}着まで通過`)).toBeTruthy();
+  for (let rank = 1; rank <= 4; rank++) {
+    const row = screen.getByText(`選手${rank}`).parentElement!;
+    expect(row.style.boxShadow.includes("var(--eb-green)")).toBe(rank <= advanceCount);
+  }
+});
+
+test("reporting table does not highlight provisional advancing ranks", async () => {
+  completedTable(2);
+  event.rounds[0].matches[0].status = "reporting";
+  render(<MahjongCsView />);
+  await screen.findByText("選手2");
+  expect(screen.getByText("選手2").parentElement!.style.boxShadow).not.toContain("var(--eb-green)");
+});
+
+test("legacy table keeps one advancing player even when advanceCount is two", async () => {
+  completedTable(2);
+  event.capacity = null;
+  render(<MahjongCsView />);
+  expect(await screen.findByText("1着通過")).toBeTruthy();
+  expect(screen.getByText("選手2").parentElement!.style.boxShadow).not.toContain("var(--eb-green)");
+});
+
+test("new final highlights only its champion in gold", async () => {
+  completedTable(2, "final");
+  render(<MahjongCsView />);
+  await screen.findByText("選手1");
+  expect(screen.getByText("選手1").parentElement!.style.boxShadow).toContain("var(--eb-gold)");
+  expect(screen.getByText("選手2").parentElement!.style.boxShadow).not.toContain("var(--eb-green)");
+  expect(screen.getByText("2着")).toBeTruthy();
+  expect(screen.getByText("3着")).toBeTruthy();
+});
+
+test("new seeded player keeps the legacy S badge and gets a header legend", async () => {
+  runningTable(4);
+  event.rounds[0].matches[0].players[1].seed = true;
+  render(<MahjongCsView />);
+  const player = await screen.findByText("選手2");
+  expect(within(player.parentElement!).getByText("S")).toBeTruthy();
+  expect(screen.getByText("SEED＝シード（予選免除）")).toBeTruthy();
+});
+
+test("new seeded entrant gets a legend before brackets are published", async () => {
+  event.entrants[0].seed = true;
+  render(<MahjongCsView />);
+  expect(await screen.findByText("SEED＝シード（予選免除）")).toBeTruthy();
+});
+
+test("new header without seeds has no seed legend and sizes its paragraph directly", async () => {
+  render(<MahjongCsView />);
+  const description = await screen.findByText("各卓の上位が勝ち上がり、決勝1位が優勝。");
+  expect(description.tagName).toBe("P");
+  expect(description).toHaveClass("text-[15px]");
+  expect(screen.queryByText("SEED＝シード（予選免除）")).toBeNull();
+});
+
+test("successful POST returning waitlisted reloads and displays the queue position", async () => {
+  render(<MahjongCsView />);
+  const join = await screen.findByRole("button", { name: "参加する" });
+  (fetch as jest.Mock).mockImplementationOnce(async () => {
+    event = { ...event, myEntry: { state: "waitlisted", waitlistPosition: 3 } };
+    return { ok: true, json: async () => ({ success: true, entered: true, ...event.myEntry }) };
+  });
+  fireEvent.click(join);
+  expect(await screen.findByText("キャンセル待ち 3番目")).toBeTruthy();
+  expect(screen.queryByText("参加中")).toBeNull();
+});
+
+test("waitlisted entry without a position omits the number", async () => {
+  event.myEntry = { state: "waitlisted", waitlistPosition: null };
+  render(<MahjongCsView />);
+  expect(await screen.findByText("キャンセル待ち")).toBeTruthy();
+  expect(screen.queryByText(/null番目/)).toBeNull();
+});
+
+test.each(["POST", "DELETE"])("non-ok %s reloads entry state", async (method) => {
+  if (method === "DELETE") event.myEntry = { state: "confirmed", waitlistPosition: null };
+  entryError = { status: 409, error: "受付状態が変わりました" };
+  render(<MahjongCsView />);
+  fireEvent.click(await screen.findByRole("button", { name: method === "POST" ? "参加する" : "参加をやめる" }));
+  if (method === "DELETE") {
+    const cancel = screen.getByRole("button", { name: "取り消す" });
+    expect(cancel).toHaveClass("bg-[color:var(--eb-coral)]");
+    fireEvent.click(cancel);
+  }
+  await screen.findByRole("alert");
+  await waitFor(() => expect((fetch as jest.Mock).mock.calls.filter(([, options]) => !options.method)).toHaveLength(2));
+});
+
+test("entry state change from auto-refresh resets cancellation confirmation", async () => {
+  event.myEntry = { state: "waitlisted", waitlistPosition: 2 };
+  render(<MahjongCsView />);
+  fireEvent.click(await screen.findByRole("button", { name: "参加をやめる" }));
+  expect(screen.getByText("キャンセル待ちを取り消しますか？")).toBeTruthy();
+  event = { ...event, myEntry: { state: "confirmed", waitlistPosition: null } };
+  fireEvent.focus(window);
+  await screen.findByText("参加確定");
+  await waitFor(() => expect(screen.queryByRole("button", { name: "取り消す" })).toBeNull());
+  expect(screen.getByRole("button", { name: "参加をやめる" })).toBeTruthy();
 });
