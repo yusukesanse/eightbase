@@ -77,7 +77,7 @@ OS依存のカレンダーUIになり、デザインがバラつくため。必�
 - シーズンは**種目別**（`Season.gameCategory`）。麻雀の処理は `getActiveSeason("mahjong")`。
 - リーグ戦: **「参加する」＝参加費の支払い（下記 2026-09-07）** → **GMがゲーム開始（＝受付締切）** → **GMが半荘ごとに卓を手動振り分け** → 各自スコア申告(ミニアプリ) → 通算アベレージで順位 → 月次でリーグ確定(M1/M2/M3)。
 - スコアは利用者がミニアプリで申告。管理画面は確認・修正のみ。
-- CS（チャンピオンシップ）: **誰でも参加可**。リーグ上位はシード権で有利になるだけ（出場制限なし）。
+- CS（チャンピオンシップ）: **定員つき参加受付＋管理者の手動編成**（2026-10-08〜）。詳細は下の「麻雀CS（定員つき参加受付＋手動編成）」。旧方式（誰でも参加可・開催日に自動生成）のCSは閲覧のみ。
 - 日程の種別は**リーグ戦のみ**（CSは麻雀CSタブで個別管理）。
 - 利用者アプリのタブ: **リーグ / 参加 / 対戦記録 / CS / ルール・約款**（タブ名は4種目で統一）。
   「対戦記録」タブは**その開催日の参加者にだけ**中身を出す。それ以外は共通の
@@ -372,6 +372,25 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - **リーグ**: `LeaguePyramid3D.tsx`（Three.js の四角錐スタック・確定版／左固定ゴールドラベル[Noto Serif JP]／自分のアバター浮遊＋「あなた」／spin・sway・off／reduced-motion・WebGL非対応フォールバック／アンマウントでGPU資源dispose）を `LeaguePyramid.tsx` のアイボリー帯ヒーローに配置。直下に M1/M2/M3 順位リスト（YOU強調・順位/戦数/1位/連対率/AVG）。
 - **参加/当日の卓/スコア申告**: `MahjongLeagueView.tsx`。参加=日付カード＋参加する/参加中（**卓の中身は見せない**。確定済みはバッジのみ）。当日の卓=緑フェルトボード＋席(東南西北は卓内並び順から付与)・自席強調・持ち点/着順・n/4申告。申告=持ち点＋1〜4着のダイアログ。アクセントはフェルト緑 `#2f7d57`。GM には同じタブに `MahjongGmAssignPanel` が出る。
 - **CS**: `MahjongCsView.tsx`。決勝卓の確定結果から金銀銅の表彰台（王冠・持ち点）＋トーナメント表（`MahjongCsEntrant.seed` でSEED、勝ち上がりを緑強調、決勝はゴールド）。
+
+### 麻雀CS（定員つき参加受付＋手動編成・2026-10-08）
+毎シーズン人数が変わるため、トーナメントの形を決め打ちにせず GM が管理画面で組む（60〜80人でもコード変更なし）。
+設計書: `docs/superpowers/specs/2026-10-08-mahjong-cs-manual-bracket-design.md`（docs/ は git 管理外）。画面の正は Figma `EBU_管理画面` ページ「ゲーム-麻雀-CS」。
+- 流れ: **作成（定員・受付期間）→ 参加受付 → 締切 → 管理者がドラッグで編成 → 確定 → 当日は自己申告で自動勝ち上がり**。
+  status は `entry → closed → running → finished`（旧方式の `setup` は閲覧のみ）。新方式の判定は `capacity` があるか（`isManualCs`）。
+- 参加資格: **そのシーズンのリーグ戦の卓（`mahjongTables` の completed）に1回以上いた人だけ**（`hasPlayedMahjongLeague`。`memberIds array-contains` の1条件＋メモリで絞る＝複合インデックスなし）。判定は参加表明 POST のときだけ（ポーリングの GET では読まない）。
+- 優先枠: 作成時の最新確定編成の M1・M2 を `priorityUserIds` に**固定**。受付中の M3 枠＝定員 − 優先枠の人数。締切時に未表明の優先枠ぶんをキャンセル待ちから先着順に繰り上げ。
+  ⚠️ 受付の全操作（表明・取消・定員変更・締切・管理者が外す）は **`rebalanceEntries`（`src/lib/mahjongCsEntry.ts`）を通す**。別の数え方を書かない。定員を減らすと確定M3がキャンセル待ちに戻りうる（画面で人数を警告。通知はしない）。
+- 締切: cron なし。**締切時刻を過ぎて最初のアクセス**（利用者 GET・管理 GET・管理 PATCH）で閉じる（`ensureCsClosed` / PATCH 内の遅延締切）。PATCH の操作が拒否されても締切は書き、監査 `cs.entryClosed`（actor system）を残す。管理「今すぐ締め切る」もある。締切後は利用者は取り消せない（来られない人は管理者が外す）。
+- 日時: 受付期間は**タイムゾーン付き ISO だけ受け付ける**（`isIsoWithOffset`）。開催日は締切の JST 日付以降（作成・変更とも 400）。
+- 編成: 卓はちょうど4席。席は参加者か**札**（`{kind:"ticket", fromMatchId, place}`＝直前のラウンドの卓の n 位）。勝ち抜け人数はラウンドごとに1〜3。検証は `validateBracket`、勝ち上がりは `applyCompletedMatch` / `afterMatchCompleted`（`src/lib/mahjongCsBracket.ts`・純関数）。編集操作は `src/lib/mahjongCsBracketEdit.ts`。
+  ドラッグは `MahjongGmAssignPanel.tsx` と同じ Pointer Events 方式（`useCsBracketDrag.ts`）。タップで選んで席をタップでも置ける。
+- 当日: 4人そろった卓だけ申告できる（札の席が埋まるまで 409）。卓が確定すると上位が次の札の席へ入る。管理者の結果修正は、次の卓に申告が入っていたら 409。「編成に戻す」（`/fix` resetBracket）は running/finished → closed（結果は消える）。
+- 検証用: 非本番だけ「ダミーで定員まで埋める」（`fillDummies`・本番 404）。
+- LINE 通知なし。参加費なし。麻雀だけ（他3種目の CS は従来どおり）。
+- 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsBracketEdit}.test.ts`、
+  `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
+  `__tests__/unit/components/{mahjongCsBracketBuilder,mahjongCsView}.test.tsx`。
 
 ### ポーカーCS（2026-07-28 実装）
 - 方式: **卓分け → 勝ち上がり → 決勝卓**（ダーツCSの読み替え。`src/lib/pokerCs.ts` は純関数）。
