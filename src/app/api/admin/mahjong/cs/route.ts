@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     let seasonId = req.nextUrl.searchParams.get("seasonId");
     if (!seasonId) {
       const season = await getActiveSeason();
-      if (!season) return NextResponse.json({ events: [], seasonId: null });
+      if (!season) return NextResponse.json({ events: [], seasonId: null, priorityPreviewCount: 0 });
       seasonId = season.seasonId;
     }
     const snap = await getDb()
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     // 受付締切を過ぎた新方式の CS は参加者を確定する
     const closed = await Promise.all(events.map((e) => ensureCsClosed(e)));
-    return NextResponse.json({ events: closed, seasonId });
+    const priorityPreviewCount = (await fetchPriorityUserIds(getDb(), seasonId)).length;
+    return NextResponse.json({ events: closed, seasonId, priorityPreviewCount });
   } catch (error) {
     console.error("[admin/mahjong/cs] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
