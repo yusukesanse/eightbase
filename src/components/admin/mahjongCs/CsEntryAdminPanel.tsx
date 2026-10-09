@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import DateTimePicker from "@/components/ui/DateTimePicker";
 import { rebalanceEntries, waitlistPosition } from "@/lib/mahjongCsEntry";
 import { isProduction } from "@/lib/env";
+import { jstDateFromIso } from "@/lib/date";
 import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
-import { csButton, csPrimary, jstInput } from "./CsCreateForm";
+import { clampCapacity, csButton, csPrimary, jstInput } from "./CsCreateForm";
 
 const filters = ["すべて", "優先枠", "M3", "キャンセル待ち"] as const;
 const tierStyles = {
@@ -36,7 +37,8 @@ export default function CsEntryAdminPanel({
 }) {
   const [filter, setFilter] = useState<(typeof filters)[number]>("すべて");
   const [editing, setEditing] = useState(false);
-  const [capacity, setCapacity] = useState(event.capacity ?? 40);
+  const [capacityInput, setCapacityInput] = useState(String(event.capacity ?? 40));
+  const capacity = clampCapacity(capacityInput);
   const [opens, setOpens] = useState(() => jstInput(event.entryOpensAt ?? new Date()));
   const [closes, setCloses] = useState(() => jstInput(event.entryClosesAt ?? new Date()));
   const [confirmClose, setConfirmClose] = useState(false);
@@ -92,6 +94,7 @@ export default function CsEntryAdminPanel({
         onError(data.error ?? "更新に失敗しました");
         if (res.status === 404 || res.status === 409) onChanged();
       } else {
+        onError(null);
         setEditing(false);
         setConfirmClose(false);
         onChanged();
@@ -135,7 +138,8 @@ export default function CsEntryAdminPanel({
           disabled={busy}
           className={csButton}
           onClick={() => {
-            setCapacity(event.capacity ?? 40);
+            onError(null);
+            setCapacityInput(String(event.capacity ?? 40));
             setOpens(jstInput(event.entryOpensAt ?? new Date()));
             setCloses(jstInput(event.entryClosesAt ?? new Date()));
             setEditing(true);
@@ -148,6 +152,7 @@ export default function CsEntryAdminPanel({
           disabled={busy}
           className={csPrimary}
           onClick={() => {
+            onError(null);
             setConfirmClose(true);
             setEditing(false);
           }}
@@ -167,10 +172,9 @@ export default function CsEntryAdminPanel({
               min={4}
               max={200}
               step={1}
-              value={capacity}
-              onChange={(e) => {
-                if (e.target.value !== "") setCapacity(Number(e.target.value));
-              }}
+              value={capacityInput}
+              onChange={(e) => setCapacityInput(e.target.value)}
+              onBlur={() => setCapacityInput(String(capacity))}
               className="block mt-1 w-24 border border-[#231714]/10 rounded-lg px-3 py-2 text-sm"
             />
           </label>
@@ -202,14 +206,19 @@ export default function CsEntryAdminPanel({
           <div className="flex gap-2">
             <button
               className={csPrimary}
-              onClick={() =>
-                patch({
+              onClick={() => {
+                onError(null);
+                if (event.eventDate < jstDateFromIso(`${closes}+09:00`)) {
+                  onError("開催日は参加受付の締切日以降にしてください");
+                  return;
+                }
+                void patch({
                   action: "updateEntry",
                   capacity,
                   entryOpensAt: `${opens}:00+09:00`,
                   entryClosesAt: `${closes}:00+09:00`,
-                })
-              }
+                });
+              }}
             >
               保存
             </button>
