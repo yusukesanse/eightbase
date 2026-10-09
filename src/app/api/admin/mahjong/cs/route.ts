@@ -1,9 +1,9 @@
-import { randomUUID } from "node:crypto";
 import { writeAuditLog } from "@/lib/auditLog";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { isIsoWithOffset } from "@/lib/mahjongCsEntry";
 import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import type {
   MahjongCsEvent,
@@ -69,8 +69,7 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(capacity) || capacity < 4 || capacity > 200) {
       return NextResponse.json({ error: "定員は4〜200の整数にしてください" }, { status: 400 });
     }
-    if (typeof entryOpensAt !== "string" || typeof entryClosesAt !== "string"
-      || !Number.isFinite(Date.parse(entryOpensAt)) || !Number.isFinite(Date.parse(entryClosesAt))
+    if (!isIsoWithOffset(entryOpensAt) || !isIsoWithOffset(entryClosesAt)
       || Date.parse(entryClosesAt) <= Date.parse(entryOpensAt)) {
       return NextResponse.json({ error: "受付期間が不正です" }, { status: 400 });
     }
@@ -87,12 +86,8 @@ export async function POST(req: NextRequest) {
       capacity, entryOpensAt, entryClosesAt, priorityUserIds, entries: [], entrants: [], rounds: [],
       createdAt: now, updatedAt: now,
     };
-    const ref = db.collection("mahjongCsEvents").doc(randomUUID());
-    await db.runTransaction(async (tx) => {
-      const doc = await tx.get(ref);
-      if (doc.exists) throw new Error("CS already exists");
-      tx.set(ref, event);
-    });
+    const ref = db.collection("mahjongCsEvents").doc();
+    await ref.set(event);
     await writeAuditLog({ eventType: "cs.created", actor: admin, target: { date: eventDate },
       afterStatus: "entry", meta: { csEventId: ref.id } });
     return NextResponse.json({ event: { ...event, csEventId: ref.id } }, { status: 201 });

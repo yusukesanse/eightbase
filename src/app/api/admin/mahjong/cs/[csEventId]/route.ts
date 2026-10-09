@@ -4,7 +4,8 @@ import { checkAdminAuth } from "@/lib/adminAuth";
 import { FieldValue } from "firebase-admin/firestore";
 import { isProduction } from "@/lib/env";
 import { writeAuditLog, type AuditEventType } from "@/lib/auditLog";
-import { isManualCs, rebalanceEntries, closeEntriesIfDue, entrantsFromEntries } from "@/lib/mahjongCsEntry";
+import { isIsoWithOffset, isManualCs, rebalanceEntries, closeEntriesIfDue, entrantsFromEntries } from "@/lib/mahjongCsEntry";
+import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import { validateBracket, buildRunningRounds } from "@/lib/mahjongCsBracket";
 import type { MahjongCsEvent, MahjongCsRound } from "@/types";
 
@@ -24,7 +25,8 @@ export async function GET(
     if (!doc.exists) {
       return NextResponse.json({ error: "CSが見つかりません" }, { status: 404 });
     }
-    return NextResponse.json({ event: { ...(doc.data() as MahjongCsEvent), csEventId: doc.id } });
+    const event = await ensureCsClosed({ ...(doc.data() as MahjongCsEvent), csEventId: doc.id });
+    return NextResponse.json({ event });
   } catch (error) {
     console.error("[admin/mahjong/cs/:id] GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
@@ -75,11 +77,17 @@ export async function PATCH(
       if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません" };
       const event = { ...(doc.data() as MahjongCsEvent), csEventId };
       if (!isManualCs(event)) return { status: 409 as const, error: "旧形式のCSは変更できません" };
+      const now = new Date().toISOString();
+      const change = closeEntriesIfDue(event, now);
+      const update: Partial<MahjongCsEvent> = { ...change, updatedAt: now };
+      if (change) {
+        Object.assign(event, update);
+        // 操作を拒否する場合も、期限切れの受付状態は締切済みにする。
+        tx.update(ref, update);
+      }
       if (!allowedStatuses[action].includes(event.status)) {
         return { status: 409 as const, error: "現在の状態ではこの操作はできません" };
       }
-      const now = new Date().toISOString();
-      const update: Partial<MahjongCsEvent> = { updatedAt: now };
       let audit: AuditEventType | undefined;
       const capacity = event.capacity!;
       const priorityUserIds = event.priorityUserIds ?? [];
@@ -94,8 +102,7 @@ export async function PATCH(
           if (nextCapacity < priorityUserIds.length) {
             return { status: 400 as const, error: `定員が優先枠（M1・M2 の ${priorityUserIds.length} 名）より少なくなっています` };
           }
-          if (typeof entryOpensAt !== "string" || typeof entryClosesAt !== "string"
-            || !Number.isFinite(Date.parse(entryOpensAt)) || !Number.isFinite(Date.parse(entryClosesAt))
+          if (!isIsoWithOffset(entryOpensAt) || !isIsoWithOffset(entryClosesAt)
             || Date.parse(entryClosesAt) <= Date.parse(entryOpensAt)) {
             return { status: 400 as const, error: "受付期間が不正です" };
           }
@@ -105,11 +112,15 @@ export async function PATCH(
         }
         case "closeNow":
           Object.assign(update, closeEntriesIfDue({ ...event, entryClosesAt: now }, now), { entryClosesAt: now });
+          if (event.entryOpensAt && Date.parse(now) < Date.parse(event.entryOpensAt)) {
+            update.entryOpensAt = now;
+          }
           audit = "cs.entryClosed";
           break;
         case "removeEntry": {
           const id = body.lineUserId;
           if (typeof id !== "string" || !id.trim()) return { status: 400 as const, error: "lineUserId が不正です" };
+          audit = "cs.entryRemoved";
           update.entries = rebalanceEntries((event.entries ?? []).filter((e) => e.lineUserId !== id), {
             capacity, priorityUserIds, phase: event.status === "entry" ? "entry" : "closed",
           });
@@ -127,8 +138,9 @@ export async function PATCH(
         }
         case "saveBracket":
         case "confirmBracket": {
-          const { seedUserIds, rounds } = body;
-          if (!Array.isArray(seedUserIds) || !seedUserIds.every((id) => typeof id === "string")
+          const { rounds } = body;
+          const seedUserIds = Array.isArray(body.seedUserIds) ? [...new Set<unknown>(body.seedUserIds)] : null;
+          if (!seedUserIds || !seedUserIds.every((id): id is string => typeof id === "string")
             || !isBracketRounds(rounds)) return { status: 400 as const, error: "編成の形式が不正です" };
           const entrantIds = event.entrants.map((e) => e.lineUserId);
           if (seedUserIds.some((id) => !entrantIds.includes(id))) {
@@ -174,8 +186,11 @@ export async function PATCH(
       return NextResponse.json({ error: result.error, ...(result.errors ? { errors: result.errors } : {}) }, { status: result.status });
     }
     if (result.audit) await writeAuditLog({ eventType: result.audit, actor: admin,
-      target: { date: result.event.eventDate }, beforeStatus: result.beforeStatus,
-      afterStatus: result.event.status, meta: { csEventId } });
+      target: { date: result.event.eventDate,
+        ...(result.audit === "cs.entryRemoved" ? { lineUserId: body.lineUserId } : {}) },
+      beforeStatus: result.beforeStatus, afterStatus: result.event.status,
+      meta: { csEventId, ...(result.audit === "cs.entryRemoved"
+        ? { lineUserId: body.lineUserId, phase: result.beforeStatus } : {}) } });
     return NextResponse.json({ event: result.event });
   } catch (error) {
     console.error("[admin/mahjong/cs/:id] PATCH error:", error);
