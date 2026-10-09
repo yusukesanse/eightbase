@@ -31,7 +31,6 @@ export default function SeasonMahjongCsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "取得に失敗しました");
-      setError(null);
       setActiveSeasonId(data.activeSeasonId ?? null);
       setEvents(data.events ?? []);
       setPriorityPreviewCount(data.priorityPreviewCount ?? 0);
@@ -65,6 +64,7 @@ export default function SeasonMahjongCsPage() {
         setError(data.error ?? "更新に失敗しました");
         if (res.status === 404 || res.status === 409) await fetchEvents();
       } else {
+        setError(null);
         if (confirmation === "delete") setSelectedId(undefined);
         await fetchEvents();
       }
@@ -92,7 +92,10 @@ export default function SeasonMahjongCsPage() {
         >
           {error}
           <button
-            onClick={fetchEvents}
+            onClick={() => {
+              setError(null);
+              void fetchEvents();
+            }}
             className="ml-3 underline"
           >
             再取得
@@ -139,6 +142,7 @@ export default function SeasonMahjongCsPage() {
         <CsCreateForm
           priorityPreviewCount={priorityPreviewCount}
           onCreated={(event) => {
+            setError(null);
             setEvents((previous) => [event, ...previous]);
             setSelectedId(event.csEventId);
             void fetchEvents();
@@ -169,14 +173,20 @@ export default function SeasonMahjongCsPage() {
                   <button
                     disabled={busy}
                     className={csButton}
-                    onClick={() => setConfirmation("resetBracket")}
+                    onClick={() => {
+                      setError(null);
+                      setConfirmation("resetBracket");
+                    }}
                   >
                     編成に戻す
                   </button>
                 )}
                 <button
                   disabled={busy}
-                  onClick={() => setConfirmation("delete")}
+                  onClick={() => {
+                    setError(null);
+                    setConfirmation("delete");
+                  }}
                   className={
                     "px-3 py-2 text-xs font-medium text-red-500 border border-red-200 " +
                     "rounded-lg disabled:opacity-50"
@@ -281,7 +291,10 @@ export default function SeasonMahjongCsPage() {
                                 </span>
                                 {!legacy && m.players.length === 4 && (
                                   <button
-                                    onClick={() => setEditMatch(m)}
+                                    onClick={() => {
+                                      setError(null);
+                                      setEditMatch(m);
+                                    }}
                                     className={
                                       "px-2 py-1 text-xs font-medium text-[#231714]/80 border " +
                                       "border-[#231714]/10 rounded-lg hover:bg-gray-50"
@@ -353,6 +366,7 @@ export default function SeasonMahjongCsPage() {
           onClose={() => setEditMatch(null)}
           onChanged={fetchEvents}
           onSaved={() => {
+            setError(null);
             setEditMatch(null);
             fetchEvents();
           }}

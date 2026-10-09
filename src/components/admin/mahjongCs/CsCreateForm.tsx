@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { jstDateFromIso, todayJst } from "@/lib/date";
+import { jstDateFromIso } from "@/lib/date";
 import DatePicker from "@/components/ui/DatePicker";
 import DateTimePicker from "@/components/ui/DateTimePicker";
 import type { MahjongCsEvent } from "@/types/mahjong";
@@ -21,6 +21,11 @@ export function jstInput(value: string | Date): string {
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 }
 
+export function clampCapacity(value: string): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(4, Math.min(200, Math.trunc(number))) : 4;
+}
+
 export const csButton =
   "px-3 py-2 text-xs font-medium text-[#231714] border " +
   "border-[#231714]/10 rounded-lg hover:bg-gray-50 disabled:opacity-50";
@@ -36,13 +41,20 @@ export default function CsCreateForm({
   onCreated: (event: MahjongCsEvent) => void;
 }) {
   const [name, setName] = useState("チャンピオンシップ");
-  const [eventDate, setEventDate] = useState(todayJst);
-  const [capacity, setCapacity] = useState(40);
+  const [capacityInput, setCapacityInput] = useState("40");
+  const capacity = clampCapacity(capacityInput);
   const [opens, setOpens] = useState(() => jstInput(new Date()));
   const [closes, setCloses] = useState(() => jstInput(new Date(Date.now() + 7 * 86400000)));
+  const [eventDate, setEventDate] = useState(() => jstDateFromIso(`${closes}+09:00`));
+  const [eventDateEdited, setEventDateEdited] = useState(false);
   const [deadlineEdited, setDeadlineEdited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function updateCloses(value: string) {
+    setCloses(value);
+    if (!eventDateEdited) setEventDate(jstDateFromIso(`${value}+09:00`));
+  }
 
   async function create() {
     setError(null);
@@ -100,7 +112,10 @@ export default function CsCreateForm({
           <p className="text-xs mb-1">開催日</p>
           <DatePicker
             value={eventDate}
-            onChange={setEventDate}
+            onChange={(value) => {
+              setEventDate(value);
+              setEventDateEdited(true);
+            }}
           />
         </div>
         <div>
@@ -111,7 +126,7 @@ export default function CsCreateForm({
               aria-label="定員を減らす"
               className={csButton}
               disabled={capacity <= 4}
-              onClick={() => setCapacity((n) => n - 1)}
+              onClick={() => setCapacityInput(String(Math.max(4, capacity - 1)))}
             >
               −
             </button>
@@ -122,12 +137,9 @@ export default function CsCreateForm({
                 min={4}
                 max={200}
                 step={1}
-                value={capacity}
-                onChange={(e) => {
-                  if (e.target.value === "") return;
-                  const value = Number(e.target.value);
-                  if (Number.isFinite(value)) setCapacity(Math.max(4, Math.min(200, Math.trunc(value))));
-                }}
+                value={capacityInput}
+                onChange={(e) => setCapacityInput(e.target.value)}
+                onBlur={() => setCapacityInput(String(capacity))}
                 className="w-20 px-2 py-2 border border-[#231714]/10 rounded-lg"
               />
               名
@@ -137,7 +149,7 @@ export default function CsCreateForm({
               aria-label="定員を増やす"
               className={csButton}
               disabled={capacity >= 200}
-              onClick={() => setCapacity((n) => n + 1)}
+              onClick={() => setCapacityInput(String(Math.min(200, capacity + 1)))}
             >
               ＋
             </button>
@@ -150,7 +162,7 @@ export default function CsCreateForm({
             onChange={(v) => {
               setOpens(v);
               if (!deadlineEdited)
-                setCloses(jstInput(new Date(Date.parse(`${v}:00+09:00`) + 7 * 86400000)));
+                updateCloses(jstInput(new Date(Date.parse(`${v}:00+09:00`) + 7 * 86400000)));
             }}
             className="max-sm:flex-col"
           />
@@ -160,7 +172,7 @@ export default function CsCreateForm({
           <DateTimePicker
             value={closes}
             onChange={(v) => {
-              setCloses(v);
+              updateCloses(v);
               setDeadlineEdited(true);
             }}
             className="max-sm:flex-col"

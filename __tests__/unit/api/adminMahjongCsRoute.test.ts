@@ -265,7 +265,10 @@ it.each([
 
 it("updateEntry: 定員を下げると先着順で確定・キャンセル待ちを再配分する", async () => {
   const db = makeDb();
-  entryEvent(db, { entries: ["a", "b", "c", "d", "e", "f"].map((id, i) => entry(id, i)) });
+  entryEvent(db, {
+    eventDate: "2099-01-01",
+    entries: ["a", "b", "c", "d", "e", "f"].map((id, i) => entry(id, i)),
+  });
   (getDb as jest.Mock).mockReturnValue(db);
   expect((await PATCH(body({ action: "updateEntry", capacity: 4 }), params)).status).toBe(200);
   const ev = db._get("mahjongCsEvents", "cs1");
@@ -273,6 +276,37 @@ it("updateEntry: 定員を下げると先着順で確定・キャンセル待ち
   expect(ev.entries.map((e: { lineUserId: string; state: string }) => [e.lineUserId, e.state]))
     .toEqual([["a", "confirmed"], ["b", "confirmed"], ["c", "confirmed"], ["d", "confirmed"],
       ["e", "waitlisted"], ["f", "waitlisted"]]);
+});
+
+it.each([
+  { closes: "2026-10-20T15:00:00Z", changeDeadline: true, status: 400 },
+  { closes: "2026-10-20T15:00:00Z", changeDeadline: false, status: 400 },
+  { closes: "2026-10-20T14:59:59Z", changeDeadline: true, status: 200 },
+  { closes: "2026-10-20T14:59:59Z", changeDeadline: false, status: 200 },
+])("updateEntry: JSTの締切日と開催日を比較する (%j)", async ({ closes, changeDeadline, status }) => {
+  jest.useFakeTimers().setSystemTime(new Date("2026-10-05T00:00:00Z"));
+  try {
+    const db = makeDb();
+    entryEvent(db, { entryClosesAt: changeDeadline ? create.entryClosesAt : closes });
+    (getDb as jest.Mock).mockReturnValue(db);
+    const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+    const res = await PATCH(body({
+      action: "updateEntry",
+      capacity: 5,
+      ...(changeDeadline ? { entryClosesAt: closes } : {}),
+    }), params);
+    expect(res.status).toBe(status);
+    if (status === 400) {
+      expect(await res.json()).toEqual({ error: "開催日は参加受付の締切日以降にしてください" });
+      expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+      expect(db.transactionUpdates.flat()).toHaveLength(0);
+    } else {
+      expect(db._get("mahjongCsEvents", "cs1")).toMatchObject({ capacity: 5, entryClosesAt: closes });
+    }
+    expect(writeAuditLog).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it("closeNow: 受付中なら締切を現在時刻にして参加者を確定し、未表明の優先枠を開放する", async () => {

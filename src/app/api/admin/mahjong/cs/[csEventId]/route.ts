@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { FieldValue } from "firebase-admin/firestore";
 import { isProduction } from "@/lib/env";
+import { jstDateFromIso } from "@/lib/date";
 import { writeAuditLog, type AuditEventType } from "@/lib/auditLog";
 import { isIsoWithOffset, isManualCs, rebalanceEntries, closeEntriesIfDue, entrantsFromEntries } from "@/lib/mahjongCsEntry";
 import { auditLazyClose, ensureCsClosed } from "@/lib/mahjongCsServer";
@@ -114,6 +115,9 @@ export async function PATCH(
           if (!isIsoWithOffset(entryOpensAt) || !isIsoWithOffset(entryClosesAt)
             || Date.parse(entryClosesAt) <= Date.parse(entryOpensAt)) {
             return reject(400, "受付期間が不正です");
+          }
+          if (event.eventDate < jstDateFromIso(entryClosesAt)) {
+            return reject(400, "開催日は参加受付の締切日以降にしてください");
           }
           Object.assign(update, { capacity: nextCapacity, entryOpensAt, entryClosesAt,
             entries: rebalanceEntries(event.entries ?? [], { capacity: nextCapacity, priorityUserIds, phase: "entry" }) });
