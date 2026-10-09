@@ -17,6 +17,8 @@ export const dynamic = "force-dynamic";
 /** 確定リーグ編成にいない参加者の末尾順位。 */
 const NON_LEAGUE_RANK = 100000;
 
+const BAD_WINDOW = "参加受付の期間が設定されていません";
+
 function byIsoDesc(a?: string, b?: string): number {
   return (b ?? "").localeCompare(a ?? "");
 }
@@ -110,10 +112,15 @@ export async function POST(req: NextRequest) {
       if (event.status !== "entry") {
         return { status: 409 as const, error: "参加受付は終了しました" };
       }
-      if (Date.parse(now) < Date.parse(event.entryOpensAt ?? "")) {
+      const opens = Date.parse(event.entryOpensAt ?? "");
+      const closes = Date.parse(event.entryClosesAt ?? "");
+      if (Number.isNaN(opens) || Number.isNaN(closes)) {
+        return { status: 409 as const, error: BAD_WINDOW };
+      }
+      if (Date.parse(now) < opens) {
         return { status: 409 as const, error: "参加受付の開始前です" };
       }
-      if (Date.parse(now) >= Date.parse(event.entryClosesAt ?? "")) {
+      if (Date.parse(now) >= closes) {
         return { status: 409 as const, error: "参加受付は終了しました" };
       }
       const entries = event.entries ?? [];
@@ -163,7 +170,12 @@ export async function DELETE(req: NextRequest) {
       const event = doc.data() as MahjongCsEvent;
       const now = new Date().toISOString();
       if (isManualCs(event)) {
-        if (event.status !== "entry" || Date.parse(now) >= Date.parse(event.entryClosesAt ?? "")) {
+        const opens = Date.parse(event.entryOpensAt ?? "");
+        const closes = Date.parse(event.entryClosesAt ?? "");
+        if (Number.isNaN(opens) || Number.isNaN(closes)) {
+          return { status: 409 as const, error: BAD_WINDOW };
+        }
+        if (event.status !== "entry" || Date.parse(now) >= closes) {
           return { status: 409 as const, error: "締切後は取り消せません。管理者に連絡してください" };
         }
         const entries = event.entries ?? [];

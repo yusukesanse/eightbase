@@ -255,3 +255,69 @@ it("公開対戦表は未解決の札だけラベルにし、選手や札の内�
   expect(body.event.rounds[0].matches[0].players[0].isMe).toBe(true);
   expect(JSON.stringify(body)).not.toContain("lineUserId");
 });
+
+describe("受付期間が壊れているときは何も書かず 409", () => {
+  const MSG = "参加受付の期間が設定されていません";
+  it("POST: entryClosesAt が無い", async () => {
+    const db = makeDb(); seed(db, { entryClosesAt: undefined });
+    (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+    const res = await POST(req());
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(MSG);
+    expect(db._get("mahjongCsEvents", "cs1").entries).toEqual([]);
+  });
+  it("POST: entryOpensAt が日付でない", async () => {
+    const db = makeDb(); seed(db, { entryOpensAt: "not-a-date" });
+    (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+    const res = await POST(req());
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(MSG);
+    expect(db._get("mahjongCsEvents", "cs1").entries).toEqual([]);
+  });
+  it("DELETE: entryClosesAt が無い", async () => {
+    const db = makeDb();
+    seed(db, { entryClosesAt: undefined, entries: [{ lineUserId: "a", displayName: "a", pictureUrl: "", tier: "M3", rank: 1, enteredAt: "2026-10-02T00:00:00Z", state: "confirmed" }] });
+    (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+    const res = await DELETE(req());
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(MSG);
+    expect((db._get("mahjongCsEvents", "cs1").entries as unknown[]).length).toBe(1);
+  });
+});
+
+it("公開GETに本物の lineUserId の値が出ない（他人視点・本人視点）", async () => {
+  const SECRET = "U_secret_7f3a";
+  const db = makeDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
+  db._set("mahjongTables", "t_secret", { seasonId: SEASON, memberIds: [SECRET], status: "completed" });
+  asUser(SECRET);
+  expect((await POST(req())).status).toBe(200);
+  for (const viewer of ["a", SECRET]) {
+    (getSessionUserId as jest.Mock).mockResolvedValue(viewer);
+    const text = JSON.stringify(await (await GET(req())).json());
+    expect(text).not.toContain(SECRET);
+  }
+});
+
+describe("GET のポーリング冪等性", () => {
+  it("締切前の GET は保存済み doc の updatedAt を変えない", async () => {
+    const db = makeDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
+    (getSessionUserId as jest.Mock).mockResolvedValue("a");
+    await GET(req()); await GET(req());
+    const doc = db._get("mahjongCsEvents", "cs1");
+    expect(doc.updatedAt).toBe("");
+    expect(doc.status).toBe("entry");
+  });
+  it("締切後の GET を2回呼んでも closed は1回・監査ログは1回", async () => {
+    const { writeAuditLog } = jest.requireMock("@/lib/auditLog") as { writeAuditLog: jest.Mock };
+    writeAuditLog.mockClear();
+    const db = makeDb(); seed(db, { entryClosesAt: "2000-01-01T00:00:00+09:00" });
+    (getDb as jest.Mock).mockReturnValue(db);
+    (getSessionUserId as jest.Mock).mockResolvedValue("a");
+    await GET(req());
+    expect(db._get("mahjongCsEvents", "cs1").status).toBe("closed");
+    await GET(req());
+    expect(db._get("mahjongCsEvents", "cs1").status).toBe("closed");
+    const closed = writeAuditLog.mock.calls.filter((c) => (c[0] as { eventType?: string }).eventType === "cs.entryClosed");
+    expect(closed).toHaveLength(1);
+  });
+});
