@@ -234,6 +234,7 @@ export default function SeasonMahjongCsPage() {
             <CsBracketBuilder
               event={selected}
               onChanged={fetchEvents}
+              onError={setError}
             />
           )}
           {(legacy || selected.status === "running" || selected.status === "finished") && (
