@@ -126,7 +126,7 @@ beforeEach(() => {
   (isProduction as jest.Mock).mockReturnValue(false);
 });
 
-import { POST } from "@/app/api/admin/mahjong/cs/route";
+import { GET as GET_LIST, POST } from "@/app/api/admin/mahjong/cs/route";
 import { GET, PATCH } from "@/app/api/admin/mahjong/cs/[csEventId]/route";
 import { isProduction } from "@/lib/env";
 
@@ -575,4 +575,23 @@ it.each([
     eventType: "cs.entryClosed", actor: "system", beforeStatus: "entry", afterStatus: "closed",
     meta: { csEventId: "cs1", entrants: 1 },
   }));
+});
+
+
+it("一覧: 対象シーズンの最新編成のM1・M2人数を返し、編成・シーズンがなければ0", async () => {
+  const db = makeDb(); withAssignment(db); (getDb as jest.Mock).mockReturnValue(db);
+  db._set("mahjongLeagueAssignments", "latest", {
+    seasonId: "s1", confirmedAt: "2026-10-02T00:00:00Z",
+    entries: [{ lineUserId: "a", tier: "M1" }, { lineUserId: "b", tier: "M2" },
+      { lineUserId: "c", tier: "M2" }, { lineUserId: "d", tier: "M3" }],
+  });
+  db._set("mahjongLeagueAssignments", "other", {
+    seasonId: "s2", confirmedAt: "2026-10-03T00:00:00Z", entries: [],
+  });
+  const request = (query = "") => ({ nextUrl: new URL(`http://localhost/api/admin/mahjong/cs${query}`) } as NextRequest);
+  expect(await (await GET_LIST(request("?seasonId=s1"))).json()).toEqual({ events: [], seasonId: "s1", priorityPreviewCount: 3 });
+  expect((await (await GET_LIST(request())).json()).priorityPreviewCount).toBe(3);
+  expect((await (await GET_LIST(request("?seasonId=empty"))).json()).priorityPreviewCount).toBe(0);
+  (getActiveSeason as jest.Mock).mockResolvedValue(null);
+  expect(await (await GET_LIST(request())).json()).toEqual({ events: [], seasonId: null, priorityPreviewCount: 0 });
 });
