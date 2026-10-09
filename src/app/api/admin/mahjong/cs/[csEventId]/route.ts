@@ -5,7 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { isProduction } from "@/lib/env";
 import { writeAuditLog, type AuditEventType } from "@/lib/auditLog";
 import { isIsoWithOffset, isManualCs, rebalanceEntries, closeEntriesIfDue, entrantsFromEntries } from "@/lib/mahjongCsEntry";
-import { ensureCsClosed } from "@/lib/mahjongCsServer";
+import { auditLazyClose, ensureCsClosed } from "@/lib/mahjongCsServer";
 import { validateBracket, buildRunningRounds } from "@/lib/mahjongCsBracket";
 import type { MahjongCsEvent, MahjongCsRound } from "@/types";
 
@@ -74,19 +74,28 @@ export async function PATCH(
     const ref = db.collection("mahjongCsEvents").doc(csEventId);
     const result = await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
-      if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません" };
+      if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません", lazyClosed: false as const };
       const event = { ...(doc.data() as MahjongCsEvent), csEventId };
-      if (!isManualCs(event)) return { status: 409 as const, error: "旧形式のCSは変更できません" };
+      if (!isManualCs(event)) return { status: 409 as const, error: "旧形式のCSは変更できません", lazyClosed: false as const };
+      const beforeStatus = event.status;
+      // 未登録の参加者への削除要求では、遅延締切も保存しない。
+      if (action === "removeEntry" && typeof body.lineUserId === "string" && body.lineUserId.trim()
+        && !(event.entries ?? []).some((entry) => entry.lineUserId === body.lineUserId)) {
+        return { status: 404 as const, error: "参加者が見つかりません", lazyClosed: false as const };
+      }
       const now = new Date().toISOString();
       const change = closeEntriesIfDue(event, now);
-      const update: Partial<MahjongCsEvent> = { ...change, updatedAt: now };
-      if (change) {
-        Object.assign(event, update);
-        // 操作を拒否する場合も、期限切れの受付状態は締切済みにする。
-        tx.update(ref, update);
-      }
-      if (!allowedStatuses[action].includes(event.status)) {
-        return { status: 409 as const, error: "現在の状態ではこの操作はできません" };
+      const lazyClosed = change !== null;
+      const closeUpdate = { ...change, updatedAt: now };
+      const update: Partial<MahjongCsEvent> = { ...closeUpdate };
+      if (change) Object.assign(event, closeUpdate);
+      const lazyCloseEvent = { ...event };
+      const reject = (status: 400 | 409, error: string, errors?: string[]) => {
+        if (lazyClosed) tx.update(ref, closeUpdate);
+        return { status, error, errors, lazyClosed, lazyCloseEvent };
+      };
+      if (!allowedStatuses[action].includes(event.status) && !(action === "closeNow" && lazyClosed)) {
+        return reject(409, "現在の状態ではこの操作はできません");
       }
       let audit: AuditEventType | undefined;
       const capacity = event.capacity!;
@@ -97,14 +106,14 @@ export async function PATCH(
           const entryOpensAt = body.entryOpensAt === undefined ? event.entryOpensAt : body.entryOpensAt;
           const entryClosesAt = body.entryClosesAt === undefined ? event.entryClosesAt : body.entryClosesAt;
           if (!Number.isInteger(nextCapacity) || nextCapacity < 4 || nextCapacity > 200) {
-            return { status: 400 as const, error: "定員は4〜200の整数にしてください" };
+            return reject(400, "定員は4〜200の整数にしてください");
           }
           if (nextCapacity < priorityUserIds.length) {
-            return { status: 400 as const, error: `定員が優先枠（M1・M2 の ${priorityUserIds.length} 名）より少なくなっています` };
+            return reject(400, `定員が優先枠（M1・M2 の ${priorityUserIds.length} 名）より少なくなっています`);
           }
           if (!isIsoWithOffset(entryOpensAt) || !isIsoWithOffset(entryClosesAt)
             || Date.parse(entryClosesAt) <= Date.parse(entryOpensAt)) {
-            return { status: 400 as const, error: "受付期間が不正です" };
+            return reject(400, "受付期間が不正です");
           }
           Object.assign(update, { capacity: nextCapacity, entryOpensAt, entryClosesAt,
             entries: rebalanceEntries(event.entries ?? [], { capacity: nextCapacity, priorityUserIds, phase: "entry" }) });
@@ -119,7 +128,7 @@ export async function PATCH(
           break;
         case "removeEntry": {
           const id = body.lineUserId;
-          if (typeof id !== "string" || !id.trim()) return { status: 400 as const, error: "lineUserId が不正です" };
+          if (typeof id !== "string" || !id.trim()) return reject(400, "lineUserId が不正です");
           audit = "cs.entryRemoved";
           update.entries = rebalanceEntries((event.entries ?? []).filter((e) => e.lineUserId !== id), {
             capacity, priorityUserIds, phase: event.status === "entry" ? "entry" : "closed",
@@ -141,14 +150,14 @@ export async function PATCH(
           const { rounds } = body;
           const seedUserIds = Array.isArray(body.seedUserIds) ? [...new Set<unknown>(body.seedUserIds)] : null;
           if (!seedUserIds || !seedUserIds.every((id): id is string => typeof id === "string")
-            || !isBracketRounds(rounds)) return { status: 400 as const, error: "編成の形式が不正です" };
+            || !isBracketRounds(rounds)) return reject(400, "編成の形式が不正です");
           const entrantIds = event.entrants.map((e) => e.lineUserId);
           if (seedUserIds.some((id) => !entrantIds.includes(id))) {
-            return { status: 400 as const, error: "参加確定者ではない人がシードに含まれています" };
+            return reject(400, "参加確定者ではない人がシードに含まれています");
           }
           if (action === "confirmBracket") {
             const errors = validateBracket(rounds, entrantIds);
-            if (errors.length) return { status: 400 as const, error: "編成に不備があります", errors };
+            if (errors.length) return reject(400, "編成に不備があります", errors);
             update.entrants = event.entrants.map((e) => ({ ...e, seed: seedUserIds.includes(e.lineUserId) }));
             update.rounds = buildRunningRounds(rounds, update.entrants);
             update.status = "running";
@@ -180,10 +189,13 @@ export async function PATCH(
       tx.update(ref, { ...update, ...(action === "reopenBracket" ? { championId: FieldValue.delete() } : {}) });
       const updated = { ...event, ...update };
       if (action === "reopenBracket") delete updated.championId;
-      return { status: 200 as const, event: updated, beforeStatus: event.status, audit };
+      return { status: 200 as const, event: updated, beforeStatus, audit, lazyClosed, lazyCloseEvent };
     });
+    if (result.lazyClosed && !(action === "closeNow" && result.status === 200)) {
+      await auditLazyClose(result.lazyCloseEvent);
+    }
     if (result.status !== 200) {
-      return NextResponse.json({ error: result.error, ...(result.errors ? { errors: result.errors } : {}) }, { status: result.status });
+      return NextResponse.json({ error: result.error, ...("errors" in result && result.errors ? { errors: result.errors } : {}) }, { status: result.status });
     }
     if (result.audit) await writeAuditLog({ eventType: result.audit, actor: admin,
       target: { date: result.event.eventDate,
