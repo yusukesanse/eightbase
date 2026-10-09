@@ -22,6 +22,7 @@ export type AuditEventType =
   | "refund.rejected" // キャンセル却下（管理者）
   | "schedule.closed" // 休催化（管理者）
   | "schedule.reopened" // 休催解除（管理者）
+  | "cs.entryClosed" // CS参加受付の締切・キャンセル待ちの繰り上げ
   | "cs.generated" // CS予選の自動生成（確定日到来・システム）
   | "cs.matchEdited" // CS試合結果の管理者修正
   | "cs.reset" // CSブラケットの管理者リセット

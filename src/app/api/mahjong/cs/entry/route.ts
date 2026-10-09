@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
+import { isManualCs, rebalanceEntries, waitlistPosition } from "@/lib/mahjongCsEntry";
+import { hasPlayedMahjongLeague } from "@/lib/mahjongCsServer";
 import { getActiveSeason } from "@/lib/mahjong";
 import type {
   MahjongCsEntrant,
@@ -10,21 +12,9 @@ import type {
 
 export const dynamic = "force-dynamic";
 
-/**
- * 利用者による CS 自己エントリー（WP6）。
- * 資料では CS は誰でも参加可。従来は管理者が確定リーグ編成から取り込むだけだったが、
- * リーグ未参加者も含めて自分でエントリー/取消できるようにする。
- *
- * - POST   /api/mahjong/cs/entry … 自分を参戦者に追加
- * - DELETE /api/mahjong/cs/entry … 自分を参戦者から取消
- *
- * 受付は status="setup"（トーナメント未生成）の間のみ。確定日到来で予選が自動生成
- *（status="running"）されると締め切る。tier/rank/seed はリーグ確定編成があれば
- * それを引き継ぎ（M1=シード）、無ければ非シード・末尾送りの番兵順位で登録する。
- * 参加資格（5試合以上）による制限は設けない方針（誰でも参加可）。
- */
+/** 利用者のCS参加表明・取消。新方式はリーグ参加済みの人だけが期間内に表明できる。 */
 
-/** リーグ未参加の自己エントリーに与える順位。シード対象外＝並びの末尾へ寄せる。 */
+/** 確定リーグ編成にいない参加者の末尾順位。 */
 const NON_LEAGUE_RANK = 100000;
 
 function byIsoDesc(a?: string, b?: string): number {
@@ -93,42 +83,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: target.error }, { status: target.status });
     }
 
-    // 契約読み込み（本人プロフィール・シード判定）は競合docではないため tx 外で先に取得。
+    const db = getDb();
+    const ref = db.collection("mahjongCsEvents").doc(target.csEventId);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ error: "CSが見つかりません" }, { status: 404 });
+    if (!isManualCs(snap.data() as MahjongCsEvent)) {
+      return NextResponse.json({ error: "エントリーの受付は終了しました" }, { status: 409 });
+    }
+    if (!(await hasPlayedMahjongLeague(target.seasonId, userId))) {
+      return NextResponse.json({ error: "リーグ戦に1回以上参加した人だけが参加できます" }, { status: 403 });
+    }
+    // プロフィール・確定編成・参加資格の読み取りは transaction の外で行う。
     const [seedInfo, profile] = await Promise.all([
       resolveLeagueSeed(target.seasonId, userId),
       resolveProfile(userId),
     ]);
 
-    const db = getDb();
-    const ref = db.collection("mahjongCsEvents").doc(target.csEventId);
-    const now = new Date().toISOString();
-
     const result = await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません" };
       const event = doc.data() as MahjongCsEvent;
-      if (event.status !== "setup") {
+      if (!isManualCs(event)) {
         return { status: 409 as const, error: "エントリーの受付は終了しました" };
       }
-      const entrants = event.entrants ?? [];
-      if (entrants.some((e) => e.lineUserId === userId)) {
-        return { status: 200 as const, entered: true, count: entrants.length };
+      const now = new Date().toISOString();
+      if (event.status !== "entry") {
+        return { status: 409 as const, error: "参加受付は終了しました" };
       }
-      const entrant: MahjongCsEntrant = {
+      if (Date.parse(now) < Date.parse(event.entryOpensAt ?? "")) {
+        return { status: 409 as const, error: "参加受付の開始前です" };
+      }
+      if (Date.parse(now) >= Date.parse(event.entryClosesAt ?? "")) {
+        return { status: 409 as const, error: "参加受付は終了しました" };
+      }
+      const entries = event.entries ?? [];
+      const existing = entries.find((e) => e.lineUserId === userId);
+      if (existing) {
+        return { status: 200 as const, state: existing.state, waitlistPosition: waitlistPosition(entries, userId) };
+      }
+      const next = rebalanceEntries([...entries, {
         lineUserId: userId,
-        displayName: profile.displayName,
-        pictureUrl: profile.pictureUrl,
-        ...seedInfo,
-      };
-      const next = [...entrants, entrant];
-      tx.update(ref, { entrants: next, updatedAt: now });
-      return { status: 200 as const, entered: true, count: next.length };
+        ...profile,
+        tier: seedInfo.tier ?? "M3",
+        rank: seedInfo.rank,
+        enteredAt: now,
+        state: "confirmed",
+      }], { capacity: event.capacity!, priorityUserIds: event.priorityUserIds ?? [], phase: "entry" });
+      tx.update(ref, { entries: next, updatedAt: now });
+      return { status: 200 as const, state: next.find((e) => e.lineUserId === userId)!.state,
+        waitlistPosition: waitlistPosition(next, userId) };
     });
 
     if (result.status !== 200) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
-    return NextResponse.json({ success: true, entered: result.entered, count: result.count });
+    return NextResponse.json({ success: true, entered: true, state: result.state, waitlistPosition: result.waitlistPosition });
   } catch (error) {
     console.error("[mahjong/cs/entry] POST error:", error);
     return NextResponse.json({ error: "エントリーに失敗しました" }, { status: 500 });
@@ -148,12 +157,25 @@ export async function DELETE(req: NextRequest) {
 
     const db = getDb();
     const ref = db.collection("mahjongCsEvents").doc(target.csEventId);
-    const now = new Date().toISOString();
-
     const result = await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません" };
       const event = doc.data() as MahjongCsEvent;
+      const now = new Date().toISOString();
+      if (isManualCs(event)) {
+        if (event.status !== "entry" || Date.parse(now) >= Date.parse(event.entryClosesAt ?? "")) {
+          return { status: 409 as const, error: "締切後は取り消せません。管理者に連絡してください" };
+        }
+        const entries = event.entries ?? [];
+        const remaining = entries.filter((e) => e.lineUserId !== userId);
+        if (remaining.length !== entries.length) {
+          const next = rebalanceEntries(remaining, {
+            capacity: event.capacity!, priorityUserIds: event.priorityUserIds ?? [], phase: "entry",
+          });
+          tx.update(ref, { entries: next, updatedAt: now });
+        }
+        return { status: 200 as const, entered: false };
+      }
       if (event.status !== "setup") {
         return { status: 409 as const, error: "エントリーの受付は終了しました" };
       }
