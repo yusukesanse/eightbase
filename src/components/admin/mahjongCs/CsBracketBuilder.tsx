@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { CSSProperties } from "react";
 import type { MahjongCsEvent } from "@/types/mahjong";
 import { Button, GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import { ticketLabel, unplacedEntrantIds, validateBracket } from "@/lib/mahjongCsBracket";
@@ -19,12 +18,6 @@ interface Props {
   onChanged: () => void;
   onError: (message: string | null) => void;
 }
-// 管理画面でも共通部品の色を明示する。
-const palette = {
-  "--eb-green": "#34835a", "--eb-green-text": "#24603f", "--eb-ink": "#231714",
-  "--eb-line": "#dedbd6", "--eb-tint": "#f0f5ee", "--eb-coral": "#c85142",
-} as CSSProperties;
-
 // 大会または保存済み編成の更新時に編集状態を読み直す。
 export default function CsBracketBuilder(props: Props) {
   return <Builder key={`${props.event.csEventId}:${JSON.stringify(props.event.bracket)}`} {...props} />;
@@ -32,8 +25,8 @@ export default function CsBracketBuilder(props: Props) {
 // シード、席と札の編集および下書き保存と確定を管理する。
 function Builder({ event, onChanged, onError }: Props) {
   const [defaultAdvance, setDefaultAdvance] = useState<1 | 2 | 3>(1);
-  const [draft, setDraft] = useState(() => initialDraft(event, 1));
-  const [saved, setSaved] = useState(() => JSON.stringify(event.bracket));
+  const [draft, setDraft] = useState(() => initialDraft(event, defaultAdvance));
+  const [saved, setSaved] = useState(() => JSON.stringify(event.bracket ?? initialDraft(event, defaultAdvance)));
   const [busy, setBusy] = useState(false);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   const entrants = event.entrants ?? [];
@@ -42,6 +35,7 @@ function Builder({ event, onChanged, onError }: Props) {
   const seeds = entrants.filter((entrant) => draft.seedUserIds.includes(entrant.lineUserId));
   const errors = validateBracket(draft.rounds, ids);
   const dirty = JSON.stringify(draft) !== saved;
+  const hasPrelimTables = (draft.rounds[0]?.matches.length ?? 0) > 0;
 
   // 編集時には古いサーバー検証結果を消す。
   const update = useCallback((edit: (current: Draft) => Draft) => {
@@ -129,7 +123,7 @@ function Builder({ event, onChanged, onError }: Props) {
   };
 
   return (
-    <section className="min-w-0 max-w-full space-y-4 text-[#231714]" style={palette}>
+    <section className="min-w-0 max-w-full space-y-4 text-[#231714]">
       <GlassCard padding="md" className="space-y-3 bg-white">
         <h2 className="text-sm font-bold">① 勝ち抜け人数とシード</h2>
         <p className="text-xs">新しいラウンドの勝ち抜け人数</p>
@@ -188,9 +182,11 @@ function Builder({ event, onChanged, onError }: Props) {
             ))}
           </DropZone>
           <Button
-            variant="secondary" className="!h-auto min-h-14 !whitespace-normal !text-xs" disabled={busy}
+            variant="secondary" className="!h-auto min-h-14 !whitespace-normal !text-xs"
+            disabled={busy || !hasPrelimTables}
             onClick={() => update((current) => fillEmptySeats(current, ids))}
           >未配置の人を予選の空席に順番に入れる</Button>
+          {!hasPrelimTables && <p className="text-xs">先に卓を追加してください</p>}
         </div>
         <CsBracketRounds
           draft={draft} defaultAdvance={defaultAdvance} locked={busy} update={update}

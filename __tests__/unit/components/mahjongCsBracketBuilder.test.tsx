@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import CsBracketBuilder from "@/components/admin/mahjongCs/CsBracketBuilder";
+import { chipKey } from "@/components/admin/mahjongCs/useCsBracketDrag";
 import type { MahjongCsEvent } from "@/types";
 
 const event: MahjongCsEvent = {
@@ -22,6 +23,38 @@ function placeFirstPlayer() {
   fireEvent.click(screen.getByRole("button", { name: "参加者1 M1" }));
   fireEvent.click(screen.getByRole("button", { name: "予選A卓 1席目" }));
 }
+
+test("a fresh closed event is clean until a placement is made", () => {
+  render(<CsBracketBuilder event={event} onChanged={jest.fn()} onError={jest.fn()} />);
+  expect(screen.queryByText("未保存の変更があります")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "2名" }));
+  expect(screen.queryByText("未保存の変更があります")).toBeNull();
+  placeFirstPlayer();
+  expect(screen.getByText("未保存の変更があります")).toBeTruthy();
+});
+
+test.each(["chip", "pointer chip", "seat"])("selected player replaces occupant by tapping %s", (target) => {
+  render(<CsBracketBuilder event={event} onChanged={jest.fn()} onError={jest.fn()} />);
+  placeFirstPlayer();
+  const seat = screen.getByRole("button", { name: "予選A卓 1席目" });
+  const occupant = within(seat).getByRole("button", { name: "参加者1 M1" });
+  fireEvent.click(occupant);
+  expect(occupant.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(occupant);
+  fireEvent.click(screen.getByRole("button", { name: "参加者2 M3" }));
+  if (target === "pointer chip") {
+    pointer(occupant, "pointerdown", 10, 10);
+    pointer(window, "pointerup", 10, 10);
+    fireEvent.click(seat, { detail: 1 });
+  } else {
+    fireEvent.click(target === "chip" ? occupant : seat);
+  }
+  expect(within(seat).getByText("参加者2")).toBeTruthy();
+  expect(within(seat).queryByText("参加者1")).toBeNull();
+  const pool = screen.getByRole("button", { name: "参加者プールに戻す" });
+  expect(within(pool).getByRole("button", { name: "参加者1 M1" })).toBeTruthy();
+  expect(within(seat).getByRole("button", { name: "参加者2 M3" }).getAttribute("aria-pressed")).toBe("false");
+});
 
 test("tap placement, pool return, seed grouping and fill preserve the intended draft", async () => {
   render(<CsBracketBuilder event={event} onChanged={jest.fn()} onError={jest.fn()} />);
@@ -137,4 +170,48 @@ test("a seed drop adds without toggling an existing seed off", () => {
   fireEvent.click(screen.getByRole("button", { name: "参加者1 M1 SEED" }));
   fireEvent.click(seedZone);
   expect(screen.getByRole("button", { name: "参加者1 M1 SEED" })).toBeTruthy();
+});
+
+
+test("chip keys use identity fields regardless of property order", () => {
+  expect(chipKey({ lineUserId: "p1", kind: "player" })).toBe("player:p1");
+  expect(chipKey({ place: 2, kind: "ticket", fromMatchId: "table" })).toBe("ticket:table:2");
+});
+
+test("fill needs a table and the final tag needs multiple rounds", () => {
+  render(<CsBracketBuilder event={event} onChanged={jest.fn()} onError={jest.fn()} />);
+  const fill = screen.getByRole("button", {
+    name: "未配置の人を予選の空席に順番に入れる",
+  }) as HTMLButtonElement;
+  expect(fill.disabled).toBe(true);
+  expect(screen.getByText("先に卓を追加してください")).toBeTruthy();
+  expect(screen.queryByText("決勝")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "卓を追加" }));
+  expect(fill.disabled).toBe(false);
+  expect(screen.queryByText("先に卓を追加してください")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "予選A卓を削除" }));
+  expect(fill.disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "ラウンドを追加" }));
+  expect(screen.getAllByText("決勝")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "ラウンド2を削除" }));
+  expect(screen.queryByText("決勝")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "予選を削除" }));
+  expect(fill.disabled).toBe(true);
+});
+
+test("empty round labels restore the previous label and table names on blur", () => {
+  render(<CsBracketBuilder event={event} onChanged={jest.fn()} onError={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "卓を追加" }));
+  const input = screen.getByRole("textbox", { name: "ラウンド1の名前" }) as HTMLInputElement;
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: "準決勝" } });
+  fireEvent.blur(input);
+  expect(input.value).toBe("準決勝");
+  for (const value of ["", "   "]) {
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value } });
+    fireEvent.blur(input);
+    expect(input.value).toBe("準決勝");
+    expect(screen.getByRole("button", { name: "準決勝A卓 1席目" })).toBeTruthy();
+  }
 });

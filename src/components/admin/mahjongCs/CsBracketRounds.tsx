@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Button, GlassCard } from "@/components/ui/eb";
 import {
@@ -20,13 +20,16 @@ export default function CsBracketRounds({ draft, defaultAdvance, locked, update,
   isLit: (zone: string) => boolean;
 }) {
   const [confirmRound, setConfirmRound] = useState<number | null>(null);
+  const previousLabel = useRef("");
   return (
     <div className="min-w-0 max-w-full overflow-x-auto pb-3" aria-label="ラウンド編成">
       <div className="flex items-start gap-3">
         {draft.rounds.map((round, ri) => (
           <div key={ri} className="w-[210px] shrink-0 space-y-3">
             <GlassCard padding="md" className="space-y-3">
-              {ri === draft.rounds.length - 1 && <p className="text-xs font-bold">決勝</p>}
+              {draft.rounds.length >= 2 && ri === draft.rounds.length - 1 && (
+                <p className="text-xs font-bold">決勝</p>
+              )}
               <label className="block text-xs">
                 ラウンド名
                 <input
@@ -34,7 +37,14 @@ export default function CsBracketRounds({ draft, defaultAdvance, locked, update,
                   className="mt-1 w-full min-w-0 rounded-lg border p-2 text-sm"
                   value={round.label}
                   disabled={locked}
+                  onFocus={() => { previousLabel.current = round.label; }}
                   onChange={(event) => update((current) => renameRound(current, ri, event.target.value))}
+                  onBlur={(event) => {
+                    if (!event.target.value.trim()) {
+                      const label = previousLabel.current;
+                      update((current) => renameRound(current, ri, label));
+                    }
+                  }}
                 />
               </label>
               <p className="text-xs">勝ち抜け人数</p>
