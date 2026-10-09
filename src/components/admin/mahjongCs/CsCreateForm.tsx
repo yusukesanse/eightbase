@@ -43,6 +43,7 @@ export default function CsCreateForm({
   const [name, setName] = useState("チャンピオンシップ");
   const [capacityInput, setCapacityInput] = useState("40");
   const capacity = clampCapacity(capacityInput);
+  const capacityMissing = capacityInput.trim() === "";
   const [opens, setOpens] = useState(() => jstInput(new Date()));
   const [closes, setCloses] = useState(() => jstInput(new Date(Date.now() + 7 * 86400000)));
   const [eventDate, setEventDate] = useState(() => jstDateFromIso(`${closes}+09:00`));
@@ -58,6 +59,7 @@ export default function CsCreateForm({
 
   async function create() {
     setError(null);
+    if (capacityMissing) return;
     if (!name.trim() || !eventDate || !opens || !closes) {
       setError("すべての項目を入力してください");
       return;
@@ -139,7 +141,9 @@ export default function CsCreateForm({
                 step={1}
                 value={capacityInput}
                 onChange={(e) => setCapacityInput(e.target.value)}
-                onBlur={() => setCapacityInput(String(capacity))}
+                onBlur={() => {
+                  if (!capacityMissing) setCapacityInput(String(capacity));
+                }}
                 className="w-20 px-2 py-2 border border-[#231714]/10 rounded-lg"
               />
               名
@@ -203,6 +207,7 @@ export default function CsCreateForm({
         </p>
         <p>参加資格：リーグ戦に1回以上出た人だけ</p>
       </div>
+      {capacityMissing && <p className="text-xs text-red-600">定員を入力してください</p>}
       {capacity < priorityPreviewCount && (
         <p className="text-xs text-red-600">定員を優先枠の人数以上にしてください</p>
       )}
@@ -215,7 +220,7 @@ export default function CsCreateForm({
         </p>
       )}
       <button
-        disabled={busy || capacity < priorityPreviewCount}
+        disabled={busy || capacityMissing || capacity < priorityPreviewCount}
         onClick={create}
         className={csPrimary}
       >

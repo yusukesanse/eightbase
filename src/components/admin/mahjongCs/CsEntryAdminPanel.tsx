@@ -2,28 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import DateTimePicker from "@/components/ui/DateTimePicker";
-import { rebalanceEntries, waitlistPosition } from "@/lib/mahjongCsEntry";
+import { rebalanceEntries } from "@/lib/mahjongCsEntry";
 import { isProduction } from "@/lib/env";
 import { jstDateFromIso } from "@/lib/date";
-import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
+import type { MahjongCsEvent } from "@/types/mahjong";
 import { clampCapacity, csButton, csPrimary, jstInput } from "./CsCreateForm";
-
-const filters = ["すべて", "優先枠", "M3", "キャンセル待ち"] as const;
-const tierStyles = {
-  M1: "bg-yellow-100 text-yellow-700",
-  M2: "bg-sky-100 text-sky-700",
-  M3: "bg-orange-50 text-orange-600",
-};
-// 受付日時を日本時間の表示用文字列に整える。
-const displayDate = (value: string) =>
-  new Date(value).toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+import CsParticipantList, { displayDate } from "./CsParticipantList";
 
 // CSの参加受付状況と参加者を管理する。
 export default function CsEntryAdminPanel({
@@ -35,14 +19,13 @@ export default function CsEntryAdminPanel({
   onChanged: () => void;
   onError: (message: string | null) => void;
 }) {
-  const [filter, setFilter] = useState<(typeof filters)[number]>("すべて");
   const [editing, setEditing] = useState(false);
   const [capacityInput, setCapacityInput] = useState(String(event.capacity ?? 40));
   const capacity = clampCapacity(capacityInput);
+  const capacityMissing = capacityInput.trim() === "";
   const [opens, setOpens] = useState(() => jstInput(event.entryOpensAt ?? new Date()));
   const [closes, setCloses] = useState(() => jstInput(event.entryClosesAt ?? new Date()));
   const [confirmClose, setConfirmClose] = useState(false);
-  const [removeEntry, setRemoveEntry] = useState<MahjongCsEntry | null>(null);
   const notifiedDeadline = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -103,7 +86,6 @@ export default function CsEntryAdminPanel({
       onError("更新に失敗しました");
     } finally {
       setBusy(false);
-      setRemoveEntry(null);
     }
   }
 
@@ -174,7 +156,9 @@ export default function CsEntryAdminPanel({
               step={1}
               value={capacityInput}
               onChange={(e) => setCapacityInput(e.target.value)}
-              onBlur={() => setCapacityInput(String(capacity))}
+              onBlur={() => {
+                if (!capacityMissing) setCapacityInput(String(capacity));
+              }}
               className="block mt-1 w-24 border border-[#231714]/10 rounded-lg px-3 py-2 text-sm"
             />
           </label>
@@ -194,6 +178,7 @@ export default function CsEntryAdminPanel({
               className="max-sm:flex-col"
             />
           </div>
+          {capacityMissing && <p className="text-xs text-red-600">定員を入力してください</p>}
           {additionalWaiting > 0 && (
             <p
               role="alert"
@@ -206,7 +191,9 @@ export default function CsEntryAdminPanel({
           <div className="flex gap-2">
             <button
               className={csPrimary}
+              disabled={capacityMissing}
               onClick={() => {
+                if (capacityMissing) return;
                 onError(null);
                 if (event.eventDate < jstDateFromIso(`${closes}+09:00`)) {
                   onError("開催日は参加受付の締切日以降にしてください");
@@ -231,27 +218,6 @@ export default function CsEntryAdminPanel({
           </div>
         </fieldset>
       )}
-      {removeEntry && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
-          <p className="text-xs">{removeEntry.displayName}さんを参加者から外しますか？</p>
-          <div className="flex gap-2">
-            <button
-              disabled={busy}
-              className={csPrimary}
-              onClick={() => patch({ action: "removeEntry", lineUserId: removeEntry.lineUserId })}
-            >
-              外す
-            </button>
-            <button
-              disabled={busy}
-              className={csButton}
-              onClick={() => setRemoveEntry(null)}
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
-      )}
       {confirmClose && (
         <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
           <p className="text-xs">今すぐ参加受付を締め切り、参加者を確定しますか？</p>
@@ -273,86 +239,7 @@ export default function CsEntryAdminPanel({
           </div>
         </div>
       )}
-      <h3 className="text-sm font-bold">参加表明者一覧</h3>
-      <div className="flex flex-wrap gap-2">
-        {filters.map((value) => (
-          <button
-            key={value}
-            aria-pressed={filter === value}
-            onClick={() => setFilter(value)}
-            className={`${csButton} ${filter === value ? "bg-[#B0E401]/20" : "bg-white"}`}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
-      <div className="overflow-x-auto max-w-full bg-white rounded-xl border border-[#231714]/10">
-        <table className="w-full text-xs whitespace-nowrap">
-          <thead>
-            <tr className="border-b border-[#231714]/10">
-              {["名前", "リーグ", "状態", "表明日時（日本時間）", "操作"].map((label) => (
-                <th
-                  key={label}
-                  className="text-left p-3"
-                >
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {entries
-              .filter(
-                (e) =>
-                  filter === "すべて" ||
-                  (filter === "優先枠"
-                    ? priority.has(e.lineUserId)
-                    : filter === "M3"
-                      ? !priority.has(e.lineUserId)
-                      : e.state === "waitlisted"),
-              )
-              .map((entry) => (
-                <tr
-                  key={entry.lineUserId}
-                  className="border-b border-[#231714]/5"
-                >
-                  <td className="p-3">{entry.displayName}</td>
-                  <td className="p-3">
-                    <span className={`rounded-full px-2 py-1 font-bold ${tierStyles[entry.tier]}`}>
-                      {entry.tier}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    {entry.state === "confirmed"
-                      ? "参加確定"
-                      : `キャンセル待ち${waitlistPosition(event.entries ?? [], entry.lineUserId)}番目`}
-                  </td>
-                  <td className="p-3">{displayDate(entry.enteredAt)}</td>
-                  <td className="p-3">
-                    <button
-                      disabled={busy}
-                      className={csButton}
-                      aria-label={`${entry.displayName}さんを外す`}
-                      onClick={() => setRemoveEntry(entry)}
-                    >
-                      外す
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            {entries.length === 0 && (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="p-4 text-center"
-                >
-                  参加表明者はまだいません
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <CsParticipantList event={event} onChanged={onChanged} onError={onError} disabled={busy} />
       {!isProduction() && (
         <div className="space-y-2">
           <button

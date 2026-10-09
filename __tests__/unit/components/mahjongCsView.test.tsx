@@ -54,13 +54,12 @@ function runningTable(count: number, status = "running") {
   }];
 }
 
-test("legacy setup preserves its entry status and cancellation action", async () => {
+test("legacy setup is read-only and explains that entry is unavailable", async () => {
   event.capacity = null;
   event.status = "setup";
   render(<MahjongCsView />);
-  expect(await screen.findByText("参加中")).toBeTruthy();
-  expect(screen.getByText("どなたでも参加できます（現在 1 名エントリー中）")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "エントリーを取り消す" })).toBeTruthy();
+  expect(await screen.findByText("このCSは旧形式のため参加受付をしていません")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /エントリー|参加/ })).toBeNull();
 });
 
 test.each([403, 409])("new entry uses myEntry and displays the server's %s error verbatim", async (status) => {
@@ -114,7 +113,8 @@ test.each(["confirmed", "waitlisted", null] as const)("closed displays %s withou
   event.myEntry = state ? { state, waitlistPosition: state === "waitlisted" ? 2 : null } : null;
   render(<MahjongCsView />);
   expect(await screen.findByText(state === "confirmed"
-    ? "参加確定。対戦表を準備中です" : "参加受付は終了しました")).toBeTruthy();
+    ? "参加確定。対戦表を準備中です"
+    : state === "waitlisted" ? "キャンセル待ちのまま締め切られました" : "参加受付は終了しました")).toBeTruthy();
   expect(screen.queryByRole("button", { name: /参加/ })).toBeNull();
 });
 
@@ -296,4 +296,40 @@ test("entry state change from auto-refresh resets cancellation confirmation", as
   await screen.findByText("参加確定");
   await waitFor(() => expect(screen.queryByRole("button", { name: "取り消す" })).toBeNull());
   expect(screen.getByRole("button", { name: "参加をやめる" })).toBeTruthy();
+});
+
+
+test.each(["running", "finished"])("%sでもキャンセル待ちの締切を伝える", async (status) => {
+  runningTable(4, status);
+  event.myEntry = { state: "waitlisted", waitlistPosition: 2 };
+  render(<MahjongCsView />);
+  expect(await screen.findByText("キャンセル待ちのまま締め切られました")).toBeTruthy();
+  expect(screen.queryByText("参加受付は終了しました")).toBeNull();
+  expect(screen.queryByRole("button", { name: /参加する|参加をやめる/ })).toBeNull();
+});
+
+test.each([1, 2, 3])("新方式の申告シートは上位%s名の進出を2箇所で伝える", async (advanceCount) => {
+  runningTable(4);
+  event.rounds[0].type = "preliminary";
+  event.rounds[0].advanceCount = advanceCount;
+  render(<MahjongCsView />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
+  expect(screen.getAllByText(new RegExp(`上位${advanceCount}名が次へ進出`))).toHaveLength(2);
+  expect(screen.queryByText(/1着のみ/)).toBeNull();
+});
+
+test("新方式の決勝申告シートは進出を案内しない", async () => {
+  runningTable(4);
+  render(<MahjongCsView />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
+  expect(screen.getAllByText("決勝です。1位が優勝です。", { exact: false })).toHaveLength(2);
+  expect(screen.queryByText(/次へ進出|次のラウンドへ進出/)).toBeNull();
+});
+
+test("旧方式の申告シートの進出案内を維持する", async () => {
+  runningTable(4);
+  event.capacity = null;
+  render(<MahjongCsView />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
+  expect(screen.getAllByText(/1着のみ/)).toHaveLength(2);
 });

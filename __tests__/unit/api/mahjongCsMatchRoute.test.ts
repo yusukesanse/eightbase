@@ -259,7 +259,10 @@ it("editMatch: 決勝卓に申告が入った後のA卓修正は409", async () =
   rounds[1].matches[0].players[0].rank = 1;
   const res = await fix({ action: "editMatch", matchId: "A", results: results(["c", "d", "a", "b"]) });
   expect(res.status).toBe(409);
-  expect((await res.json()).error).toBe("次の卓に結果が入っているため修正できません。先に次の卓の結果を直すか、編成に戻してください");
+  expect((await res.json()).error).toBe(
+    "次の卓に結果が入っているため修正できません。" +
+    "直すには「編成に戻す」でやり直してください（記録済みの結果は消えます）",
+  );
   expect(db.transactionUpdates.flat()).toHaveLength(0);
   expect(writeAuditLog).not.toHaveBeenCalled();
 });
@@ -389,4 +392,23 @@ it("旧方式は4人全員の自己申告でfinishedと1位の優勝者を保存
   }
   expect(db._get("mahjongCsEvents", "cs1")).toMatchObject({ status: "finished", championId: "d" });
   expect(db._get("mahjongCsEvents", "cs1").rounds[0].matches[0].status).toBe("completed");
+});
+
+
+it.each([
+  { points: null }, { points: "" }, { points: undefined }, { points: "40000" },
+  { rank: null }, { rank: "" }, { rank: undefined },
+])("editMatch: 未入力や非数値の結果は書込前に400 (%j)", async (over) => {
+  const db = makeDb();
+  seedCompletedPrelims(db);
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  const input = results(["a", "b", "c", "d"]);
+  const res = await fix({ action: "editMatch", matchId: "A", results: [
+    { ...input[0], ...over }, ...input.slice(1),
+  ] });
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "点数と順位をすべて入力してください" });
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+  expect(writeAuditLog).not.toHaveBeenCalled();
 });

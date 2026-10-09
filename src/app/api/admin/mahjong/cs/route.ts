@@ -4,7 +4,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { jstDateFromIso } from "@/lib/date";
-import { isIsoWithOffset } from "@/lib/mahjongCsEntry";
+import { isIsoWithOffset, isManualCs } from "@/lib/mahjongCsEntry";
 import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import type {
   MahjongCsEvent,
@@ -80,6 +80,15 @@ export async function POST(req: NextRequest) {
     const season = await getActiveSeason();
     if (!season) return NextResponse.json({ error: "アクティブなシーズンがありません" }, { status: 400 });
     const db = getDb();
+    const existing = await db.collection("mahjongCsEvents").where("seasonId", "==", season.seasonId).get();
+    if (existing.docs.some((doc) => {
+      const event = doc.data() as MahjongCsEvent;
+      return isManualCs(event) && event.status !== "finished";
+    })) {
+      return NextResponse.json(
+        { error: "進行中のCSがあります。終了するか削除してから作成してください" }, { status: 409 },
+      );
+    }
     const priorityUserIds = await fetchPriorityUserIds(db, season.seasonId);
     if (capacity < priorityUserIds.length) {
       return NextResponse.json(

@@ -64,6 +64,10 @@ export async function POST(
       if (typeof matchId !== "string" || !Array.isArray(results)) {
         return NextResponse.json({ error: "matchId と results が必要です" }, { status: 400 });
       }
+      if (results.some((r) => typeof r?.points !== "number" || !Number.isFinite(r.points)
+        || r?.rank == null || r.rank === "")) {
+        return NextResponse.json({ error: "点数と順位をすべて入力してください" }, { status: 400 });
+      }
       if (results.some((r) => {
         const points = Number(r?.points);
         return !Number.isInteger(points) || points % 100 !== 0 || points < -200000 || points > 200000;
@@ -112,7 +116,9 @@ export async function POST(
             completed = afterMatchCompleted(event, rounds, matchId);
           } catch (error) {
             if (error instanceof Error && error.message === "DOWNSTREAM_REPORTED") {
-              return { status: 409 as const, error: "次の卓に結果が入っているため修正できません。先に次の卓の結果を直すか、編成に戻してください" };
+              return { status: 409 as const,
+                error: "次の卓に結果が入っているため修正できません。" +
+                  "直すには「編成に戻す」でやり直してください（記録済みの結果は消えます）" };
             }
             throw error;
           }

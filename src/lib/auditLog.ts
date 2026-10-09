@@ -22,6 +22,7 @@ export type AuditEventType =
   | "refund.rejected" // キャンセル却下（管理者）
   | "schedule.closed" // 休催化（管理者）
   | "schedule.reopened" // 休催解除（管理者）
+  | "cs.deleted" // 管理者がCSを削除（削除時の状態を記録）
   | "cs.created" // 管理者がCSを作成
   | "cs.bracketConfirmed" // 管理者がCS編成を確定
   | "cs.bracketReopened" // 管理者がCS編成を再開

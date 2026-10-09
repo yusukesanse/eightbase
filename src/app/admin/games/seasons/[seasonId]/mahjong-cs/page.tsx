@@ -6,6 +6,7 @@ import type { MahjongCsEvent, MahjongCsMatch } from "@/types";
 import { ticketLabel } from "@/lib/mahjongCsBracket";
 import CsCreateForm, { csButton } from "@/components/admin/mahjongCs/CsCreateForm";
 import CsEntryAdminPanel from "@/components/admin/mahjongCs/CsEntryAdminPanel";
+import CsParticipantList from "@/components/admin/mahjongCs/CsParticipantList";
 import CsBracketBuilder from "@/components/admin/mahjongCs/CsBracketBuilder";
 
 // シーズンのCS一覧と選択した大会の管理画面を表示する。
@@ -231,11 +232,19 @@ export default function SeasonMahjongCsPage() {
             />
           )}
           {!legacy && selected.status === "closed" && (
-            <CsBracketBuilder
-              event={selected}
-              onChanged={fetchEvents}
-              onError={setError}
-            />
+            <>
+              <CsParticipantList
+                key={selected.csEventId}
+                event={selected}
+                onChanged={fetchEvents}
+                onError={setError}
+              />
+              <CsBracketBuilder
+                event={selected}
+                onChanged={fetchEvents}
+                onError={setError}
+              />
+            </>
           )}
           {(legacy || selected.status === "running" || selected.status === "finished") && (
             <>
@@ -268,7 +277,8 @@ export default function SeasonMahjongCsPage() {
                   selected.rounds.map((round, ri) => (
                     <div key={ri}>
                       <div className="text-xs font-bold text-[#231714]/85 mb-2">
-                        {round.label}（各卓 上位{round.advanceCount}名通過）
+                        {round.label}
+                        {round.type !== "final" && `（各卓 上位${round.advanceCount}名通過）`}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {round.matches.map((m) => (
