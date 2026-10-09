@@ -328,6 +328,7 @@ export interface MahjongCsEntry {
   rank: number;              // 確定編成の順位。無ければ 100000
   enteredAt: string;         // ISO
   state: MahjongCsEntryState;
+  demoDummy?: boolean;
 }
 
 /** 新方式の卓の席。draft では null（空席）を許す。 */
