@@ -3,7 +3,7 @@
  * （将来ほかの種目へ広げるときに使い回せるように）。
  * 札 { kind:"ticket", fromMatchId, place } = 「直前のラウンドの卓 fromMatchId の place 位」が入る席。
  */
-import type { MahjongCsEntrant, MahjongCsMatch, MahjongCsMatchPlayer, MahjongCsRound, MahjongCsSeat } from "@/types";
+import type { MahjongCsEntrant, MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer, MahjongCsRound, MahjongCsSeat } from "@/types";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
@@ -164,4 +164,15 @@ export function applyCompletedMatch(
         ? [toPlayer(s.lineUserId, byId)] : []);
   }
   return { rounds: next, finished: false };
+}
+
+export function afterMatchCompleted(
+  event: Pick<MahjongCsEvent, "entrants">, rounds: MahjongCsRound[], matchId: string,
+): { rounds: MahjongCsRound[]; status: "running" | "finished"; championId?: string } {
+  const result = applyCompletedMatch(rounds, matchId, event.entrants ?? []);
+  return {
+    rounds: result.rounds,
+    status: result.finished ? "finished" : "running",
+    ...(result.finished && result.championId ? { championId: result.championId } : {}),
+  };
 }
