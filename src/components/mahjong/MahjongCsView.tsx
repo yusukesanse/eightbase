@@ -9,14 +9,33 @@ import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
 
 /** 公開DTO（サーバーで lineUserId を除去し isMe/seed を付与）。 */
-interface PubCsPlayer { displayName: string; pictureUrl?: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }
-interface PubCsMatch { matchId: string; label: string; status: "reporting" | "completed"; players: PubCsPlayer[] }
+interface PubCsPlayer {
+  displayName: string;
+  pictureUrl?: string;
+  points: number | null;
+  rank: number | null;
+  seed: boolean;
+  isMe: boolean;
+}
+interface PubCsMatch {
+  matchId: string;
+  label: string;
+  status: "reporting" | "completed";
+  players: PubCsPlayer[];
+  pendingSeats: string[];
+}
 interface PubCsRound { type: string; label: string; advanceCount: number; matches: PubCsMatch[] }
 interface PubCsEvent {
   csEventId: string;
   name: string;
   eventDate: string;
-  status: string;
+  status: "setup" | "entry" | "closed" | "running" | "finished";
+  capacity: number | null;
+  entryOpensAt: string | null;
+  entryClosesAt: string | null;
+  confirmedCount: number;
+  waitlistCount: number;
+  myEntry: { state: "confirmed" | "waitlisted"; waitlistPosition: number | null } | null;
   demoDummy: boolean;
   champion: { displayName: string; pictureUrl?: string } | null;
   entrants: { displayName: string; seed: boolean; isMe: boolean }[];
@@ -35,6 +54,7 @@ const LINE = "#d5dadd";
 const CARD_W = 158;
 const GAP = 12;
 
+/** 参加受付と公開トーナメントを表示する。 */
 export function MahjongCsView() {
   const [event, setEvent] = useState<PubCsEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,23 +149,31 @@ export function MahjongCsView() {
     );
   }
 
+  const manual = event.capacity != null;
   const champ = event.champion;
   // 木は上から 決勝→準決→予選。rounds は予選→決勝の順なので反転。
   const roundsTopDown = [...event.rounds].reverse();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={manual ? "flex min-w-0 max-w-full flex-col gap-4" : "flex flex-col gap-4"}>
       {/* イベントヘッダー */}
       <GlassCard className="text-center">
         <div className="truncate text-[20px] font-bold text-[color:var(--eb-ink)]">{event.name}</div>
         <div className="whitespace-nowrap text-[14px] text-[color:var(--eb-ink-muted)] mt-0.5">{event.eventDate}</div>
         <p className="text-[14px] text-[color:var(--eb-ink-muted)] leading-relaxed mt-3">
-          M1リーグ所属者は<b className="text-[color:var(--eb-ink)]">準決勝シード</b>（S）。各卓の上位が勝ち上がり、決勝1位が優勝。
+          {manual ? (
+            <span className="text-[15px]">各卓の上位が勝ち上がり、決勝1位が優勝。</span>
+          ) : (
+            <>
+              M1リーグ所属者は<b className="text-[color:var(--eb-ink)]">準決勝シード</b>
+              {"（S）。各卓の上位が勝ち上がり、決勝1位が優勝。"}
+            </>
+          )}
         </p>
       </GlassCard>
 
       {/* WP6: 受付中（トーナメント未生成）は誰でも自己エントリー可 */}
-      {event.status === "setup" && (
+      {!manual && event.status === "setup" && (
         <CsEntryPanel
           entered={event.entrants.some((e) => e.isMe)}
           count={event.entrants.length}
@@ -153,6 +181,10 @@ export function MahjongCsView() {
           error={entryError}
           onToggle={toggleEntry}
         />
+      )}
+
+      {manual && (event.status === "entry" || event.status === "closed" || event.status === "setup") && (
+        <CapacityEntryPanel event={event} busy={busy} error={entryError} onToggle={toggleEntry} />
       )}
 
       {event.rounds.length === 0 ? (
@@ -181,6 +213,8 @@ export function MahjongCsView() {
                           match={m}
                           gold={gold}
                           demo={demo}
+                          manual={manual}
+                          running={event.status === "running"}
                           onInput={() => setInputMatch(m)}
                         />
                       </div>
@@ -210,6 +244,75 @@ export function MahjongCsView() {
         />
       )}
     </div>
+  );
+}
+
+/** 定員ありの受付状態とページ内の取消確認を表示する。 */
+function CapacityEntryPanel({ event, busy, error, onToggle }: {
+  event: PubCsEvent;
+  busy: boolean;
+  error: string | null;
+  onToggle: (join: boolean) => Promise<void>;
+}) {
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const mine = event.myEntry;
+  const waiting = mine?.state === "waitlisted";
+  const now = Date.now();
+  const closed = event.status === "closed"
+    || (event.entryClosesAt != null && now >= Date.parse(event.entryClosesAt));
+  const beforeOpen = event.entryOpensAt != null && now < Date.parse(event.entryOpensAt);
+  const formatTime = (value: string) => new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+  if (closed) {
+    return (
+      <GlassCard className="text-[15px] text-[color:var(--eb-ink)]">
+        {mine?.state === "confirmed"
+          ? "参加確定。対戦表を準備中です" : "参加受付は終了しました"}
+      </GlassCard>
+    );
+  }
+  if (beforeOpen || event.status === "setup") {
+    return (
+      <GlassCard className="text-[15px] text-[color:var(--eb-ink-muted)]">
+        {event.entryOpensAt
+          ? `参加受付は ${formatTime(event.entryOpensAt)} から` : "参加受付は準備中です"}
+      </GlassCard>
+    );
+  }
+
+  return (
+    <GlassCard className="flex min-w-0 flex-col gap-3 text-[15px] text-[color:var(--eb-ink)]">
+      <p className="font-bold">定員 {event.capacity}名 / 参加確定 {event.confirmedCount}名</p>
+      {event.entryClosesAt && <p>締切：{formatTime(event.entryClosesAt)}</p>}
+      <p>参加できるのはリーグ戦に1回以上出た人です</p>
+      {mine && (
+        <div>
+          <StatusPill tone={waiting ? "gold" : "green"}>
+            {waiting ? `キャンセル待ち ${mine.waitlistPosition}番目` : "参加確定"}
+          </StatusPill>
+        </div>
+      )}
+      {waiting && <p>繰り上がるとここが『参加確定』に変わります（通知は届きません）</p>}
+      {error && <p role="alert" className="text-[color:var(--eb-coral-text)]">{error}</p>}
+      {mine ? (
+        confirmCancel ? (
+          <div className="flex flex-col gap-3">
+            <p>{waiting ? "キャンセル待ちを取り消しますか？" : "参加を取り消しますか？"}</p>
+            <Button variant="secondary" disabled={busy} onClick={() => setConfirmCancel(false)}>戻る</Button>
+            <Button disabled={busy} onClick={async () => {
+              await onToggle(false);
+              setConfirmCancel(false);
+            }}>取り消す</Button>
+          </div>
+        ) : (
+          <Button variant="secondary" disabled={busy} onClick={() => setConfirmCancel(true)}>参加をやめる</Button>
+        )
+      ) : (
+        <Button disabled={busy} onClick={() => onToggle(true)}>参加する</Button>
+      )}
+    </GlassCard>
   );
 }
 
@@ -301,21 +404,29 @@ function MatchCard({
   match,
   gold,
   demo,
+  manual,
+  running,
   onInput,
 }: {
   match: PubCsMatch;
   gold: boolean;
   demo: boolean;
+  manual: boolean;
+  running: boolean;
   onInput: () => void;
 }) {
   const done = match.status === "completed";
+  const pendingSeats = manual ? match.pendingSeats ?? [] : [];
+  const canReport = !manual || (running && match.players.length === 4 && pendingSeats.length === 0);
   const iAmIn = match.players.some((p) => p.isMe);
   return (
     <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
-      <div className="flex items-center justify-between mb-1.5 gap-1.5">
+      <div className={`flex items-center justify-between mb-1.5 gap-1.5 ${manual ? "flex-wrap" : ""}`}>
         <span className="min-w-0 truncate text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
         {done ? (
           <StatusPill tone="green">確定</StatusPill>
+        ) : pendingSeats.length > 0 ? (
+          <StatusPill tone="muted">勝ち上がり待ち</StatusPill>
         ) : (
           <StatusPill tone="gold">結果待ち</StatusPill>
         )}
@@ -333,14 +444,19 @@ function MatchCard({
               pending={!done}
             />
           ))}
+        {pendingSeats.map((label, i) => (
+          <div key={i} className="rounded-lg bg-[color:var(--eb-tint)] px-1.5 py-2">
+            <span className="break-words text-[15px] text-[color:var(--eb-ink-muted)]">{label}</span>
+          </div>
+        ))}
       </div>
       {/* 自分の卓は本番でも申告可。デモは他卓を自動で進められる。 */}
-      {!done && iAmIn && (
-        <Button variant="primary" onClick={onInput} className="mt-1.5 h-10 text-[13px]">
+      {!done && iAmIn && canReport && (
+        <Button variant="primary" onClick={onInput} className={manual ? "mt-1.5" : "mt-1.5 h-10 text-[13px]"}>
           {match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
         </Button>
       )}
-      {!done && !iAmIn && demo && (
+      {!done && !iAmIn && demo && canReport && (
         <Button variant="ghost" onClick={onInput} className="mt-1.5 h-10 text-[13px]">
           この卓を進める（デモ）
         </Button>
