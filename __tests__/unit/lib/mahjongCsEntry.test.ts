@@ -99,3 +99,43 @@ describe("entrantsFromEntries", () => {
     ]);
   });
 });
+
+it.each([
+  ["invalid", "2026-10-09T00:00:00Z"],
+  ["2026-10-08T00:00:00Z", "invalid"],
+])("締切日時 %s または現在日時 %s が不正なら締めない", (entryClosesAt, nowIso) => {
+  const event = { status: "entry", capacity: 1, entryClosesAt, entries: [e("a", 1)] } as MahjongCsEvent;
+  expect(closeEntriesIfDue(event, nowIso)).toBeNull();
+});
+
+describe("表明日時の時差", () => {
+  const entries = [
+    { ...e("later", 30), enteredAt: "2026-10-01T00:30:00.000Z" },
+    { ...e("earlier", 0), enteredAt: "2026-10-01T09:00:00+09:00" },
+  ];
+  it("実時刻の早い人を先に確定する", () => {
+    const out = rebalanceEntries(entries, { capacity: 1, priorityUserIds: [], phase: "entry" });
+    expect(out.map((x) => x.lineUserId)).toEqual(["earlier", "later"]);
+    expect(states(out)).toEqual({ earlier: "confirmed", later: "waitlisted" });
+  });
+  it("キャンセル待ちも実時刻順", () => {
+    expect(waitlistPosition(entries.map((x) => ({ ...x, state: "waitlisted" })), "earlier")).toBe(1);
+  });
+  it("参加確定者も実時刻順", () => {
+    expect(entrantsFromEntries(entries).map((x) => x.lineUserId)).toEqual(["earlier", "later"]);
+  });
+});
+
+it("受付中の優先枠IDの重複で席を過剰確保しない", () => {
+  const out = rebalanceEntries([e("a", 1), e("b", 2)], {
+    capacity: 2, priorityUserIds: ["p1", "p1"], phase: "entry",
+  });
+  expect(states(out)).toEqual({ a: "confirmed", b: "waitlisted" });
+});
+
+it.each(["entry", "closed"] as const)("定員が優先枠表明数未満でも優先は全員確定・M3は全員待機（%s）", (phase) => {
+  const out = rebalanceEntries([e("a", 1), e("p1", 2, "M1"), e("b", 3), e("p2", 4, "M2")], {
+    capacity: 1, priorityUserIds: ["p1", "p2"], phase,
+  });
+  expect(states(out)).toEqual({ a: "waitlisted", p1: "confirmed", b: "waitlisted", p2: "confirmed" });
+});
