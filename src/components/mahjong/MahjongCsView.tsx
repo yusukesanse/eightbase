@@ -176,7 +176,7 @@ export function MahjongCsView() {
           )}
         </p>
         {manual && hasSeed && (
-          <p className="mt-1 text-[15px] text-[color:var(--eb-ink-muted)]">SEED＝シード（予選免除）</p>
+          <p className="mt-1 text-[15px] text-[color:var(--eb-ink-muted)]">S＝シード（予選免除）</p>
         )}
       </GlassCard>
 
@@ -213,7 +213,7 @@ export function MahjongCsView() {
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <span className="whitespace-nowrap text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
                     <StatusPill tone="muted">
-                      {manual && round.advanceCount > 1 ? `${round.advanceCount}着まで通過` : "1着通過"}
+                      {manual && !gold && round.advanceCount > 1 ? `${round.advanceCount}着まで通過` : "1着通過"}
                     </StatusPill>
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>

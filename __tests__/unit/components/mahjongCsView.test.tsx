@@ -223,6 +223,7 @@ test("new final highlights only its champion in gold", async () => {
   completedTable(2, "final");
   render(<MahjongCsView />);
   await screen.findByText("選手1");
+  expect(screen.queryByText("2着まで通過")).toBeNull();
   expect(screen.getByText("選手1").parentElement!.style.boxShadow).toContain("var(--eb-gold)");
   expect(screen.getByText("選手2").parentElement!.style.boxShadow).not.toContain("var(--eb-green)");
   expect(screen.getByText("2着")).toBeTruthy();
@@ -235,13 +236,13 @@ test("new seeded player keeps the legacy S badge and gets a header legend", asyn
   render(<MahjongCsView />);
   const player = await screen.findByText("選手2");
   expect(within(player.parentElement!).getByText("S")).toBeTruthy();
-  expect(screen.getByText("SEED＝シード（予選免除）")).toBeTruthy();
+  expect(screen.getByText("S＝シード（予選免除）")).toBeTruthy();
 });
 
 test("new seeded entrant gets a legend before brackets are published", async () => {
   event.entrants[0].seed = true;
   render(<MahjongCsView />);
-  expect(await screen.findByText("SEED＝シード（予選免除）")).toBeTruthy();
+  expect(await screen.findByText("S＝シード（予選免除）")).toBeTruthy();
 });
 
 test("new header without seeds has no seed legend and sizes its paragraph directly", async () => {
@@ -249,7 +250,7 @@ test("new header without seeds has no seed legend and sizes its paragraph direct
   const description = await screen.findByText("各卓の上位が勝ち上がり、決勝1位が優勝。");
   expect(description.tagName).toBe("P");
   expect(description).toHaveClass("text-[15px]");
-  expect(screen.queryByText("SEED＝シード（予選免除）")).toBeNull();
+  expect(screen.queryByText("S＝シード（予選免除）")).toBeNull();
 });
 
 test("successful POST returning waitlisted reloads and displays the queue position", async () => {
