@@ -127,7 +127,7 @@ beforeEach(() => {
 });
 
 import { GET as GET_LIST, POST } from "@/app/api/admin/mahjong/cs/route";
-import { GET, PATCH } from "@/app/api/admin/mahjong/cs/[csEventId]/route";
+import { GET, PATCH, DELETE } from "@/app/api/admin/mahjong/cs/[csEventId]/route";
 import { isProduction } from "@/lib/env";
 
 const params = { params: Promise.resolve({ csEventId: "cs1" }) };
@@ -328,21 +328,6 @@ it("closeNow: 受付中なら締切を現在時刻にして参加者を確定し
   } finally { jest.useRealTimers(); }
 });
 
-it("reopenBracket: closed に戻して実行ラウンドと優勝者を消し、編成は残す", async () => {
-  const db = makeDb(); closedEvent(db);
-  const bracket = { seedUserIds: ["a"], rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) };
-  db._set("mahjongCsEvents", "cs1", {
-    ...db._get("mahjongCsEvents", "cs1"), status: "running", championId: "a", bracket,
-    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]),
-  });
-  (getDb as jest.Mock).mockReturnValue(db);
-  expect((await PATCH(body({ action: "reopenBracket" }), params)).status).toBe(200);
-  const ev = db._get("mahjongCsEvents", "cs1");
-  expect(ev.status).toBe("closed");
-  expect(ev.rounds).toEqual([]);
-  expect(ev).not.toHaveProperty("championId");
-  expect(ev.bracket).toEqual(bracket);
-});
 
 it("fillDummies: 非本番では既存参加者を残し demo_cs_1 から定員まで埋める", async () => {
   const db = makeDb(); entryEvent(db, { capacity: 4, entries: [entry("a", 0)] });
@@ -371,7 +356,7 @@ it("作成: entrants と rounds は空配列で永続化する", async () => {
   expect(stored.rounds).toEqual([]);
 });
 
-it.each(["updateEntry", "closeNow", "removeEntry", "saveBracket", "confirmBracket", "reopenBracket", "fillDummies"])(
+it.each(["updateEntry", "closeNow", "removeEntry", "saveBracket", "confirmBracket", "fillDummies"])(
   "旧方式: capacity のない doc への %s は 409", async (action) => {
     const db = makeDb();
     const legacy = { csEventId: "cs1", seasonId: "s1", status: "setup", entrants: [], rounds: [] };
@@ -434,16 +419,13 @@ it("POST: Firestore の自動 ID と認証結果の actor で作成を監査す�
 it.each([
   ["closeNow", "cs.entryClosed"],
   ["confirmBracket", "cs.bracketConfirmed"],
-  ["reopenBracket", "cs.bracketReopened"],
   ["removeEntry", "cs.entryRemoved"],
 ])("%s: 認証結果の actor で %s を監査する", async (action, eventType) => {
   const actor = "operator@example.com";
   (checkAdminAuth as jest.Mock).mockResolvedValue(actor);
   const db = makeDb(); closedEvent(db);
   if (action === "closeNow") entryEvent(db);
-  if (action === "reopenBracket") {
-    db._set("mahjongCsEvents", "cs1", { ...db._get("mahjongCsEvents", "cs1"), status: "running" });
-  }
+
   (getDb as jest.Mock).mockReturnValue(db);
   expect((await PATCH(body({ action, lineUserId: "a", seedUserIds: [],
     rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params)).status).toBe(200);
@@ -589,7 +571,6 @@ it.each(["confirmBracket", "removeEntry"])("%s: 遅延締切後も操作監査�
 
 it.each([
   { action: "fillDummies", status: 409 },
-  { action: "reopenBracket", status: 409 },
   { action: "removeEntry", lineUserId: "", status: 400 },
   { action: "saveBracket", seedUserIds: [], rounds: [], invalid: true, status: 400 },
   { action: "saveBracket", seedUserIds: ["missing"], status: 400 },
@@ -657,4 +638,51 @@ it.each([
   } else {
     expect((await res.json()).event.eventDate).toBe(eventDate);
   }
+});
+
+
+it("廃止した編成再開PATCHは400で変更しない", async () => {
+  const db = makeDb();
+  entryEvent(db, { status: "running" });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  const res = await PATCH(body({ action: "reopenBracket" }), params);
+  expect(res.status).toBe(400);
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+it.each(["entry", "closed", "running", "finished"])("DELETE: %sの削除と管理者監査を記録する", async (status) => {
+  const db = makeDb();
+  entryEvent(db, { status });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const res = await DELETE(body({}), params);
+  expect(res.status).toBe(200);
+  expect(db.__store.get("mahjongCsEvents")?.has("cs1")).toBe(false);
+  expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: "cs.deleted", actor: "admin@example.com", meta: { csEventId: "cs1", status },
+  }));
+});
+
+it.each(["entry", "closed", "running", "setup"])("POST: 同シーズンの未終了%sを重複作成しない", async (status) => {
+  const db = makeDb();
+  entryEvent(db, { status });
+  (getDb as jest.Mock).mockReturnValue(db);
+  const res = await POST(body(create));
+  expect(res.status).toBe(409);
+  expect(await res.json()).toEqual({ error: "進行中のCSがあります。終了するか削除してから作成してください" });
+  expect(db.__store.get("mahjongCsEvents")?.size).toBe(1);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+it.each([
+  { status: "finished" },
+  { capacity: null, status: "setup" },
+  { capacity: undefined, status: "running" },
+  { seasonId: "other", status: "entry" },
+])("POST: 終了済み・旧方式・別シーズンは作成を妨げない (%j)", async (over) => {
+  const db = makeDb();
+  entryEvent(db, over);
+  (getDb as jest.Mock).mockReturnValue(db);
+  expect((await POST(body(create))).status).toBe(201);
 });

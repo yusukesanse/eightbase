@@ -180,18 +180,12 @@ export function MahjongCsView() {
         )}
       </GlassCard>
 
-      {/* WP6: 受付中（トーナメント未生成）は誰でも自己エントリー可 */}
       {!manual && event.status === "setup" && (
-        <CsEntryPanel
-          entered={event.entrants.some((e) => e.isMe)}
-          count={event.entrants.length}
-          busy={busy}
-          error={entryError}
-          onToggle={toggleEntry}
-        />
+        <GlassCard>このCSは旧形式のため参加受付をしていません</GlassCard>
       )}
 
-      {manual && (event.status === "entry" || event.status === "closed" || event.status === "setup") && (
+      {manual && (event.status === "entry" || event.status === "closed" || event.status === "setup"
+        || event.myEntry?.state === "waitlisted") && (
         <CapacityEntryPanel event={event} busy={busy} error={entryError} onToggle={toggleEntry} />
       )}
 
@@ -245,6 +239,8 @@ export function MahjongCsView() {
       {inputMatch && event && (
         <CsInputSheet
           match={inputMatch}
+          manual={manual}
+          round={event.rounds.find((round) => round.matches.some((match) => match.matchId === inputMatch.matchId))}
           busy={busy}
           error={inputError}
           onClose={() => {
@@ -272,7 +268,7 @@ function CapacityEntryPanel({ event, busy, error, onToggle }: {
   }, [mine?.state]);
   const waiting = mine?.state === "waitlisted";
   const now = Date.now();
-  const closed = event.status === "closed"
+  const closed = ["closed", "running", "finished"].includes(event.status)
     || (event.entryClosesAt != null && now >= Date.parse(event.entryClosesAt));
   const beforeOpen = event.entryOpensAt != null && now < Date.parse(event.entryOpensAt);
   const formatTime = (value: string) => new Date(value).toLocaleString("ja-JP", {
@@ -283,7 +279,8 @@ function CapacityEntryPanel({ event, busy, error, onToggle }: {
     return (
       <GlassCard className="text-[15px] text-[color:var(--eb-ink)]">
         {mine?.state === "confirmed"
-          ? "参加確定。対戦表を準備中です" : "参加受付は終了しました"}
+          ? "参加確定。対戦表を準備中です"
+          : waiting ? "キャンセル待ちのまま締め切られました" : "参加受付は終了しました"}
       </GlassCard>
     );
   }
@@ -540,21 +537,28 @@ function BracketSlot({
 
 /**
  * 結果申告シート。リーグ申告と同じ「自己申告」: 自分の点数＋順位だけを送る。
- * 自分が居ない卓（全ダミー）はデモ用に自動で進める。1着のみ次へ進出。
+ * 自分が居ない卓（全ダミー）はデモ用に自動で進める。
  */
 function CsInputSheet({
   match,
+  manual,
+  round,
   busy,
   error,
   onClose,
   onReport,
 }: {
   match: PubCsMatch;
+  manual: boolean;
+  round: PubCsEvent["rounds"][number] | undefined;
   busy: boolean;
   error: string | null;
   onClose: () => void;
   onReport: (body: { points?: number; rank?: number; auto?: boolean }) => void;
 }) {
+  const advancement = manual
+    ? round?.type === "final" ? "決勝です。1位が優勝です。" : `上位${round?.advanceCount ?? 1}名が次へ進出。`
+    : null;
   const n = match.players.length;
   const iAmIn = match.players.some((p) => p.isMe);
   const [points, setPoints] = useState("");
@@ -570,7 +574,10 @@ function CsInputSheet({
     <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
       {iAmIn ? (
         <>
-          <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">自分の点数と順位だけを申告します（他の人の分は各自が申告）。1着のみ次へ進出。</p>
+          <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">
+            自分の点数と順位だけを申告します（他の人の分は各自が申告）。
+            {advancement ?? "1着のみ次へ進出。"}
+          </p>
 
           <label className="block text-[14px] font-bold text-[color:var(--eb-ink)] mb-2">最終持ち点</label>
           <div className="flex items-center gap-2.5">
@@ -607,7 +614,9 @@ function CsInputSheet({
               </button>
             ))}
           </div>
-          <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-2.5">1着のみ次のラウンドへ進出します。</p>
+          <p className="text-[12px] text-[color:var(--eb-ink-muted)] mt-2.5">
+            {advancement ?? "1着のみ次のラウンドへ進出します。"}
+          </p>
 
           {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
 

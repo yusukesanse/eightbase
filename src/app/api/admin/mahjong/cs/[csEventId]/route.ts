@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { checkAdminAuth } from "@/lib/adminAuth";
-import { FieldValue } from "firebase-admin/firestore";
 import { isProduction } from "@/lib/env";
 import { jstDateFromIso } from "@/lib/date";
 import { writeAuditLog, type AuditEventType } from "@/lib/auditLog";
@@ -66,7 +65,7 @@ export async function PATCH(
     }
     const allowedStatuses: Record<string, MahjongCsEvent["status"][]> = {
       updateEntry: ["entry"], closeNow: ["entry"], removeEntry: ["entry", "closed"],
-      saveBracket: ["closed"], confirmBracket: ["closed"], reopenBracket: ["running"], fillDummies: ["entry"],
+      saveBracket: ["closed"], confirmBracket: ["closed"], fillDummies: ["entry"],
     };
     if (typeof action !== "string" || !Object.hasOwn(allowedStatuses, action)) {
       return NextResponse.json({ error: "action が不正です" }, { status: 400 });
@@ -170,11 +169,6 @@ export async function PATCH(
           update.bracket = { seedUserIds, rounds };
           break;
         }
-        case "reopenBracket":
-          update.status = "closed";
-          update.rounds = [];
-          audit = "cs.bracketReopened";
-          break;
         case "fillDummies": {
           const entries = [...(event.entries ?? [])];
           const ids = new Set(entries.map((e) => e.lineUserId));
@@ -190,9 +184,8 @@ export async function PATCH(
           break;
         }
       }
-      tx.update(ref, { ...update, ...(action === "reopenBracket" ? { championId: FieldValue.delete() } : {}) });
+      tx.update(ref, update);
       const updated = { ...event, ...update };
-      if (action === "reopenBracket") delete updated.championId;
       return { status: 200 as const, event: updated, beforeStatus, audit, lazyClosed, lazyCloseEvent };
     });
     if (result.lazyClosed && !(action === "closeNow" && result.status === 200)) {
@@ -219,12 +212,21 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ csEventId: string }> }
 ) {
-  if (!(await checkAdminAuth(req))) {
+  const admin = await checkAdminAuth(req);
+  if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
     const { csEventId } = await params;
-    await getDb().collection("mahjongCsEvents").doc(csEventId).delete();
+    const ref = getDb().collection("mahjongCsEvents").doc(csEventId);
+    const snap = await ref.get();
+    const event = snap.data() as MahjongCsEvent | undefined;
+    await ref.delete();
+    if (event) {
+      await writeAuditLog({
+        eventType: "cs.deleted", actor: admin, target: {}, meta: { csEventId, status: event.status },
+      });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[admin/mahjong/cs/:id] DELETE error:", error);
