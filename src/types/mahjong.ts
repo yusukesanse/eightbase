@@ -315,7 +315,26 @@ export interface MahjongDayState {
 // ─── 麻雀チャンピオンシップ（CS / トーナメント） ───────────────────────────────
 
 export type MahjongCsRoundType = "prelim" | "semi" | "final";
-export type MahjongCsStatus = "setup" | "running" | "finished";
+export type MahjongCsStatus = "setup" | "entry" | "closed" | "running" | "finished";
+
+export type MahjongCsEntryState = "confirmed" | "waitlisted";
+
+/** 新方式の参加表明（先着順）。 */
+export interface MahjongCsEntry {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl?: string;
+  tier: MahjongLeagueTier;   // 確定編成に名前が無ければ "M3"
+  rank: number;              // 確定編成の順位。無ければ 100000
+  enteredAt: string;         // ISO
+  state: MahjongCsEntryState;
+}
+
+/** 新方式の卓の席。draft では null（空席）を許す。 */
+export type MahjongCsSeat =
+  | { kind: "player"; lineUserId: string }
+  | { kind: "ticket"; fromMatchId: string; place: number; lineUserId?: string }
+  | null;
 export type MahjongCsMatchStatus = "reporting" | "completed";
 
 /** CS参戦者（自己エントリー済みの参加者） */
@@ -346,6 +365,7 @@ export interface MahjongCsMatch {
   label: string;            // 例: 予選A, 準決1, 決勝
   players: MahjongCsMatchPlayer[];
   status: MahjongCsMatchStatus;
+  seats?: MahjongCsSeat[];
 }
 
 /** CSの1ラウンド（予選/準決/決勝） */
@@ -366,6 +386,14 @@ export interface MahjongCsEvent {
   name: string;
   eventDate: string;        // YYYY-MM-DD
   status: MahjongCsStatus;
+  capacity?: number;            // これがあれば新方式
+  entryOpensAt?: string;
+  entryClosesAt?: string;
+  priorityUserIds?: string[];   // 作成時の M1・M2
+  entries?: MahjongCsEntry[];
+  closedAt?: string;
+  bracket?: { seedUserIds: string[]; rounds: MahjongCsRound[] };  // 編成の下書き
+  demoDummy?: boolean;
   /** 参戦者（自己エントリー済み） */
   entrants: MahjongCsEntrant[];
   rounds: MahjongCsRound[];
