@@ -589,9 +589,38 @@ it("一覧: 対象シーズンの最新編成のM1・M2人数を返し、編成�
     seasonId: "s2", confirmedAt: "2026-10-03T00:00:00Z", entries: [],
   });
   const request = (query = "") => ({ nextUrl: new URL(`http://localhost/api/admin/mahjong/cs${query}`) } as NextRequest);
-  expect(await (await GET_LIST(request("?seasonId=s1"))).json()).toEqual({ events: [], seasonId: "s1", priorityPreviewCount: 3 });
+  expect(await (await GET_LIST(request("?seasonId=s1"))).json()).toEqual({
+    events: [], seasonId: "s1", activeSeasonId: "s1", priorityPreviewCount: 3,
+  });
+  expect((await (await GET_LIST(request("?seasonId=s2"))).json()).activeSeasonId).toBe("s1");
   expect((await (await GET_LIST(request())).json()).priorityPreviewCount).toBe(3);
   expect((await (await GET_LIST(request("?seasonId=empty"))).json()).priorityPreviewCount).toBe(0);
   (getActiveSeason as jest.Mock).mockResolvedValue(null);
-  expect(await (await GET_LIST(request())).json()).toEqual({ events: [], seasonId: null, priorityPreviewCount: 0 });
+  expect(await (await GET_LIST(request())).json()).toEqual({
+    events: [], seasonId: null, activeSeasonId: null, priorityPreviewCount: 0,
+  });
+  expect((await (await GET_LIST(request("?seasonId=s1"))).json()).activeSeasonId).toBeNull();
+});
+
+
+it.each([
+  ["2026-10-07", 400],
+  ["2026-10-08", 201],
+])("POST: JSTの締切日と開催日を比較する (%s → %i)", async (eventDate, status) => {
+  const db = makeDb();
+  withAssignment(db);
+  (getDb as jest.Mock).mockReturnValue(db);
+  const res = await POST(body({
+    ...create,
+    eventDate,
+    entryClosesAt: "2026-10-07T15:00:00Z",
+  }));
+  expect(res.status).toBe(status);
+  if (status === 400) {
+    expect(await res.json()).toEqual({ error: "開催日は参加受付の締切日以降にしてください" });
+    expect(db.__store.get("mahjongCsEvents")?.size ?? 0).toBe(0);
+    expect(writeAuditLog).not.toHaveBeenCalled();
+  } else {
+    expect((await res.json()).event.eventDate).toBe(eventDate);
+  }
 });
