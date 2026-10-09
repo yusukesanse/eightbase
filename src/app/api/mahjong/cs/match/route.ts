@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
  * PATCH /api/mahjong/cs/match  — CS結果の自己申告（本番・デモ共通）
  *
  * リーグ申告と同じ「自己申告」方式: 各ユーザーは自分の点数＋順位だけを送る
- *（他人の結果は操作不可）。同卓の全員が揃い整合すれば確定→1着のみ次ラウンドへ進出。
+ *（他人の結果は操作不可）。同卓の全員が揃い整合すれば確定。
+ * 新方式は上位advanceCount人が次ラウンドの札の席へ進出。旧方式は1着のみ進出。
  * - 本番/実イベント: 各自が自分の結果のみ入力。全員揃うまで status=reporting。
  * - デモ（非本番＋demoDummy）: 同卓ダミーを自動補完して即成立。全ダミー卓は auto で自動確定。
  * 並行申告の取りこぼしを防ぐため transaction 内で更新する。
@@ -57,6 +58,10 @@ export async function PATCH(req: NextRequest) {
       const doc = await tx.get(ref);
       if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません" };
       const event = doc.data() as MahjongCsEvent & { demoDummy?: boolean };
+      if (isManualCs(event)) {
+        if (event.status === "finished") return { status: 409 as const, error: "この大会は終了しています" };
+        if (event.status !== "running") return { status: 409 as const, error: "対戦はまだ始まっていません" };
+      }
       const isDemo = !!event.demoDummy && !isProduction();
 
       let rounds = event.rounds ?? [];
@@ -74,7 +79,6 @@ export async function PATCH(req: NextRequest) {
       const round = rounds[roundIdx];
       const match = round.matches[matchIdx];
       if (isManualCs(event)) {
-        if (event.status !== "running") return { status: 409 as const, error: "対戦はまだ始まっていません" };
         if (match.players.length < 4) return { status: 409 as const, error: "この卓はまだ全員そろっていません" };
       }
       if (match.status === "completed") return { status: 400 as const, error: "この試合は確定済みです" };

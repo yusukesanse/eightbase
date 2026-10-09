@@ -196,10 +196,11 @@ const results = (rankedIds: string[]) => rankedIds.map((lineUserId, i) => ({
 }));
 
 // Seed completed preliminaries independently of the PATCH behavior under test.
-function seedCompletedPrelims(db: ReturnType<typeof makeDb>) {
+function seedCompletedPrelims(db: ReturnType<typeof makeDb>, matchIds = ["A", "B"]) {
   seed(db);
   let rounds = buildRunningRounds(draft, entrants);
   for (const [matchId, rankedIds] of [["A", ["a", "b", "c", "d"]], ["B", ["e", "f", "g", "h"]]] as const) {
+    if (!matchIds.includes(matchId)) continue;
     const match = rounds[0].matches.find((m) => m.matchId === matchId)!;
     match.players = match.players.map((p, i) => ({ ...p, ...results([...rankedIds])[i] }));
     match.status = "completed";
@@ -209,6 +210,36 @@ function seedCompletedPrelims(db: ReturnType<typeof makeDb>) {
   (getDb as jest.Mock).mockReturnValue(db);
   return rounds;
 }
+
+it("editMatch: 予選Aだけ完了した2人の決勝卓は409で保存も監査ログも行わない", async () => {
+  const db = makeDb(); seedCompletedPrelims(db, ["A"]);
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  expect(before.rounds[0].matches.map((m: { status: string }) => m.status)).toEqual(["completed", "reporting"]);
+  expect(before.rounds[1].matches[0].players.map((p: MahjongCsMatchPlayer) => p.lineUserId)).toEqual(["a", "b"]);
+  const res = await fix({ action: "editMatch", matchId: "F", results: results(["a", "b"]) });
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("この卓はまだ全員そろっていません");
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+it.each([
+  { action: "resetBracket", status: "entry" },
+  { action: "editMatch", status: "closed" },
+])("fix $action: 新方式の$statusでは409で書き込まない", async ({ action, status }) => {
+  const db = makeDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
+  db._set("mahjongCsEvents", "cs1", { ...db._get("mahjongCsEvents", "cs1"), status });
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  const res = await fix(action === "editMatch"
+    ? { action, matchId: "A", results: results(["a", "b", "c", "d"]) }
+    : { action });
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("現在の状態ではこの操作はできません");
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
 
 it("editMatch: A卓の上位2人を入れ替えても決勝卓とラウンドを維持する", async () => {
   const db = makeDb(); seedCompletedPrelims(db);
@@ -261,7 +292,23 @@ it("resetBracket: 新方式はclosedに戻し編成を残して1回だけ更新�
 it("編成に戻したclosed・rounds空の新方式には申告できない", async () => {
   const db = makeDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
   db._set("mahjongCsEvents", "cs1", { ...db._get("mahjongCsEvents", "cs1"), status: "closed", rounds: [] });
-  expect([404, 409]).toContain((await report("a", "A", 40000, 1)).status);
+  const res = await report("a", "A", 40000, 1);
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("対戦はまだ始まっていません");
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+});
+
+it("終了した新方式への申告は409で大会終了のエラーを返す", async () => {
+  const db = makeDb(); seedCompletedPrelims(db);
+  const res = await fix({ action: "editMatch", matchId: "F", results: results(["a", "e", "b", "f"]) });
+  expect(res.status).toBe(200);
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  expect(before.status).toBe("finished");
+  db.transactionUpdates.length = 0;
+  const reportRes = await report("a", "F", 40000, 1);
+  expect(reportRes.status).toBe(409);
+  expect((await reportRes.json()).error).toBe("この大会は終了しています");
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
   expect(db.transactionUpdates.flat()).toHaveLength(0);
 });
 
@@ -294,13 +341,49 @@ it("デモのautoでA卓が確定すると上位2人が決勝卓へ進む", asyn
   expect(ev.rounds[1].matches[0].players.map((p: MahjongCsMatchPlayer) => p.lineUserId)).toEqual(["a", "b"]);
 });
 
-it("旧方式は4人全員の自己申告でfinishedと1位の優勝者を保存する", async () => {
-  const db = makeDb(); (getDb as jest.Mock).mockReturnValue(db);
+function seedLegacy(db: ReturnType<typeof makeDb>) {
+  (getDb as jest.Mock).mockReturnValue(db);
   const rounds: MahjongCsRound[] = [{ type: "final", label: "決勝", advanceCount: 1, matches: [{
     matchId: "legacy-final", label: "決勝卓", status: "reporting",
     players: ["a", "b", "c", "d"].map((lineUserId) => ({ lineUserId, displayName: lineUserId, points: null, rank: null })),
   }] }];
   db._set("mahjongCsEvents", "cs1", { csEventId: "cs1", seasonId: "s1", status: "running", entrants: entrants.slice(0, 4), rounds });
+}
+
+it.each(["新方式", "旧方式"])("editMatch: %sの100点単位でない点数は400", async (format) => {
+  const db = makeDb();
+  if (format === "新方式") {
+    seed(db); (getDb as jest.Mock).mockReturnValue(db);
+  } else {
+    seedLegacy(db);
+  }
+  const before = structuredClone(db._get("mahjongCsEvents", "cs1"));
+  // Keep the total and ranking valid so only the 100-point increment is invalid.
+  const invalidResults = results(["a", "b", "c", "d"]).map((r, i) => ({
+    ...r, points: [40000, 30000, 25050, 4950][i],
+  }));
+  const res = await fix({ action: "editMatch", matchId: format === "新方式" ? "A" : "legacy-final", results: invalidResults });
+  expect(res.status).toBe(400);
+  expect((await res.json()).error).toBe("点数は100点単位の整数で入力してください");
+  expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+it("resetBracket: 旧方式はsetupとchampionId nullを保存してcs.resetを記録する", async () => {
+  const db = makeDb(); seedLegacy(db);
+  db._set("mahjongCsEvents", "cs1", { ...db._get("mahjongCsEvents", "cs1"), status: "finished", championId: "a" });
+  const res = await fix({ action: "resetBracket" });
+  expect(res.status).toBe(200);
+  expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
+  expect(db.transactionUpdates.flat()[0]).toMatchObject({ status: "setup", championId: null, rounds: [] });
+  expect(db._get("mahjongCsEvents", "cs1")).toMatchObject({ status: "setup", championId: null, rounds: [] });
+  expect(writeAuditLog).toHaveBeenCalledTimes(1);
+  expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ eventType: "cs.reset" }));
+});
+
+it("旧方式は4人全員の自己申告でfinishedと1位の優勝者を保存する", async () => {
+  const db = makeDb(); seedLegacy(db);
   for (const r of results(["d", "b", "c", "a"])) {
     expect((await report(r.lineUserId, "legacy-final", r.points, r.rank)).status).toBe(200);
   }

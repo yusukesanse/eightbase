@@ -14,9 +14,11 @@ export const dynamic = "force-dynamic";
  * POST /api/admin/mahjong/cs/[csEventId]/fix — 障害時の管理者手修正
  * body:
  *  { action: "resetBracket" }
- *      … 進行をリセット（rounds空・status=setup）。確定日到来で予選が再生成される。
+ *      … 新方式は編成を保持してclosedへ戻す（rounds空・championId削除）。
+ *        旧方式はsetupへ戻し、確定日到来で予選が再生成される。
  *  { action: "editMatch", matchId, results: [{ lineUserId, points, rank }] }
- *      … 指定試合の結果を管理者が上書き確定。以降のラウンドは破棄して整合を取り直す。
+ *      … 指定試合の結果を管理者が上書き確定。新方式は後続ラウンドを保持して札の席を再充填
+ *        （次の卓が申告済みなら409）。旧方式は以降のラウンドを破棄して整合を取り直す。
  */
 export async function POST(
   req: NextRequest,
@@ -37,18 +39,22 @@ export async function POST(
 
   try {
     if (action === "resetBracket") {
-      const ok = await db.runTransaction(async (tx) => {
+      const out = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
-        if (!snap.exists) return false;
-        if (isManualCs(snap.data() as MahjongCsEvent)) {
+        if (!snap.exists) return { status: 404 as const, error: "CSが見つかりません" };
+        const event = snap.data() as MahjongCsEvent;
+        if (isManualCs(event)) {
+          if (event.status !== "running" && event.status !== "finished") {
+            return { status: 409 as const, error: "現在の状態ではこの操作はできません" };
+          }
           tx.update(ref, { status: "closed", rounds: [], championId: FieldValue.delete(), updatedAt: now });
-          return "cs.bracketReopened" as const;
+          return { status: 200 as const, eventType: "cs.bracketReopened" as const };
         }
         tx.update(ref, { rounds: [], status: "setup", championId: null, updatedAt: now });
-        return "cs.reset" as const;
+        return { status: 200 as const, eventType: "cs.reset" as const };
       });
-      if (!ok) return NextResponse.json({ error: "CSが見つかりません" }, { status: 404 });
-      await writeAuditLog({ eventType: ok, actor: admin, target: {}, meta: { csEventId } });
+      if (out.status !== 200) return NextResponse.json({ error: out.error }, { status: out.status });
+      await writeAuditLog({ eventType: out.eventType, actor: admin, target: {}, meta: { csEventId } });
       return NextResponse.json({ success: true });
     }
 
@@ -58,6 +64,12 @@ export async function POST(
       if (typeof matchId !== "string" || !Array.isArray(results)) {
         return NextResponse.json({ error: "matchId と results が必要です" }, { status: 400 });
       }
+      if (results.some((r) => {
+        const points = Number(r?.points);
+        return !Number.isInteger(points) || points % 100 !== 0 || points < -200000 || points > 200000;
+      })) {
+        return NextResponse.json({ error: "点数は100点単位の整数で入力してください" }, { status: 400 });
+      }
       const byId = new Map<string, { points: number; rank: number }>(
         results.map((r) => [String(r?.lineUserId), { points: Number(r?.points), rank: Number(r?.rank) }])
       );
@@ -66,6 +78,9 @@ export async function POST(
         const snap = await tx.get(ref);
         if (!snap.exists) return { status: 404 as const, error: "CSが見つかりません" };
         const event = snap.data() as MahjongCsEvent;
+        if (isManualCs(event) && event.status !== "running" && event.status !== "finished") {
+          return { status: 409 as const, error: "現在の状態ではこの操作はできません" };
+        }
         const rounds = isManualCs(event) ? structuredClone(event.rounds ?? []) : event.rounds ?? [];
         let ri = -1;
         let mi = -1;
@@ -77,6 +92,9 @@ export async function POST(
         const round = rounds[ri];
         const match = round.matches[mi];
 
+        if (isManualCs(event) && match.players.length < 4) {
+          return { status: 409 as const, error: "この卓はまだ全員そろっていません" };
+        }
         if (match.players.some((p) => !byId.has(p.lineUserId))) {
           return { status: 400 as const, error: "同卓者全員分の結果を入力してください" };
         }
