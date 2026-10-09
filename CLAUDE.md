@@ -372,6 +372,7 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - **リーグ**: `LeaguePyramid3D.tsx`（Three.js の四角錐スタック・確定版／左固定ゴールドラベル[Noto Serif JP]／自分のアバター浮遊＋「あなた」／spin・sway・off／reduced-motion・WebGL非対応フォールバック／アンマウントでGPU資源dispose）を `LeaguePyramid.tsx` のアイボリー帯ヒーローに配置。直下に M1/M2/M3 順位リスト（YOU強調・順位/戦数/1位/連対率/AVG）。
 - **参加/当日の卓/スコア申告**: `MahjongLeagueView.tsx`。参加=日付カード＋参加する/参加中（**卓の中身は見せない**。確定済みはバッジのみ）。当日の卓=緑フェルトボード＋席(東南西北は卓内並び順から付与)・自席強調・持ち点/着順・n/4申告。申告=持ち点＋1〜4着のダイアログ。アクセントはフェルト緑 `#2f7d57`。GM には同じタブに `MahjongGmAssignPanel` が出る。
 - **CS**: `MahjongCsView.tsx`。決勝卓の確定結果から金銀銅の表彰台（王冠・持ち点）＋トーナメント表（`MahjongCsEntrant.seed` でSEED、勝ち上がりを緑強調、決勝はゴールド）。
+  新方式（定員つき・手動編成）の表示は下の「麻雀CS（定員つき参加受付＋手動編成）」を参照（上位n名通過・札の空席「勝ち上がり待ち」・S＝シード）。
 
 ### 麻雀CS（定員つき参加受付＋手動編成・2026-10-08）
 毎シーズン人数が変わるため、トーナメントの形を決め打ちにせず GM が管理画面で組む（60〜80人でもコード変更なし）。
@@ -387,6 +388,9 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   ドラッグは `MahjongGmAssignPanel.tsx` と同じ Pointer Events 方式（`useCsBracketDrag.ts`）。タップで選んで席をタップでも置ける。
 - 当日: 4人そろった卓だけ申告できる（札の席が埋まるまで 409）。卓が確定すると上位が次の札の席へ入る。管理者の結果修正は、次の卓に申告が入っていたら 409。「編成に戻す」（`/fix` resetBracket）は running/finished → closed（結果は消える）。
 - 検証用: 非本番だけ「ダミーで定員まで埋める」（`fillDummies`・本番 404）。
+- ⚠️ **締切後に受付を再開する操作は無い**（closed → entry の遷移なし）。締切を誤って過ぎたら、CSを削除して作り直す。
+- ⚠️ 進行中（finished 以外）の新方式CSがあるシーズンでは新しいCSを作れない（409）。利用者・参加表明は「シーズンで最新に作ったCS」だけを見るため。
+- ⚠️ **旧方式（`capacity` なし）の `setup` のCSは参加表明も自動生成もされない**（閲覧のみ）。本番へ出す前に、開催前の旧方式CSが残っていないか確かめ、残っていれば新方式で作り直して利用者に再表明を案内する。
 - LINE 通知なし。参加費なし。麻雀だけ（他3種目の CS は従来どおり）。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsBracketEdit}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
