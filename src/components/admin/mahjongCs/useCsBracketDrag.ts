@@ -8,7 +8,7 @@ export type PickedChip = { chip: Chip; from: string };
 const DRAG_THRESHOLD = 6;
 // チップの比較用キーを生成する。
 export function chipKey(chip: Chip): string {
-  return JSON.stringify(chip);
+  return chip.kind === "player" ? `player:${chip.lineUserId}` : `ticket:${chip.fromMatchId}:${chip.place}`;
 }
 // ゴーストを除いた座標直下の置き場を調べる。
 function zoneAtPoint(x: number, y: number): string | null {
@@ -24,13 +24,19 @@ export function useCsBracketDrag(locked: boolean, apply: (picked: PickedChip, zo
   const hover = useRef<string | null>(null);
   const raf = useRef<number | null>(null);
   const suppressClickUntil = useRef(0);
-  const latest = useRef({ locked, apply });
-  latest.current = { locked, apply };
+  const latest = useRef({ locked, apply, selected });
+  latest.current = { locked, apply, selected };
 
-  // 選択したチップを再タップした場合は選択を解除する。
+  // 選択中に席のチップをタップしたら置き換え、それ以外は選択を切り替える。
   const select = useCallback((picked: PickedChip) => {
     if (latest.current.locked) return;
-    setSelected((current) => current && chipKey(current.chip) === chipKey(picked.chip) ? null : picked);
+    const current = latest.current.selected;
+    if (current && picked.from.startsWith("seat:")) {
+      latest.current.apply(current, picked.from);
+      setSelected(null);
+    } else {
+      setSelected(current && chipKey(current.chip) === chipKey(picked.chip) ? null : picked);
+    }
   }, []);
   // 指の位置をゴーストへ反映し、枠が変わった場合だけ再描画する。
   const tick = useCallback(() => {
