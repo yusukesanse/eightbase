@@ -13,14 +13,26 @@ const draft = (...tables: MahjongCsCanvasTable[]): CanvasDraft => ({ seedUserIds
 const ticket = (fromMatchId: string, place: number) => ({ kind: "ticket", fromMatchId, place });
 
 describe("canvasToRounds", () => {
+  it.each([1e9, Infinity, NaN, 0, 4, 1.5])("勝ち抜け人数 %s は即座に範囲エラーを返し札を作らない", (advanceCount) => {
+    const source = table("a", "f", { advanceCount });
+    // 同期ループはJestのタイムアウトで止まらないため、読み取り回数でも制限する。
+    let reads = 0;
+    Object.defineProperty(source, "advanceCount", { get: () => {
+      if (++reads > 100) throw new Error("勝ち抜け人数の巨大ループ");
+      return advanceCount;
+    } });
+    const out = canvasToRounds([source, table("f")]);
+    expect(out.errors).toEqual(["準決勝卓: 勝ち抜け人数は1〜3名にしてください"]);
+    expect(out.rounds[1].matches[0].seats).toEqual([null, null, null, null]);
+  });
   it("卓0件", () => {
     expect(canvasToRounds([])).toEqual({ rounds: [], errors: ["卓がありません"] });
   });
   it.each([
     [[table("a"), table("b")], "決勝（矢印が出ていない卓）は1つにしてください（今 2 卓）"],
     [[table("a", "b"), table("b", "a"), table("f")], "矢印が輪になっています"],
-    [[table("a", "missing"), table("f")], "卓: 矢印の先の卓がありません"],
-    [[table("a", "a"), table("f")], "卓: 矢印の先の卓がありません"],
+    [[table("a", "missing"), table("f")], "卓(a): 矢印の先の卓がありません"],
+    [[table("a", "a"), table("f")], "卓(a): 矢印の先の卓がありません"],
   ])("グラフ不正ならラウンドを返さない: %j", (tables, error) => {
     const out = canvasToRounds(tables);
     expect(out.rounds).toEqual([]);
@@ -73,6 +85,11 @@ describe("canvasToRounds", () => {
 });
 
 describe("キャンバス編集", () => {
+  it.each([0, -1, 4, 1.5, 1e9, Infinity, NaN])("不正な勝ち抜け人数 %s は流入人数に数えない", (advanceCount) => {
+    const tables = [table("a", "f", { advanceCount }), table("b", "f", { advanceCount: 3 }), table("f")];
+    expect(incomingCount(tables, "f")).toBe(3);
+    expect(openSeats(tables, "f")).toBe(1);
+  });
   it("入ってくる人数と空席は負数も返す", () => {
     const tables = [table("a", "f", { advanceCount: 3 }), table("b", "f", { advanceCount: 2 }), table("f", null, { playerIds: ["u"] })];
     expect(incomingCount(tables, "f")).toBe(5);
