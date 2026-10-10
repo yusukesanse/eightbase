@@ -192,7 +192,7 @@ const P = (id: string) => ({ kind: "player", lineUserId: id });
 
 it("確定: 検証 NG なら 400 と errors を返し、状態は変えない", async () => {
   const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
-  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: [], rounds: oneTable([P("a"), P("b"), P("c"), null]) }), params);
+  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: [], canvas: canvas(["a", "b", "c"]) }), params);
   expect(res.status).toBe(400);
   expect((await res.json()).errors.length).toBeGreaterThan(0);
   expect(db._get("mahjongCsEvents", "cs1").status).toBe("closed");
@@ -203,7 +203,7 @@ it("確定: 検証 NG なら 400 と errors を返し、状態は変えない", 
 
 it("確定: OK なら running になり、シードが entrants に反映される", async () => {
   const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
-  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: ["a"], rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: ["a"], canvas: canvas(["a", "b", "c", "d"]) }), params);
   expect(res.status).toBe(200);
   const ev = db._get("mahjongCsEvents", "cs1");
   expect(ev.status).toBe("running");
@@ -213,7 +213,7 @@ it("確定: OK なら running になり、シードが entrants に反映され�
 
 it("確定: 参加確定者でない人をシードにすると 400", async () => {
   const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
-  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: ["zz"], rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: ["zz"], canvas: canvas(["a", "b", "c", "d"]) }), params);
   expect(res.status).toBe(400);
 });
 
@@ -224,11 +224,13 @@ it("受付中でない CS に closeNow は 409", async () => {
 
 it("締切後に参加者を外すと、編成の下書きの席も空く", async () => {
   const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
-  await PATCH(body({ action: "saveBracket", seedUserIds: ["a"], rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+  db._get("mahjongCsEvents", "cs1").bracket = { seedUserIds: ["a"], canvas: canvas(["a", "b", "c", "d"]),
+    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) };
   await PATCH(body({ action: "removeEntry", lineUserId: "a" }), params);
   const ev = db._get("mahjongCsEvents", "cs1");
   expect(ev.bracket.rounds[0].matches[0].seats[0]).toBeNull();
   expect(ev.bracket.seedUserIds).toEqual([]);
+  expect(ev.bracket.canvas).toEqual(canvas(["b", "c", "d"]));
   expect(ev.entrants.map((e: { lineUserId: string }) => e.lineUserId)).toEqual(["b", "c", "d"]);
 });
 
@@ -362,7 +364,7 @@ it.each(["updateEntry", "closeNow", "removeEntry", "saveBracket", "confirmBracke
     const legacy = { csEventId: "cs1", seasonId: "s1", status: "setup", entrants: [], rounds: [] };
     db._set("mahjongCsEvents", "cs1", legacy); (getDb as jest.Mock).mockReturnValue(db);
     const res = await PATCH(body({ action, capacity: 4, lineUserId: "a", seedUserIds: [],
-      rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+      canvas: canvas(["a", "b", "c", "d"]) }), params);
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe("旧形式のCSは変更できません");
     expect(db._get("mahjongCsEvents", "cs1")).toEqual(legacy);
@@ -428,7 +430,7 @@ it.each([
 
   (getDb as jest.Mock).mockReturnValue(db);
   expect((await PATCH(body({ action, lineUserId: "a", seedUserIds: [],
-    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params)).status).toBe(200);
+    canvas: canvas(["a", "b", "c", "d"]) }), params)).status).toBe(200);
   expect(writeAuditLog).toHaveBeenCalledTimes(1);
   expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ eventType, actor }));
   if (action === "removeEntry") {
@@ -446,7 +448,7 @@ it.each(["updateEntry", "saveBracket", "GET"])(
       entries: ["a", "b", "c", "d"].map((id, i) => entry(id, i)) });
     (getDb as jest.Mock).mockReturnValue(db);
     const res = action === "GET" ? await GET(body({}), params) : await PATCH(body({
-      action, capacity: 5, seedUserIds: [], rounds: oneTable([P("a"), P("b"), P("c"), P("d")]),
+      action, capacity: 5, seedUserIds: [], canvas: canvas(["a", "b", "c", "d"]),
     }), params);
     expect(res.status).toBe(action === "updateEntry" ? 409 : 200);
     const stored = db._get("mahjongCsEvents", "cs1");
@@ -454,7 +456,7 @@ it.each(["updateEntry", "saveBracket", "GET"])(
     expect(stored.entrants).toHaveLength(4);
     if (action === "updateEntry") expect(stored.capacity).toBe(create.capacity);
     else expect((await res.json()).event.status).toBe("closed");
-    if (action === "saveBracket") expect(stored.bracket.rounds).toHaveLength(1);
+    if (action === "saveBracket") expect(stored.bracket.rounds).toEqual([]);
     expect(writeAuditLog).toHaveBeenCalledTimes(1);
     expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       eventType: "cs.entryClosed", actor: "system", beforeStatus: "entry", afterStatus: "closed",
@@ -478,7 +480,7 @@ it("closeNow: 開始前なら開始日時も現在時刻にする", async () => 
 it.each(["saveBracket", "confirmBracket"])("%s: 重複シードを一意にして保存する", async (action) => {
   const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
   expect((await PATCH(body({ action, seedUserIds: ["a", "a"],
-    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params)).status).toBe(200);
+    canvas: canvas(["a", "b", "c", "d"]) }), params)).status).toBe(200);
   expect(db._get("mahjongCsEvents", "cs1").bracket.seedUserIds).toEqual(["a"]);
 });
 
@@ -507,7 +509,7 @@ it("saveBracket: running では 409 で変更しない", async () => {
   (getDb as jest.Mock).mockReturnValue(db);
   const before = db._get("mahjongCsEvents", "cs1");
   expect((await PATCH(body({ action: "saveBracket", seedUserIds: [],
-    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params)).status).toBe(409);
+    canvas: canvas(["a", "b", "c", "d"]) }), params)).status).toBe(409);
   expect(db._get("mahjongCsEvents", "cs1")).toEqual(before);
 });
 
@@ -555,7 +557,7 @@ it.each(["confirmBracket", "removeEntry"])("%s: 遅延締切後も操作監査�
     entries: ["a", "b", "c", "d"].map((id, i) => entry(id, i)) });
   (getDb as jest.Mock).mockReturnValue(db);
   const res = await PATCH(body({ action, lineUserId: "a", seedUserIds: [],
-    rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+    canvas: canvas(["a", "b", "c", "d"]) }), params);
   expect(res.status).toBe(200);
   expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
   expect(writeAuditLog).toHaveBeenCalledTimes(2);
@@ -580,7 +582,7 @@ it.each([
   entryEvent(db, { entryClosesAt: "2000-01-01T00:00:00Z", entries: [entry("a", 0)] });
   (getDb as jest.Mock).mockReturnValue(db);
   const res = await PATCH(body({ ...input,
-    rounds: input.invalid ? null : oneTable([P("a"), null, null, null]) }), params);
+    canvas: input.invalid ? null : canvas(["a"]) }), params);
   expect(res.status).toBe(input.status);
   expect(db.transactionUpdates.map((updates) => updates.length)).toEqual([1]);
   expect(db._get("mahjongCsEvents", "cs1")).toMatchObject({ status: "closed" });
@@ -685,4 +687,83 @@ it.each([
   entryEvent(db, over);
   (getDb as jest.Mock).mockReturnValue(db);
   expect((await POST(body(create))).status).toBe(201);
+});
+
+const canvas = (playerIds: string[]) => ({ tables: [
+  { id: "F", x: 0, y: 0, advanceCount: 1, to: null, playerIds },
+] });
+
+it.each(["saveBracket", "confirmBracket"])("%s: rounds-onlyを拒否する", async (action) => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ action, seedUserIds: [], rounds: oneTable([P("a"), P("b"), P("c"), P("d")]) }), params);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "編成の形式が不正です" });
+});
+
+const malformed = [
+  { tables: null }, { tables: Array.from({ length: 201 }, (_, i) => ({ ...canvas([]).tables[0], id: String(i) })) },
+  ...[{ id: "" }, { id: "x".repeat(65) }, { id: 1 }, { x: Infinity }, { y: NaN }, { x: "0" },
+    { advanceCount: 0 }, { advanceCount: 4 }, { advanceCount: 1.5 }, { advanceCount: "1" },
+    { to: 1 }, { playerIds: [1] }, { playerIds: ["a", "b", "c", "d", "e"] }]
+    .map(over => ({ tables: [{ ...canvas([]).tables[0], ...over }] })),
+  { tables: [canvas([]).tables[0], canvas([]).tables[0]] },
+  { tables: [canvas(["a"]).tables[0], { ...canvas(["a"]).tables[0], id: "B" }] },
+];
+it.each(["saveBracket", "confirmBracket"])("%s: malformed canvasを拒否し保存しない", async (action) => {
+  for (const invalid of malformed) {
+    const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+    const res = await PATCH(body({ action, seedUserIds: [], canvas: invalid }), params);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "編成の形式が不正です" });
+    expect(db.transactionUpdates.flat()).toHaveLength(0);
+  }
+});
+it.each(["saveBracket", "confirmBracket"])("%s: 非参加者を拒否する", async (action) => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ action, seedUserIds: [], canvas: canvas(["missing"]) }), params);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "参加確定者ではない人が入っています" });
+});
+it("saveBracket: 未完成の図を保存しroundsを空にする", async () => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const draft = canvas(["a"]);
+  expect((await PATCH(body({ action: "saveBracket", seedUserIds: ["a"], canvas: draft }), params)).status).toBe(200);
+  expect(db._get("mahjongCsEvents", "cs1").bracket).toEqual({ seedUserIds: ["a"], canvas: draft, rounds: [] });
+});
+it("confirmBracket: 決勝2卓なら変換errorsを返しvalidateBracketに進まない", async () => {
+  const bracketLib = await import("@/lib/mahjongCsBracket");
+  const validate = jest.spyOn(bracketLib, "validateBracket");
+  try {
+    const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+    const res = await PATCH(body({ action: "confirmBracket", seedUserIds: [], canvas: {
+      tables: [canvas(["a", "b"]).tables[0], { ...canvas(["c", "d"]).tables[0], id: "B" }],
+    } }), params);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "編成に不備があります", errors: ["決勝（矢印が出ていない卓）は1つにしてください（今 2 卓）"] });
+    expect(validate).not.toHaveBeenCalled();
+    expect(db.transactionUpdates.flat()).toHaveLength(0);
+  } finally { validate.mockRestore(); }
+});
+it("confirmBracket: 札と卓別通過人数を生成しrunningにする", async () => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const ids = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  db._get("mahjongCsEvents", "cs1").entrants = ids.map(lineUserId => ({ lineUserId, displayName: lineUserId, seed: false, rank: 1 }));
+  const draft = { tables: [
+    { id: "A", x: 0, y: 100, advanceCount: 1, to: "F", playerIds: ids.slice(0, 4) },
+    { id: "B", x: 100, y: 100, advanceCount: 3, to: "F", playerIds: ids.slice(4) },
+    { id: "F", x: 50, y: 0, advanceCount: 2, to: null, playerIds: [] },
+  ] };
+  expect((await PATCH(body({ action: "confirmBracket", seedUserIds: [], canvas: draft }), params)).status).toBe(200);
+  const ev = db._get("mahjongCsEvents", "cs1");
+  expect(ev.status).toBe("running");
+  expect(ev.bracket.canvas).toEqual(draft);
+  for (const rounds of [ev.bracket.rounds, ev.rounds]) {
+    expect(rounds[0].matches.map((m: { advanceCount: number }) => m.advanceCount)).toEqual([1, 3]);
+    expect(rounds[1].matches[0]).toMatchObject({ advanceCount: 2, seats: [
+      { kind: "ticket", fromMatchId: "A", place: 1 },
+      { kind: "ticket", fromMatchId: "B", place: 1 },
+      { kind: "ticket", fromMatchId: "B", place: 2 },
+      { kind: "ticket", fromMatchId: "B", place: 3 },
+    ] });
+  }
 });
