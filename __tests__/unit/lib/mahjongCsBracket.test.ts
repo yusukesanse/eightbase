@@ -2,6 +2,7 @@ import {
   ticketLabel, unplacedEntrantIds, validateBracket, buildRunningRounds, applyCompletedMatch,
 } from "@/lib/mahjongCsBracket";
 import type { MahjongCsEntrant, MahjongCsRound, MahjongCsSeat } from "@/types";
+import { canvasToRounds } from "@/lib/mahjongCsCanvas";
 
 const P = (id: string): MahjongCsSeat => ({ kind: "player", lineUserId: id });
 const T = (fromMatchId: string, place: number): MahjongCsSeat => ({ kind: "ticket", fromMatchId, place });
@@ -38,6 +39,28 @@ describe("unplacedEntrantIds", () => {
 });
 
 describe("validateBracket", () => {
+  it.each([1e9, Infinity, NaN, 0, 4, 1.5])("卓の勝ち抜け人数 %s は即座に範囲エラーだけを返す", (advanceCount) => {
+    const r = sample();
+    // 同期ループはJestのタイムアウトで止まらないため、読み取り回数でも制限する。
+    let reads = 0;
+    Object.defineProperty(r[0].matches[0], "advanceCount", { get: () => {
+      if (++reads > 100) throw new Error("勝ち抜け人数の巨大ループ");
+      return advanceCount;
+    } });
+    expect(validateBracket(r, ids)).toEqual(["予選A卓: 勝ち抜け人数は1〜3名にしてください"]);
+  });
+  it("旧データのラウンド値1e9でも即座に範囲エラーを返す", () => {
+    const r = sample();
+    let reads = 0;
+    Object.defineProperty(r[0], "advanceCount", { get: () => {
+      if (++reads > 100) throw new Error("勝ち抜け人数の巨大ループ");
+      return 1e9;
+    } });
+    expect(validateBracket(r, ids)).toEqual([
+      "予選A卓: 勝ち抜け人数は1〜3名にしてください",
+      "予選B卓: 勝ち抜け人数は1〜3名にしてください",
+    ]);
+  });
   it("正しい編成はエラーなし", () => {
     expect(validateBracket(sample(), ids)).toEqual([]);
   });
@@ -260,6 +283,30 @@ it("予選→準決→決勝の編成が有効で2段階の勝ち上がりが通
 });
 
 describe("卓ごとの勝ち抜け人数", () => {
+  it("canvasのA卓1名・B卓3名を保持し、B卓の1〜3位を決勝の札席へ入れる", () => {
+    const canvas = canvasToRounds([
+      { id: "A", x: 0, y: 1, to: "F", advanceCount: 1, playerIds: ids.slice(0, 4) },
+      { id: "B", x: 1, y: 1, to: "F", advanceCount: 3, playerIds: ids.slice(4) },
+      { id: "F", x: 0, y: 0, to: null, advanceCount: 3, playerIds: [] },
+    ]);
+    expect(canvas.errors).toEqual([]);
+    expect(validateBracket(canvas.rounds, ids)).toEqual([]);
+    const entrants = ids.map(ent);
+    const running = buildRunningRounds(canvas.rounds, entrants);
+    expect(running[0].advanceCount).toBe(1);
+    expect(running[0].matches.map((m) => m.advanceCount)).toEqual([1, 3]);
+    expect(running[1].matches[0].advanceCount).toBe(3);
+    complete(running, "B", ["g", "e", "h", "f"]);
+    const out = applyCompletedMatch(running, "B", entrants);
+    expect(out.rounds[1].matches[0].seats).toEqual([
+      T("A", 1),
+      { kind: "ticket", fromMatchId: "B", place: 1, lineUserId: "g" },
+      { kind: "ticket", fromMatchId: "B", place: 2, lineUserId: "e" },
+      { kind: "ticket", fromMatchId: "B", place: 3, lineUserId: "h" },
+    ]);
+    expect(out.rounds[1].matches[0].players.map((p) => p.lineUserId)).toEqual(["g", "e", "h"]);
+    expect(out.finished).toBe(false);
+  });
   const varied = (): MahjongCsRound[] => {
     const r = sample();
     r[0].matches[0].advanceCount = 1;

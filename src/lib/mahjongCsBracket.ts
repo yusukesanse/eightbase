@@ -6,6 +6,7 @@
 import type { MahjongCsEntrant, MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer, MahjongCsRound, MahjongCsSeat } from "@/types";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+const validAdvance = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 3;
 
 function isPlayerSeat(seat: unknown): seat is Extract<MahjongCsSeat, { kind: "player" }> {
   return typeof seat === "object" && seat !== null && "kind" in seat && seat.kind === "player"
@@ -51,7 +52,7 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
     if (r.matches.length === 0) errs.push(`${r.label}: 卓がありません`);
     for (const m of r.matches) {
       const advanceCount = m.advanceCount ?? r.advanceCount;
-      if (!Number.isInteger(advanceCount) || advanceCount < 1 || advanceCount > 3) {
+      if (!validAdvance(advanceCount)) {
         errs.push(`${m.label}: 勝ち抜け人数は1〜3名にしてください`);
       }
       if (matchIds.has(m.matchId)) errs.push(`${m.label}: 卓IDが重複しています`);
@@ -86,18 +87,24 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
         errs.push(`${m.label}: 札は直前のラウンドの卓から置いてください`);
         continue;
       }
-      if (!Number.isInteger(s.place) || s.place < 1 || s.place > (source.advanceCount ?? prev.advanceCount)) {
+      const advanceCount = source.advanceCount ?? prev.advanceCount;
+      if (!validAdvance(advanceCount)) continue;
+      if (!Number.isInteger(s.place) || s.place < 1 || s.place > advanceCount) {
         errs.push(`${m.label}: ${ticketLabel(rounds, s.fromMatchId, s.place)}は勝ち抜け人数を超えています`);
         continue;
       }
       const key = `${s.fromMatchId}#${s.place}`;
       used.set(key, (used.get(key) ?? 0) + 1);
     }
-    for (const pm of prev.matches) for (let p = 1; p <= (pm.advanceCount ?? prev.advanceCount); p++) {
-      const n = used.get(`${pm.matchId}#${p}`) ?? 0;
-      const label = ticketLabel(rounds, pm.matchId, p);
-      if (n === 0) errs.push(`${label}の行き先の席がありません`);
-      if (n > 1) errs.push(`${label}の札が2回以上置かれています`);
+    for (const pm of prev.matches) {
+      const advanceCount = pm.advanceCount ?? prev.advanceCount;
+      if (!validAdvance(advanceCount)) continue;
+      for (let p = 1; p <= advanceCount; p++) {
+        const n = used.get(`${pm.matchId}#${p}`) ?? 0;
+        const label = ticketLabel(rounds, pm.matchId, p);
+        if (n === 0) errs.push(`${label}の行き先の席がありません`);
+        if (n > 1) errs.push(`${label}の札が2回以上置かれています`);
+      }
     }
   }
   return errs;

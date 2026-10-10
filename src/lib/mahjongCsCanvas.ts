@@ -7,7 +7,7 @@ const leftOrder = (a: MahjongCsCanvasTable, b: MahjongCsCanvasTable): number =>
 const validAdvance = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 3;
 
 export function incomingCount(tables: MahjongCsCanvasTable[], id: string): number {
-  return tables.filter((t) => t.to === id).reduce((sum, t) => sum + t.advanceCount, 0);
+  return tables.filter((t) => t.to === id).reduce((sum, t) => sum + (validAdvance(t.advanceCount) ? t.advanceCount : 0), 0);
 }
 
 export function openSeats(tables: MahjongCsCanvasTable[], id: string): number {
@@ -28,7 +28,7 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
   const errors: string[] = [];
   const byId = new Map(tables.map((t) => [t.id, t]));
   for (const t of tables) {
-    if (t.to !== null && (t.to === t.id || !byId.has(t.to))) errors.push("卓: 矢印の先の卓がありません");
+    if (t.to !== null && (t.to === t.id || !byId.has(t.to))) errors.push(`卓(${t.id}): 矢印の先の卓がありません`);
   }
   let cycle = false;
   for (const t of tables) {
@@ -64,7 +64,8 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
         const matchLabel = `${label}${group.length === 1 ? "" : tableLetter(index)}卓`;
         const seats: MahjongCsSeat[] = [];
         for (const source of tables.filter((s) => s.to === t.id).sort(leftOrder)) {
-          for (let place = 1; Number.isFinite(source.advanceCount) && place <= source.advanceCount; place++) {
+          if (!validAdvance(source.advanceCount)) continue;
+          for (let place = 1; place <= source.advanceCount; place++) {
             seats.push({ kind: "ticket", fromMatchId: source.id, place });
           }
         }
