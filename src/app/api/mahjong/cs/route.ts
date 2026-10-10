@@ -55,6 +55,7 @@ function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, userId: str
       advanceCount: r.advanceCount,
       matches: r.matches.map((m) => ({
         matchId: m.matchId, label: m.label, status: m.status, players: m.players.map(player),
+        ...(typeof m.advanceCount === "number" ? { advanceCount: m.advanceCount } : {}),
         pendingSeats: (m.seats ?? []).flatMap((seat) =>
           seat?.kind === "ticket" && typeof seat.fromMatchId === "string" && !seat.lineUserId
             ? [ticketLabel(event.rounds, seat.fromMatchId, seat.place)] : []),

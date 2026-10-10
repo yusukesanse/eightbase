@@ -13,7 +13,7 @@ const baseEvent = {
   rounds: [] as {
     type: string; label: string; advanceCount: number;
     matches: {
-      matchId: string; label: string; status: string; pendingSeats: string[];
+      matchId: string; label: string; status: string; advanceCount?: number; pendingSeats: string[];
       players: { displayName: string; points: number | null; rank: number | null; seed: boolean; isMe: boolean }[];
     }[];
   }[],
@@ -332,4 +332,37 @@ test("旧方式の申告シートの進出案内を維持する", async () => {
   render(<MahjongCsView />);
   fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
   expect(screen.getAllByText(/1着のみ/)).toHaveLength(2);
+});
+
+test.each([1, 3])("卓の通過人数%sで強調し共通見出しを表示する", async (n) => {
+  completedTable(2);
+  event.rounds[0].matches[0].advanceCount = n;
+  render(<MahjongCsView />);
+  await screen.findByText("選手1");
+  for (let rank = 1; rank <= 4; rank++) {
+    expect(screen.getByText(`選手${rank}`).parentElement!.style.boxShadow.includes("var(--eb-green)")).toBe(rank <= n);
+  }
+  const heading = screen.getByText(event.rounds[0].label).parentElement!;
+  expect(within(heading).getByText(n === 1 ? "1着通過" : `${n}着まで通過`)).toBeTruthy();
+});
+test("通過人数が混在すると見出しから外して各卓に表示する", async () => {
+  completedTable(2);
+  const round = event.rounds[0];
+  round.matches[0].advanceCount = 3;
+  round.matches.push({ ...round.matches[0], matchId: "B", label: "予選B卓", advanceCount: undefined,
+    players: round.matches[0].players.map(p => ({ ...p, displayName: `B${p.displayName}` })) });
+  render(<MahjongCsView />);
+  await screen.findByText("選手1");
+  expect(within(screen.getByText(round.label).parentElement!).queryByText(/通過/)).toBeNull();
+  expect(within(screen.getByText(round.matches[0].label).parentElement!).getByText("3着まで通過")).toBeTruthy();
+  expect(within(screen.getByText("予選B卓").parentElement!).getByText("2着まで通過")).toBeTruthy();
+  expect(screen.getByText("B選手3").parentElement!.style.boxShadow).not.toContain("var(--eb-green)");
+});
+test("申告シートはラウンドより卓の通過人数を優先する", async () => {
+  runningTable(4);
+  event.rounds[0].type = "prelim";
+  event.rounds[0].matches[0].advanceCount = 3;
+  render(<MahjongCsView />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
+  expect(screen.getAllByText(/上位3名が次へ進出/)).toHaveLength(2);
 });

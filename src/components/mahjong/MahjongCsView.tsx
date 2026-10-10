@@ -18,6 +18,7 @@ interface PubCsPlayer {
   isMe: boolean;
 }
 interface PubCsMatch {
+  advanceCount?: number;
   matchId: string;
   label: string;
   status: "reporting" | "completed";
@@ -202,13 +203,17 @@ export function MahjongCsView() {
 
             {roundsTopDown.map((round, i) => {
               const gold = round.type === "final";
+              const advanceCount = round.matches[0]?.advanceCount ?? round.advanceCount;
+              const showMatchAdvance = manual && !gold && !round.matches.every(
+                (match) => (match.advanceCount ?? round.advanceCount) === advanceCount,
+              );
               return (
                 <div key={i} className="flex flex-col items-center">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <span className="whitespace-nowrap text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
-                    <StatusPill tone="muted">
-                      {manual && !gold && round.advanceCount > 1 ? `${round.advanceCount}着まで通過` : "1着通過"}
-                    </StatusPill>
+                    {!showMatchAdvance && <StatusPill tone="muted">
+                      {manual && !gold && advanceCount > 1 ? `${advanceCount}着まで通過` : "1着通過"}
+                    </StatusPill>}
                   </div>
                   <div className="flex justify-center" style={{ gap: GAP }}>
                     {round.matches.map((m) => (
@@ -218,7 +223,8 @@ export function MahjongCsView() {
                           gold={gold}
                           demo={demo}
                           manual={manual}
-                          advanceCount={round.advanceCount}
+                          advanceCount={m.advanceCount ?? round.advanceCount}
+                          showAdvanceCount={showMatchAdvance}
                           running={event.status === "running"}
                           onInput={() => setInputMatch(m)}
                         />
@@ -422,6 +428,7 @@ function MatchCard({
   demo,
   manual,
   advanceCount,
+  showAdvanceCount,
   running,
   onInput,
 }: {
@@ -430,6 +437,7 @@ function MatchCard({
   demo: boolean;
   manual: boolean;
   advanceCount: number;
+  showAdvanceCount: boolean;
   running: boolean;
   onInput: () => void;
 }) {
@@ -441,6 +449,9 @@ function MatchCard({
     <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
       <div className={`flex items-center justify-between mb-1.5 gap-1.5 ${manual ? "flex-wrap" : ""}`}>
         <span className="min-w-0 truncate text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
+        {showAdvanceCount && <StatusPill tone="muted">
+          {advanceCount > 1 ? `${advanceCount}着まで通過` : "1着通過"}
+        </StatusPill>}
         {done ? (
           <StatusPill tone="green">確定</StatusPill>
         ) : pendingSeats.length > 0 ? (
@@ -557,7 +568,7 @@ function CsInputSheet({
   onReport: (body: { points?: number; rank?: number; auto?: boolean }) => void;
 }) {
   const advancement = manual
-    ? round?.type === "final" ? "決勝です。1位が優勝です。" : `上位${round?.advanceCount ?? 1}名が次へ進出。`
+    ? round?.type === "final" ? "決勝です。1位が優勝です。" : `上位${match.advanceCount ?? round?.advanceCount ?? 1}名が次へ進出。`
     : null;
   const n = match.players.length;
   const iAmIn = match.players.some((p) => p.isMe);

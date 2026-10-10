@@ -321,3 +321,13 @@ describe("GET のポーリング冪等性", () => {
     expect(closed).toHaveLength(1);
   });
 });
+
+it.each([1, 3, undefined, "2", null])("公開DTOは数値の卓advanceCountだけ返す (%s)", async (advanceCount) => {
+  const db = makeDb(); seed(db, { status: "running", rounds: [{ type: "prelim", label: "予選", advanceCount: 2,
+    matches: [{ matchId: "a", label: "A", status: "reporting", players: [], advanceCount }] }] });
+  (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+  const data = await (await GET(req())).json();
+  const match = data.event.rounds[0].matches[0];
+  if (typeof advanceCount === "number") expect(match.advanceCount).toBe(advanceCount);
+  else expect(match).not.toHaveProperty("advanceCount");
+});

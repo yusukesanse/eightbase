@@ -282,6 +282,7 @@ it("editMatch: 決勝卓の修正で優勝者を付け直しfinishedにする", 
 it("resetBracket: 新方式はclosedに戻し編成を残して1回だけ更新する", async () => {
   const db = makeDb(); seedCompletedPrelims(db);
   db._set("mahjongCsEvents", "cs1", { ...db._get("mahjongCsEvents", "cs1"), status: "finished", championId: "a" });
+  db._get("mahjongCsEvents", "cs1").bracket.canvas = { tables: [{ id: "F", x: 20, y: 30, advanceCount: 2, to: null, playerIds: ["a"] }] };
   const bracket = structuredClone(db._get("mahjongCsEvents", "cs1").bracket);
   expect((await fix({ action: "resetBracket" })).status).toBe(200);
   const ev = db._get("mahjongCsEvents", "cs1");

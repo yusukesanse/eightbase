@@ -7,7 +7,8 @@ import { writeAuditLog, type AuditEventType } from "@/lib/auditLog";
 import { isIsoWithOffset, isManualCs, rebalanceEntries, closeEntriesIfDue, entrantsFromEntries } from "@/lib/mahjongCsEntry";
 import { auditLazyClose, ensureCsClosed } from "@/lib/mahjongCsServer";
 import { validateBracket, buildRunningRounds } from "@/lib/mahjongCsBracket";
-import type { MahjongCsEvent, MahjongCsRound } from "@/types";
+import { canvasToRounds } from "@/lib/mahjongCsCanvas";
+import type { MahjongCsEvent, MahjongCsRound, MahjongCsCanvas } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -33,20 +34,30 @@ export async function GET(
   }
 }
 
-/** 下書きでは空席や未配置を許し、保存できる構造だけを確認する。 */
-function isBracketRounds(value: unknown): value is MahjongCsRound[] {
+/** 下書きの構造と重複だけを検証し、接続や空席の検証は確定時に行う。 */
+function isBracketCanvas(value: unknown): value is MahjongCsCanvas {
   const record = (v: unknown): v is Record<string, unknown> =>
     typeof v === "object" && v !== null && !Array.isArray(v);
-  return Array.isArray(value) && value.every((r) => record(r)
-    && ["prelim", "semi", "final"].includes(r.type as string)
-    && typeof r.label === "string" && typeof r.advanceCount === "number"
-    && Array.isArray(r.matches) && r.matches.every((m) => record(m)
-      && typeof m.matchId === "string" && typeof m.label === "string"
-      && Array.isArray(m.players) && ["reporting", "completed"].includes(m.status as string)
-      && Array.isArray(m.seats) && m.seats.length === 4
-      && m.seats.every((s) => s === null || (record(s)
-        && ((s.kind === "player" && typeof s.lineUserId === "string")
-          || (s.kind === "ticket" && typeof s.fromMatchId === "string" && typeof s.place === "number"))))));
+  if (!record(value) || !Array.isArray(value.tables) || value.tables.length > 200) return false;
+  const tableIds = new Set<string>();
+  const playerTables = new Map<string, string>();
+  for (const table of value.tables) {
+    if (!record(table) || typeof table.id !== "string" || table.id.length < 1 || table.id.length > 64
+      || tableIds.has(table.id)
+      || typeof table.x !== "number" || !Number.isFinite(table.x)
+      || typeof table.y !== "number" || !Number.isFinite(table.y)
+      || typeof table.advanceCount !== "number" || !Number.isInteger(table.advanceCount)
+      || table.advanceCount < 1 || table.advanceCount > 3
+      || (table.to !== null && typeof table.to !== "string")
+      || !Array.isArray(table.playerIds) || table.playerIds.length > 4
+      || !table.playerIds.every((id): id is string => typeof id === "string")) return false;
+    tableIds.add(table.id);
+    for (const id of table.playerIds) {
+      if (playerTables.has(id) && playerTables.get(id) !== table.id) return false;
+      playerTables.set(id, table.id);
+    }
+  }
+  return true;
 }
 
 /** PATCH /api/admin/mahjong/cs/[csEventId] — 受付・編成を action ごとに更新する。 */
@@ -141,6 +152,12 @@ export async function PATCH(
             update.entrants = entrantsFromEntries(update.entries).map((e) => ({ ...e, seed: seeds.has(e.lineUserId) }));
             if (event.bracket) update.bracket = {
               seedUserIds: event.bracket.seedUserIds.filter((seed) => seed !== id),
+              ...(event.bracket.canvas ? { canvas: {
+                ...event.bracket.canvas,
+                tables: event.bracket.canvas.tables.map((table) => ({
+                  ...table, playerIds: table.playerIds.filter((playerId) => playerId !== id),
+                })),
+              } } : {}),
               rounds: event.bracket.rounds.map((r) => ({ ...r, matches: r.matches.map((m) => ({
                 ...m, seats: (m.seats ?? []).map((s) => s?.kind === "player" && s.lineUserId === id ? null : s),
               })) })),
@@ -150,15 +167,22 @@ export async function PATCH(
         }
         case "saveBracket":
         case "confirmBracket": {
-          const { rounds } = body;
+          const { canvas } = body;
           const seedUserIds = Array.isArray(body.seedUserIds) ? [...new Set<unknown>(body.seedUserIds)] : null;
           if (!seedUserIds || !seedUserIds.every((id): id is string => typeof id === "string")
-            || !isBracketRounds(rounds)) return reject(400, "編成の形式が不正です");
+            || !isBracketCanvas(canvas)) return reject(400, "編成の形式が不正です");
           const entrantIds = event.entrants.map((e) => e.lineUserId);
           if (seedUserIds.some((id) => !entrantIds.includes(id))) {
             return reject(400, "参加確定者ではない人がシードに含まれています");
           }
+          if (canvas.tables.some((table) => table.playerIds.some((id) => !entrantIds.includes(id)))) {
+            return reject(400, "参加確定者ではない人が入っています");
+          }
+          let rounds: MahjongCsRound[] = [];
           if (action === "confirmBracket") {
+            const converted = canvasToRounds(canvas.tables);
+            if (converted.errors.length) return reject(400, "編成に不備があります", converted.errors);
+            rounds = converted.rounds;
             const errors = validateBracket(rounds, entrantIds);
             if (errors.length) return reject(400, "編成に不備があります", errors);
             update.entrants = event.entrants.map((e) => ({ ...e, seed: seedUserIds.includes(e.lineUserId) }));
@@ -166,7 +190,7 @@ export async function PATCH(
             update.status = "running";
             audit = "cs.bracketConfirmed";
           }
-          update.bracket = { seedUserIds, rounds };
+          update.bracket = { seedUserIds, canvas, rounds };
           break;
         }
         case "fillDummies": {
