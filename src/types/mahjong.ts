@@ -367,6 +367,7 @@ export interface MahjongCsMatch {
   players: MahjongCsMatchPlayer[];
   status: MahjongCsMatchStatus;
   seats?: MahjongCsSeat[];
+  advanceCount?: number;   // 未設定ならラウンドの値を使う
 }
 
 /** CSの1ラウンド（予選/準決/決勝） */
@@ -379,6 +380,16 @@ export interface MahjongCsRound {
   /** このラウンドで不戦勝（bye）＝端数調整で次ラウンドへ自動進出する人。卓は必ず4名にするため。 */
   byes?: MahjongCsMatchPlayer[];
 }
+
+// 編成キャンバスの卓と矢印
+export interface MahjongCsCanvasTable {
+  id: string;            // 確定時にそのまま matchId になる
+  x: number; y: number;  // キャンバス座標（表示専用）
+  advanceCount: number;  // 1〜3。決勝は表彰人数
+  to: string | null;     // 矢印の先の卓 id。null = 矢印なし
+  playerIds: string[];   // 直接置いた人（シード含む）。順序 = 席順
+}
+export interface MahjongCsCanvas { tables: MahjongCsCanvasTable[] }
 
 /** CSイベント（年1回のチャンピオンシップ） */
 export interface MahjongCsEvent {
@@ -393,7 +404,7 @@ export interface MahjongCsEvent {
   priorityUserIds?: string[];   // 作成時の M1・M2
   entries?: MahjongCsEntry[];
   closedAt?: string;
-  bracket?: { seedUserIds: string[]; rounds: MahjongCsRound[] };  // 編成の下書き
+  bracket?: { seedUserIds: string[]; rounds: MahjongCsRound[]; canvas?: MahjongCsCanvas };  // 編成の下書き
   demoDummy?: boolean;
   /** 参戦者（自己エントリー済み） */
   entrants: MahjongCsEntrant[];

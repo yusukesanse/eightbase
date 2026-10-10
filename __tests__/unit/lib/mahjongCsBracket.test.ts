@@ -258,3 +258,37 @@ it("予選→準決→決勝の編成が有効で2段階の勝ち上がりが通
   complete(running, "F", ["b", "a", "f", "e"]);
   expect(applyCompletedMatch(running, "F", entrants)).toMatchObject({ finished: true, championId: "b" });
 });
+
+describe("卓ごとの勝ち抜け人数", () => {
+  const varied = (): MahjongCsRound[] => {
+    const r = sample();
+    r[0].matches[0].advanceCount = 1;
+    r[0].matches[1].advanceCount = 3;
+    r[1].matches[0].seats = [T("A", 1), T("B", 1), T("B", 2), T("B", 3)];
+    return r;
+  };
+  it("A卓1名・B卓3名の通過枠をすべて使える", () => {
+    expect(validateBracket(varied(), ids)).toEqual([]);
+  });
+  it("元卓の上限を超える札を拒否し、未使用の枠を検出する", () => {
+    const r = varied();
+    r[1].matches[0].seats![3] = T("A", 2);
+    expect(validateBracket(r, ids)).toEqual([
+      "決勝卓: 予選A卓 2位は勝ち抜け人数を超えています",
+      "予選B卓 3位の行き先の席がありません",
+    ]);
+  });
+  it.each([0, 4, 1.5])("卓の人数 %s を検証する", (n) => {
+    const r = varied(); r[1].matches[0].advanceCount = n;
+    expect(validateBracket(r, ids)).toContain("決勝卓: 勝ち抜け人数は1〜3名にしてください");
+  });
+  it("全卓に設定があればラウンドの値は使用しない", () => {
+    const r = varied(); r[0].advanceCount = 0;
+    expect(validateBracket(r, ids)).toEqual([]);
+  });
+  it("卓の設定がない旧データはラウンドの値を使う", () => {
+    expect(validateBracket(sample(), ids)).toEqual([]);
+    const r = sample(); r[0].advanceCount = 1;
+    expect(validateBracket(r, ids).filter((e) => e.includes("超えています"))).toHaveLength(2);
+  });
+});

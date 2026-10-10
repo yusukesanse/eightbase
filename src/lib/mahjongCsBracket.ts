@@ -48,11 +48,12 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
   const matchIds = new Set<string>();
 
   rounds.forEach((r, ri) => {
-    if (!Number.isInteger(r.advanceCount) || r.advanceCount < 1 || r.advanceCount > 3) {
-      errs.push(`${r.label}: 勝ち抜け人数は1〜3名にしてください`);
-    }
     if (r.matches.length === 0) errs.push(`${r.label}: 卓がありません`);
     for (const m of r.matches) {
+      const advanceCount = m.advanceCount ?? r.advanceCount;
+      if (!Number.isInteger(advanceCount) || advanceCount < 1 || advanceCount > 3) {
+        errs.push(`${m.label}: 勝ち抜け人数は1〜3名にしてください`);
+      }
       if (matchIds.has(m.matchId)) errs.push(`${m.label}: 卓IDが重複しています`);
       matchIds.add(m.matchId);
       const seats = m.seats ?? [];
@@ -76,22 +77,23 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
   // 札: 直前のラウンドの通過枠をちょうど1回ずつ使う
   for (let ri = 1; ri < rounds.length; ri++) {
     const prev = rounds[ri - 1];
-    const prevIds = new Set(prev.matches.map((m) => m.matchId));
+    const prevMatches = new Map(prev.matches.map((m) => [m.matchId, m]));
     const used = new Map<string, number>();
     for (const m of rounds[ri].matches) for (const s of m.seats ?? []) {
       if (!isTicketSeat(s)) continue;
-      if (!prevIds.has(s.fromMatchId)) {
+      const source = prevMatches.get(s.fromMatchId);
+      if (!source) {
         errs.push(`${m.label}: 札は直前のラウンドの卓から置いてください`);
         continue;
       }
-      if (!Number.isInteger(s.place) || s.place < 1 || s.place > prev.advanceCount) {
+      if (!Number.isInteger(s.place) || s.place < 1 || s.place > (source.advanceCount ?? prev.advanceCount)) {
         errs.push(`${m.label}: ${ticketLabel(rounds, s.fromMatchId, s.place)}は勝ち抜け人数を超えています`);
         continue;
       }
       const key = `${s.fromMatchId}#${s.place}`;
       used.set(key, (used.get(key) ?? 0) + 1);
     }
-    for (const pm of prev.matches) for (let p = 1; p <= prev.advanceCount; p++) {
+    for (const pm of prev.matches) for (let p = 1; p <= (pm.advanceCount ?? prev.advanceCount); p++) {
       const n = used.get(`${pm.matchId}#${p}`) ?? 0;
       const label = ticketLabel(rounds, pm.matchId, p);
       if (n === 0) errs.push(`${label}の行き先の席がありません`);
