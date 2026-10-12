@@ -1,10 +1,11 @@
+import { validAdvance } from "./mahjongCsBracket";
 import type { MahjongCsCanvasTable, MahjongCsEntrant, MahjongCsEvent, MahjongCsRound, MahjongCsSeat } from "@/types";
 
 export type CanvasDraft = { seedUserIds: string[]; tables: MahjongCsCanvasTable[] };
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 const leftOrder = (a: MahjongCsCanvasTable, b: MahjongCsCanvasTable): number =>
   a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-const validAdvance = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 3;
+
 
 export function incomingCount(tables: MahjongCsCanvasTable[], id: string): number {
   return tables.filter((t) => t.to === id).reduce((sum, t) => sum + (validAdvance(t.advanceCount) ? t.advanceCount : 0), 0);

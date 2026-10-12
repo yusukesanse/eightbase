@@ -43,10 +43,10 @@ function viewport(container: HTMLElement) {
 test("arrow geometry joins top-center to bottom-center, including negative coordinates", () => {
   const numbers = arrowPath({ x: 20, y: 300 }, { x: 240, y: 20 }).match(/-?\d+(?:\.\d+)?/g)!.map(Number);
   expect(numbers.slice(0, 2)).toEqual([120, 300]);
-  expect(numbers.slice(-2)).toEqual([340, 180]);
+  expect(numbers.slice(-2)).toEqual([340, 400]);
   const negative = arrowPath({ x: -200, y: -80 }, { x: -50, y: -300 }).match(/-?\d+(?:\.\d+)?/g)!.map(Number);
   expect(negative.slice(0, 2)).toEqual([-100, -80]);
-  expect(negative.slice(-2)).toEqual([50, -140]);
+  expect(negative.slice(-2)).toEqual([50, 80]);
 });
 
 test("adds a table centered in the visible area with a short id and one advance", () => {
@@ -54,7 +54,7 @@ test("adds a table centered in the visible area with a short id and one advance"
   fireEvent.click(screen.getByRole("button", { name: "卓を追加" }));
   const next = onChange.mock.calls[0][0] as CanvasDraft;
   expect(next.tables).toHaveLength(1);
-  expect(next.tables[0]).toEqual({ id: expect.stringMatching(/^t_.{8}$/), x: 300, y: 220, advanceCount: 1, to: null, playerIds: [] });
+  expect(next.tables[0]).toEqual({ id: expect.stringMatching(/^t_.{8}$/), x: 300, y: 110, advanceCount: 1, to: null, playerIds: [] });
 });
 
 test("dragging a connector onto a child of another card connects the tables", () => {
@@ -178,6 +178,7 @@ test("cards display incoming, direct and open seats and edit advance counts or r
   fireEvent.click(within(final).getByRole("button", { name: "勝ち抜けを減らす" }));
   expect(onChange.mock.calls[1][0].tables[1].advanceCount).toBe(1);
   fireEvent.click(within(final).getByRole("button", { name: "決勝卓を削除" }));
+  fireEvent.click(screen.getByRole("button", { name: "削除する" }));
   expect(onChange.mock.calls[2][0].tables).toHaveLength(1);
   expect(onChange.mock.calls[2][0].tables[0].to).toBeNull();
 });
@@ -191,7 +192,7 @@ test("fit all places the complete table bounds inside the visible frame", () => 
     expect(px + table.x * z).toBeGreaterThanOrEqual(0);
     expect(py + table.y * z).toBeGreaterThanOrEqual(0);
     expect(px + (table.x + 200) * z).toBeLessThanOrEqual(800);
-    expect(py + (table.y + 160) * z).toBeLessThanOrEqual(600);
+    expect(py + (table.y + 380) * z).toBeLessThanOrEqual(600);
   }
 });
 
@@ -201,7 +202,7 @@ test("repeated additions have distinct names and stagger positions without refit
   for (let i = 0; i < 3; i++) {
     fireEvent.click(screen.getByRole("button", { name: "卓を追加" }));
     const next = onChange.mock.calls[i][0] as CanvasDraft;
-    expect(next.tables[i]).toMatchObject({ x: 300 + 24 * i, y: 220 + 24 * i });
+    expect(next.tables[i]).toMatchObject({ x: 300 + 24 * i, y: 110 + 24 * i });
     rerender(<CsBracketCanvas {...props} draft={next} />);
     if (i > 0) expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual(i === 1 ? ["卓A", "卓B"] : ["卓A", "卓B", "卓C"]);
     expect(viewport(container).z).toBe(1);
@@ -256,4 +257,36 @@ test.each(["removed", "disconnected"])("deleting a stale %s arrow clears selecti
   expect(onChange).not.toHaveBeenCalled();
   rerender(<CsBracketCanvas {...props} />);
   expect(screen.queryByRole("button", { name: "矢印を消す" })).toBeNull();
+});
+
+test("fit caps zoom at one and ignores zero-sized frames", () => {
+  const { container } = setup({ seedUserIds: [], tables: [draft().tables[0]] });
+  expect(viewport(container).z).toBe(1);
+  const before = viewport(container);
+  jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 0, height: 0 } as DOMRect);
+  fireEvent.click(screen.getByRole("button", { name: "全体を表示" }));
+  expect(viewport(container)).toEqual(before);
+});
+test("arrow hit width does not scale with zoom", () => {
+  setup();
+  expect(screen.getByRole("button", { name: /の矢印$/ }).getAttribute("vector-effect")).toBe("non-scaling-stroke");
+});
+test("overflow shows all tickets in source order and an error", () => {
+  const value = draft();
+  value.tables[0].advanceCount = 3;
+  value.tables.push({ ...value.tables[0], id: "c", x: -100, advanceCount: 2, playerIds: [] });
+  const { container } = setup(value);
+  const final = container.querySelector('[data-table="b"]')!;
+  expect(within(final as HTMLElement).getByText("席が足りません")).toBeTruthy();
+  const rows = [...final.querySelectorAll('[data-seat-row]')].map(row => row.textContent);
+  expect(rows).toEqual(["準決勝A卓 1位", "準決勝A卓 2位", "準決勝B卓 1位", "準決勝B卓 2位", "準決勝B卓 3位"]);
+});
+test("read-only buttons never initiate pan", () => {
+  const { container, frame } = setup(draft(), false);
+  const button = document.createElement("button"); frame.appendChild(button);
+  const before = viewport(container);
+  pointer(button, "pointerdown", 100, 100);
+  pointer(window, "pointermove", 200, 200);
+  pointer(window, "pointerup", 200, 200);
+  expect(viewport(container)).toEqual(before);
 });

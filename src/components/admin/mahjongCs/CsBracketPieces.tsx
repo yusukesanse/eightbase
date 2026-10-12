@@ -4,7 +4,7 @@ import { memo } from "react";
 import type { PointerEvent, ReactNode } from "react";
 import type { PickedChip } from "./useCsBracketDrag";
 
-// 再マウントせずに指でつまめる参加者または札を表示する。
+// 再マウントせずに指でつまめる参加者を表示する。
 export const Chip = memo(function Chip({ picked, label, tier, seed, selected, dragging, locked,
   onPointerDown, onSelect, onUnseed,
 }: {
@@ -43,7 +43,7 @@ export const Chip = memo(function Chip({ picked, label, tier, seed, selected, dr
       >
         <span className="break-all">{label}</span>{" "}
         {tier && <span className="inline-block rounded-full bg-amber-50 px-1 text-amber-800">{tier}</span>}
-        {seed && <span className="ml-1 text-[10px] text-[color:var(--eb-green-text)]">SEED</span>}
+        {seed && <span className="ml-1 text-[10px] text-[color:var(--eb-green-text)]">S</span>}
       </button>
       {seed && onUnseed && (
         <button

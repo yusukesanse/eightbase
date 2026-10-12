@@ -704,19 +704,17 @@ const malformed = [
   { tables: null }, { tables: Array.from({ length: 201 }, (_, i) => ({ ...canvas([]).tables[0], id: String(i) })) },
   ...[{ id: "" }, { id: "x".repeat(65) }, { id: 1 }, { x: Infinity }, { y: NaN }, { x: "0" },
     { advanceCount: 0 }, { advanceCount: 4 }, { advanceCount: 1.5 }, { advanceCount: "1" },
-    { to: 1 }, { playerIds: [1] }, { playerIds: ["a", "b", "c", "d", "e"] }]
+    { to: 1 }, { to: "x".repeat(65) }, { playerIds: ["a", "a"] }, { playerIds: [1] }, { playerIds: ["a", "b", "c", "d", "e"] }]
     .map(over => ({ tables: [{ ...canvas([]).tables[0], ...over }] })),
   { tables: [canvas([]).tables[0], canvas([]).tables[0]] },
   { tables: [canvas(["a"]).tables[0], { ...canvas(["a"]).tables[0], id: "B" }] },
 ];
-it.each(["saveBracket", "confirmBracket"])("%s: malformed canvasを拒否し保存しない", async (action) => {
-  for (const invalid of malformed) {
+it.each(["saveBracket", "confirmBracket"].flatMap(action => malformed.map(invalid => ({ action, invalid }))))("malformed canvas $action: $invalid", async ({ action, invalid }) => {
     const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
     const res = await PATCH(body({ action, seedUserIds: [], canvas: invalid }), params);
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "編成の形式が不正です" });
     expect(db.transactionUpdates.flat()).toHaveLength(0);
-  }
 });
 it.each(["saveBracket", "confirmBracket"])("%s: 非参加者を拒否する", async (action) => {
   const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
@@ -766,4 +764,23 @@ it("confirmBracket: 札と卓別通過人数を生成しrunningにする", async
       { kind: "ticket", fromMatchId: "B", place: 3 },
     ] });
   }
+});
+
+it.each(["saveBracket", "confirmBracket", "removeEntry"])("%s strips extra canvas and table keys", async action => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const dirty = { extra: "discard", tables: [{ ...canvas(["a", "b", "c", "d"]).tables[0], extra: "discard" }] };
+  if (action === "removeEntry") db._get("mahjongCsEvents", "cs1").bracket = { seedUserIds: [], rounds: [], canvas: dirty };
+  const res = await PATCH(body({ action, lineUserId: "a", seedUserIds: [], canvas: dirty }), params);
+  expect(res.status).toBe(200);
+  expect(db._get("mahjongCsEvents", "cs1").bracket.canvas).toEqual(canvas(action === "removeEntry" ? ["b", "c", "d"] : ["a", "b", "c", "d"]));
+});
+it("confirm rejects overflow even when conversion produces rounds", async () => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ action: "confirmBracket", seedUserIds: [], canvas: { tables: [
+    { ...canvas(["a", "b"]).tables[0], id: "A", to: "F", advanceCount: 3 },
+    canvas(["c", "d"]).tables[0],
+  ] } }), params);
+  expect(res.status).toBe(400);
+  expect((await res.json()).errors).toContain("決勝卓: 席が足りません（5名入ります）");
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
 });

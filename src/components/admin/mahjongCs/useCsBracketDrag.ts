@@ -2,17 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { Chip } from "@/lib/mahjongCsBracketEdit";
+export type PlayerChip = { kind: "player"; lineUserId: string };
+type Chip = PlayerChip;
 
 export type PickedChip = { chip: Chip; from: string };
 const DRAG_THRESHOLD = 6;
 // チップの比較用キーを生成する。
 export function chipKey(chip: Chip): string {
-  return chip.kind === "player" ? `player:${chip.lineUserId}` : `ticket:${chip.fromMatchId}:${chip.place}`;
+  return `player:${chip.lineUserId}`;
 }
 // ゴーストを除いた座標直下の置き場を調べる。
 function zoneAtPoint(x: number, y: number): string | null {
-  return document.elementFromPoint(x, y)?.closest("[data-zone]")?.getAttribute("data-zone") ?? null;
+  const target = document.elementFromPoint(x, y)?.closest("[data-zone], [data-table]");
+  return target?.getAttribute("data-zone") ?? (target?.hasAttribute("data-table") ? `seat:${target.getAttribute("data-table")}` : null);
 }
 // 座標を参照に保持し、固定のリスナーと一回の描画予約でドラッグする。
 export function useCsBracketDrag(locked: boolean, apply: (picked: PickedChip, zone: string) => void) {

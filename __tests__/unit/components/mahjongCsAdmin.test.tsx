@@ -21,7 +21,7 @@ function makeEvent(): MahjongCsEvent {
       lineUserId: id, displayName: `選手${id}`, rank: i + 1, seed: false,
     })),
     rounds: [], createdAt: "2099-10-01T00:00:00Z", updatedAt: "2099-10-01T00:00:00Z",
-    bracket: { seedUserIds: [], rounds: [{
+    bracket: { seedUserIds: [], canvas: { tables: [{ id: "F", x: 0, y: 0, advanceCount: 1, to: null, playerIds: ["a", "b", "c", "d"] }] }, rounds: [{
       type: "final", label: "決勝", advanceCount: 1,
       matches: [{ matchId: "F", label: "決勝卓", status: "reporting", players: [],
         seats: ["a", "b", "c", "d"].map((id) => ({ kind: "player", lineUserId: id })) }],
@@ -36,7 +36,7 @@ beforeEach(() => {
       const input = JSON.parse(String(options.body));
       event = { ...event, entries: event.entries?.filter((e) => e.lineUserId !== input.lineUserId),
         entrants: event.entrants.filter((e) => e.lineUserId !== input.lineUserId),
-        bracket: { ...event.bracket!, rounds: event.bracket!.rounds.map((r) => ({ ...r,
+        bracket: { ...event.bracket!, canvas: { tables: event.bracket!.canvas!.tables.map(t => ({ ...t, playerIds: t.playerIds.filter(id => id !== input.lineUserId) })) }, rounds: event.bracket!.rounds.map((r) => ({ ...r,
           matches: r.matches.map((m) => ({ ...m, seats: m.seats!.map((s) =>
             s?.kind === "player" && s.lineUserId === input.lineUserId ? null : s) })),
         })) },
@@ -68,7 +68,7 @@ test("締切後は編成の上に共通参加者一覧を表示し、確認後�
     method: "PATCH", body: JSON.stringify({ action: "removeEntry", lineUserId: "a" }),
   }));
   expect(screen.queryByText("選手a")).toBeNull();
-  expect(within(screen.getByRole("button", { name: "決勝卓 1席目" })).getByText("空席")).toBeTruthy();
+  expect(within(screen.getByRole("button", { name: "決勝卓 空席1" })).getByText("空席")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "期間・定員を変更" })).toBeNull();
   expect(screen.queryByRole("button", { name: "今すぐ締め切る" })).toBeNull();
   expect(screen.queryByRole("button", { name: /ダミーで定員/ })).toBeNull();

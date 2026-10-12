@@ -6,7 +6,7 @@
 import type { MahjongCsEntrant, MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer, MahjongCsRound, MahjongCsSeat } from "@/types";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
-const validAdvance = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 3;
+export const validAdvance = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 3;
 
 function isPlayerSeat(seat: unknown): seat is Extract<MahjongCsSeat, { kind: "player" }> {
   return typeof seat === "object" && seat !== null && "kind" in seat && seat.kind === "player"
