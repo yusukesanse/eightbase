@@ -307,7 +307,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       </div>}
       <div ref={frame} role="region" aria-label="組み合わせキャンバス" tabIndex={0}
         className="relative overflow-hidden rounded-xl border border-[color:var(--eb-line)] bg-slate-50 outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-        style={{ height: "min(70vh, 720px)", touchAction: "none", backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)", backgroundSize: "20px 20px" }}
+        style={{ height: "max(560px, calc(100vh - 160px))", touchAction: "none", backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)", backgroundSize: "20px 20px" }}
         onPointerDown={(event) => {
           if ((event.target as Element).closest('[role="button"], button, input')
             || (editable && (event.target as Element).closest("[data-table]"))) return;
