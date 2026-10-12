@@ -279,7 +279,7 @@ export default function SeasonMahjongCsPage() {
                       <div className="text-xs font-bold text-[#231714]/85 mb-2">
                         {round.label}
                         {round.type !== "final"
-                          && new Set(round.matches.map((m) => m.advanceCount ?? round.advanceCount)).size === 1
+                          && new Set(round.matches.map((m) => m.advanceCount ?? round.advanceCount)).size <= 1
                           && `（各卓 上位${round.matches[0]?.advanceCount ?? round.advanceCount}名通過）`}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
