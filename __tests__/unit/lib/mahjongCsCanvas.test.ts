@@ -1,5 +1,5 @@
 import {
-  incomingCount, openSeats, canvasToRounds, unplacedIds, initialCanvasDraft,
+  incomingCount, openSeats, canvasToRounds, tableLabels, unplacedIds, initialCanvasDraft,
   addTable, removeTable, moveTable, connect, disconnect, setTableAdvance,
   placePlayer, removePlayer, toggleSeed, setTierSeeds, fillEmptySeats,
   type CanvasDraft,
@@ -156,5 +156,28 @@ describe("キャンバス編集", () => {
       out.tables[0].playerIds.push("changed");
     }
     expect(JSON.stringify(d)).toBe(before);
+  });
+});
+
+
+describe("tableLabels", () => {
+  it("uses match labels whenever rounds exist, including seat errors", () => {
+    const tables = [table("a", "f", { advanceCount: 3 }), table("f", null, { playerIds: ["1", "2"] })];
+    expect([...tableLabels(tables)]).toEqual([["a", "準決勝卓"], ["f", "決勝卓"]]);
+    expect(tableLabels([]).size).toBe(0);
+  });
+  it("labels a second unconnected table distinctly", () => {
+    const next = addTable(draft(table("a")), "b", 24, 24, 1);
+    expect([...tableLabels(next.tables)]).toEqual([["a", "卓A"], ["b", "卓B"]]);
+  });
+  it("fallback uses x then id order without mutation and continues after Z", () => {
+    const tables = Array.from({ length: 28 }, (_, i) => table(`t${String(i).padStart(2, "0")}`, null, { x: i === 27 ? -1 : 0 })).reverse();
+    const before = JSON.stringify(tables);
+    const labels = tableLabels(tables);
+    expect(labels.get("t27")).toBe("卓A");
+    expect(labels.get("t00")).toBe("卓B");
+    expect(labels.get("t26")).toBe("卓AB");
+    expect(new Set(labels.values()).size).toBe(28);
+    expect(JSON.stringify(tables)).toBe(before);
   });
 });

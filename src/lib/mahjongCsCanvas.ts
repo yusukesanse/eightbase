@@ -80,6 +80,13 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
   return { rounds, errors };
 }
 
+export function tableLabels(tables: MahjongCsCanvasTable[]): Map<string, string> {
+  const { rounds } = canvasToRounds(tables);
+  return rounds.length > 0
+    ? new Map(rounds.flatMap((round) => round.matches.map((match) => [match.matchId, match.label] as const)))
+    : new Map([...tables].sort(leftOrder).map((table, index) => [table.id, `卓${tableLetter(index)}`]));
+}
+
 export function unplacedIds(draft: CanvasDraft, entrantIds: string[]): string[] {
   const placed = new Set(draft.tables.flatMap((t) => t.playerIds));
   return entrantIds.filter((id) => !placed.has(id));
