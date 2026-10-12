@@ -384,17 +384,19 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   ⚠️ 受付の全操作（表明・取消・定員変更・締切・管理者が外す）は **`rebalanceEntries`（`src/lib/mahjongCsEntry.ts`）を通す**。別の数え方を書かない。定員を減らすと確定M3がキャンセル待ちに戻りうる（画面で人数を警告。通知はしない）。
 - 締切: cron なし。**締切時刻を過ぎて最初のアクセス**（利用者 GET・管理 GET・管理 PATCH）で閉じる（`ensureCsClosed` / PATCH 内の遅延締切）。PATCH の操作が拒否されても締切は書き、監査 `cs.entryClosed`（actor system）を残す。管理「今すぐ締め切る」もある。締切後は利用者は取り消せない（来られない人は管理者が外す）。
 - 日時: 受付期間は**タイムゾーン付き ISO だけ受け付ける**（`isIsoWithOffset`）。開催日は締切の JST 日付以降（作成・変更とも 400）。
-- 編成: 卓はちょうど4席。席は参加者か**札**（`{kind:"ticket", fromMatchId, place}`＝直前のラウンドの卓の n 位）。勝ち抜け人数はラウンドごとに1〜3。検証は `validateBracket`、勝ち上がりは `applyCompletedMatch` / `afterMatchCompleted`（`src/lib/mahjongCsBracket.ts`・純関数）。編集操作は `src/lib/mahjongCsBracketEdit.ts`。
-  ドラッグは `MahjongGmAssignPanel.tsx` と同じ Pointer Events 方式（`useCsBracketDrag.ts`）。タップで選んで席をタップでも置ける。
+- 編成（2026-10-10〜キャンバス方式）: 管理画面のキャンバスに卓カードを置き、**下の卓から上の卓へ矢印**でつなぐ（FigJam 風・下が予選、上が決勝）。卓から出る矢印は1本だけで、その卓の上位 n 名（**卓ごと**に1〜3）が矢印の先へ入る。矢印が入る卓にもシードを直接置ける。
+  **下書きの正は図**（`bracket.canvas.tables[]` = `{id,x,y,advanceCount,to,playerIds}`）。**確定時だけ** `canvasToRounds`（`src/lib/mahjongCsCanvas.ts`）で今の「ラウンド＋札」（`{kind:"ticket", fromMatchId, place}`）に変換し、`validateBracket` → `buildRunningRounds` に渡す（当日の進行は不変）。ラウンド名は決勝からの段数で自動（決勝／準決勝／準々決勝／予選・予選n回戦）、卓の記号は左から。編集途中で名前が決まらない間は「卓A/卓B」（`tableLabels`）。
+  勝ち抜け人数は `match.advanceCount ?? round.advanceCount`（旧データ互換）。検証・勝ち上がりは `src/lib/mahjongCsBracket.ts`（純関数）。canvas の無い旧下書きは移行せず空のキャンバスから始まる。
+  UI は `CsBracketBuilder.tsx` + `CsBracketCanvas.tsx`（新ライブラリなし。絶対配置＋SVG矢印＋CSS transform＋Pointer Events。人のドラッグは `useCsBracketDrag.ts`）。**編集はパソコンのみ**（768px 未満は閲覧だけ）。
 - 当日: 4人そろった卓だけ申告できる（札の席が埋まるまで 409）。卓が確定すると上位が次の札の席へ入る。管理者の結果修正は、次の卓に申告が入っていたら 409。「編成に戻す」（`/fix` resetBracket）は running/finished → closed（結果は消える）。
 - 検証用: 非本番だけ「ダミーで定員まで埋める」（`fillDummies`・本番 404）。
 - ⚠️ **締切後に受付を再開する操作は無い**（closed → entry の遷移なし）。締切を誤って過ぎたら、CSを削除して作り直す。
 - ⚠️ 進行中（finished 以外）の新方式CSがあるシーズンでは新しいCSを作れない（409）。利用者・参加表明は「シーズンで最新に作ったCS」だけを見るため。
 - ⚠️ **旧方式（`capacity` なし）の `setup` のCSは参加表明も自動生成もされない**（閲覧のみ）。本番へ出す前に、開催前の旧方式CSが残っていないか確かめ、残っていれば新方式で作り直して利用者に再表明を案内する。
 - LINE 通知なし。参加費なし。麻雀だけ（他3種目の CS は従来どおり）。
-- 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsBracketEdit}.test.ts`、
+- 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
-  `__tests__/unit/components/{mahjongCsBracketBuilder,mahjongCsView}.test.tsx`。
+  `__tests__/unit/components/{mahjongCsBracketBuilder,mahjongCsBracketCanvas,mahjongCsView,mahjongCsAdmin}.test.tsx`。
 
 ### ポーカーCS（2026-07-28 実装）
 - 方式: **卓分け → 勝ち上がり → 決勝卓**（ダーツCSの読み替え。`src/lib/pokerCs.ts` は純関数）。
