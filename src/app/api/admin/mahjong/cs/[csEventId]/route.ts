@@ -44,8 +44,8 @@ function isBracketCanvas(value: unknown): value is MahjongCsCanvas {
   for (const table of value.tables) {
     if (!record(table) || typeof table.id !== "string" || table.id.length < 1 || table.id.length > 64
       || tableIds.has(table.id)
-      || typeof table.x !== "number" || !Number.isFinite(table.x)
-      || typeof table.y !== "number" || !Number.isFinite(table.y)
+      || typeof table.x !== "number" || !(Math.abs(table.x) <= 1e6)
+      || typeof table.y !== "number" || !(Math.abs(table.y) <= 1e6)
       || typeof table.advanceCount !== "number" || !validAdvance(table.advanceCount)
       || (table.to !== null && (typeof table.to !== "string" || table.to.length > 64))
       || !Array.isArray(table.playerIds) || table.playerIds.length > 4

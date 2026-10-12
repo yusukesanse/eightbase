@@ -386,7 +386,7 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - 日時: 受付期間は**タイムゾーン付き ISO だけ受け付ける**（`isIsoWithOffset`）。開催日は締切の JST 日付以降（作成・変更とも 400）。
 - 編成（2026-10-10〜キャンバス方式）: 管理画面のキャンバスに卓カードを置き、**下の卓から上の卓へ矢印**でつなぐ（FigJam 風・下が予選、上が決勝）。卓から出る矢印は1本だけで、その卓の上位 n 名（**卓ごと**に1〜3）が矢印の先へ入る。矢印が入る卓にもシードを直接置ける。
   **下書きの正は図**（`bracket.canvas.tables[]` = `{id,x,y,advanceCount,to,playerIds}`）。**確定時だけ** `canvasToRounds`（`src/lib/mahjongCsCanvas.ts`）で今の「ラウンド＋札」（`{kind:"ticket", fromMatchId, place}`）に変換し、`validateBracket` → `buildRunningRounds` に渡す（当日の進行は不変）。ラウンド名は決勝からの段数で自動（決勝／準決勝／準々決勝／予選・予選n回戦）、卓の記号は左から。編集途中で名前が決まらない間は「卓A/卓B」（`tableLabels`）。
-  勝ち抜け人数は `match.advanceCount ?? round.advanceCount`（旧データ互換）。検証・勝ち上がりは `src/lib/mahjongCsBracket.ts`（純関数）。canvas の無い旧下書きは移行せず空のキャンバスから始まる。
+  勝ち抜け人数は `match.advanceCount ?? round.advanceCount`（旧データ互換）。検証・勝ち上がりは `src/lib/mahjongCsBracket.ts`（純関数）。canvas の無い旧下書き（列方式で確定したCSを「編成に戻す」した場合も含む）は移行せず空のキャンバスから始まる。
   UI は `CsBracketBuilder.tsx` + `CsBracketCanvas.tsx`（新ライブラリなし。絶対配置＋SVG矢印＋CSS transform＋Pointer Events。人のドラッグは `useCsBracketDrag.ts`）。**編集はパソコンのみ**（768px 未満は閲覧だけ）。
 - 当日: 4人そろった卓だけ申告できる（札の席が埋まるまで 409）。卓が確定すると上位が次の札の席へ入る。管理者の結果修正は、次の卓に申告が入っていたら 409。「編成に戻す」（`/fix` resetBracket）は running/finished → closed（結果は消える）。
 - 検証用: 非本番だけ「ダミーで定員まで埋める」（`fillDummies`・本番 404）。
