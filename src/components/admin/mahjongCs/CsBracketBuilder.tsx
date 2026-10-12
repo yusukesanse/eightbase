@@ -32,9 +32,9 @@ export function useNarrowScreen() {
   }, []);
   return narrow;
 }
-// 大会または保存済み編成の更新時に編集状態を読み直す。
+// 大会の切り替え時だけキャンバスを作り直す。
 export default function CsBracketBuilder(props: Props) {
-  return <Builder key={`${props.event.csEventId}:${JSON.stringify(props.event.bracket)}`} {...props} />;
+  return <Builder key={props.event.csEventId} {...props} />;
 }
 // シードと席の編集および下書き保存と確定を管理する。
 function Builder({ event, onChanged, onError }: Props) {
@@ -43,6 +43,13 @@ function Builder({ event, onChanged, onError }: Props) {
   const [saved, setSaved] = useState(() => JSON.stringify(initialCanvasDraft(event)));
   const [busy, setBusy] = useState(false);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
+  const serverDraft = JSON.stringify(initialCanvasDraft(event));
+  useEffect(() => {
+    // 再取得した編成を反映しても、キャンバスの表示位置は維持する。
+    setDraft(JSON.parse(serverDraft) as Draft);
+    setSaved(serverDraft);
+    setServerErrors([]);
+  }, [serverDraft]);
   const entrants = event.entrants ?? [];
   const ids = entrants.map((entrant) => entrant.lineUserId);
   const unplaced = unplacedIds(draft, ids);
@@ -84,13 +91,14 @@ function Builder({ event, onChanged, onError }: Props) {
         selected={!!drag.selected && chipKey(drag.selected.chip) === chipKey(chip)}
         dragging={!!drag.drag && chipKey(drag.drag.chip) === chipKey(chip)} locked={locked}
         onPointerDown={drag.onPointerDown} onSelect={drag.select}
-        onUnseed={() => update((current) => toggleSeed(current, chip.lineUserId))}
+        onUnseed={from.startsWith("seat:") ? undefined : () => update((current) => toggleSeed(current, chip.lineUserId))}
       />
     );
   };
   const isLit = (zone: string) => {
     const picked = drag.drag ?? drag.selected;
-    return !!picked && !locked && (!drag.drag || drag.drag.zone === zone);
+    return !!picked && !locked && (zone !== "pool" || picked.from.startsWith("seat:"))
+      && (!drag.drag || drag.drag.zone === zone);
   };
   // 編集内容を送信し、競合や消失時には親画面へ再取得を依頼する。
   const save = async (action: "saveBracket" | "confirmBracket") => {
@@ -184,7 +192,7 @@ function Builder({ event, onChanged, onError }: Props) {
           {!hasTables && <p className="text-xs">先に卓を追加してください</p>}
         </div>}
         <CsBracketCanvas draft={draft} entrantsById={new Map(entrants.map(entry => [entry.lineUserId, entry]))}
-          editable={!locked} onChange={next => update(() => next)}
+          editable={!narrow} onChange={next => update(() => next)}
           renderPlayer={(id, tableId) => renderChip({ kind: "player", lineUserId: id }, `seat:${tableId}`)}
           onZoneClick={drag.onZoneClick} />
       </div>
