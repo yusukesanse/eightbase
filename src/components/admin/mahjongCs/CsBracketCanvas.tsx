@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
-  addTable, canvasToRounds, connect, disconnect, incomingCount, moveTable, openSeats,
+  addTable, tableLabels, connect, disconnect, incomingCount, moveTable, openSeats,
   removeTable, setTableAdvance,
 } from "@/lib/mahjongCsCanvas";
 import type { CanvasDraft } from "@/lib/mahjongCsCanvas";
@@ -28,7 +28,7 @@ type Gesture = {
 };
 const CARD_W = 200;
 const CARD_H = 160;
-const clampZoom = (z: number) => Math.min(1.6, Math.max(0.4, z));
+const clampZoom = (z: number) => Math.min(1.6, Math.max(0.2, z));
 const translate = (p: Point) => `translate(${p.x}px, ${p.y}px)`;
 function curve(from: Point, to: Point): string {
   const bend = Math.max(40, Math.abs(to.y - from.y) / 2);
@@ -43,6 +43,7 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
   const layer = useRef<HTMLDivElement>(null);
   const cards = useRef(new Map<string, HTMLDivElement>());
   const arrows = useRef(new Map<string, SVGPathElement>());
+  const arrowHits = useRef(new Map<string, SVGPathElement>());
   const temporary = useRef<SVGPathElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const raf = useRef<number | null>(null);
@@ -51,9 +52,7 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
   const latest = useRef({ draft, editable, onChange });
   latest.current = { draft, editable, onChange };
   const markerId = `cs-arrow-${useId().replace(/:/g, "")}`;
-  const names = useMemo(() => new Map(canvasToRounds(draft.tables).rounds.flatMap(
-    (round) => round.matches.map((match) => [match.matchId, match.label] as const),
-  )), [draft.tables]);
+  const names = useMemo(() => tableLabels(draft.tables), [draft.tables]);
   const name = (id: string) => names.get(id) ?? "卓";
 
   const paintView = (next: View) => {
@@ -66,6 +65,7 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
   };
 
   useEffect(() => {
+    fitAll();
     const position = (id: string, active: Gesture | null): Point => {
       const table = latest.current.draft.tables.find((t) => t.id === id)!;
       if (active?.kind !== "card" || active.id !== id || !active.moved) return table;
@@ -78,7 +78,9 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
         const card = cards.current.get(table.id);
         if (card) card.style.transform = translate(position(table.id, active));
         if (table.to && tables.some((t) => t.id === table.to)) {
-          arrows.current.get(table.id)?.setAttribute("d", arrowPath(position(table.id, active), position(table.to, active)));
+          const d = arrowPath(position(table.id, active), position(table.to, active));
+          arrows.current.get(table.id)?.setAttribute("d", d);
+          arrowHits.current.get(table.id)?.setAttribute("d", d);
         }
       }
     };
@@ -104,12 +106,14 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
       if (raf.current !== null) cancelAnimationFrame(raf.current);
       raf.current = null;
       gesture.current = null;
+      for (const path of arrowHits.current.values()) path.style.pointerEvents = latest.current.editable ? "stroke" : "none";
       temporary.current?.setAttribute("d", "");
       paintTables(null);
     };
     const onMove = (event: PointerEvent) => {
       const active = gesture.current;
       if (!active || active.pointerId !== event.pointerId) return;
+      if (event.pointerType === "mouse" && event.buttons === 0) return cleanup();
       if (active.kind !== "pan" && !latest.current.editable) return cleanup();
       active.point = { x: event.clientX, y: event.clientY };
       if (!active.moved && Math.hypot(active.point.x - active.start.x, active.point.y - active.start.y) < 6) return;
@@ -172,11 +176,12 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
     frame.current?.focus({ preventScroll: true });
     setSelected(null);
     const point = { x: event.clientX, y: event.clientY };
+    if (kind === "connect") for (const path of arrowHits.current.values()) path.style.pointerEvents = "none";
     gesture.current = { kind, id, pointerId: event.pointerId, start: point, point, view: { ...view.current }, moved: false };
   }
   function deleteArrow() {
     if (!editable || !selected) return;
-    onChange(disconnect(draft, selected));
+    if (draft.tables.find((table) => table.id === selected)?.to) onChange(disconnect(draft, selected));
     setSelected(null);
   }
   function fitAll() {
@@ -189,25 +194,40 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
     const z = clampZoom(Math.min((rect.width - 64) / (right - left), (rect.height - 64) / (bottom - top)));
     paintView({ z, x: rect.width / 2 - (left + right) * z / 2, y: rect.height / 2 - (top + bottom) * z / 2 });
   }
+  function zoom(factor: number) {
+    if (gesture.current) return;
+    const rect = frame.current!.getBoundingClientRect();
+    const old = view.current;
+    const z = clampZoom(old.z * factor);
+    paintView({ z, x: rect.width / 2 - (rect.width / 2 - old.x) * z / old.z,
+      y: rect.height / 2 - (rect.height / 2 - old.y) * z / old.z });
+  }
   function createTable() {
     const rect = frame.current!.getBoundingClientRect();
     const { x, y, z } = view.current;
     const suffix = globalThis.crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 10).padEnd(8, "0");
-    onChange(addTable(draft, `t_${suffix}`, (rect.width / 2 - x) / z - CARD_W / 2,
-      (rect.height / 2 - y) / z - CARD_H / 2, 1));
+    let tableX = (rect.width / 2 - x) / z - CARD_W / 2;
+    let tableY = (rect.height / 2 - y) / z - CARD_H / 2;
+    while (draft.tables.some((table) => Math.abs(table.x - tableX) < 0.01 && Math.abs(table.y - tableY) < 0.01)) {
+      tableX += 24;
+      tableY += 24;
+    }
+    onChange(addTable(draft, `t_${suffix}`, tableX, tableY, 1));
   }
   const buttonClass = "rounded-lg border border-[color:var(--eb-line)] bg-white px-3 py-2 text-xs font-bold";
   return (
     <div className="space-y-3">
-      {editable && <div className="flex gap-2">
-        <button type="button" className={buttonClass} onClick={createTable}>卓を追加</button>
+      <div className="flex gap-2">
+        {editable && <button type="button" className={buttonClass} onClick={createTable}>卓を追加</button>}
         <button type="button" className={buttonClass} onClick={fitAll}>全体を表示</button>
-      </div>}
+        <button type="button" className={buttonClass} aria-label="拡大" onClick={() => zoom(1.2)}>＋</button>
+        <button type="button" className={buttonClass} aria-label="縮小" onClick={() => zoom(1 / 1.2)}>−</button>
+      </div>
       <div ref={frame} role="region" aria-label="組み合わせキャンバス" tabIndex={0}
         className="relative overflow-hidden rounded-xl border border-[color:var(--eb-line)] bg-slate-50 outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
         style={{ height: "min(70vh, 720px)", touchAction: "none", backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)", backgroundSize: "20px 20px" }}
         onPointerDown={(event) => {
-          if ((event.target as Element).closest('[data-table], [role="button"], button')) return;
+          if (editable && (event.target as Element).closest('[data-table], [role="button"], button')) return;
           start(event, "pan");
         }}
         onKeyDown={(event) => {
@@ -222,10 +242,13 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
             </marker></defs>
             {draft.tables.map((table) => {
               const target = draft.tables.find((t) => t.id === table.to);
-              return target && <path key={table.id} ref={(node) => { if (node) arrows.current.set(table.id, node); else arrows.current.delete(table.id); }}
+              return target && <g key={table.id}><path ref={(node) => { if (node) arrows.current.set(table.id, node); else arrows.current.delete(table.id); }}
                 d={arrowPath(table, target)} fill="none" stroke="var(--eb-green, #059669)"
                 strokeWidth={editable && selected === table.id ? 5 : 3} markerEnd={`url(#${markerId})`}
-                style={{ pointerEvents: editable ? "stroke" : "none", cursor: editable ? "pointer" : undefined }}
+                style={{ pointerEvents: "none" }} />
+                <path ref={(node) => { if (node) arrowHits.current.set(table.id, node); else arrowHits.current.delete(table.id); }}
+                d={arrowPath(table, target)} fill="none" stroke="transparent" strokeWidth={16}
+                style={{ pointerEvents: editable && gesture.current?.kind !== "connect" ? "stroke" : "none", cursor: editable ? "pointer" : undefined }}
                 role={editable ? "button" : undefined} tabIndex={editable ? 0 : undefined}
                 aria-label={`${name(table.id)}→${name(target.id)}の矢印`}
                 onClick={() => { if (editable) { setSelected(table.id); frame.current?.focus({ preventScroll: true }); } }}
@@ -233,7 +256,7 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
                   if (editable && (event.key === "Enter" || event.key === " ")) {
                     event.preventDefault(); setSelected(table.id); frame.current?.focus({ preventScroll: true });
                   }
-                }} />;
+                }} /></g>;
             })}
             <path ref={temporary} fill="none" stroke="var(--eb-green, #059669)" strokeWidth="3" strokeDasharray="6 4" markerEnd={`url(#${markerId})`} />
           </svg>
