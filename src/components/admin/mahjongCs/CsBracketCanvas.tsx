@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import {
   addTable, tableLabels, connect, disconnect, incomingCount, moveTable, openSeats,
-  removeTable, removePlayer, setTableAdvance,
+  removeTable, removePlayer, setTableAdvance, renameTable, classifyWheel,
 } from "@/lib/mahjongCsCanvas";
 import type { CanvasDraft } from "@/lib/mahjongCsCanvas";
 import type { MahjongCsEntrant } from "@/types/mahjong";
@@ -52,6 +52,8 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   const raf = useRef<number | null>(null);
   const view = useRef<View>({ x: 0, y: 0, z: 1 });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const editingId = useRef<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const latest = useRef({ draft, editable, onChange });
   latest.current = { draft, editable, onChange };
@@ -160,8 +162,14 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       if (gesture.current) return;
       const rect = frame.current!.getBoundingClientRect();
       const old = view.current;
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
-      const z = clampZoom(old.z * Math.exp(-delta * 0.001));
+      const kind = classifyWheel(event);
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1;
+      if (kind === "pan") {
+        paintView({ ...old, x: old.x - event.deltaX * unit, y: old.y - event.deltaY * unit });
+        return;
+      }
+      const delta = event.deltaY * unit;
+      const z = clampZoom(old.z * Math.exp(-delta * (kind === "zoom-pinch" ? 0.01 : 0.001)));
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       paintView({ z, x: x - (x - old.x) * z / old.z, y: y - (y - old.y) * z / old.z });
@@ -191,6 +199,14 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
     const point = { x: event.clientX, y: event.clientY };
     if (kind === "connect") for (const path of arrowHits.current.values()) path.style.pointerEvents = "none";
     gesture.current = { kind, id, pointerId: event.pointerId, start: point, point, view: { ...view.current }, moved: false };
+  }
+  function finishName(value?: string) {
+    const id = editingId.current;
+    editingId.current = null;
+    setEditing(null);
+    if (id && value !== undefined && latest.current.editable) {
+      latest.current.onChange(renameTable(latest.current.draft, id, value));
+    }
   }
   function deleteArrow() {
     if (!editable || !selected) return;
@@ -246,7 +262,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
         className="relative overflow-hidden rounded-xl border border-[color:var(--eb-line)] bg-slate-50 outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
         style={{ height: "min(70vh, 720px)", touchAction: "none", backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)", backgroundSize: "20px 20px" }}
         onPointerDown={(event) => {
-          if ((event.target as Element).closest('[role="button"], button')
+          if ((event.target as Element).closest('[role="button"], button, input')
             || (editable && (event.target as Element).closest("[data-table]"))) return;
           start(event, "pan");
         }}
@@ -293,7 +309,25 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
               onPointerDown={(event) => start(event, "connect", table.id)} />}
             <h3 aria-label={editable ? `${name(table.id)}を移動` : undefined}
               className={`rounded-t-xl bg-emerald-50 px-3 py-3 text-sm font-bold select-none ${editable ? "cursor-grab" : ""}`}
-              onPointerDown={editable ? (event) => start(event, "card", table.id) : undefined}>{name(table.id)}</h3>
+              onPointerDown={editable && editing !== table.id ? (event) => start(event, "card", table.id) : undefined}
+              onDoubleClick={() => {
+                if (!editable || editing === table.id) return;
+                editingId.current = table.id;
+                setEditing(table.id);
+              }}>
+              {editable && editing === table.id ? <input autoFocus type="text" maxLength={20} aria-label="卓名を編集"
+                className="w-full rounded border border-[color:var(--eb-line)] bg-white px-1 text-sm"
+                defaultValue={name(table.id)}
+                onPointerDown={event => event.stopPropagation()}
+                onBlur={event => finishName(event.currentTarget.value)}
+                onKeyDown={event => {
+                  if (event.nativeEvent.isComposing) return;
+                  if (event.key === "Enter" || event.key === "Escape") {
+                    event.preventDefault();
+                    finishName(event.key === "Enter" ? event.currentTarget.value : undefined);
+                  }
+                }} /> : name(table.id)}
+            </h3>
             <div className="space-y-3 p-3 text-xs">
               <div className="flex items-center justify-between gap-1">
                 <span>{table.to === null ? `表彰 ${table.advanceCount}名` : `勝ち抜け ${table.advanceCount}名`}</span>

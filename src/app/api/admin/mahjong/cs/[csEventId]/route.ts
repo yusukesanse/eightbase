@@ -43,6 +43,7 @@ function isBracketCanvas(value: unknown): value is MahjongCsCanvas {
   const playerTables = new Map<string, string>();
   for (const table of value.tables) {
     if (!record(table) || typeof table.id !== "string" || table.id.length < 1 || table.id.length > 64
+      || (table.name !== undefined && (typeof table.name !== "string" || table.name.trim().length < 1 || table.name.trim().length > 20))
       || tableIds.has(table.id)
       || typeof table.x !== "number" || !(Math.abs(table.x) <= 1e6)
       || typeof table.y !== "number" || !(Math.abs(table.y) <= 1e6)
@@ -60,8 +61,8 @@ function isBracketCanvas(value: unknown): value is MahjongCsCanvas {
 }
 
 function normalizeCanvas(canvas: MahjongCsCanvas): MahjongCsCanvas {
-  return { tables: canvas.tables.map(({ id, x, y, advanceCount, to, playerIds }) =>
-    ({ id, x, y, advanceCount, to, playerIds: [...playerIds] })) };
+  return { tables: canvas.tables.map(({ id, name, x, y, advanceCount, to, playerIds }) =>
+    ({ id, ...(name !== undefined ? { name: name.trim() } : {}), x, y, advanceCount, to, playerIds: [...playerIds] })) };
 }
 
 /** PATCH /api/admin/mahjong/cs/[csEventId] — 受付・編成を action ごとに更新する。 */
@@ -181,9 +182,10 @@ export async function PATCH(
           if (canvas.tables.some((table) => table.playerIds.some((id) => !entrantIds.includes(id)))) {
             return reject(400, "参加確定者ではない人が入っています");
           }
+          const normalized = normalizeCanvas(canvas);
           let rounds: MahjongCsRound[] = [];
           if (action === "confirmBracket") {
-            const converted = canvasToRounds(canvas.tables);
+            const converted = canvasToRounds(normalized.tables);
             if (converted.errors.length) return reject(400, "編成に不備があります", converted.errors);
             rounds = converted.rounds;
             const errors = validateBracket(rounds, entrantIds);
@@ -193,7 +195,7 @@ export async function PATCH(
             update.status = "running";
             audit = "cs.bracketConfirmed";
           }
-          update.bracket = { seedUserIds, canvas: normalizeCanvas(canvas), rounds };
+          update.bracket = { seedUserIds, canvas: normalized, rounds };
           break;
         }
         case "fillDummies": {

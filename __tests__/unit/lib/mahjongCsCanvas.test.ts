@@ -1,10 +1,10 @@
 import {
-  keepEntrants, incomingCount, openSeats, canvasToRounds, tableLabels, unplacedIds, initialCanvasDraft,
+  renameTable, classifyWheel, keepEntrants, incomingCount, openSeats, canvasToRounds, tableLabels, unplacedIds, initialCanvasDraft,
   addTable, removeTable, moveTable, connect, disconnect, setTableAdvance,
   placePlayer, removePlayer, toggleSeed, setTierSeeds, fillEmptySeats,
   type CanvasDraft,
 } from "@/lib/mahjongCsCanvas";
-import { validateBracket } from "@/lib/mahjongCsBracket";
+import { ticketLabel, validateBracket } from "@/lib/mahjongCsBracket";
 import type { MahjongCsCanvasTable, MahjongCsEntrant } from "@/types";
 
 const table = (id: string, to: string | null = null, extra: Partial<MahjongCsCanvasTable> = {}): MahjongCsCanvasTable =>
@@ -194,4 +194,55 @@ test("keepEntrants removes withdrawn players from every table and seeds without 
   ] });
   expect(keepEntrants(d, []).tables.map(t => t.playerIds)).toEqual([[], []]);
   expect(JSON.stringify(d)).toBe(before);
+});
+
+
+describe("卓名", () => {
+  const named = () => draft({ ...table("a", "f"), name: "東風卓" }, table("f"));
+  it("名前をtrimし、空なら削除し、長すぎる名前を拒否して入力を変更しない", () => {
+    const d = named();
+    const before = JSON.stringify(d);
+    expect(renameTable(d, "a", "  新しい卓  ").tables[0]).toHaveProperty("name", "新しい卓");
+    expect(renameTable(d, "a", "あ".repeat(20)).tables[0]).toHaveProperty("name", "あ".repeat(20));
+    expect(renameTable(d, "a", "  ").tables[0]).not.toHaveProperty("name");
+    expect(renameTable(d, "a", "あ".repeat(21))).toEqual(d);
+    expect(renameTable(d, "missing", "新卓")).toEqual(d);
+    expect(JSON.stringify(d)).toBe(before);
+  });
+  it("卓と札にカスタム名を表示し、ラウンド名は自動のまま", () => {
+    const { rounds, errors } = canvasToRounds(named().tables);
+    expect(errors).toEqual([]);
+    expect(rounds[0].label).toBe("準決勝");
+    expect(rounds[0].matches[0].label).toBe("東風卓");
+    expect(ticketLabel(rounds, "a", 1)).toBe("東風卓 1位");
+    expect(tableLabels(named().tables).get("a")).toBe("東風卓");
+  });
+  it.each(["東風卓", "決勝卓"])("自動名も含め重複名 %s を検出してroundsも返す", label => {
+    const tables = [{ ...table("a", "f"), name: label },
+      { ...table("f"), ...(label === "東風卓" ? { name: label } : {}) }];
+    const out = canvasToRounds(tables);
+    expect(out.errors).toEqual([`「${label}」という卓名が重複しています`]);
+    expect(out.rounds).toHaveLength(2);
+  });
+  it("グラフ不正時も名前を優先する", () => {
+    expect(tableLabels([{ ...table("a"), name: "東風卓" }, table("b")]).get("a")).toBe("東風卓");
+  });
+  it("初期化と参加者整理で名前を保持する", () => {
+    const d = named();
+    expect(initialCanvasDraft({ bracket: { seedUserIds: [], rounds: [], canvas: { tables: d.tables } } })).toEqual(d);
+    expect(keepEntrants(d, [])).toEqual(d);
+  });
+});
+
+describe("classifyWheel", () => {
+  it.each([
+    [{ ctrlKey: true, deltaY: -10 }, "zoom-pinch"],
+    [{ metaKey: true, deltaY: 100, deltaMode: 1 }, "zoom-pinch"],
+    [{ deltaY: 2.5 }, "pan"], [{ deltaY: 10 }, "pan"],
+    [{ deltaX: 1, deltaY: 100 }, "pan"], [{ deltaY: 100.5 }, "pan"],
+    [{ deltaY: 100 }, "zoom-wheel"], [{ deltaY: -50 }, "zoom-wheel"],
+    [{ deltaY: 1, deltaMode: 1 }, "zoom-wheel"], [{ deltaMode: 2 }, "zoom-wheel"],
+  ])("%j → %s", (event, expected) => {
+    expect(classifyWheel({ deltaX: 0, deltaY: 0, deltaMode: 0, ctrlKey: false, metaKey: false, ...event })).toBe(expected);
+  });
 });
