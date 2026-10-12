@@ -1,5 +1,5 @@
 import {
-  incomingCount, openSeats, canvasToRounds, tableLabels, unplacedIds, initialCanvasDraft,
+  keepEntrants, incomingCount, openSeats, canvasToRounds, tableLabels, unplacedIds, initialCanvasDraft,
   addTable, removeTable, moveTable, connect, disconnect, setTableAdvance,
   placePlayer, removePlayer, toggleSeed, setTierSeeds, fillEmptySeats,
   type CanvasDraft,
@@ -180,4 +180,18 @@ describe("tableLabels", () => {
     expect(new Set(labels.values()).size).toBe(28);
     expect(JSON.stringify(tables)).toBe(before);
   });
+});
+
+
+test("keepEntrants removes withdrawn players from every table and seeds without changing layout or input", () => {
+  const d = { seedUserIds: ["gone", "s"], tables: [
+    table("a", "b", { x: 123, playerIds: ["gone", "u"] }),
+    table("b", null, { playerIds: ["s", "other-gone"] }),
+  ] };
+  const before = JSON.stringify(d);
+  expect(keepEntrants(d, ["s", "u"])).toEqual({ seedUserIds: ["s"], tables: [
+    table("a", "b", { x: 123, playerIds: ["u"] }), table("b", null, { playerIds: ["s"] }),
+  ] });
+  expect(keepEntrants(d, []).tables.map(t => t.playerIds)).toEqual([[], []]);
+  expect(JSON.stringify(d)).toBe(before);
 });

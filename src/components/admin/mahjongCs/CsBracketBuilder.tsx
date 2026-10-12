@@ -5,7 +5,7 @@ import type { MahjongCsEvent } from "@/types/mahjong";
 import { Button, GlassCard } from "@/components/ui/eb";
 import { validateBracket } from "@/lib/mahjongCsBracket";
 import {
-  fillEmptySeats, initialCanvasDraft, placePlayer, removePlayer, setTierSeeds, toggleSeed, canvasToRounds, unplacedIds,
+  fillEmptySeats, initialCanvasDraft, keepEntrants, placePlayer, removePlayer, setTierSeeds, toggleSeed, canvasToRounds, unplacedIds,
 } from "@/lib/mahjongCsCanvas";
 import type { CanvasDraft as Draft } from "@/lib/mahjongCsCanvas";
 import type { PlayerChip as ChipValue } from "./useCsBracketDrag";
@@ -16,7 +16,7 @@ import type { PickedChip } from "./useCsBracketDrag";
 
 interface Props {
   event: MahjongCsEvent & { csEventId: string };
-  onChanged: () => void;
+  onChanged: () => void | Promise<void>;
   onError: (message: string | null) => void;
 }
 // SSRではデスクトップとして描画し、マウント後に画面幅へ追従する。
@@ -39,17 +39,13 @@ export default function CsBracketBuilder(props: Props) {
 // シードと席の編集および下書き保存と確定を管理する。
 function Builder({ event, onChanged, onError }: Props) {
   const narrow = useNarrowScreen();
-  const [draft, setDraft] = useState(() => initialCanvasDraft(event));
-  const [saved, setSaved] = useState(() => JSON.stringify(initialCanvasDraft(event)));
+  const [{ draft, saved }, setDraftState] = useState(() => {
+    const draft = initialCanvasDraft(event);
+    return { draft, saved: JSON.stringify(draft) };
+  });
   const [busy, setBusy] = useState(false);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   const serverDraft = JSON.stringify(initialCanvasDraft(event));
-  useEffect(() => {
-    // 再取得した編成を反映しても、キャンバスの表示位置は維持する。
-    setDraft(JSON.parse(serverDraft) as Draft);
-    setSaved(serverDraft);
-    setServerErrors([]);
-  }, [serverDraft]);
   const entrants = event.entrants ?? [];
   const ids = entrants.map((entrant) => entrant.lineUserId);
   const unplaced = unplacedIds(draft, ids);
@@ -63,7 +59,7 @@ function Builder({ event, onChanged, onError }: Props) {
   // 編集時には古いサーバー検証結果を消す。
   const update = useCallback((edit: (current: Draft) => Draft) => {
     if (locked) return;
-    setDraft(edit);
+    setDraftState(current => ({ ...current, draft: edit(current.draft) }));
     setServerErrors([]);
   }, [locked]);
   // 置き場に応じて配置、席の解除、シード追加を適用する。
@@ -79,6 +75,19 @@ function Builder({ event, onChanged, onError }: Props) {
     });
   }, [update]);
   const drag = useCsBracketDrag(locked, apply);
+  const clearSelection = drag.clear;
+  const entrantIds = JSON.stringify(ids);
+  useEffect(() => {
+    // 未保存の編成は維持し、参加取り消しだけを反映する。
+    setDraftState(current => ({
+      draft: JSON.stringify(current.draft) === current.saved
+        ? JSON.parse(serverDraft) as Draft
+        : keepEntrants(current.draft, JSON.parse(entrantIds) as string[]),
+      saved: serverDraft,
+    }));
+    setServerErrors([]);
+    clearSelection();
+  }, [serverDraft, entrantIds, clearSelection]);
 
   const labelFor = (chip: ChipValue) => entrants.find((entry) => entry.lineUserId === chip.lineUserId)?.displayName ?? chip.lineUserId;
   // 共通チップに選択状態とシード操作を渡す。
@@ -119,10 +128,10 @@ function Builder({ event, onChanged, onError }: Props) {
         if (Array.isArray(data.errors)) {
           setServerErrors(data.errors.filter((error: unknown) => typeof error === "string"));
         }
-        if (response.status === 404 || response.status === 409) onChanged();
+        if (response.status === 404 || response.status === 409) await onChanged();
       } else {
-        setSaved(JSON.stringify(draft));
-        onChanged();
+        setDraftState(current => ({ ...current, saved: JSON.stringify(draft) }));
+        await onChanged();
       }
     } catch {
       onError("保存に失敗しました");
