@@ -360,7 +360,8 @@ test.each(["Enter", "blur"])("卓名をダブルクリックして%sで確定す
   const { onChange, rerender, props } = setup();
   fireEvent.doubleClick(screen.getByLabelText("準決勝卓を移動"));
   const input = screen.getByRole("textbox", { name: "卓名を編集" });
-  expect((input as HTMLInputElement).value).toBe("準決勝卓");
+  expect((input as HTMLInputElement).value).toBe("");
+  expect(input.getAttribute("placeholder")).toBe("準決勝卓");
   expect(input.getAttribute("maxlength")).toBe("20");
   fireEvent.change(input, { target: { value: " 東風卓 " } });
   if (finish === "blur") fireEvent.blur(input);
@@ -402,4 +403,123 @@ test("閲覧専用では卓名を編集できない", () => {
   fireEvent.doubleClick(screen.getByRole("heading", { name: "準決勝卓" }));
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(onChange).not.toHaveBeenCalled();
+});
+
+
+test.each(["Enter", "blur"])("未入力の自動名は%sでも保存しない", finish => {
+  const value = draft();
+  const { onChange } = setup(value);
+  fireEvent.doubleClick(screen.getByLabelText("準決勝卓を移動"));
+  const input = screen.getByRole("textbox");
+  if (finish === "blur") fireEvent.blur(input);
+  else fireEvent.keyDown(input, { key: "Enter" });
+  expect(onChange).not.toHaveBeenCalled();
+  expect(value.tables[0]).not.toHaveProperty("name");
+  expect(screen.queryByRole("textbox")).toBeNull();
+});
+test.each(["東風卓", " 東風卓 "])("trim後に同じ卓名なら保存しない: %s", value => {
+  const current = draft(); current.tables[0].name = "東風卓";
+  const { onChange } = setup(current);
+  fireEvent.doubleClick(screen.getByLabelText("東風卓を移動"));
+  const input = screen.getByRole("textbox");
+  expect(input.getAttribute("placeholder")).toBe("準決勝卓");
+  fireEvent.change(input, { target: { value } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(onChange).not.toHaveBeenCalled();
+});
+test("編集入力はスクロールせずフォーカスし文字選択できる", () => {
+  setup();
+  const focus = jest.spyOn(HTMLElement.prototype, "focus");
+  fireEvent.doubleClick(screen.getByLabelText("準決勝卓を移動"));
+  const input = screen.getByRole("textbox");
+  expect(document.activeElement).toBe(input);
+  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  expect(input.classList.contains("select-text")).toBe(true);
+  expect(input.closest("h3")!.classList.contains("select-none")).toBe(false);
+  expect(input.closest("h3")!.hasAttribute("aria-label")).toBe(false);
+});
+test("閲覧専用への切替で編集を破棄し編集可能に戻しても復活しない", () => {
+  const { props, rerender, onChange } = setup();
+  fireEvent.doubleClick(screen.getByLabelText("準決勝卓を移動"));
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "未保存" } });
+  rerender(<CsBracketCanvas {...props} editable={false} />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  rerender(<CsBracketCanvas {...props} />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
+});
+test.each([100, -100])("Ctrl+マウスホイール%sの倍率は従来の係数", deltaY => {
+  const { container, frame } = setup();
+  const before = viewport(container);
+  fireEvent.wheel(frame, { ctrlKey: true, deltaY });
+  expect(viewport(container).z / before.z).toBeCloseTo(deltaY > 0 ? 0.904837 : 1.105170, 5);
+});
+test.each([40.5, -40.5])("ピンチdelta%sは±25に制限", deltaY => {
+  const { container, frame } = setup();
+  const before = viewport(container);
+  fireEvent.wheel(frame, { ctrlKey: true, deltaY });
+  expect(viewport(container).z / before.z).toBeCloseTo(deltaY > 0 ? 0.778801 : 1.284025, 5);
+});
+test("フリック中は最後のパンから150ms以内の整数deltaをパンとして継続", () => {
+  const now = jest.spyOn(performance, "now").mockReturnValue(1000);
+  const { container, frame } = setup();
+  fireEvent.wheel(frame, { deltaX: 1, deltaY: 4 });
+  const before = viewport(container);
+  now.mockReturnValue(1150);
+  fireEvent.wheel(frame, { deltaY: 100 });
+  expect(viewport(container)).toMatchObject({ x: before.x, y: before.y - 100, z: before.z });
+  now.mockReturnValue(1290);
+  fireEvent.wheel(frame, { deltaY: 100 });
+  expect(viewport(container).y).toBe(before.y - 200);
+  now.mockReturnValue(1441);
+  fireEvent.wheel(frame, { deltaY: 100 });
+  expect(viewport(container).z / before.z).toBeCloseTo(0.904837, 5);
+});
+test.each(["ctrlKey", "metaKey"])("パン直後でも%sはズームする", modifier => {
+  jest.spyOn(performance, "now").mockReturnValue(0);
+  const { container, frame } = setup();
+  fireEvent.wheel(frame, { deltaY: 4 });
+  const before = viewport(container);
+  fireEvent.wheel(frame, { [modifier]: true, deltaY: -10 });
+  expect(viewport(container).z / before.z).toBeCloseTo(1.105170, 5);
+});
+test("ページ単位パンは横にframe幅、縦にframe高さを使う", () => {
+  jest.spyOn(performance, "now").mockReturnValue(1000);
+  const { container, frame } = setup();
+  fireEvent.wheel(frame, { deltaY: 4 });
+  const before = viewport(container);
+  fireEvent.wheel(frame, { deltaMode: 2, deltaX: 1, deltaY: 1 });
+  expect(viewport(container)).toMatchObject({ x: before.x - 800, y: before.y - 600, z: before.z });
+});
+function safariGesture(frame: HTMLElement, type: string, scale: number) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.assign(event, { scale, clientX: 210, clientY: 170 });
+  fireEvent(frame, event);
+  return event;
+}
+test.each([true, false])("Safariピンチは開始倍率からカーソル基準でズーム editable=%s", editable => {
+  const { container, frame, onChange, unmount } = setup(draft(), editable);
+  const before = viewport(container);
+  expect(safariGesture(frame, "gesturestart", 1).defaultPrevented).toBe(true);
+  expect(safariGesture(frame, "gesturechange", 1.1).defaultPrevented).toBe(true);
+  safariGesture(frame, "gesturechange", 1.2);
+  const after = viewport(container);
+  expect(after.z / before.z).toBeCloseTo(1.2);
+  expect((200 - after.x) / after.z).toBeCloseTo((200 - before.x) / before.z);
+  expect((150 - after.y) / after.z).toBeCloseTo((150 - before.y) / before.z);
+  expect(safariGesture(frame, "gestureend", 1.2).defaultPrevented).toBe(true);
+  safariGesture(frame, "gesturechange", 1.4);
+  expect(viewport(container)).toEqual(after);
+  safariGesture(frame, "gesturestart", 1);
+  safariGesture(frame, "gesturechange", 1.1);
+  expect(viewport(container).z / after.z).toBeCloseTo(1.1);
+  safariGesture(frame, "gesturechange", 100);
+  expect(viewport(container).z).toBe(1.6);
+  safariGesture(frame, "gesturechange", 0.01);
+  expect(viewport(container).z).toBe(0.2);
+  expect(onChange).not.toHaveBeenCalled();
+  unmount();
+  expect(safariGesture(frame, "gesturestart", 1).defaultPrevented).toBe(false);
+  expect(safariGesture(frame, "gesturechange", 1.2).defaultPrevented).toBe(false);
+  expect(safariGesture(frame, "gestureend", 1.2).defaultPrevented).toBe(false);
 });
