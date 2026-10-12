@@ -6,7 +6,7 @@ import { jstDateFromIso } from "@/lib/date";
 import { writeAuditLog, type AuditEventType } from "@/lib/auditLog";
 import { isIsoWithOffset, isManualCs, rebalanceEntries, closeEntriesIfDue, entrantsFromEntries } from "@/lib/mahjongCsEntry";
 import { auditLazyClose, ensureCsClosed } from "@/lib/mahjongCsServer";
-import { validateBracket, buildRunningRounds } from "@/lib/mahjongCsBracket";
+import { validateBracket, buildRunningRounds, validAdvance } from "@/lib/mahjongCsBracket";
 import { canvasToRounds } from "@/lib/mahjongCsCanvas";
 import type { MahjongCsEvent, MahjongCsRound, MahjongCsCanvas } from "@/types";
 
@@ -46,18 +46,22 @@ function isBracketCanvas(value: unknown): value is MahjongCsCanvas {
       || tableIds.has(table.id)
       || typeof table.x !== "number" || !Number.isFinite(table.x)
       || typeof table.y !== "number" || !Number.isFinite(table.y)
-      || typeof table.advanceCount !== "number" || !Number.isInteger(table.advanceCount)
-      || table.advanceCount < 1 || table.advanceCount > 3
-      || (table.to !== null && typeof table.to !== "string")
+      || typeof table.advanceCount !== "number" || !validAdvance(table.advanceCount)
+      || (table.to !== null && (typeof table.to !== "string" || table.to.length > 64))
       || !Array.isArray(table.playerIds) || table.playerIds.length > 4
       || !table.playerIds.every((id): id is string => typeof id === "string")) return false;
     tableIds.add(table.id);
     for (const id of table.playerIds) {
-      if (playerTables.has(id) && playerTables.get(id) !== table.id) return false;
+      if (playerTables.has(id)) return false;
       playerTables.set(id, table.id);
     }
   }
   return true;
+}
+
+function normalizeCanvas(canvas: MahjongCsCanvas): MahjongCsCanvas {
+  return { tables: canvas.tables.map(({ id, x, y, advanceCount, to, playerIds }) =>
+    ({ id, x, y, advanceCount, to, playerIds: [...playerIds] })) };
 }
 
 /** PATCH /api/admin/mahjong/cs/[csEventId] — 受付・編成を action ごとに更新する。 */
@@ -152,12 +156,11 @@ export async function PATCH(
             update.entrants = entrantsFromEntries(update.entries).map((e) => ({ ...e, seed: seeds.has(e.lineUserId) }));
             if (event.bracket) update.bracket = {
               seedUserIds: event.bracket.seedUserIds.filter((seed) => seed !== id),
-              ...(event.bracket.canvas ? { canvas: {
-                ...event.bracket.canvas,
+              ...(event.bracket.canvas ? { canvas: normalizeCanvas({
                 tables: event.bracket.canvas.tables.map((table) => ({
                   ...table, playerIds: table.playerIds.filter((playerId) => playerId !== id),
                 })),
-              } } : {}),
+              }) } : {}),
               rounds: event.bracket.rounds.map((r) => ({ ...r, matches: r.matches.map((m) => ({
                 ...m, seats: (m.seats ?? []).map((s) => s?.kind === "player" && s.lineUserId === id ? null : s),
               })) })),
@@ -190,7 +193,7 @@ export async function PATCH(
             update.status = "running";
             audit = "cs.bracketConfirmed";
           }
-          update.bracket = { seedUserIds, canvas, rounds };
+          update.bracket = { seedUserIds, canvas: normalizeCanvas(canvas), rounds };
           break;
         }
         case "fillDummies": {

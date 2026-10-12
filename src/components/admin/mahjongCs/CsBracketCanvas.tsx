@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import {
   addTable, tableLabels, connect, disconnect, incomingCount, moveTable, openSeats,
-  removeTable, setTableAdvance,
+  removeTable, removePlayer, setTableAdvance,
 } from "@/lib/mahjongCsCanvas";
 import type { CanvasDraft } from "@/lib/mahjongCsCanvas";
 import type { MahjongCsEntrant } from "@/types/mahjong";
@@ -16,6 +16,8 @@ type Props = {
   entrantsById: Map<string, MahjongCsEntrant>;
   editable: boolean;
   onChange(next: CanvasDraft): void;
+  renderPlayer?: (id: string, tableId: string) => ReactNode;
+  onZoneClick?: (zone: string) => void;
 };
 type Gesture = {
   kind: "pan" | "card" | "connect";
@@ -27,7 +29,7 @@ type Gesture = {
   moved: boolean;
 };
 const CARD_W = 200;
-const CARD_H = 160;
+const CARD_H = 380;
 const clampZoom = (z: number) => Math.min(1.6, Math.max(0.2, z));
 const translate = (p: Point) => `translate(${p.x}px, ${p.y}px)`;
 function curve(from: Point, to: Point): string {
@@ -38,7 +40,7 @@ export function arrowPath(from: Point, to: Point): string {
   return curve({ x: from.x + CARD_W / 2, y: from.y }, { x: to.x + CARD_W / 2, y: to.y + CARD_H });
 }
 
-export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
+export default function CsBracketCanvas({ draft, entrantsById, editable, onChange, renderPlayer, onZoneClick }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const cards = useRef(new Map<string, HTMLDivElement>());
@@ -48,6 +50,7 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
   const gesture = useRef<Gesture | null>(null);
   const raf = useRef<number | null>(null);
   const view = useRef<View>({ x: 0, y: 0, z: 1 });
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const latest = useRef({ draft, editable, onChange });
   latest.current = { draft, editable, onChange };
@@ -185,13 +188,14 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
     setSelected(null);
   }
   function fitAll() {
-    if (!draft.tables.length) return paintView({ x: 0, y: 0, z: 1 });
     const rect = frame.current!.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    if (!draft.tables.length) return paintView({ x: 0, y: 0, z: 1 });
     const left = Math.min(...draft.tables.map((t) => t.x));
     const top = Math.min(...draft.tables.map((t) => t.y));
     const right = Math.max(...draft.tables.map((t) => t.x + CARD_W));
     const bottom = Math.max(...draft.tables.map((t) => t.y + CARD_H));
-    const z = clampZoom(Math.min((rect.width - 64) / (right - left), (rect.height - 64) / (bottom - top)));
+    const z = Math.min(1, clampZoom(Math.min((rect.width - 64) / (right - left), (rect.height - 64) / (bottom - top))));
     paintView({ z, x: rect.width / 2 - (left + right) * z / 2, y: rect.height / 2 - (top + bottom) * z / 2 });
   }
   function zoom(factor: number) {
@@ -223,11 +227,17 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
         <button type="button" className={buttonClass} aria-label="拡大" onClick={() => zoom(1.2)}>＋</button>
         <button type="button" className={buttonClass} aria-label="縮小" onClick={() => zoom(1 / 1.2)}>−</button>
       </div>
+      {editable && confirmDelete && <div role="alert" className="space-y-2 rounded border bg-white p-3 text-sm">
+        <p>配置済みの席があります。この卓を削除しますか？</p>
+        <button type="button" className={buttonClass} onClick={() => { onChange(removeTable(draft, confirmDelete)); setConfirmDelete(null); }}>削除する</button>
+        <button type="button" className={buttonClass} onClick={() => setConfirmDelete(null)}>キャンセル</button>
+      </div>}
       <div ref={frame} role="region" aria-label="組み合わせキャンバス" tabIndex={0}
         className="relative overflow-hidden rounded-xl border border-[color:var(--eb-line)] bg-slate-50 outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
         style={{ height: "min(70vh, 720px)", touchAction: "none", backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)", backgroundSize: "20px 20px" }}
         onPointerDown={(event) => {
-          if (editable && (event.target as Element).closest('[data-table], [role="button"], button')) return;
+          if ((event.target as Element).closest('[role="button"], button')
+            || (editable && (event.target as Element).closest("[data-table]"))) return;
           start(event, "pan");
         }}
         onKeyDown={(event) => {
@@ -247,8 +257,8 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
                 strokeWidth={editable && selected === table.id ? 5 : 3} markerEnd={`url(#${markerId})`}
                 style={{ pointerEvents: "none" }} />
                 <path ref={(node) => { if (node) arrowHits.current.set(table.id, node); else arrowHits.current.delete(table.id); }}
-                d={arrowPath(table, target)} fill="none" stroke="transparent" strokeWidth={16}
-                style={{ pointerEvents: editable && gesture.current?.kind !== "connect" ? "stroke" : "none", cursor: editable ? "pointer" : undefined }}
+                d={arrowPath(table, target)} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke"
+                style={{ pointerEvents: editable ? "stroke" : "none", cursor: editable ? "pointer" : undefined }}
                 role={editable ? "button" : undefined} tabIndex={editable ? 0 : undefined}
                 aria-label={`${name(table.id)}→${name(target.id)}の矢印`}
                 onClick={() => { if (editable) { setSelected(table.id); frame.current?.focus({ preventScroll: true }); } }}
@@ -263,7 +273,8 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
           {draft.tables.map((table) => <div key={table.id} data-table={table.id}
             ref={(node) => { if (node) cards.current.set(table.id, node); else cards.current.delete(table.id); }}
             className="absolute left-0 top-0 rounded-xl border border-[color:var(--eb-line)] bg-white shadow-sm"
-            style={{ width: CARD_W, height: CARD_H, transform: translate(table) }}>
+            style={{ width: CARD_W, height: CARD_H, transform: translate(table), borderColor: openSeats(draft.tables, table.id) < 0 ? "#dc2626" : undefined }}
+            onClick={(event) => { if (editable && !(event.target as Element).closest("button")) onZoneClick?.(`seat:${table.id}`); }}>
             {editable && <button type="button" aria-label={`${name(table.id)}から矢印を引く`}
               className="absolute -top-2 left-1/2 z-10 h-4 w-4 -translate-x-1/2 cursor-crosshair rounded-full border-2 border-white bg-emerald-600 ring-1 ring-emerald-700"
               onPointerDown={(event) => start(event, "connect", table.id)} />}
@@ -279,13 +290,39 @@ export default function CsBracketCanvas({ draft, editable, onChange }: Props) {
                   <button type="button" className="h-7 w-7 rounded border disabled:opacity-30" aria-label="勝ち抜けを増やす" disabled={table.advanceCount >= 3}
                     onClick={() => onChange(setTableAdvance(draft, table.id, table.advanceCount + 1))}>＋</button>
                   <button type="button" className="h-7 w-7 rounded border text-red-700" aria-label={`${name(table.id)}を削除`}
-                    onClick={() => onChange(removeTable(draft, table.id))}>×</button>
+                    onClick={() => {
+                      if (table.playerIds.length || incomingCount(draft.tables, table.id)) setConfirmDelete(table.id);
+                      else onChange(removeTable(draft, table.id));
+                    }}>×</button>
                 </div>}
               </div>
               <dl className="flex justify-between gap-1 text-center">
                 {[["入ってくる人数", incomingCount(draft.tables, table.id)], ["直接", table.playerIds.length], ["空席", openSeats(draft.tables, table.id)]].map(([label, count]) =>
                   <div key={label}><dt className="text-[10px] text-slate-500">{label}</dt><dd aria-label={String(label)} className="mt-1 font-bold">{count}</dd></div>)}
               </dl>
+              <div className="max-h-52 space-y-1 overflow-y-auto">
+                {draft.tables.filter(source => source.to === table.id)
+                  .sort((a, b) => a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+                  .flatMap(source => Array.from({ length: source.advanceCount }, (_, index) =>
+                    <div data-seat-row key={`${source.id}:${index}`} className="flex h-11 items-center rounded border bg-emerald-50 px-2">
+                      {names.get(source.id) ?? "下の卓"} {index + 1}位
+                    </div>))}
+                {table.playerIds.map(id => <div data-seat-row key={id} className="flex min-h-11 items-center gap-1">
+                  <div className="min-w-0 flex-1">{editable && renderPlayer ? renderPlayer(id, table.id) : <span>
+                    {entrantsById.get(id)?.displayName ?? id}{draft.seedUserIds.includes(id) && <span className="ml-1">S</span>}
+                  </span>}</div>
+                  {editable && <button type="button" className="h-11 w-6 shrink-0" aria-label={`${entrantsById.get(id)?.displayName ?? id}を外す`}
+                    onClick={() => onChange(removePlayer(draft, id))}>×</button>}
+                </div>)}
+                {Array.from({ length: Math.max(0, openSeats(draft.tables, table.id)) }, (_, index) =>
+                  <div data-seat-row key={`empty:${index}`} data-zone={`seat:${table.id}`} role={editable ? "button" : undefined}
+                    tabIndex={editable ? 0 : undefined} aria-label={`${name(table.id)} 空席${index + 1}`}
+                    onKeyDown={event => { if (editable && (event.key === "Enter" || event.key === " ")) {
+                      event.preventDefault(); onZoneClick?.(`seat:${table.id}`);
+                    } }} className="flex h-11 items-center rounded border border-dashed px-2 text-slate-500">空席</div>)}
+              </div>
+              {openSeats(draft.tables, table.id) < 0 && <p className="text-red-700">席が足りません</p>}
+
             </div>
             {editable && selected === table.id && table.to && <button type="button" aria-label="矢印を消す" onClick={deleteArrow}
               className="absolute -right-9 top-0 h-8 w-8 rounded-full border bg-white text-red-700 shadow-sm">×</button>}
