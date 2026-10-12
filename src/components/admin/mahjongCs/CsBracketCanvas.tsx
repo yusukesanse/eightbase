@@ -29,7 +29,7 @@ type Gesture = {
   moved: boolean;
 };
 const CARD_W = 200;
-const CARD_H = 380;
+const CARD_H = 420;
 const clampZoom = (z: number) => Math.min(1.6, Math.max(0.2, z));
 const translate = (p: Point) => `translate(${p.x}px, ${p.y}px)`;
 function curve(from: Point, to: Point): string {
@@ -48,6 +48,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   const arrowHits = useRef(new Map<string, SVGPathElement>());
   const temporary = useRef<SVGPathElement>(null);
   const gesture = useRef<Gesture | null>(null);
+  const suppressClickUntil = useRef(0);
   const raf = useRef<number | null>(null);
   const view = useRef<View>({ x: 0, y: 0, z: 1 });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -129,6 +130,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       if (!active || active.pointerId !== event.pointerId) return;
       active.point = { x: event.clientX, y: event.clientY };
       const { draft: current, editable: canEdit, onChange: change } = latest.current;
+      if (active.moved && active.kind !== "pan") suppressClickUntil.current = Date.now() + 300;
       if (active.moved && (canEdit || active.kind === "pan")) {
         if (active.kind === "pan") tick();
         else if (active.kind === "card" && current.tables.some((t) => t.id === active.id)) {
@@ -273,10 +275,13 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
           {draft.tables.map((table) => <div key={table.id} data-table={table.id}
             ref={(node) => { if (node) cards.current.set(table.id, node); else cards.current.delete(table.id); }}
             className="absolute left-0 top-0 rounded-xl border border-[color:var(--eb-line)] bg-white shadow-sm"
-            style={{ width: CARD_W, height: CARD_H, transform: translate(table), borderColor: openSeats(draft.tables, table.id) < 0 ? "#dc2626" : undefined }}
-            onClick={(event) => { if (editable && !(event.target as Element).closest("button")) onZoneClick?.(`seat:${table.id}`); }}>
+            style={{ width: CARD_W, height: CARD_H, overflow: "hidden", transform: translate(table), borderColor: openSeats(draft.tables, table.id) < 0 ? "#dc2626" : undefined }}
+            onClick={(event) => {
+              if (editable && Date.now() >= suppressClickUntil.current
+                && !(event.target as Element).closest("h3, button")) onZoneClick?.(`seat:${table.id}`);
+            }}>
             {editable && <button type="button" aria-label={`${name(table.id)}から矢印を引く`}
-              className="absolute -top-2 left-1/2 z-10 h-4 w-4 -translate-x-1/2 cursor-crosshair rounded-full border-2 border-white bg-emerald-600 ring-1 ring-emerald-700"
+              className="absolute top-0 left-1/2 z-10 h-4 w-4 -translate-x-1/2 cursor-crosshair rounded-full border-2 border-white bg-emerald-600 ring-1 ring-emerald-700"
               onPointerDown={(event) => start(event, "connect", table.id)} />}
             <h3 aria-label={editable ? `${name(table.id)}を移動` : undefined}
               className={`rounded-t-xl bg-emerald-50 px-3 py-3 text-sm font-bold select-none ${editable ? "cursor-grab" : ""}`}
@@ -305,7 +310,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
                   .sort((a, b) => a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
                   .flatMap(source => Array.from({ length: source.advanceCount }, (_, index) =>
                     <div data-seat-row key={`${source.id}:${index}`} className="flex h-11 items-center rounded border bg-emerald-50 px-2">
-                      {names.get(source.id) ?? "下の卓"} {index + 1}位
+                      {names.get(source.id)} {index + 1}位
                     </div>))}
                 {table.playerIds.map(id => <div data-seat-row key={id} className="flex min-h-11 items-center gap-1">
                   <div className="min-w-0 flex-1">{editable && renderPlayer ? renderPlayer(id, table.id) : <span>
@@ -325,7 +330,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
 
             </div>
             {editable && selected === table.id && table.to && <button type="button" aria-label="矢印を消す" onClick={deleteArrow}
-              className="absolute -right-9 top-0 h-8 w-8 rounded-full border bg-white text-red-700 shadow-sm">×</button>}
+              className="absolute right-1 top-1 h-8 w-8 rounded-full border bg-white text-red-700 shadow-sm">×</button>}
           </div>)}
         </div>
       </div>

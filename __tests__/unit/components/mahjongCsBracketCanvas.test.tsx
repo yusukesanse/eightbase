@@ -43,10 +43,10 @@ function viewport(container: HTMLElement) {
 test("arrow geometry joins top-center to bottom-center, including negative coordinates", () => {
   const numbers = arrowPath({ x: 20, y: 300 }, { x: 240, y: 20 }).match(/-?\d+(?:\.\d+)?/g)!.map(Number);
   expect(numbers.slice(0, 2)).toEqual([120, 300]);
-  expect(numbers.slice(-2)).toEqual([340, 400]);
+  expect(numbers.slice(-2)).toEqual([340, 440]);
   const negative = arrowPath({ x: -200, y: -80 }, { x: -50, y: -300 }).match(/-?\d+(?:\.\d+)?/g)!.map(Number);
   expect(negative.slice(0, 2)).toEqual([-100, -80]);
-  expect(negative.slice(-2)).toEqual([50, 80]);
+  expect(negative.slice(-2)).toEqual([50, 120]);
 });
 
 test("adds a table centered in the visible area with a short id and one advance", () => {
@@ -54,7 +54,7 @@ test("adds a table centered in the visible area with a short id and one advance"
   fireEvent.click(screen.getByRole("button", { name: "卓を追加" }));
   const next = onChange.mock.calls[0][0] as CanvasDraft;
   expect(next.tables).toHaveLength(1);
-  expect(next.tables[0]).toEqual({ id: expect.stringMatching(/^t_.{8}$/), x: 300, y: 110, advanceCount: 1, to: null, playerIds: [] });
+  expect(next.tables[0]).toEqual({ id: expect.stringMatching(/^t_.{8}$/), x: 300, y: 90, advanceCount: 1, to: null, playerIds: [] });
 });
 
 test("dragging a connector onto a child of another card connects the tables", () => {
@@ -192,7 +192,7 @@ test("fit all places the complete table bounds inside the visible frame", () => 
     expect(px + table.x * z).toBeGreaterThanOrEqual(0);
     expect(py + table.y * z).toBeGreaterThanOrEqual(0);
     expect(px + (table.x + 200) * z).toBeLessThanOrEqual(800);
-    expect(py + (table.y + 380) * z).toBeLessThanOrEqual(600);
+    expect(py + (table.y + 420) * z).toBeLessThanOrEqual(600);
   }
 });
 
@@ -202,7 +202,7 @@ test("repeated additions have distinct names and stagger positions without refit
   for (let i = 0; i < 3; i++) {
     fireEvent.click(screen.getByRole("button", { name: "卓を追加" }));
     const next = onChange.mock.calls[i][0] as CanvasDraft;
-    expect(next.tables[i]).toMatchObject({ x: 300 + 24 * i, y: 110 + 24 * i });
+    expect(next.tables[i]).toMatchObject({ x: 300 + 24 * i, y: 90 + 24 * i });
     rerender(<CsBracketCanvas {...props} draft={next} />);
     if (i > 0) expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual(i === 1 ? ["卓A", "卓B"] : ["卓A", "卓B", "卓C"]);
     expect(viewport(container).z).toBe(1);
@@ -289,4 +289,17 @@ test("read-only buttons never initiate pan", () => {
   pointer(window, "pointermove", 200, 200);
   pointer(window, "pointerup", 200, 200);
   expect(viewport(container)).toEqual(before);
+});
+
+
+test("overflowing cards clip content while keeping the error and arrow removal available", () => {
+  const value = draft();
+  value.tables[0].playerIds = ["p1", "p2", "p3", "p4", "p5"];
+  const { container, onChange } = setup(value);
+  const card = container.querySelector('[data-table="a"]') as HTMLElement;
+  expect(within(card).getByText("席が足りません")).toBeTruthy();
+  expect(getComputedStyle(card).overflow).toBe("hidden");
+  fireEvent.click(screen.getByRole("button", { name: /の矢印$/ }));
+  fireEvent.click(within(card).getByRole("button", { name: "矢印を消す" }));
+  expect(onChange.mock.calls[0][0].tables[0].to).toBeNull();
 });

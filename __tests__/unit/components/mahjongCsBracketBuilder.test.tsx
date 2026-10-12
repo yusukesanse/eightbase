@@ -155,3 +155,104 @@ test("network errors unlock saving and preserve the draft", async () => {
   expect((screen.getByRole("button", { name: "下書き保存" }) as HTMLButtonElement).disabled).toBe(false);
   expect(screen.getByText("未保存の変更があります")).toBeTruthy();
 });
+
+test.each(["header", "card", "connect"])("a moved %s gesture never places the tap-selected player", target => {
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: "参加者1 M1" }));
+  const start = target === "connect" ? within(card()).getByRole("button", { name: /から矢印を引く/ }) : card().querySelector("h3")!;
+  dragTo(start, card());
+  fireEvent.click(target === "header" ? start : card());
+  expect(within(card()).queryByText("参加者1")).toBeNull();
+});
+test("header and connect handle clicks keep the selected player in the pool", () => {
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: "参加者1 M1" }));
+  fireEvent.click(card().querySelector("h3")!);
+  fireEvent.click(within(card()).getByRole("button", { name: /から矢印を引く/ }));
+  expect(within(card()).queryByText("参加者1")).toBeNull();
+  fireEvent.click(card());
+  expect(within(card()).getByText("参加者1")).toBeTruthy();
+});
+test("seeded card players have only the row removal control and keep their seed on removal", () => {
+  setup([table("F", ["p1"])], ["p1"]);
+  expect(within(card()).queryByRole("button", { name: "参加者1のシードを解除" })).toBeNull();
+  fireEvent.click(within(card()).getByRole("button", { name: "参加者1を外す" }));
+  expect(screen.getByRole("button", { name: "参加者1 M1 S" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "参加者1のシードを解除" })).toBeTruthy();
+});
+test("pool highlights only for a player selected from a seat", () => {
+  setup([table("F", ["p2"])], ["p1"]);
+  const pool = screen.getByRole("button", { name: "参加者プールに戻す" });
+  const idle = pool.style.borderColor;
+  fireEvent.click(screen.getByRole("button", { name: "参加者3 M3" }));
+  expect(pool.style.borderColor).toBe(idle);
+  fireEvent.click(screen.getByRole("button", { name: "参加者1 M1 S" }));
+  expect(pool.style.borderColor).toBe(idle);
+  fireEvent.click(screen.getByRole("button", { name: "参加者1 M1 S" }));
+  fireEvent.click(within(card()).getByRole("button", { name: "参加者2 M3" }));
+  expect(pool.style.borderColor).not.toBe(idle);
+});
+test("drag moves a player from card to card", () => {
+  setup([table("A", ["p1"], "F"), table("F", ["p2"])]);
+  dragTo(within(card("A")).getByRole("button", { name: "参加者1 M1" }), card());
+  expect(within(card("A")).queryByText("参加者1")).toBeNull();
+  expect(within(card()).getByText("参加者1")).toBeTruthy();
+  expect(within(card()).getByText("参加者2")).toBeTruthy();
+});
+test.each(["drag", "tap"])("%s from another card onto a full card preserves the board", method => {
+  setup([table("A", ["p1"], "F"), table("F", ["p2", "p3", "p4"])]);
+  const before = [card("A").textContent, card().textContent];
+  const chip = within(card("A")).getByRole("button", { name: "参加者1 M1" });
+  if (method === "drag") dragTo(chip, card());
+  else { fireEvent.click(chip); fireEvent.click(card()); }
+  expect([card("A").textContent, card().textContent]).toEqual(before);
+  expect(screen.queryByText("未保存の変更があります")).toBeNull();
+});
+test("a valid graph with an unplaced entrant blocks confirmation via bracket validation", () => {
+  setup([table("F", ["p1", "p2", "p3"])]);
+  expect(screen.getByText(/まだ席がない参加者/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "この組み合わせで確定" }) as HTMLButtonElement).disabled).toBe(true);
+});
+test("saving keeps canvas controls present while blocking changes", async () => {
+  let finish!: (value: unknown) => void;
+  (fetch as jest.Mock).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  setup([table("F", ["p1"])]);
+  const add = screen.getByRole("button", { name: "卓を追加" });
+  const remove = screen.getByRole("button", { name: "参加者1を外す" });
+  fireEvent.click(screen.getByRole("button", { name: "下書き保存" }));
+  expect(screen.queryByRole("button", { name: "卓を追加" })).toBe(add);
+  expect(screen.queryByRole("button", { name: "参加者1を外す" })).toBe(remove);
+  fireEvent.click(add);
+  fireEvent.click(remove);
+  expect(document.querySelectorAll("[data-table]")).toHaveLength(1);
+  expect(within(card()).getByText("参加者1")).toBeTruthy();
+  await act(async () => { finish({ ok: true, json: async () => ({ event }) }); });
+});
+test("successful save and refreshed bracket preserve pan and zoom", async () => {
+  const changed = jest.fn(), error = jest.fn();
+  const initial = { ...event, bracket: { seedUserIds: [], rounds: [], canvas: { tables: [table()] } } };
+  const { rerender } = render(<CsBracketBuilder event={initial} onChanged={changed} onError={error} />);
+  const frame = screen.getByRole("region", { name: "組み合わせキャンバス" });
+  pointer(frame, "pointerdown", 10, 10);
+  pointer(window, "pointermove", 60, 90);
+  pointer(window, "pointerup", 60, 90);
+  fireEvent.click(screen.getByRole("button", { name: "拡大" }));
+  const transform = card().parentElement!.style.transform;
+  expect(transform).not.toBe("translate(0px, 0px) scale(1)");
+  fireEvent.click(screen.getByRole("button", { name: "未配置の人を空席に入れる" }));
+  fireEvent.click(screen.getByRole("button", { name: "下書き保存" }));
+  await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+  rerender(<CsBracketBuilder event={{ ...initial, bracket: { ...initial.bracket, canvas: { tables: [table("F", ["p1", "p2", "p3", "p4"])] } } }} onChanged={changed} onError={error} />);
+  expect(card().parentElement!.style.transform).toBe(transform);
+  expect(screen.getByRole("region", { name: "組み合わせキャンバス" })).toBe(frame);
+  expect(screen.queryByText("未保存の変更があります")).toBeNull();
+});
+test("a refreshed server bracket replaces the draft without resetting the viewport", () => {
+  const { rerender } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "拡大" }));
+  const transform = card().parentElement!.style.transform;
+  rerender(<CsBracketBuilder event={{ ...event, bracket: { seedUserIds: ["p2"], rounds: [], canvas: { tables: [table("F", ["p2"])] } } }} onChanged={jest.fn()} onError={jest.fn()} />);
+  expect(within(card()).getByRole("button", { name: "参加者2 M3 S" })).toBeTruthy();
+  expect(card().parentElement!.style.transform).toBe(transform);
+  expect(screen.queryByText("未保存の変更があります")).toBeNull();
+});
