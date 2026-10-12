@@ -1,6 +1,12 @@
 import { validAdvance } from "./mahjongCsBracket";
 import type { MahjongCsCanvasTable, MahjongCsEntrant, MahjongCsEvent, MahjongCsRound, MahjongCsSeat } from "@/types";
 
+export function classifyWheel(e: { deltaX: number; deltaY: number; deltaMode: number; ctrlKey: boolean; metaKey: boolean }): "zoom-pinch" | "pan" | "zoom-wheel" {
+  if (e.ctrlKey || e.metaKey) return "zoom-pinch";
+  if (e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY))) return "zoom-wheel";
+  return "pan";
+}
+
 export type CanvasDraft = { seedUserIds: string[]; tables: MahjongCsCanvasTable[] };
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 const leftOrder = (a: MahjongCsCanvasTable, b: MahjongCsCanvasTable): number =>
@@ -62,7 +68,7 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
     return {
       type: depth === 0 ? "final" : "prelim", label, advanceCount: group[0].advanceCount,
       matches: group.map((t, index) => {
-        const matchLabel = `${label}${group.length === 1 ? "" : tableLetter(index)}卓`;
+        const matchLabel = t.name ?? `${label}${group.length === 1 ? "" : tableLetter(index)}卓`;
         const seats: MahjongCsSeat[] = [];
         for (const source of tables.filter((s) => s.to === t.id).sort(leftOrder)) {
           if (!validAdvance(source.advanceCount)) continue;
@@ -78,6 +84,9 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
       }),
     };
   });
+  const labels = new Map<string, number>();
+  for (const match of rounds.flatMap(round => round.matches)) labels.set(match.label, (labels.get(match.label) ?? 0) + 1);
+  for (const [label, count] of labels) if (count > 1) errors.push(`「${label}」という卓名が重複しています`);
   return { rounds, errors };
 }
 
@@ -85,7 +94,7 @@ export function tableLabels(tables: MahjongCsCanvasTable[]): Map<string, string>
   const { rounds } = canvasToRounds(tables);
   return rounds.length > 0
     ? new Map(rounds.flatMap((round) => round.matches.map((match) => [match.matchId, match.label] as const)))
-    : new Map([...tables].sort(leftOrder).map((table, index) => [table.id, `卓${tableLetter(index)}`]));
+    : new Map([...tables].sort(leftOrder).map((table, index) => [table.id, table.name ?? `卓${tableLetter(index)}`]));
 }
 
 export function unplacedIds(draft: CanvasDraft, entrantIds: string[]): string[] {
@@ -115,6 +124,18 @@ export function removeTable(d: CanvasDraft, id: string): CanvasDraft {
   const next = clone(d);
   next.tables = next.tables.filter((t) => t.id !== id);
   for (const t of next.tables) if (t.to === id) t.to = null;
+  return next;
+}
+
+export function renameTable(d: CanvasDraft, id: string, name: string): CanvasDraft {
+  const next = clone(d);
+  const trimmed = name.trim();
+  if (trimmed.length > 20) return next;
+  const table = next.tables.find(t => t.id === id);
+  if (table) {
+    if (trimmed) table.name = trimmed;
+    else delete table.name;
+  }
   return next;
 }
 

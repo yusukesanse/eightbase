@@ -383,6 +383,7 @@ export interface MahjongCsRound {
 
 // 編成キャンバスの卓と矢印
 export interface MahjongCsCanvasTable {
+  name?: string;        // 未指定ならラウンドと左右順から自動命名
   id: string;            // 確定時にそのまま matchId になる
   x: number; y: number;  // キャンバス座標（表示専用）
   advanceCount: number;  // 1〜3。決勝は表彰人数

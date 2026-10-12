@@ -322,3 +322,84 @@ test.each(["source", "destination", "edge"])("removed %s clears arrow selection 
   rerender(<CsBracketCanvas {...props} />);
   expect(screen.queryByRole("button", { name: "矢印を消す" })).toBeNull();
 });
+
+
+test.each([true, false])("ピンチは約10%%拡大しカーソル下の点を固定する editable=%s", editable => {
+  const { container, frame, onChange } = setup(draft(), editable);
+  const before = viewport(container);
+  fireEvent.wheel(frame, { ctrlKey: true, deltaY: -10, clientX: 210, clientY: 170 });
+  const after = viewport(container);
+  expect(after.z / before.z).toBeCloseTo(1.105170, 5);
+  expect((200 - after.x) / after.z).toBeCloseTo((200 - before.x) / before.z);
+  expect((150 - after.y) / after.z).toBeCloseTo((150 - before.y) / before.z);
+  expect(onChange).not.toHaveBeenCalled();
+});
+test.each([true, false])("2本指スクロールは画面ピクセルでパンする editable=%s", editable => {
+  const { container, frame, onChange } = setup(draft(), editable);
+  const before = viewport(container);
+  fireEvent.wheel(frame, { deltaX: 12, deltaY: -8.5 });
+  expect(viewport(container)).toMatchObject({ x: before.x - 12, y: before.y + 8.5, z: before.z });
+  expect(onChange).not.toHaveBeenCalled();
+});
+test.each([0, 1, 2])("マウスホイールはdeltaMode=%sを補正して従来倍率でズーム", deltaMode => {
+  const { container, frame } = setup();
+  const before = viewport(container);
+  fireEvent.wheel(frame, { deltaMode, deltaY: deltaMode === 0 ? 100 : 1 });
+  expect(viewport(container).z / before.z).toBeCloseTo(deltaMode === 0 ? 0.904837 : deltaMode === 1 ? 0.984127 : 0.548812, 5);
+});
+test("ドラッグ中はピンチとスクロールを無視する", () => {
+  const { container, frame } = setup();
+  const before = viewport(container);
+  pointer(screen.getByLabelText("準決勝卓を移動"), "pointerdown", 100, 300);
+  fireEvent.wheel(frame, { ctrlKey: true, deltaY: -10 });
+  fireEvent.wheel(frame, { deltaX: 12, deltaY: 3 });
+  expect(viewport(container)).toEqual(before);
+  pointer(window, "pointercancel", 100, 300);
+});
+test.each(["Enter", "blur"])("卓名をダブルクリックして%sで確定する", finish => {
+  const { onChange, rerender, props } = setup();
+  fireEvent.doubleClick(screen.getByLabelText("準決勝卓を移動"));
+  const input = screen.getByRole("textbox", { name: "卓名を編集" });
+  expect((input as HTMLInputElement).value).toBe("準決勝卓");
+  expect(input.getAttribute("maxlength")).toBe("20");
+  fireEvent.change(input, { target: { value: " 東風卓 " } });
+  if (finish === "blur") fireEvent.blur(input);
+  else fireEvent.keyDown(input, { key: "Enter" });
+  expect(onChange).toHaveBeenCalledTimes(1);
+  expect(onChange.mock.calls[0][0].tables[0].name).toBe("東風卓");
+  rerender(<CsBracketCanvas {...props} draft={onChange.mock.calls[0][0]} />);
+  expect(screen.getByText("東風卓 1位")).toBeTruthy();
+  expect(screen.queryByRole("textbox")).toBeNull();
+});
+test("卓名編集のEscは取消し、入力上のpointerdownは移動を始めない", () => {
+  const { container, onChange } = setup();
+  fireEvent.doubleClick(screen.getByLabelText("準決勝卓を移動"));
+  const input = screen.getByRole("textbox", { name: "卓名を編集" });
+  const before = viewport(container);
+  pointer(input, "pointerdown", 100, 300);
+  pointer(window, "pointermove", 200, 400);
+  pointer(window, "pointerup", 200, 400);
+  fireEvent.change(input, { target: { value: "取消す卓" } });
+  fireEvent.keyDown(input, { key: "Escape" });
+  fireEvent.blur(input);
+  expect(onChange).not.toHaveBeenCalled();
+  expect(viewport(container)).toEqual(before);
+  expect(screen.queryByRole("textbox")).toBeNull();
+});
+test("空で確定すると自動名に戻る", () => {
+  const value = draft();
+  value.tables[0] = { ...value.tables[0], ...{ name: "東風卓" } };
+  const { onChange } = setup(value);
+  fireEvent.doubleClick(screen.getByLabelText("東風卓を移動"));
+  const input = screen.getByRole("textbox", { name: "卓名を編集" });
+  expect((input as HTMLInputElement).value).toBe("東風卓");
+  fireEvent.change(input, { target: { value: " " } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(onChange.mock.calls[0][0].tables[0]).not.toHaveProperty("name");
+});
+test("閲覧専用では卓名を編集できない", () => {
+  const { onChange } = setup(draft(), false);
+  fireEvent.doubleClick(screen.getByRole("heading", { name: "準決勝卓" }));
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
+});

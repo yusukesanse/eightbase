@@ -784,3 +784,30 @@ it("confirm rejects overflow even when conversion produces rounds", async () => 
   expect((await res.json()).errors).toContain("決勝卓: 席が足りません（5名入ります）");
   expect(db.transactionUpdates.flat()).toHaveLength(0);
 });
+
+
+it.each(["saveBracket", "confirmBracket"].flatMap(action =>
+  ["あ".repeat(21), "  ", "", 123, null].map(name => ({ action, name }))))("$action: 不正な卓名 $name を拒否する", async ({ action, name }) => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const res = await PATCH(body({ action, seedUserIds: [], canvas: {
+    tables: [{ ...canvas(["a", "b", "c", "d"]).tables[0], name }],
+  } }), params);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "編成の形式が不正です" });
+  expect(db.transactionUpdates.flat()).toHaveLength(0);
+});
+it.each(["saveBracket", "confirmBracket", "removeEntry"])("%s: 卓名をtrimして保持する", async action => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  const named = { tables: [{ ...canvas(["a", "b", "c", "d"]).tables[0], name: `  ${"あ".repeat(20)}  ` }] };
+  if (action === "removeEntry") db._get("mahjongCsEvents", "cs1").bracket = { seedUserIds: [], rounds: [], canvas: named };
+  const res = await PATCH(body({ action, lineUserId: "a", seedUserIds: [], canvas: named }), params);
+  expect(res.status).toBe(200);
+  const stored = db._get("mahjongCsEvents", "cs1");
+  expect(stored.bracket.canvas.tables[0].name).toBe("あ".repeat(20));
+  if (action === "confirmBracket") expect(stored.rounds[0].matches[0].label).toBe("あ".repeat(20));
+});
+it("名前未指定の卓にはnameキーを保存しない", async () => {
+  const db = makeDb(); closedEvent(db); (getDb as jest.Mock).mockReturnValue(db);
+  expect((await PATCH(body({ action: "saveBracket", seedUserIds: [], canvas: canvas(["a"]) }), params)).status).toBe(200);
+  expect(db._get("mahjongCsEvents", "cs1").bracket.canvas.tables[0]).not.toHaveProperty("name");
+});
