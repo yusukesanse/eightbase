@@ -278,7 +278,9 @@ export default function SeasonMahjongCsPage() {
                     <div key={ri}>
                       <div className="text-xs font-bold text-[#231714]/85 mb-2">
                         {round.label}
-                        {round.type !== "final" && `（各卓 上位${round.advanceCount}名通過）`}
+                        {round.type !== "final"
+                          && new Set(round.matches.map((m) => m.advanceCount ?? round.advanceCount)).size === 1
+                          && `（各卓 上位${round.matches[0]?.advanceCount ?? round.advanceCount}名通過）`}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {round.matches.map((m) => (
@@ -289,6 +291,8 @@ export default function SeasonMahjongCsPage() {
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                               <span className="text-sm font-bold text-[#231714] break-words min-w-0">
                                 {m.label}
+                                {round.type !== "final" && m.advanceCount != null && m.advanceCount !== round.advanceCount
+                                  ? `（上位${m.advanceCount}名通過）` : ""}
                               </span>
                               <div className="flex items-center gap-2">
                                 <span
