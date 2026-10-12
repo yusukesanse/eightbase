@@ -256,3 +256,46 @@ test("a refreshed server bracket replaces the draft without resetting the viewpo
   expect(card().parentElement!.style.transform).toBe(transform);
   expect(screen.queryByText("未保存の変更があります")).toBeNull();
 });
+
+function serverEvent(players: string[], entrants = event.entrants, seeds: string[] = []): MahjongCsEvent {
+  return { ...event, entrants, bracket: { seedUserIds: seeds, rounds: [], canvas: { tables: [table("F", players)] } } };
+}
+test("dirty resync keeps unrelated placement, removes withdrawn entrant and remains unsaved", () => {
+  const props = { onChanged: jest.fn(), onError: jest.fn() };
+  const { rerender } = render(<CsBracketBuilder {...props} event={serverEvent(["p1"], event.entrants, ["p1"])} />);
+  fireEvent.click(screen.getByRole("button", { name: "参加者2 M3" }));
+  fireEvent.click(card());
+  rerender(<CsBracketBuilder {...props} event={serverEvent([], event.entrants!.filter(e => e.lineUserId !== "p1"))} />);
+  expect(within(card()).getByText("参加者2")).toBeTruthy();
+  expect(within(card()).queryByText("p1")).toBeNull();
+  expect(screen.getByText("未保存の変更があります")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "参加者2を外す" }));
+  expect(screen.queryByText("未保存の変更があります")).toBeNull();
+});
+test.each([false, true])("resync clears tap selection with dirty=%s", dirty => {
+  const props = { onChanged: jest.fn(), onError: jest.fn() };
+  const { rerender } = render(<CsBracketBuilder {...props} event={serverEvent([])} />);
+  if (dirty) fireEvent.click(screen.getByRole("button", { name: "勝ち抜けを増やす" }));
+  fireEvent.click(screen.getByRole("button", { name: "参加者1 M1" }));
+  rerender(<CsBracketBuilder {...props} event={serverEvent(["p2"], event.entrants!.filter(e => e.lineUserId !== "p1"))} />);
+  fireEvent.click(card());
+  expect(within(card()).queryByText("p1")).toBeNull();
+  if (!dirty) {
+    expect(within(card()).getByText("参加者2")).toBeTruthy();
+    expect(screen.queryByText("未保存の変更があります")).toBeNull();
+  }
+});
+test.each([200, 404, 409])("save stays busy until onChanged refetch finishes (%s)", async status => {
+  (fetch as jest.Mock).mockResolvedValue({ ok: status === 200, status, json: async () => ({}) });
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  const changed = jest.fn(() => pending);
+  render(<CsBracketBuilder event={serverEvent([])} onChanged={changed} onError={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "下書き保存" }));
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  expect((screen.getByRole("button", { name: "下書き保存" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "勝ち抜けを増やす" }));
+  expect(within(card()).getByText("表彰 1名")).toBeTruthy();
+  await act(async () => { finish(); await pending; });
+  expect((screen.getByRole("button", { name: "下書き保存" }) as HTMLButtonElement).disabled).toBe(false);
+});

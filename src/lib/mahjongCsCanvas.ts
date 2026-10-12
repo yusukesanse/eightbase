@@ -97,6 +97,14 @@ export function initialCanvasDraft(event: Pick<MahjongCsEvent, "bracket">): Canv
   return clone({ seedUserIds: event.bracket?.seedUserIds ?? [], tables: event.bracket?.canvas?.tables ?? [] });
 }
 
+export function keepEntrants(draft: CanvasDraft, entrantIds: string[]): CanvasDraft {
+  const entrants = new Set(entrantIds);
+  return {
+    seedUserIds: draft.seedUserIds.filter(id => entrants.has(id)),
+    tables: draft.tables.map(table => ({ ...table, playerIds: table.playerIds.filter(id => entrants.has(id)) })),
+  };
+}
+
 export function addTable(d: CanvasDraft, id: string, x: number, y: number, advanceCount: number): CanvasDraft {
   const next = clone(d);
   if (!next.tables.some((t) => t.id === id)) next.tables.push({ id, x, y, advanceCount, to: null, playerIds: [] });

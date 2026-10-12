@@ -59,6 +59,14 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   const names = useMemo(() => tableLabels(draft.tables), [draft.tables]);
   const name = (id: string) => names.get(id) ?? "卓";
 
+  useEffect(() => {
+    setConfirmDelete(current => current && draft.tables.some(table => table.id === current) ? current : null);
+    setSelected(current => {
+      const source = draft.tables.find(table => table.id === current);
+      return source?.to && draft.tables.some(table => table.id === source.to) ? current : null;
+    });
+  }, [draft.tables]);
+
   const paintView = (next: View) => {
     view.current = next;
     if (layer.current) layer.current.style.transform = `${translate(next)} scale(${next.z})`;

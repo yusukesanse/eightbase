@@ -303,3 +303,22 @@ test("overflowing cards clip content while keeping the error and arrow removal a
   fireEvent.click(within(card).getByRole("button", { name: "矢印を消す" }));
   expect(onChange.mock.calls[0][0].tables[0].to).toBeNull();
 });
+
+test("removed table clears its pending deletion confirmation", () => {
+  const { props, rerender } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "準決勝卓を削除" }));
+  expect(screen.getByRole("alert")).toBeTruthy();
+  rerender(<CsBracketCanvas {...props} draft={{ ...props.draft, tables: [props.draft.tables[1]] }} />);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+test.each(["source", "destination", "edge"])("removed %s clears arrow selection even if restored later", removed => {
+  const { props, rerender } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "準決勝卓→決勝卓の矢印" }));
+  expect(screen.getByRole("button", { name: "矢印を消す" })).toBeTruthy();
+  const tables = removed === "edge" ? props.draft.tables.map(t => ({ ...t, to: null }))
+    : props.draft.tables.filter(t => t.id !== (removed === "source" ? "a" : "b"));
+  rerender(<CsBracketCanvas {...props} draft={{ ...props.draft, tables }} />);
+  expect(screen.queryByRole("button", { name: "矢印を消す" })).toBeNull();
+  rerender(<CsBracketCanvas {...props} />);
+  expect(screen.queryByRole("button", { name: "矢印を消す" })).toBeNull();
+});

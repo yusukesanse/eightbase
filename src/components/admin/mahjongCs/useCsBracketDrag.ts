@@ -66,6 +66,11 @@ export function useCsBracketDrag(locked: boolean, apply: (picked: PickedChip, zo
     setDrag(null);
   }, []);
 
+  const clear = useCallback(() => {
+    cleanup();
+    setSelected(null);
+  }, [cleanup]);
+
   useEffect(() => {
     // 閾値を超えた移動だけドラッグとして扱う。
     const onMove = (e: PointerEvent) => {
@@ -125,5 +130,5 @@ export function useCsBracketDrag(locked: boolean, apply: (picked: PickedChip, zo
     latest.current.apply(selected, zone);
     setSelected(null);
   }, [selected]);
-  return { selected, drag, ghostRef, point, onPointerDown, onZoneClick, select };
+  return { clear, selected, drag, ghostRef, point, onPointerDown, onZoneClick, select };
 }
