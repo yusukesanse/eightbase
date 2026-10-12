@@ -237,7 +237,7 @@ describe("卓名", () => {
 describe("classifyWheel", () => {
   it.each([
     [{ ctrlKey: true, deltaY: -10 }, "zoom-pinch"],
-    [{ metaKey: true, deltaY: 100, deltaMode: 1 }, "zoom-pinch"],
+    [{ metaKey: true, deltaY: 100, deltaMode: 1 }, "zoom-wheel"],
     [{ deltaY: 2.5 }, "pan"], [{ deltaY: 10 }, "pan"],
     [{ deltaX: 1, deltaY: 100 }, "pan"], [{ deltaY: 100.5 }, "pan"],
     [{ deltaY: 100 }, "zoom-wheel"], [{ deltaY: -50 }, "zoom-wheel"],
@@ -245,4 +245,14 @@ describe("classifyWheel", () => {
   ])("%j → %s", (event, expected) => {
     expect(classifyWheel({ deltaX: 0, deltaY: 0, deltaMode: 0, ctrlKey: false, metaKey: false, ...event })).toBe(expected);
   });
+});
+
+
+test.each([
+  { ctrlKey: true, deltaY: 100, deltaMode: 0 },
+  { metaKey: true, deltaY: -100, deltaMode: 0 },
+  { ctrlKey: true, deltaY: 1, deltaMode: 1 },
+  { metaKey: true, deltaY: 1, deltaMode: 2 },
+])("修飾キー付きマウスホイールはzoom-wheel: %o", event => {
+  expect(classifyWheel({ deltaX: 0, ctrlKey: false, metaKey: false, ...event })).toBe("zoom-wheel");
 });

@@ -388,6 +388,7 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   **下書きの正は図**（`bracket.canvas.tables[]` = `{id,x,y,advanceCount,to,playerIds}`）。**確定時だけ** `canvasToRounds`（`src/lib/mahjongCsCanvas.ts`）で今の「ラウンド＋札」（`{kind:"ticket", fromMatchId, place}`）に変換し、`validateBracket` → `buildRunningRounds` に渡す（当日の進行は不変）。ラウンド名は決勝からの段数で自動（決勝／準決勝／準々決勝／予選・予選n回戦）、卓の記号は左から。編集途中で名前が決まらない間は「卓A/卓B」（`tableLabels`）。
   勝ち抜け人数は `match.advanceCount ?? round.advanceCount`（旧データ互換）。検証・勝ち上がりは `src/lib/mahjongCsBracket.ts`（純関数）。canvas の無い旧下書き（列方式で確定したCSを「編成に戻す」した場合も含む）は移行せず空のキャンバスから始まる。
   UI は `CsBracketBuilder.tsx` + `CsBracketCanvas.tsx`（新ライブラリなし。絶対配置＋SVG矢印＋CSS transform＋Pointer Events。人のドラッグは `useCsBracketDrag.ts`）。**編集はパソコンのみ**（768px 未満は閲覧だけ）。
+  卓名は見出しのダブルクリックで変更できる（`name`・20文字まで・空で自動名に戻る・自動名を含めて重複は確定不可）。操作は FigJam 準拠: トラックパッドのピンチ（ctrl+wheel、Safari は gesture イベント）と通常のマウスホイールで拡大縮小、2本指スクロールでパン（判定は `classifyWheel`）。
 - 当日: 4人そろった卓だけ申告できる（札の席が埋まるまで 409）。卓が確定すると上位が次の札の席へ入る。管理者の結果修正は、次の卓に申告が入っていたら 409。「編成に戻す」（`/fix` resetBracket）は running/finished → closed（結果は消える）。
 - 検証用: 非本番だけ「ダミーで定員まで埋める」（`fillDummies`・本番 404）。
 - ⚠️ **締切後に受付を再開する操作は無い**（closed → entry の遷移なし）。締切を誤って過ぎたら、CSを削除して作り直す。

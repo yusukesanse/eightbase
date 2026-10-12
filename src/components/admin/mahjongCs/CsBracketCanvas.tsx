@@ -48,6 +48,8 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   const arrowHits = useRef(new Map<string, SVGPathElement>());
   const temporary = useRef<SVGPathElement>(null);
   const gesture = useRef<Gesture | null>(null);
+  const lastPanWheelAt = useRef(-Infinity);
+  const safariStartZoom = useRef<number | null>(null);
   const suppressClickUntil = useRef(0);
   const raf = useRef<number | null>(null);
   const view = useRef<View>({ x: 0, y: 0, z: 1 });
@@ -59,6 +61,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   latest.current = { draft, editable, onChange };
   const markerId = `cs-arrow-${useId().replace(/:/g, "")}`;
   const names = useMemo(() => tableLabels(draft.tables), [draft.tables]);
+  const automaticNames = useMemo(() => tableLabels(draft.tables.map(table => ({ ...table, name: undefined }))), [draft.tables]);
   const name = (id: string) => names.get(id) ?? "卓";
 
   useEffect(() => {
@@ -68,6 +71,13 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       return source?.to && draft.tables.some(table => table.id === source.to) ? current : null;
     });
   }, [draft.tables]);
+
+  useEffect(() => {
+    if (!editable) {
+      editingId.current = null;
+      setEditing(null);
+    }
+  }, [editable]);
 
   const paintView = (next: View) => {
     view.current = next;
@@ -162,19 +172,46 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       if (gesture.current) return;
       const rect = frame.current!.getBoundingClientRect();
       const old = view.current;
-      const kind = classifyWheel(event);
+      const now = performance.now();
+      const kind = !event.ctrlKey && !event.metaKey && now - lastPanWheelAt.current <= 150
+        ? "pan" : classifyWheel(event);
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1;
       if (kind === "pan") {
-        paintView({ ...old, x: old.x - event.deltaX * unit, y: old.y - event.deltaY * unit });
+        lastPanWheelAt.current = now;
+        const unitX = event.deltaMode === 2 ? rect.width : unit;
+        paintView({ ...old, x: old.x - event.deltaX * unitX, y: old.y - event.deltaY * unit });
         return;
       }
-      const delta = event.deltaY * unit;
+      const rawDelta = event.deltaY * unit;
+      const delta = kind === "zoom-pinch" ? Math.max(-25, Math.min(25, rawDelta)) : rawDelta;
       const z = clampZoom(old.z * Math.exp(-delta * (kind === "zoom-pinch" ? 0.01 : 0.001)));
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       paintView({ z, x: x - (x - old.x) * z / old.z, y: y - (y - old.y) * z / old.z });
     };
+    const onGestureStart = (event: Event) => {
+      event.preventDefault();
+      safariStartZoom.current = gesture.current ? null : view.current.z;
+    };
+    const onGestureChange = (event: Event) => {
+      event.preventDefault();
+      if (gesture.current || safariStartZoom.current === null) return;
+      const { scale, clientX, clientY } = event as Event & { scale: number; clientX: number; clientY: number };
+      const rect = frame.current!.getBoundingClientRect();
+      const old = view.current;
+      const z = clampZoom(safariStartZoom.current * scale);
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      paintView({ z, x: x - (x - old.x) * z / old.z, y: y - (y - old.y) * z / old.z });
+    };
+    const onGestureEnd = (event: Event) => {
+      event.preventDefault();
+      safariStartZoom.current = null;
+    };
     const element = frame.current!;
+    element.addEventListener("gesturestart", onGestureStart, { passive: false });
+    element.addEventListener("gesturechange", onGestureChange, { passive: false });
+    element.addEventListener("gestureend", onGestureEnd, { passive: false });
     element.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("pointermove", onMove, { passive: false });
     window.addEventListener("pointerup", onUp);
@@ -182,6 +219,9 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
     window.addEventListener("blur", cleanup);
     return () => {
       element.removeEventListener("wheel", onWheel);
+      element.removeEventListener("gesturestart", onGestureStart);
+      element.removeEventListener("gesturechange", onGestureChange);
+      element.removeEventListener("gestureend", onGestureEnd);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
@@ -205,7 +245,10 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
     editingId.current = null;
     setEditing(null);
     if (id && value !== undefined && latest.current.editable) {
-      latest.current.onChange(renameTable(latest.current.draft, id, value));
+      const table = latest.current.draft.tables.find(table => table.id === id);
+      if (table && value.trim() !== (table.name ?? "")) {
+        latest.current.onChange(renameTable(latest.current.draft, id, value));
+      }
     }
   }
   function deleteArrow() {
@@ -307,17 +350,18 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
             {editable && <button type="button" aria-label={`${name(table.id)}から矢印を引く`}
               className="absolute top-0 left-1/2 z-10 h-4 w-4 -translate-x-1/2 cursor-crosshair rounded-full border-2 border-white bg-emerald-600 ring-1 ring-emerald-700"
               onPointerDown={(event) => start(event, "connect", table.id)} />}
-            <h3 aria-label={editable ? `${name(table.id)}を移動` : undefined}
-              className={`rounded-t-xl bg-emerald-50 px-3 py-3 text-sm font-bold select-none ${editable ? "cursor-grab" : ""}`}
+            <h3 aria-label={editable && editing !== table.id ? `${name(table.id)}を移動` : undefined}
+              className={`rounded-t-xl bg-emerald-50 px-3 py-3 text-sm font-bold ${editing !== table.id ? "select-none" : ""} ${editable ? "cursor-grab" : ""}`}
               onPointerDown={editable && editing !== table.id ? (event) => start(event, "card", table.id) : undefined}
               onDoubleClick={() => {
                 if (!editable || editing === table.id) return;
                 editingId.current = table.id;
                 setEditing(table.id);
               }}>
-              {editable && editing === table.id ? <input autoFocus type="text" maxLength={20} aria-label="卓名を編集"
-                className="w-full rounded border border-[color:var(--eb-line)] bg-white px-1 text-sm"
-                defaultValue={name(table.id)}
+              {editable && editing === table.id ? <input ref={node => node?.focus({ preventScroll: true })} type="text" maxLength={20} aria-label="卓名を編集"
+                className="w-full select-text rounded border border-[color:var(--eb-line)] bg-white px-1 text-sm"
+                defaultValue={table.name ?? ""}
+                placeholder={automaticNames.get(table.id) ?? "卓"}
                 onPointerDown={event => event.stopPropagation()}
                 onBlur={event => finishName(event.currentTarget.value)}
                 onKeyDown={event => {

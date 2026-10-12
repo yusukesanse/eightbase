@@ -2,9 +2,8 @@ import { validAdvance } from "./mahjongCsBracket";
 import type { MahjongCsCanvasTable, MahjongCsEntrant, MahjongCsEvent, MahjongCsRound, MahjongCsSeat } from "@/types";
 
 export function classifyWheel(e: { deltaX: number; deltaY: number; deltaMode: number; ctrlKey: boolean; metaKey: boolean }): "zoom-pinch" | "pan" | "zoom-wheel" {
-  if (e.ctrlKey || e.metaKey) return "zoom-pinch";
   if (e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY))) return "zoom-wheel";
-  return "pan";
+  return e.ctrlKey || e.metaKey ? "zoom-pinch" : "pan";
 }
 
 export type CanvasDraft = { seedUserIds: string[]; tables: MahjongCsCanvasTable[] };
