@@ -497,6 +497,26 @@ function safariGesture(frame: HTMLElement, type: string, scale: number) {
   fireEvent(frame, event);
   return event;
 }
+test.each([true, false])("Safariピンチ中のwheelは無視しgestureend後に約10%%ズームする editable=%s", editable => {
+  const { container, frame } = setup(draft(), editable);
+  const before = viewport(container);
+  const transform = before.layer.style.transform;
+  const wheel = { ctrlKey: true, deltaY: -10, clientX: 210, clientY: 170 };
+  safariGesture(frame, "gesturestart", 1);
+  fireEvent.wheel(frame, wheel);
+  expect(before.layer.style.transform).toBe(transform);
+  safariGesture(frame, "gestureend", 1);
+  fireEvent.wheel(frame, wheel);
+  expect(viewport(container).z / before.z).toBeCloseTo(1.105170, 5);
+});
+test.each([true, false])("Safariピンチがwindow blurで中断してもwheelでズームする editable=%s", editable => {
+  const { container, frame } = setup(draft(), editable);
+  const before = viewport(container);
+  safariGesture(frame, "gesturestart", 1);
+  fireEvent(window, new Event("blur"));
+  fireEvent.wheel(frame, { ctrlKey: true, deltaY: -10, clientX: 210, clientY: 170 });
+  expect(viewport(container).z / before.z).toBeCloseTo(1.105170, 5);
+});
 test.each([true, false])("Safariピンチは開始倍率からカーソル基準でズーム editable=%s", editable => {
   const { container, frame, onChange, unmount } = setup(draft(), editable);
   const before = viewport(container);
