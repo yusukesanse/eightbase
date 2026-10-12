@@ -130,6 +130,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       if (raf.current !== null) cancelAnimationFrame(raf.current);
       raf.current = null;
       gesture.current = null;
+      safariStartZoom.current = null;
       for (const path of arrowHits.current.values()) path.style.pointerEvents = latest.current.editable ? "stroke" : "none";
       temporary.current?.setAttribute("d", "");
       paintTables(null);
@@ -169,7 +170,9 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
     };
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      if (gesture.current) return;
+      // Safari のピンチ中は gesture イベント側だけで拡大縮小する（二重にかけない）。
+      // Safari はピンチの ctrl+wheel より前に gesturestart を発火する前提。
+      if (gesture.current || safariStartZoom.current !== null) return;
       const rect = frame.current!.getBoundingClientRect();
       const old = view.current;
       const now = performance.now();
@@ -226,6 +229,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
       window.removeEventListener("blur", cleanup);
+      safariStartZoom.current = null;
       if (raf.current !== null) cancelAnimationFrame(raf.current);
     };
   }, []);
