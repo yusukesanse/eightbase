@@ -142,6 +142,7 @@ export function RichMenu({ showLabels = false }: { showLabels?: boolean } = {}) 
     width: `${100 / menus.length}%`,
     transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
   };
+  const slideKey = `${menus.length}-${activeIndex >= 0}`;
   const slideClass = "pointer-events-none absolute left-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none";
 
   return (
@@ -149,10 +150,12 @@ export function RichMenu({ showLabels = false }: { showLabels?: boolean } = {}) 
       className="fixed bottom-0 left-0 right-0 max-w-4xl mx-auto z-50"
       style={{ height: `calc(${BAR_H}px + env(safe-area-inset-bottom, 0px))` }}
     >
-      {/* バーの白地（へこみ付き SVG）。影を切らないよう上に余白を取って横だけ隠す */}
-      <div className="absolute inset-x-0 bottom-0 -top-10 overflow-hidden">
-        {/* key: ロール判明でタブ数が変わったときは滑らせず置き直す（ゲストで円が画面外から飛んでこないように） */}
-        <div key={menus.length} className={clsx(slideClass, "top-10")} style={{ ...slide, height: BAR_H }}>
+      {/* バーの白地（へこみ付き SVG）。影を切らないよう上に余白を取って横だけ隠す。
+          上に取った 40px がタップを吸わないよう pointer-events-none（掲示板の FAB がこの帯に重なる） */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 -top-10 overflow-hidden">
+        {/* key: タブ数（ロール判明）や選択タブの有無が変わったときは滑らせず置き直す
+            （ゲストで円が画面外から飛んでこない／選択無し→有りで先頭から滑ってこない） */}
+        <div key={slideKey} className={clsx(slideClass, "top-10")} style={{ ...slide, height: BAR_H }}>
           <svg
             className="absolute top-0 left-1/2 -translate-x-1/2"
             width={NOTCH_SVG_W}
@@ -171,7 +174,7 @@ export function RichMenu({ showLabels = false }: { showLabels?: boolean } = {}) 
 
       {/* 選択中の浮きボタン（アイコンは円の中に描き、円ごと滑る） */}
       {activeIndex >= 0 && (
-        <div key={menus.length} className={clsx(slideClass, "top-0")} style={{ ...slide, height: BAR_H }} aria-hidden="true">
+        <div key={slideKey} data-testid="richmenu-float" className={clsx(slideClass, "top-0")} style={{ ...slide, height: BAR_H }} aria-hidden="true">
           <span
             className="absolute left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-[#33636E] text-white [&>svg]:h-6 [&>svg]:w-6"
             style={{ top: -OVERHANG, boxShadow: "0 6px 14px rgba(51,99,110,.35)" }}

@@ -317,8 +317,8 @@ export default function PostDetailPage() {
 
       {/* コメント入力 */}
       <div
-        className="fixed inset-x-0 z-20 mx-auto max-w-4xl border-t border-[color:var(--eb-line)] safe-area-pb"
-        style={{ bottom: "var(--bottom-nav-height)", background: "rgba(255,255,255,.96)" }}
+        className="fixed inset-x-0 z-20 mx-auto max-w-4xl border-t border-[color:var(--eb-line)]"
+        style={{ bottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))", background: "rgba(255,255,255,.96)" }}
       >
         <div className="flex items-center gap-2 px-4 py-2.5">
           <input
