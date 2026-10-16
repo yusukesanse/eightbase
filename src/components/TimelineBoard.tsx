@@ -263,7 +263,7 @@ export function TimelineBoard({ embedded = false }: { embedded?: boolean }) {
         aria-label="投稿する"
         className="fixed right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full text-white transition-transform active:scale-[0.92]"
         style={{
-          bottom: "calc(var(--bottom-nav-height) + 16px)",
+          bottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px)",
           background: "var(--eb-green)",
           boxShadow: "0 6px 16px rgba(20,41,31,.24)",
         }}

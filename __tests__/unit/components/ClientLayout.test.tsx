@@ -16,7 +16,7 @@ test("ボトムナビ表示画面の main には --eb-bg-end の背景色が付�
   const { container } = render(<ClientLayout><div>content</div></ClientLayout>);
   const main = container.querySelector("main");
   expect(main).not.toBeNull();
-  expect(main!.className).toContain("pb-20");
+  expect(main!.className).toContain("pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))]");
   expect(main!.className).toContain("bg-[color:var(--eb-bg-end)]");
 });
 

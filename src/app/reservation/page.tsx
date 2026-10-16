@@ -495,10 +495,10 @@ export default function ReservationPage() {
   const activities = facilities.filter((f) => f.type === "activity");
 
   // ─── レンダリング ──────────────────────────────────────────────────────────
-  // ⚠️ pb-20 と -mb-20 は対。片方だけ変えないこと（ClientLayout の <main pb-20> を打ち消し、PageBg 自身の
-  // 下端パディングをボトムバー高さ＋セーフエリアぶんだけに絞っている）。
+  // ⚠️ -mb と ClientLayout の <main pb-…> は同じ式で対。片方だけ変えないこと（main の下余白を打ち消し、PageBg 自身の
+  // 下端パディングをボトムバー高さ＋セーフエリアぶんだけに絞っている＝二重に空かない）。
   return (
-    <PageBg className="flex flex-col -mb-20 !pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))]">
+    <PageBg className="flex flex-col -mb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] !pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))]">
       {/* ── ヘッダー ── */}
       <div className="px-5 pt-8">
         <PageHeading

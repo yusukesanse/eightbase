@@ -64,7 +64,8 @@
 }
 
 /* ボトムナビが占める高さ（バー 72px ＋ 選択中の浮きボタンのはみ出し 26px）。
-   コンテンツや固定要素はこの高さぶん上に置けば浮きボタンに隠れない。RichMenu.tsx の BAR_H / OVERHANG と対。 */
+   コンテンツや固定要素はこの高さぶん上に置けば浮きボタンに隠れない。RichMenu.tsx の BAR_H / OVERHANG と対。
+   ⚠️ セーフエリアは含まない。使う側で env(safe-area-inset-bottom) を足すこと。 */
 :root {
   --bottom-nav-height: 98px;
 }

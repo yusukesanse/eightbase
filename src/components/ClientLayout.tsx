@@ -33,10 +33,10 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     <>
       <AuthGuard>
         <div className="w-full max-w-4xl mx-auto flex flex-col flex-1">
-          {/* ⚠️ pb-20 と -mb-20（/reservation の PageBg）は対。片方だけ変えないこと（main の余白に body の白が
+          {/* ⚠️ この pb と /reservation の PageBg の -mb（同じ式）は対。片方だけ変えないこと（main の余白に body の白が
               透けるのを防ぐため）。背景色 bg-[color:var(--eb-bg-end)] は他画面のための着色（reservation は
-              -mb-20 で打ち消されるため影響しない）。色を変えるときは globals.css の --eb-bg-end も合わせること。 */}
-          <main className={`flex-1 ${showNav ? "pb-20 bg-[color:var(--eb-bg-end)]" : ""}`}>{children}</main>
+              -mb で打ち消されるため影響しない）。色を変えるときは globals.css の --eb-bg-end も合わせること。 */}
+          <main className={`flex-1 ${showNav ? "pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] bg-[color:var(--eb-bg-end)]" : ""}`}>{children}</main>
         </div>
       </AuthGuard>
       {showNav && <RichMenu />}

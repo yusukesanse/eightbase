@@ -98,12 +98,12 @@ test('施設未選択のフッターとプレースホルダーを背景つき�
   }
 });
 
-test('PageBg のルートに -mb-20 と !pb-[ナビ高さ+セーフエリア] を付ける', async () => {
+test('PageBg のルートに -mb-[ナビ高さ+セーフエリア] と !pb-[ナビ高さ+セーフエリア] を付ける', async () => {
   const { container } = render(<ReservationPage />);
   await screen.findByRole('button', { name: 'テスト会議室 4名' });
 
   const root = container.firstElementChild as HTMLElement;
-  expect(Array.from(root.classList)).toContain('-mb-20');
+  expect(Array.from(root.classList)).toContain('-mb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))]');
   expect(Array.from(root.classList)).toContain(
     '!pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))]'
   );
