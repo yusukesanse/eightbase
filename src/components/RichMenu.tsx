@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import clsx from "clsx";
 import { isGamesOnlyRole, normalizeRole, type UserRole } from "@/lib/roles";
 
@@ -92,7 +92,29 @@ const MENUS = [
   },
 ];
 
-export function RichMenu() {
+/* ── 見た目の寸法（Figma 確定値）──
+ * バー: 高さ 72px（下にセーフエリア分の白）・上向きの影。
+ * 選択中: 直径 56px の円がバー上端から 26px はみ出す（中心＝上端から 2px 下）。バーは円の真下だけへこむ。
+ * へこみは幅の広い SVG に 1 か所だけ描き、スロット幅のラッパーを translateX(index×100%) で滑らせる
+ * （% は自分の幅基準なので、画面幅が変わってもスロット中央に合う）。
+ * ⚠️ コンテンツが隠れない高さ（72 + 26 = 98px）は globals.css の --bottom-nav-height と対。片方だけ変えない。
+ */
+const BAR_H = 72;
+const OVERHANG = 26;
+const NOTCH_SVG_W = 4000; // 896px のバーより十分広い。へこみは中央（cx=2000）
+const NOTCH_PATH = (() => {
+  const cx = NOTCH_SVG_W / 2;
+  return [
+    `M0 0 L${cx - 58} 0`,
+    `C${cx - 42} 0, ${cx - 38} 6, ${cx - 34} 14`,
+    `C${cx - 27} 30, ${cx - 15} 36, ${cx} 36`,
+    `C${cx + 15} 36, ${cx + 27} 30, ${cx + 34} 14`,
+    `C${cx + 38} 6, ${cx + 42} 0, ${cx + 58} 0`,
+    `L${NOTCH_SVG_W} 0 L${NOTCH_SVG_W} ${BAR_H} L0 ${BAR_H} Z`,
+  ].join(" ");
+})();
+
+export function RichMenu({ showLabels = false }: { showLabels?: boolean } = {}) {
   const pathname = usePathname();
   const [role, setRole] = useState<UserRole>("member");
 
@@ -112,44 +134,84 @@ export function RichMenu() {
   // ゲスト・エイト社員はゲーム系のみ（1列メニュー）
   const gamesOnly = isGamesOnlyRole(role);
   const menus = gamesOnly ? GUEST_MENUS : MENUS;
-  const cols = gamesOnly ? "grid-cols-1" : "grid-cols-5";
+  const isActive = (menu: { href: string; match?: string[] }) =>
+    (menu.match || [menu.href]).some((p) => pathname.startsWith(p));
+  const activeIndex = menus.findIndex(isActive);
+  // 選択中のタブへ滑るラッパー（へこみ・円の2層が同じ transform で動く）
+  const slide: CSSProperties = {
+    width: `${100 / menus.length}%`,
+    transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
+  };
+  const slideClass = "pointer-events-none absolute left-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none";
 
   return (
-    <nav className={clsx("fixed bottom-0 left-0 right-0 max-w-4xl mx-auto bg-white border-t border-gray-200 grid z-50", cols)}>
-      {menus.map((menu) => {
-        const paths = (menu as { match?: string[] }).match || [menu.href];
-        const active = paths.some((p) => pathname.startsWith(p));
-        return (
-          <Link
-            key={menu.href}
-            href={menu.href}
-            aria-current={active ? "page" : undefined}
-            className={clsx(
-              "relative flex flex-col items-center justify-center py-2 gap-1 text-xs transition-colors",
-              active
-                ? "text-[#33636e] font-bold"
-                : "text-gray-700 hover:text-gray-700"
-            )}
+    <nav
+      className="fixed bottom-0 left-0 right-0 max-w-4xl mx-auto z-50"
+      style={{ height: `calc(${BAR_H}px + env(safe-area-inset-bottom, 0px))` }}
+    >
+      {/* バーの白地（へこみ付き SVG）。影を切らないよう上に余白を取って横だけ隠す */}
+      <div className="absolute inset-x-0 bottom-0 -top-10 overflow-hidden">
+        {/* key: ロール判明でタブ数が変わったときは滑らせず置き直す（ゲストで円が画面外から飛んでこないように） */}
+        <div key={menus.length} className={clsx(slideClass, "top-10")} style={{ ...slide, height: BAR_H }}>
+          <svg
+            className="absolute top-0 left-1/2 -translate-x-1/2"
+            width={NOTCH_SVG_W}
+            height={BAR_H}
+            viewBox={`0 0 ${NOTCH_SVG_W} ${BAR_H}`}
+            aria-hidden="true"
+            style={{ filter: "drop-shadow(0 -4px 20px rgba(20,41,31,.10))" }}
           >
-            {/* 「今ここ」を色だけに頼らず、上部インジケーターバー＋淡いアクセント地でも示す（色弱配慮） */}
-            {active && (
-              <>
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full bg-[#33636e]" />
-                <span className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-[#33636e]/[0.08]" />
-              </>
-            )}
-            <span
-              className={clsx(
-                "relative z-10 transition-colors",
-                active ? "text-[#33636e]" : "text-gray-700"
-              )}
+            {/* へこみ無し（選択タブが無い画面）は平らな矩形 */}
+            <path d={activeIndex >= 0 ? NOTCH_PATH : `M0 0 L${NOTCH_SVG_W} 0 L${NOTCH_SVG_W} ${BAR_H} L0 ${BAR_H} Z`} fill="#FFFFFF" />
+          </svg>
+        </div>
+        {/* セーフエリア分の白（SVG の影のにじみを隠すため後ろ＝上に描く） */}
+        <div className="absolute inset-x-0 bottom-0 bg-white" style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
+      </div>
+
+      {/* 選択中の浮きボタン（アイコンは円の中に描き、円ごと滑る） */}
+      {activeIndex >= 0 && (
+        <div key={menus.length} className={clsx(slideClass, "top-0")} style={{ ...slide, height: BAR_H }} aria-hidden="true">
+          <span
+            className="absolute left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-[#33636E] text-white [&>svg]:h-6 [&>svg]:w-6"
+            style={{ top: -OVERHANG, boxShadow: "0 6px 14px rgba(51,99,110,.35)" }}
+          >
+            {menus[activeIndex].icon}
+          </span>
+        </div>
+      )}
+
+      {/* タップ領域（スロット）。アイコンはスロット中央・上端から 16px */}
+      <div className="absolute inset-x-0 top-0 flex" style={{ height: BAR_H }}>
+        {menus.map((menu, i) => {
+          const active = i === activeIndex;
+          return (
+            <Link
+              key={menu.href}
+              href={menu.href}
+              aria-label={menu.label}
+              aria-current={active ? "page" : undefined}
+              className="relative flex-1"
             >
-              {menu.icon}
-            </span>
-            <span className="relative z-10">{menu.label}</span>
-          </Link>
-        );
-      })}
+              {!active && (
+                <span className="absolute left-1/2 top-4 -translate-x-1/2 text-[#374151] [&>svg]:h-6 [&>svg]:w-6" aria-hidden="true">
+                  {menu.icon}
+                </span>
+              )}
+              {showLabels && (
+                <span
+                  className={clsx(
+                    "absolute left-1/2 top-11 -translate-x-1/2 whitespace-nowrap text-[11px] leading-none",
+                    active ? "font-bold text-[#33636E]" : "text-[#374151]"
+                  )}
+                >
+                  {menu.label}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
