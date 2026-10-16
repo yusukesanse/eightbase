@@ -60,10 +60,10 @@ test("guest ロールでは「ゲーム」のリンク1つだけになる", asyn
   expect(floatOf(container)!.style.transform).toBe("translateX(0%)");
 });
 
-test("既定ではラベル文字を出さず aria-label だけ付ける。showLabels で文字が出る", async () => {
-  const { queryByText, getAllByRole, unmount } = await renderSettled(<RichMenu />);
+test("既定でアイコン下にラベル文字を出し、aria-label も付ける。showLabels={false} で文字を消せる", async () => {
+  const { getByText, getAllByRole, unmount } = await renderSettled(<RichMenu />);
   for (const label of ["予約", "Info", "メンバー", "ゲーム", "マイページ"]) {
-    expect(queryByText(label)).toBeNull();
+    expect(getByText(label)).toBeTruthy();
   }
   expect(getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual([
     "予約",
@@ -74,9 +74,9 @@ test("既定ではラベル文字を出さず aria-label だけ付ける。showL
   ]);
   unmount();
 
-  const withLabels = await renderSettled(<RichMenu showLabels />);
+  const noLabels = await renderSettled(<RichMenu showLabels={false} />);
   for (const label of ["予約", "Info", "メンバー", "ゲーム", "マイページ"]) {
-    expect(withLabels.getByText(label)).toBeTruthy();
+    expect(noLabels.queryByText(label)).toBeNull();
   }
 });
 

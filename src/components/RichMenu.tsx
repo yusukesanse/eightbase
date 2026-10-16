@@ -114,7 +114,7 @@ const NOTCH_PATH = (() => {
   ].join(" ");
 })();
 
-export function RichMenu({ showLabels = false }: { showLabels?: boolean } = {}) {
+export function RichMenu({ showLabels = true }: { showLabels?: boolean } = {}) {
   const pathname = usePathname();
   const [role, setRole] = useState<UserRole>("member");
 
