@@ -121,11 +121,11 @@ export default function MonthCalendar({
                       ? "border-[2.5px] border-[color:var(--eb-green)] bg-[color:var(--eb-green)] font-bold text-white active:scale-95"
                       : isMarked
                         ? clsx(
-                            "border-[2.5px] border-[color:var(--eb-green)] bg-white/60 font-bold active:scale-95",
+                            "border-0 bg-transparent font-bold active:scale-95",
                             isToday ? "text-[color:var(--eb-green)]" : "text-[color:var(--eb-ink)]"
                           )
                         : clsx(
-                            "border-[1.5px] border-[rgba(15,29,25,.28)] bg-white/60 active:scale-95",
+                            "border-0 bg-transparent active:scale-95",
                             isToday
                               ? "font-bold text-[color:var(--eb-green)]"
                               : "font-medium text-[color:var(--eb-ink)]"
