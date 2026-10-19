@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Avatar } from "@/components/ui/LineContact";
 import { BottomSheet } from "@/components/ui/Sheet";
 import { isDevLoginEnabled } from "@/lib/env";
@@ -44,16 +44,36 @@ interface PubCsEvent {
 }
 
 /**
- * CS > 麻雀（TILES 案）— 縦トーナメント表
- * - 最上部に王冠（優勝者 / 未定）、下へ 決勝→準決→予選 と枝分かれする木構造で表示。
- * - 勝ち上がりは緑で強調、M1シードは S バッジ。
- * - デモ時のみ各卓に「結果入力」。自分の卓は着順、他卓は勝者タップ（手動）。
+ * CS > 麻雀 — ラウンドごとの縦一覧
+ * - 表彰台（終了後）→ あなたの卓（未確定のとき）→ ラウンド切替タブ → 選んだラウンドの卓カード。
+ * - 木構造・接続線は廃止（横にはみ出して読めなかった）。通過者は緑、自分は金で強調。
+ * - デモ時のみ他卓に「この卓を進める（デモ）」。
  */
 
 const MEDAL: Record<number, string> = { 1: "#d8a526", 2: "#b9c0c6", 3: "#c97b3c" };
-const LINE = "#d5dadd";
-const CARD_W = 158;
-const GAP = 12;
+const GREEN_TINT = "rgba(35,147,94,.12)";
+const GOLD_TINT = "rgba(216,165,38,.12)";
+
+const fmtPoints = (n: number) => n.toLocaleString("en-US");
+const isDone = (m: PubCsMatch) => m.status === "completed";
+const byRank = (players: PubCsPlayer[]) => [...players].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+
+/** 通過人数。旧方式と決勝は 1。 */
+function passCountOf(match: PubCsMatch, round: PubCsRound, manual: boolean) {
+  return manual && round.type !== "final" ? match.advanceCount ?? round.advanceCount : 1;
+}
+/** 「1位が決勝へ」「上位2名が準決勝へ」「1位が優勝」。 */
+function advanceText(count: number, next: PubCsRound | undefined, final: boolean) {
+  if (final || !next) return "1位が優勝";
+  return count > 1 ? `上位${count}名が${next.label}へ` : `1位が${next.label}へ`;
+}
+/** 最初に開くラウンド: 自分の未確定の卓 → 未確定の卓がある最初 → 最後。 */
+function defaultRoundIndex(rounds: PubCsRound[]) {
+  const mine = rounds.findIndex((r) => r.matches.some((m) => !isDone(m) && m.players.some((p) => p.isMe)));
+  if (mine >= 0) return mine;
+  const open = rounds.findIndex((r) => r.matches.some((m) => !isDone(m)));
+  return open >= 0 ? open : rounds.length - 1;
+}
 
 /** 参加受付と公開トーナメントを表示する。 */
 export function MahjongCsView() {
@@ -62,6 +82,9 @@ export function MahjongCsView() {
   const [inputMatch, setInputMatch] = useState<PubCsMatch | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // null = 自動選択。利用者が切り替えたら自動更新後もその選択を保つ（CSが変わる・組み直されて見つからなければ自動へ戻す）。
+  const [pickedRound, setPickedRound] = useState<{ csEventId: string; label: string } | null>(null);
+  const tabListRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     return fetch("/api/mahjong/cs", { credentials: "include" })
@@ -76,6 +99,20 @@ export function MahjongCsView() {
   }, [load]);
   // 他の参加者の申告・ラウンド進行を追従（load は loading を上げないのでちらつかない）
   useAutoRefresh(load, 15000);
+
+  // 選んだタブが横スクロールの外に出ないよう寄せる（jsdom には scrollTo が無い）。
+  const selectedLabel = (() => {
+    if (!event?.rounds.length) return null;
+    const picked = pickedRound?.csEventId === event.csEventId
+      ? event.rounds.find((r) => r.label === pickedRound.label) : undefined;
+    return (picked ?? event.rounds[defaultRoundIndex(event.rounds)]).label;
+  })();
+  useEffect(() => {
+    // scrollIntoView はページ全体も縦に動かすので使わない。タブ列の横位置だけを動かす。
+    const list = tabListRef.current;
+    const tab = list?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (list && tab) list.scrollTo?.({ left: tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2 });
+  }, [selectedLabel]);
 
   // DEV-ONLY（develop 専用 / main へ入れない）: デモCSのみ結果入力UIを出す。本番は false。
   const demo = isDevLoginEnabled() && !!event?.demoDummy;
@@ -155,8 +192,18 @@ export function MahjongCsView() {
   const champ = event.champion;
   const hasSeed = event.entrants.some((player) => player.seed)
     || event.rounds.some((round) => round.matches.some((match) => match.players.some((player) => player.seed)));
-  // 木は上から 決勝→準決→予選。rounds は予選→決勝の順なので反転。
-  const roundsTopDown = [...event.rounds].reverse();
+  const rounds = event.rounds;
+  const roundIdx = Math.max(0, rounds.findIndex((r) => r.label === selectedLabel));
+  const round = rounds[roundIdx];
+  const nextRound = rounds[roundIdx + 1];
+  const finalRound = rounds.find((r) => r.type === "final") ?? rounds[rounds.length - 1];
+  const finalMatch = finalRound?.matches[0];
+  // 表彰台は決勝卓の確定だけで出す（status だけでは仮の着順が出てしまう）。
+  const finished = finalMatch != null && isDone(finalMatch);
+  const myMatch = rounds.flatMap((r, i) => r.matches.map((m) => ({ m, r, next: rounds[i + 1] })))
+    .find(({ m }) => !isDone(m) && m.players.some((p) => p.isMe));
+  const passCounts = round ? round.matches.map((m) => passCountOf(m, round, manual)) : [];
+  const uniformPass = passCounts.every((c) => c === passCounts[0]);
 
   return (
     <div className={manual ? "flex min-w-0 max-w-full flex-col gap-4" : "flex flex-col gap-4"}>
@@ -190,56 +237,79 @@ export function MahjongCsView() {
         <CapacityEntryPanel event={event} busy={busy} error={entryError} onToggle={toggleEntry} />
       )}
 
-      {event.rounds.length === 0 ? (
+      {rounds.length === 0 ? (
         <GlassCard className="text-center py-10">
           <p className="text-[15px] text-[color:var(--eb-ink-muted)]">トーナメント表はまだ公開されていません</p>
         </GlassCard>
       ) : (
-        <div className="overflow-x-auto -mx-4 px-4 pb-1">
-          <div className="flex flex-col items-center mx-auto" style={{ width: "max-content", minWidth: "100%" }}>
-            {/* 王冠（優勝者） */}
-            <ChampCrown champ={champ} />
-            <Stem />
+        <>
+          {finished && finalMatch && <Podium champ={champ} players={byRank(finalMatch.players)} />}
 
-            {roundsTopDown.map((round, i) => {
-              const gold = round.type === "final";
-              const advanceCount = round.matches[0]?.advanceCount ?? round.advanceCount;
-              const showMatchAdvance = manual && !gold && !round.matches.every(
-                (match) => (match.advanceCount ?? round.advanceCount) === advanceCount,
-              );
+          {myMatch && (
+            <section aria-label="あなたの卓">
+              <MatchCard
+                match={myMatch.m}
+                round={myMatch.r}
+                next={myMatch.next}
+                mine
+                demo={demo}
+                manual={manual}
+                running={event.status === "running"}
+                onInput={() => setInputMatch(myMatch.m)}
+              />
+            </section>
+          )}
+
+          <div ref={tabListRef} role="tablist" aria-label="ラウンド" className="relative -mx-4 flex gap-2 overflow-x-auto px-4">
+            {rounds.map((r, i) => {
+              const done = r.matches.length > 0 && r.matches.every(isDone);
+              const selected = i === roundIdx;
               return (
-                <div key={i} className="flex flex-col items-center">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="whitespace-nowrap text-[17px] font-bold" style={{ color: gold ? "var(--eb-gold-text)" : "var(--eb-ink)" }}>{round.label}</span>
-                    {!showMatchAdvance && <StatusPill tone="muted">
-                      {manual && !gold && advanceCount > 1 ? `${advanceCount}着まで通過` : "1着通過"}
-                    </StatusPill>}
-                  </div>
-                  <div className="flex justify-center" style={{ gap: GAP }}>
-                    {round.matches.map((m) => (
-                      <div key={m.matchId} style={{ width: CARD_W }}>
-                        <MatchCard
-                          match={m}
-                          gold={gold}
-                          demo={demo}
-                          manual={manual}
-                          advanceCount={m.advanceCount ?? round.advanceCount}
-                          showAdvanceCount={showMatchAdvance}
-                          running={event.status === "running"}
-                          onInput={() => setInputMatch(m)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {/* 次ラウンド（下）への接続線 */}
-                  {i < roundsTopDown.length - 1 && (
-                    <Connector lowerCount={roundsTopDown[i + 1].matches.length} />
-                  )}
-                </div>
+                <button
+                  key={i}
+                  id={`cs-round-tab-${i}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls="cs-round-panel"
+                  onClick={() => setPickedRound({ csEventId: event.csEventId, label: r.label })}
+                  className="h-11 min-w-fit flex-1 whitespace-nowrap rounded-xl px-3 text-[14px] max-[360px]:text-[13px] font-bold transition-colors"
+                  style={selected
+                    ? { background: "var(--eb-ink)", color: "#fff" }
+                    : done
+                      ? { background: GREEN_TINT, color: "var(--eb-green-text)" }
+                      : { background: "var(--eb-tint)", color: "var(--eb-ink-muted)" }}
+                >
+                  {done ? "✓ " : ""}{r.label}
+                </button>
               );
             })}
           </div>
-        </div>
+
+          <div id="cs-round-panel" role="tabpanel" aria-labelledby={`cs-round-tab-${roundIdx}`} className="flex flex-col gap-3">
+            <div>
+              <div className="text-[22px] font-bold text-[color:var(--eb-ink)]">{round.label}</div>
+              <div className="text-[14px] text-[color:var(--eb-ink-muted)]">
+                {round.matches.length}卓
+                {uniformPass && passCounts.length > 0
+                  && `・${passCounts.length > 1 ? "各卓" : ""}${advanceText(passCounts[0], nextRound, round.type === "final")}`}
+              </div>
+            </div>
+            {round.matches.map((m) => (
+              <MatchCard
+                key={m.matchId}
+                match={m}
+                round={round}
+                next={nextRound}
+                hideReport={m.matchId === myMatch?.m.matchId}
+                demo={demo}
+                manual={manual}
+                running={event.status === "running"}
+                onInput={() => setInputMatch(m)}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {inputMatch && event && (
@@ -377,81 +447,75 @@ function CsEntryPanel({
   );
 }
 
-/** 木の頂点：王冠＋優勝者（未定なら🏆）。 */
-function ChampCrown({ champ }: { champ?: { displayName: string; pictureUrl?: string } | null }) {
+/** 表彰台（大会終了後）。1位は champion を優先し、点数は決勝卓の持ち点。 */
+function Podium({ champ, players }: { champ: PubCsEvent["champion"]; players: PubCsPlayer[] }) {
+  const first = players.find((p) => p.rank === 1);
+  const winner = champ ?? first;
+  if (!winner) return null;
+  const minor = [2, 3].map((rank) => players.find((p) => p.rank === rank));
   return (
-    <div className="flex flex-col items-center">
-      <div className="text-[22px] leading-none">👑</div>
-      {champ ? (
-        <div className="mt-1 flex flex-col items-center rounded-2xl px-3 py-2" style={{ background: "radial-gradient(120% 90% at 50% 0%, #2b2f31, #16191b)" }}>
-          <Avatar src={champ.pictureUrl} name={champ.displayName} size={40} style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
-          <div className="text-[12px] font-black text-white mt-1">{champ.displayName}</div>
-          <div className="text-[9px] font-extrabold tracking-wide" style={{ color: MEDAL[1] }}>WINNER</div>
+    <section aria-label="表彰台" className="flex flex-col gap-3">
+      <GlassCard tone="gold" className="flex flex-col items-center text-center">
+        <StatusPill tone="gold">優勝</StatusPill>
+        <Avatar src={winner.pictureUrl} name={winner.displayName} size={72} className="mt-3" style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
+        <div className="mt-2 text-[20px] font-bold text-[color:var(--eb-ink)]">{winner.displayName}</div>
+        {first?.points != null && first.displayName === winner.displayName && (
+          <div className="text-[14px] text-[color:var(--eb-ink-muted)] tabular-nums">決勝 {fmtPoints(first.points)}点</div>
+        )}
+      </GlassCard>
+      {minor.some(Boolean) && (
+        <div className="grid grid-cols-2 gap-3">
+          {minor.map((p, i) => p && (
+            <div key={i} className="eb-glass flex flex-col items-center rounded-[20px] p-4 text-center" style={{ borderColor: MEDAL[i + 2], borderWidth: 2 }}>
+              <div className="text-[13px] font-bold" style={{ color: MEDAL[i + 2] }}>{i + 2}位</div>
+              <Avatar src={p.pictureUrl} name={p.displayName} size={44} className="mt-1" />
+              <div className="mt-1 w-full truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</div>
+              {p.points != null && <div className="text-[13px] text-[color:var(--eb-ink-muted)] tabular-nums">{fmtPoints(p.points)}点</div>}
+            </div>
+          ))}
         </div>
-      ) : (
-        <div className="mt-0.5 text-[16px]" style={{ color: "rgba(26,29,27,.7)" }}>優勝者 未定</div>
       )}
-    </div>
+    </section>
   );
 }
 
-/** 縦の線（1本）。 */
-function Stem() {
-  return <div style={{ width: 2, height: 16, background: LINE }} />;
-}
-
-/** ラウンド間の接続線：上の1本 → 横バー → 下の各卓へ分岐。 */
-function Connector({ lowerCount }: { lowerCount: number }) {
-  if (lowerCount <= 1) {
-    return <div style={{ width: 2, height: 20, background: LINE }} />;
-  }
-  const barW = (lowerCount - 1) * (CARD_W + GAP);
-  return (
-    <div className="flex flex-col items-center">
-      <div style={{ width: 2, height: 10, background: LINE }} />
-      <div style={{ width: barW, height: 2, background: LINE }} />
-      <div className="flex justify-center" style={{ gap: GAP }}>
-        {Array.from({ length: lowerCount }).map((_, i) => (
-          <div key={i} className="flex justify-center" style={{ width: CARD_W }}>
-            <div style={{ width: 2, height: 10, background: LINE }} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** 1試合カード。 */
+/** 1卓カード。mine＝「あなたの卓」セクション（金枠）。hideReport＝同じ卓が「あなたの卓」に出ているので一覧側のボタンを省く。 */
 function MatchCard({
   match,
-  gold,
+  round,
+  next,
+  mine = false,
+  hideReport = false,
   demo,
   manual,
-  advanceCount,
-  showAdvanceCount,
   running,
   onInput,
 }: {
   match: PubCsMatch;
-  gold: boolean;
+  round: PubCsRound;
+  next: PubCsRound | undefined;
+  mine?: boolean;
+  hideReport?: boolean;
   demo: boolean;
   manual: boolean;
-  advanceCount: number;
-  showAdvanceCount: boolean;
   running: boolean;
   onInput: () => void;
 }) {
-  const done = match.status === "completed";
+  const done = isDone(match);
   const pendingSeats = manual ? match.pendingSeats ?? [] : [];
   const canReport = !manual || (running && match.players.length === 4 && pendingSeats.length === 0);
   const iAmIn = match.players.some((p) => p.isMe);
+  const final = round.type === "final" || !next;
+  const passCount = passCountOf(match, round, manual);
+  const advance = advanceText(passCount, next, final);
+  const players = done ? byRank(match.players) : match.players;
   return (
-    <GlassCard tone={iAmIn ? "green" : "default"} padding="md">
-      <div className={`flex items-center justify-between mb-1.5 gap-1.5 ${manual ? "flex-wrap" : ""}`}>
-        <span className="min-w-0 truncate text-[12px] font-bold text-[color:var(--eb-ink-muted)]">{match.label}</span>
-        {showAdvanceCount && <StatusPill tone="muted">
-          {advanceCount > 1 ? `${advanceCount}着まで通過` : "1着通過"}
-        </StatusPill>}
+    <GlassCard tone={mine ? "gold" : iAmIn ? "green" : "default"} padding="md">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-[17px] font-bold text-[color:var(--eb-ink)]">{match.label}</div>
+          <div className="text-[13px] text-[color:var(--eb-ink-muted)]">{mine ? `あなたの卓・${advance}` : advance}</div>
+        </div>
         {done ? (
           <StatusPill tone="green">確定</StatusPill>
         ) : pendingSeats.length > 0 ? (
@@ -461,86 +525,65 @@ function MatchCard({
         )}
       </div>
       <div className="flex flex-col gap-1">
-        {[...match.players]
-          .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-          .map((p, i) => (
-            <BracketSlot
-              key={i}
-              p={p}
-              me={p.isMe}
-              seed={p.seed}
-              advanced={done && p.rank != null && p.rank <= (manual && !gold ? advanceCount : 1)}
-              champion={manual && gold && done && p.rank === 1}
-              pending={!done}
-            />
-          ))}
+        {players.map((p, i) => (
+          <PlayerRow key={i} p={p} done={done} advanced={done && p.rank != null && p.rank <= passCount} final={final} />
+        ))}
         {pendingSeats.map((label, i) => (
-          <div key={i} className="rounded-lg bg-[color:var(--eb-tint)] px-1.5 py-2">
-            <span className="break-words text-[15px] text-[color:var(--eb-ink-muted)]">{label}</span>
+          <div key={i} className="flex h-10 items-center rounded-xl border border-dashed border-[color:var(--eb-line)] px-3 text-[13px] text-[color:var(--eb-ink-muted)]">
+            {label.replace(/\s+(\d+位)$/, "の$1")}を待っています
           </div>
         ))}
       </div>
       {/* 自分の卓は本番でも申告可。デモは他卓を自動で進められる。 */}
-      {!done && iAmIn && canReport && (
-        <Button variant="primary" onClick={onInput} className={manual ? "mt-1.5" : "mt-1.5 h-10 text-[13px]"}>
+      {!hideReport && !done && iAmIn && canReport && (
+        <Button variant="primary" onClick={onInput} className="mt-3">
           {match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
         </Button>
       )}
-      {!done && !iAmIn && demo && canReport && (
-        <Button variant="ghost" onClick={onInput} className="mt-1.5 h-10 text-[13px]">
+      {!mine && !done && !iAmIn && demo && canReport && (
+        <button type="button" onClick={onInput} className="mt-2 self-start text-[13px] text-[color:var(--eb-ink-muted)] underline">
           この卓を進める（デモ）
-        </Button>
+        </button>
       )}
     </GlassCard>
   );
 }
 
-function BracketSlot({
-  p,
-  me,
-  seed,
-  advanced,
-  champion,
-  pending,
-}: {
-  p: PubCsPlayer;
-  me: boolean;
-  seed: boolean;
-  advanced: boolean;
-  champion: boolean;
-  pending: boolean;
-}) {
+/** 選手の行: [着順] [アバター] [名前＋補足] [点数]。確定した卓だけ着順と点数を出す。 */
+function PlayerRow({ p, done, advanced, final }: { p: PubCsPlayer; done: boolean; advanced: boolean; final: boolean }) {
+  const sub = done
+    ? advanced ? (final && p.rank === 1 ? "優勝" : "次のラウンドへ進出") : null
+    : p.points != null ? "申告済み" : "まだ申告していません";
   return (
     <div
-      className="flex items-center gap-1 px-1.5 py-1 rounded-lg"
-      style={
-        champion
-          ? { background: "rgba(216,165,38,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-gold)" }
-          : advanced
-            ? { background: "rgba(35,147,94,.12)", boxShadow: "inset 0 0 0 1.5px var(--eb-green)" }
-            : me
-              ? { background: "var(--eb-tint)", boxShadow: "inset 0 0 0 1px var(--eb-line)" }
-              : { background: "transparent" }
-      }
+      data-cs-row
+      data-advanced={advanced ? "true" : "false"}
+      className="flex h-12 items-center gap-3 rounded-xl px-2"
+      style={{ background: advanced ? GREEN_TINT : p.isMe ? GOLD_TINT : "transparent" }}
     >
-      <span className="flex-1 min-w-0 text-[13px] font-bold text-[color:var(--eb-ink)] truncate">
-        {p.displayName}
-        {me && <span className="ml-0.5 text-[11px] font-bold text-[color:var(--eb-ink-muted)]">(あなた)</span>}
-      </span>
-      {seed && (
-        <StatusPill tone="gold" className="shrink-0 px-1.5 py-0.5 text-[10px]">S</StatusPill>
+      {done && (
+        <span
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-bold tabular-nums"
+          style={advanced ? { background: "var(--eb-green)", color: "#fff" } : { background: "var(--eb-tint)", color: "var(--eb-ink)" }}
+        >
+          {p.rank ?? "—"}
+        </span>
       )}
-      {champion ? (
-        <span className="shrink-0 text-[11px] text-[color:var(--eb-gold-text)]" aria-label="優勝">👑</span>
-      ) : advanced ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--eb-green-text)"
-          strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-          <path d="M5 12.5l4.5 4.5L19 7.5" />
-        </svg>
-      ) : pending ? (
-        <span className="text-[11px] text-[color:var(--eb-ink-muted)] shrink-0">—</span>
-      ) : (
-        <span className="text-[11px] text-[color:var(--eb-ink-muted)] tabular-nums shrink-0">{p.rank != null ? `${p.rank}着` : "—"}</span>
+      <Avatar src={p.pictureUrl} name={p.displayName} size={36} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</span>
+          {p.isMe && <span className="shrink-0 text-[11px] font-bold text-[color:var(--eb-gold-text)]">あなた</span>}
+          {p.seed && <span className="shrink-0 text-[11px] font-bold text-[color:var(--eb-ink-muted)]">シード</span>}
+        </div>
+        {sub && (
+          <div className={`text-[12px] ${!done && p.points != null ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}>{sub}</div>
+        )}
+      </div>
+      {done && (
+        <span className="shrink-0 text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">
+          {p.points != null ? fmtPoints(p.points) : "—"}
+        </span>
       )}
     </div>
   );
