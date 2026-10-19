@@ -65,6 +65,8 @@ function normalizeCanvas(canvas: MahjongCsCanvas): MahjongCsCanvas {
     ({ id, ...(name !== undefined ? { name: name.trim() } : {}), x, y, advanceCount, to, playerIds: [...playerIds] })) };
 }
 
+const DEMO_SELF = { lineUserId: "dev-member-01", displayName: "demoユーザー" };
+
 /** PATCH /api/admin/mahjong/cs/[csEventId] — 受付・編成を action ごとに更新する。 */
 export async function PATCH(
   req: NextRequest,
@@ -201,6 +203,11 @@ export async function PATCH(
         case "fillDummies": {
           const entries = [...(event.entries ?? [])];
           const ids = new Set(entries.map((e) => e.lineUserId));
+          // demo の簡易ログイン利用者（/api/dev/quick-login の member）も入れて、点数入力を試せるようにする。
+          if (!ids.has(DEMO_SELF.lineUserId) && entries.length < capacity) {
+            entries.push({ ...DEMO_SELF, tier: "M3", rank: 100000, enteredAt: new Date().toISOString(), state: "confirmed" });
+            ids.add(DEMO_SELF.lineUserId);
+          }
           for (let i = 1; entries.length < capacity; i++) {
             const lineUserId = `demo_cs_${i}`;
             if (ids.has(lineUserId)) continue;

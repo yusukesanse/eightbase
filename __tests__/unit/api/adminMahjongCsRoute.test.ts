@@ -331,7 +331,7 @@ it("closeNow: 受付中なら締切を現在時刻にして参加者を確定し
 });
 
 
-it("fillDummies: 非本番では既存参加者を残し demo_cs_1 から定員まで埋める", async () => {
+it("fillDummies: 非本番では既存参加者を残し、demoユーザーと demo_cs_1 から定員まで埋める", async () => {
   const db = makeDb(); entryEvent(db, { capacity: 4, entries: [entry("a", 0)] });
   (getDb as jest.Mock).mockReturnValue(db);
   expect((await PATCH(body({ action: "fillDummies" }), params)).status).toBe(200);
@@ -339,7 +339,10 @@ it("fillDummies: 非本番では既存参加者を残し demo_cs_1 から定員�
   expect(ev.demoDummy).toBe(true);
   expect(ev.entries).toHaveLength(4);
   expect(ev.entries).toContainEqual(entry("a", 0));
-  for (let i = 1; i <= 3; i++) {
+  expect(ev.entries).toContainEqual(expect.objectContaining({
+    lineUserId: "dev-member-01", displayName: "demoユーザー", state: "confirmed",
+  }));
+  for (let i = 1; i <= 2; i++) {
     expect(ev.entries).toContainEqual(expect.objectContaining({
       lineUserId: `demo_cs_${i}`, displayName: `ダミー${i}`, tier: "M3", state: "confirmed",
     }));
