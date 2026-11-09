@@ -93,3 +93,22 @@ test("確定済みの卓は申告できない", async () => {
   for (const [id, pts] of [["a", 30], ["b", 20], ["c", 10]] as const) await send(id, { matchId: "P", points: pts });
   expect((await send("a", { matchId: "P", points: 1 })).status).toBe(409);
 });
+
+test("expectedStatus が今の卓の状態と違えば 409 で保存しない（シートを開いている間に追加ハンドへ変わった）", async () => {
+  const db = makeCsDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
+  await send("a", { matchId: "P", points: 50 });
+  await send("b", { matchId: "P", points: 50 });
+  await send("c", { matchId: "P", points: 10 });
+  expect(match(db, 0).status).toBe("tiebreak");
+  const res = await send("a", { matchId: "P", points: 60, expectedStatus: "reporting" });
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("卓の状態が変わりました。画面を更新してください");
+  expect(match(db, 0).players.find((p) => p.lineUserId === "a")?.tiebreakPoints).toBeUndefined();
+});
+
+test("expectedStatus が一致すれば保存し、送られなければ従来どおり通す", async () => {
+  const db = makeCsDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
+  expect((await send("a", { matchId: "P", points: 30, expectedStatus: "reporting" })).status).toBe(200);
+  expect((await send("b", { matchId: "P", points: 20 })).status).toBe(200);
+  expect(match(db, 0).players.map((p) => p.points)).toEqual([30, 20, null]);
+});

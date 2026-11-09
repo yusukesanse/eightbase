@@ -27,6 +27,8 @@ interface PubCsMatch {
   pendingSeats: string[];
   /** 同点の追加勝負（ポーカーの追加ハンド）で自分が対象のとき true。麻雀は常に false */
   tiebreakMine?: boolean;
+  /** 対象者だけ: 今の回の追加勝負の値を送ったか */
+  tiebreakSubmitted?: boolean;
 }
 interface PubCsRound { type: string; label: string; advanceCount: number; matches: PubCsMatch[] }
 interface PubCsEvent {
@@ -125,7 +127,7 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const demo = isDevLoginEnabled() && !!event?.demoDummy;
 
   const reportMatch = useCallback(
-    async (csEventId: string, matchId: string, body: { points?: number; rank?: number; auto?: boolean }) => {
+    async (csEventId: string, matchId: string, body: { points?: number; rank?: number; auto?: boolean; expectedStatus?: PubCsMatch["status"] }) => {
       setBusy(true);
       setInputError(null);
       try {
@@ -459,12 +461,12 @@ function CsEntryPanel({
   );
 }
 
-/** podium（ポーカー）があればその金銀銅を1〜3位の選手として並べ、点数は決勝卓から名前で引く。無ければ決勝卓の着順のまま。 */
+/** podium（ポーカー）があればその金銀銅を1〜3位の選手として並べ、点数は決勝卓から着順で引く（決勝の1〜3位は必ず別順位）。無ければ決勝卓の着順のまま。 */
 function podiumPlayers(podium: PubCsEvent["podium"], finalPlayers: PubCsPlayer[]): PubCsPlayer[] {
   if (!podium) return byRank(finalPlayers);
   return [podium.gold, podium.silver, podium.bronze].flatMap((p, i) => {
     if (!p) return [];
-    const onTable = finalPlayers.find((x) => x.displayName === p.displayName);
+    const onTable = finalPlayers.find((x) => x.rank === i + 1);
     return [{ displayName: p.displayName, pictureUrl: p.pictureUrl ?? onTable?.pictureUrl, points: onTable?.points ?? null,
       rank: i + 1, seed: onTable?.seed ?? false, isMe: onTable?.isMe ?? false }];
   });
@@ -547,6 +549,8 @@ function MatchCard({
         </div>
         {done ? (
           <StatusPill tone="green">確定</StatusPill>
+        ) : tiebreak ? (
+          <StatusPill tone="gold">{rules.tiebreakLabel}</StatusPill>
         ) : pendingSeats.length > 0 ? (
           <StatusPill tone="muted">勝ち上がり待ち</StatusPill>
         ) : (
@@ -568,10 +572,16 @@ function MatchCard({
         tiebreak && !match.tiebreakMine ? (
           <p className="mt-3 text-[15px] font-bold text-[color:var(--eb-ink-muted)]">{rules.tiebreakLabel}待ち</p>
         ) : (
-          <Button variant="primary" onClick={onInput} className="mt-3">
-            {tiebreak ? `${rules.tiebreakLabel}を申告`
-              : match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
-          </Button>
+          <>
+            {tiebreak && match.tiebreakSubmitted && (
+              <p className="mt-3 text-[15px] font-bold text-[color:var(--eb-green-text)]">{rules.tiebreakLabel}申告済み・相手待ち</p>
+            )}
+            <Button variant="primary" onClick={onInput} className="mt-3">
+              {tiebreak
+                ? match.tiebreakSubmitted ? "申告を修正" : `${rules.tiebreakLabel}を申告`
+                : match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
+            </Button>
+          </>
         )
       )}
       {!mine && !done && !iAmIn && demo && canReport && (
@@ -644,7 +654,7 @@ function CsInputSheet({
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onReport: (body: { points?: number; rank?: number; auto?: boolean }) => void;
+  onReport: (body: { points?: number; rank?: number; auto?: boolean; expectedStatus?: PubCsMatch["status"] }) => void;
 }) {
   const advancement = manual
     ? round?.type === "final" ? "決勝です。1位が優勝です。" : `上位${match.advanceCount ?? round?.advanceCount ?? 1}名が次へ進出。`
@@ -664,7 +674,7 @@ function CsInputSheet({
   if (iAmIn && rules.game !== "mahjong") {
     return (
       <ChipsInputSheet match={match} rules={rules} advancement={advancement} busy={busy} error={error}
-        onClose={onClose} onReport={(points) => onReport({ points })} />
+        onClose={onClose} onReport={(points) => onReport({ points, expectedStatus: match.status })} />
     );
   }
 
@@ -779,7 +789,11 @@ function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onRe
     <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
       {confirming ? (
         <>
-          <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">{fmtPoints(value)}{rules.scoreLabel}で申告します。よろしいですか？</p>
+          <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">
+            {tiebreak
+              ? `${rules.tiebreakLabel}の ${fmtPoints(value)} ${rules.scoreLabel}で申告します。よろしいですか？`
+              : `${fmtPoints(value)}${rules.scoreLabel}で申告します。よろしいですか？`}
+          </p>
           <p className="mt-2 text-[14px] text-[color:var(--eb-ink-muted)]">
             全員の申告がそろうと結果が確定します。次の卓に申告が入ると直せません。
           </p>

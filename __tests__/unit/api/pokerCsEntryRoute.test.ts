@@ -115,3 +115,38 @@ test("GET の tiebreakMine は追加勝負の対象者だけ true", async () => 
   asUser("c");
   expect((await (await GET(req())).json()).event.rounds[0].matches[0].tiebreakMine).toBe(false);
 });
+
+test("GET は旧形式のポーカーCSで chips だけ持つ選手の値を points に出す", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+  db._set("pokerCsEvents", "old", { seasonId: "s1", name: "旧", eventDate: "2000-01-01", status: "finished", championId: "a",
+    entrants: [{ lineUserId: "a", displayName: "a", rank: 1, seed: false }, { lineUserId: "b", displayName: "b", rank: 2, seed: false }],
+    rounds: [{ type: "final", label: "決勝", advanceCount: 1, matches: [{ matchId: "F", label: "決勝卓", status: "completed",
+      players: [{ lineUserId: "a", displayName: "a", chips: 300, rank: 1 }, { lineUserId: "b", displayName: "b", chips: 100, rank: 2 }] }] }],
+    createdAt: "2026-01-01T00:00:00Z", updatedAt: "" });
+  const body = await (await GET(req())).json();
+  expect(body.event.rounds[0].matches[0].players.map((p: { points: number | null }) => p.points)).toEqual([300, 100]);
+});
+
+test("GET の tiebreakSubmitted は対象者が今の回の追加ハンドを送ったときだけ true。対象外には出さない", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db);
+  const pl = (id: string, points: number, tiebreakPoints?: number[]) =>
+    ({ lineUserId: id, displayName: id, points, rank: null, ...(tiebreakPoints ? { tiebreakPoints } : {}) });
+  seed(db, {
+    status: "running",
+    entrants: ["a", "b", "c"].map((id, i) => ({ lineUserId: id, displayName: id, tier: "P1", rank: i + 1, seed: false })),
+    rounds: [{ type: "prelim", label: "準決勝", advanceCount: 1, matches: [{
+      matchId: "P", label: "準決勝卓", status: "tiebreak", advanceCount: 1,
+      players: [pl("a", 50, [7]), pl("b", 50), pl("c", 10)],
+      seats: ["a", "b", "c"].map((id) => ({ kind: "player", lineUserId: id })),
+    }] }],
+  });
+  const matchFor = async (id: string) => {
+    asUser(id);
+    return (await (await GET(req())).json()).event.rounds[0].matches[0];
+  };
+  expect(await matchFor("a")).toMatchObject({ tiebreakMine: true, tiebreakSubmitted: true });
+  expect(await matchFor("b")).toMatchObject({ tiebreakMine: true, tiebreakSubmitted: false });
+  const other = await matchFor("c");
+  expect(other.tiebreakMine).toBe(false);
+  expect("tiebreakSubmitted" in other).toBe(false);
+});

@@ -27,7 +27,8 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
   const player = (p: { lineUserId: string; displayName: string; pictureUrl?: string; points?: number | null; rank?: number | null }) => ({
     displayName: p.displayName,
     pictureUrl: p.pictureUrl ?? "",
-    points: p.points ?? null,
+    // 旧形式のポーカーCSは値を chips に持つ（管理画面と同じ補い方）
+    points: p.points ?? (p as { chips?: number }).chips ?? null,
     rank: p.rank ?? null,
     seed: seedIds.has(p.lineUserId),
     isMe: p.lineUserId === userId,
@@ -60,16 +61,25 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
       type: r.type,
       label: r.label,
       advanceCount: r.advanceCount,
-      matches: r.matches.map((m) => ({
-        matchId: m.matchId, label: m.label, status: m.status, players: m.players.map(player),
-        ...(typeof m.advanceCount === "number" ? { advanceCount: m.advanceCount } : {}),
-        pendingSeats: (m.seats ?? []).flatMap((seat) =>
-          seat?.kind === "ticket" && typeof seat.fromMatchId === "string" && !seat.lineUserId
-            ? [ticketLabel(event.rounds, seat.fromMatchId, seat.place)] : []),
-        // 麻雀では tiebreak にならないので常に false（evaluate は純関数・読み取りなし）
-        tiebreakMine: m.status === "tiebreak"
-          && evaluateScoreMatch(m.players, cutsFor(r.type === "final", m.advanceCount ?? r.advanceCount)).tiebreakIds.includes(userId),
-      })),
+      matches: r.matches.map((m) => {
+        // 麻雀では tiebreak にならないので tiebreakMine は常に false・tiebreakSubmitted は出ない（evaluate は純関数・読み取りなし）
+        const tb = m.status === "tiebreak"
+          ? evaluateScoreMatch(m.players, cutsFor(r.type === "final", m.advanceCount ?? r.advanceCount)) : null;
+        const level = tb?.tiebreakLevel[userId];
+        const tiebreakMine = !!level;
+        return {
+          matchId: m.matchId, label: m.label, status: m.status, players: m.players.map(player),
+          ...(typeof m.advanceCount === "number" ? { advanceCount: m.advanceCount } : {}),
+          pendingSeats: (m.seats ?? []).flatMap((seat) =>
+            seat?.kind === "ticket" && typeof seat.fromMatchId === "string" && !seat.lineUserId
+              ? [ticketLabel(event.rounds, seat.fromMatchId, seat.place)] : []),
+          tiebreakMine,
+          // 対象者だけ: 今の回の追加勝負の値を送ったか（送った後も相手がそろうまで tiebreak のまま＝画面で「相手待ち」を出す）
+          ...(tiebreakMine ? {
+            tiebreakSubmitted: m.players.find((p) => p.lineUserId === userId)?.tiebreakPoints?.[level! - 1] != null,
+          } : {}),
+        };
+      }),
     })),
   };
 }

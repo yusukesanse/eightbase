@@ -23,6 +23,8 @@ export async function handleScoreMatchReport(req: NextRequest, rules: GameCsRule
     const csEventId: unknown = body?.csEventId;
     const matchId: unknown = body?.matchId;
     const auto = body?.auto === true;
+    // 画面で見ていた卓の状態。送られたときだけ照合する（シートを開いている間に追加勝負へ変わった値を終了時の値として保存しない）
+    const expectedStatus: unknown = body?.expectedStatus;
     // csEventId は doc パス。厳格に検証（インジェクション対策）。
     if (typeof csEventId !== "string" || !/^[A-Za-z0-9_-]+$/.test(csEventId)) {
       return NextResponse.json({ error: "csEventId が不正です" }, { status: 400 });
@@ -50,6 +52,9 @@ export async function handleScoreMatchReport(req: NextRequest, rules: GameCsRule
       const match = round.matches.find((m) => m.matchId === matchId)!;
       if (match.players.length < (match.seats ?? []).length) return { status: 409 as const, error: "この卓はまだ全員そろっていません" };
       if (match.status === "completed") return { status: 409 as const, error: "この卓は確定済みです" };
+      if ((expectedStatus === "reporting" || expectedStatus === "tiebreak") && match.status !== expectedStatus) {
+        return { status: 409 as const, error: "卓の状態が変わりました。画面を更新してください" };
+      }
       const cuts = cutsFor(ri === rounds.length - 1, match.advanceCount ?? round.advanceCount);
 
       if (auto) {

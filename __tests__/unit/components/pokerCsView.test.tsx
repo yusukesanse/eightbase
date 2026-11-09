@@ -42,7 +42,7 @@ test("申告はチップだけを入れ、確認をはさんでから /api/poker
   expect(screen.getByText("12,000チップで申告します。よろしいですか？")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "申告する" }));
   await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/poker/cs/match", expect.objectContaining({
-    method: "PATCH", body: JSON.stringify({ csEventId: "cs1", matchId: "F", points: 12000 }),
+    method: "PATCH", body: JSON.stringify({ csEventId: "cs1", matchId: "F", points: 12000, expectedStatus: "reporting" }),
   })));
 });
 
@@ -80,10 +80,37 @@ test("追加ハンドの対象のときだけ「追加ハンドを申告」が�
   expect(screen.queryByRole("button", { name: "結果を申告" })).toBeNull();
   fireEvent.change(screen.getByLabelText("追加ハンドのチップ"), { target: { value: "300" } });
   fireEvent.click(screen.getByRole("button", { name: "確認へ進む" }));
+  expect(screen.getByText("追加ハンドの 300 チップで申告します。よろしいですか？")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "申告する" }));
   await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/poker/cs/match", expect.objectContaining({
-    method: "PATCH", body: JSON.stringify({ csEventId: "cs1", matchId: "F", points: 300 }),
+    method: "PATCH", body: JSON.stringify({ csEventId: "cs1", matchId: "F", points: 300, expectedStatus: "tiebreak" }),
   })));
+});
+
+test("追加ハンド中の卓は状態の札が「追加ハンド」になる", async () => {
+  const ev = event();
+  firstMatch(ev).status = "tiebreak";
+  firstMatch(ev).tiebreakMine = true;
+  firstMatch(ev).players = [player("自分", true, 100), player("相手1", false, 100), player("相手2", false, 10)];
+  mockGet(ev);
+  render(<MahjongCsView game="poker" />);
+  const mine = await screen.findByRole("region", { name: "あなたの卓" });
+  expect(within(mine).getByText("追加ハンド")).toBeInTheDocument();
+  expect(within(mine).queryByText("結果待ち")).toBeNull();
+});
+
+test("追加ハンドを送った後は「追加ハンド申告済み・相手待ち」と出て、ボタンは「申告を修正」", async () => {
+  const ev = event();
+  firstMatch(ev).status = "tiebreak";
+  firstMatch(ev).tiebreakMine = true;
+  (firstMatch(ev) as { tiebreakSubmitted?: boolean }).tiebreakSubmitted = true;
+  firstMatch(ev).players = [player("自分", true, 100), player("相手1", false, 100), player("相手2", false, 10)];
+  mockGet(ev);
+  render(<MahjongCsView game="poker" />);
+  const mine = await screen.findByRole("region", { name: "あなたの卓" });
+  expect(within(mine).getByText("追加ハンド申告済み・相手待ち")).toBeInTheDocument();
+  expect(within(mine).getByRole("button", { name: "申告を修正" })).toBeInTheDocument();
+  expect(within(mine).queryByRole("button", { name: "追加ハンドを申告" })).toBeNull();
 });
 
 test("追加ハンドの対象でない人には「追加ハンド待ち」を出し、申告ボタンは出さない", async () => {
@@ -102,13 +129,15 @@ test("終了後は podium の金銀銅を出す（単位はチップ）", async 
     podium: { gold: { displayName: "相手1", pictureUrl: "" }, silver: { displayName: "自分", pictureUrl: "" }, bronze: { displayName: "相手2", pictureUrl: "" } } });
   const m = firstMatch(done);
   m.status = "completed";
-  m.players = [player("相手1", false, 30, 1), player("自分", true, 20, 2), player("相手2", false, 10, 3)];
+  // 点数は表示名ではなく着順で引く（同姓同名でも入れ替わらない）
+  m.players = [player("相手1", false, 30, 1), player("自分", true, 20, 2), player("相手1", false, 10, 3)];
   mockGet(done);
   render(<MahjongCsView game="poker" />);
   const podium = await screen.findByRole("region", { name: "表彰台" });
   expect(within(podium).getByText("優勝")).toBeInTheDocument();
-  expect(within(podium).getByText("相手1")).toBeInTheDocument();
+  expect(within(podium).getAllByText("相手1").length).toBeGreaterThan(0);
   expect(within(podium).getByText("決勝 30チップ")).toBeInTheDocument();
+  expect(within(podium).getByText("10チップ")).toBeInTheDocument();
   expect(within(podium).getByText("20チップ")).toBeInTheDocument();
   expect(within(podium).queryByText(/点/)).toBeNull();
 });
