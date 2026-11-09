@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { closeEntriesIfDue, isManualCs } from "@/lib/mahjongCsEntry";
 import { writeAuditLog } from "@/lib/auditLog";
 import type { MahjongCsEvent } from "@/types";
+import type { GameCsRules } from "@/lib/gameCsRules";
 
 type CsEvent = MahjongCsEvent & { csEventId: string };
 
@@ -17,11 +18,11 @@ export async function auditLazyClose(event: CsEvent): Promise<void> {
   });
 }
 
-export async function ensureCsClosed(event: CsEvent): Promise<CsEvent> {
+export async function ensureCsClosed(event: CsEvent, collection: GameCsRules["collection"] = "mahjongCsEvents"): Promise<CsEvent> {
   if (!isManualCs(event) || closeEntriesIfDue(event, new Date().toISOString()) === null) return event;
 
   const db = getDb();
-  const ref = db.collection("mahjongCsEvents").doc(event.csEventId);
+  const ref = db.collection(collection).doc(event.csEventId);
   const result = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) return { event, applied: false };

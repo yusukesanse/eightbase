@@ -79,7 +79,7 @@ export function makeCsDb() {
     }),
     __store: store,
     reads,
-    _get: (c: string, id: string) => store.get(c)!.get(id)!,
+    _get: (c: string, id: string) => store.get(c)?.get(id) as Data,
     _set: (c: string, id: string, d: Data) => col(c).set(id, d),
   };
 }
