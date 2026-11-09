@@ -165,6 +165,10 @@ export async function handleCsEntryDelete(req: NextRequest, rules: GameCsRules):
         }
         return { status: 200 as const, entered: false };
       }
+      // 旧形式（capacity なし）の取消は麻雀だけ。ポーカーの旧形式は見るだけ＋削除だけ（entrants を崩さない）
+      if (rules.game !== "mahjong") {
+        return { status: 409 as const, error: "旧形式のCSは変更できません" };
+      }
       if (event.status !== "setup") {
         return { status: 409 as const, error: "エントリーの受付は終了しました" };
       }

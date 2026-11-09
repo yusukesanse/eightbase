@@ -93,11 +93,11 @@ export async function handleScoreMatchReport(req: NextRequest, rules: GameCsRule
         }
       }
       tx.update(ref, { rounds: nextRounds, status, ...(status === "finished" ? { championId } : {}), ...extra, updatedAt: now });
-      return { status: 200 as const, matchStatus: ev.status, tiebreakIds: ev.tiebreakIds, eventStatus: status, championId };
+      // 応答に同卓者の lineUserId（tiebreakIds・championId）は出さない。画面は res.ok と status しか見ない
+      return { status: 200 as const, matchStatus: ev.status, eventStatus: status };
     });
     if (result.status !== 200) return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json({ success: true, status: result.matchStatus, tiebreakIds: result.tiebreakIds,
-      eventStatus: result.eventStatus, championId: result.championId });
+    return NextResponse.json({ success: true, status: result.matchStatus, eventStatus: result.eventStatus });
   } catch (error) {
     console.error(`[${rules.game}/cs/match] PATCH error:`, error);
     return NextResponse.json({ error: "結果の反映に失敗しました" }, { status: 500 });

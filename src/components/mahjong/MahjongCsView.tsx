@@ -95,19 +95,20 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const [pickedRound, setPickedRound] = useState<{ csEventId: string; label: string } | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((): Promise<boolean> => {
     return fetch(`/api/${game}/cs`, { credentials: "include" })
       .then((r) => r.json())
-      .then((cs) => setEvent(cs.event ?? null))
-      .catch(() => {})
+      .then((cs) => { setEvent(cs.event ?? null); return true; })
+      .catch(() => false)
       .finally(() => setLoading(false));
   }, [game]);
 
   useEffect(() => {
     load();
   }, [load]);
-  // 他の参加者の申告・ラウンド進行を追従（load は loading を上げないのでちらつかない）
-  useAutoRefresh(load, 15000);
+  // 他の参加者の申告・ラウンド進行を追従（load は loading を上げないのでちらつかない）。
+  // シートを閉じたあとに残る 409 のエラー文（卓の状態が変わった）は、取り直しが成功したら消す。
+  useAutoRefresh(() => { load().then((ok) => { if (ok && !inputMatch) setInputError(null); }); }, 15000);
 
   const openInput = (m: PubCsMatch) => {
     setInputError(null);

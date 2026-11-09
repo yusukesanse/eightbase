@@ -199,7 +199,7 @@ export async function PUT(
 
 /**
  * シーズン削除時に一緒に消す、seasonId で紐づく関連コレクション。
- * （麻雀リーグ/CS/スコアボードの各データ。`games` は季節非依存のため対象外）
+ * （麻雀リーグ/CS・ポーカーCS/スコアボードの各データ。`games` は季節非依存のため対象外）
  */
 const SEASON_LINKED_COLLECTIONS = [
   "scores",
@@ -209,6 +209,7 @@ const SEASON_LINKED_COLLECTIONS = [
   "mahjongSchedule",
   "mahjongLeagueAssignments",
   "mahjongCsEvents",
+  "pokerCsEvents",
 ] as const;
 
 /**

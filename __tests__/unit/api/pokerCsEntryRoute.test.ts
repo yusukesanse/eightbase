@@ -150,3 +150,13 @@ test("GET の tiebreakSubmitted は対象者が今の回の追加ハンドを送
   expect(other.tiebreakMine).toBe(false);
   expect("tiebreakSubmitted" in other).toBe(false);
 });
+
+test("旧形式（定員なし）のポーカーCSは DELETE でも entrants から消せない（409）", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+  seed(db, { capacity: undefined, status: "setup",
+    entrants: [{ lineUserId: "a", displayName: "a", rank: 1, seed: false }, { lineUserId: "b", displayName: "b", rank: 2, seed: false }] });
+  const res = await DELETE(req());
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("旧形式のCSは変更できません");
+  expect(db._get("pokerCsEvents", "cs1").entrants).toHaveLength(2);
+});

@@ -169,3 +169,22 @@ test("旧形式（capacity なし）のポーカーは申告ボタンを出さ�
   expect(screen.queryByRole("button", { name: "結果を申告" })).toBeNull();
   expect(screen.queryByText(/M1リーグ/)).toBeNull();
 });
+
+test("409 のあとに出たエラー文は、次の取り直しが成功したら消える", async () => {
+  const ev = event();
+  global.fetch = jest.fn(async (url: string, options?: { method?: string }) => {
+    if (options?.method === "PATCH") {
+      return { ok: false, status: 409, json: async () => ({ error: "卓の状態が変わりました。画面を更新してください" }) };
+    }
+    return { ok: true, json: async () => (url === "/api/poker/cs" ? { event: ev, entered: true } : { success: true }) };
+  }) as jest.Mock;
+  render(<MahjongCsView game="poker" />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
+  fireEvent.change(screen.getByLabelText("終了時のチップ"), { target: { value: "500" } });
+  fireEvent.click(screen.getByRole("button", { name: "確認へ進む" }));
+  fireEvent.click(screen.getByRole("button", { name: "申告する" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("卓の状態が変わりました");
+  // 画面復帰で useAutoRefresh が即 load する（15秒のポーリングと同じ経路）
+  fireEvent.focus(window);
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+});

@@ -424,13 +424,19 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   - 決勝以外: 上位 n 名通過の卓で **n 位と n+1 位をまたぐ同点だけ**。通過する人どうし・通過しない人どうしの同点は追加勝負しない。
   - 決勝: 1-2・2-3・3-4 位の境目をまたぐ同点すべて（金銀銅を決める）。
   - 追加ハンドの値は `tiebreakPoints[回−1]`。また同点ならその人たちだけ次の回を入れ直す（他の人の値は動かさない）。
-- **麻雀は URL・データの形・動きとも不変**（`podium`・`tiebreakPoints` を書かない。申告は従来の `/api/mahjong/cs/match`＝持ち点＋着順で、`scoreMatch` は使わない）。
+- **麻雀の GET `/api/mahjong/cs` のレスポンスは `podium: null`・卓ごとの `tiebreakMine: false`・`Cache-Control: no-store` を足しただけ**（既存の項目と文言は不変）。URL・Firestore のデータの形・当日の動きは変えていない（`podium`・`tiebreakPoints` を書かない。申告は従来の `/api/mahjong/cs/match`＝持ち点＋着順で、`scoreMatch` は使わない）。
+- 申告の応答（`scoreMatch`）は `{ success, status, eventStatus }` だけ。**同卓者の lineUserId（`tiebreakIds`・`championId`）を利用者に返さない**（画面は `res.ok` と `status` しか見ない）。
+- 利用者の `DELETE /api/{game}/cs/entry` で旧形式（`capacity` なし）の `entrants` から自分を消せるのは麻雀だけ。ポーカーの旧形式は 409「旧形式のCSは変更できません」。
+- キャンバスの通過人数「＋」の上限は `maxAdvanceFor(rules, その卓に入る人数, 決勝か)`（入る人数＝置いた人数＋矢印で入る人数。確定できる最少人数 `minSeats` を下限にするので、人を置く前でも 0 にならず、麻雀は人数に関係なく 3 のまま）。
+  `validateBracket` の文言は決勝だけ「勝ち抜け人数は卓の人数以下にしてください」、決勝以外は「卓の人数より少なくしてください」（麻雀の4人卓は上限3なのでどちらも出ない）。
+- 利用者ビューで 409（卓の状態が変わった）のあとシートを閉じて出すエラー文は、15秒ポーリングや画面復帰の取り直しが成功したら消す（シートが開いている間のエラー文はそのまま）。
+- シーズン削除（`DELETE /api/admin/scoreboard/seasons/[seasonId]`）の `SEASON_LINKED_COLLECTIONS` に `pokerCsEvents` を含める（`mahjongCsEvents` と同じ並び）。
 - **旧形式（`capacity` なし）のポーカーCSは見るだけ＋削除だけ**（編成に戻す・結果修正は 409）。旧来の自動生成・`PATCH /api/poker/cs/report`・`src/lib/pokerCs.ts`・`pokerCsServer.ts` は削除済み。旧形式の点数は `chips` にあるので表示だけ `points ?? chips` で補う。
 - ⚠️ **本番に出す前**: 本番の `pokerCsEvents` に旧形式のCSが残っていないか確かめる。**進行中（`running`）のものがあれば、旧申告ルートが無くなったので申告できない＝出す時期をずらす。** 開催前（`setup`）の旧形式は管理画面から削除し、必要なら新方式で作り直して利用者に再表明を案内する。
 - ダーツ・ビリヤードは未対応（旧方式のまま）。足すときは `CsGame` と `CS_RULES` に1行足す。ビリヤードだけ「2席・敗者の矢印・2人の申告の一致」が別に要る（仕様書参照）。
 - 回帰テスト: `__tests__/unit/lib/{gameCsRules,gameCsBracketPoker,gameCsMatch,gameCsLeague,pokerStandings}.test.ts`、
   `__tests__/unit/api/{pokerCsEntryRoute,pokerCsMatchRoute,adminPokerCsRoute}.test.ts`、
-  `__tests__/unit/components/{pokerCsAdmin,pokerCsView}.test.tsx`。**麻雀CSのテストは1行も変えずに通すこと**
+  `__tests__/unit/components/{pokerCsAdmin,pokerCsView,pokerCsBracketCanvas}.test.tsx`。**麻雀CSのテストは1行も変えずに通すこと**
   （`git diff --name-status ffa4e4e -- '__tests__/unit/lib/mahjongCs*' '__tests__/unit/api/mahjongCs*' '__tests__/unit/api/adminMahjongCs*' '__tests__/unit/components/mahjongCs*'` が空）。
 
 

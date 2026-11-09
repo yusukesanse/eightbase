@@ -63,7 +63,9 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[], 
         || seats.some((s) => !isPlayerSeat(s) && !isTicketSeat(s))) errs.push(`${m.label}: 空いている席があります`);
       else if (validAdvance(advanceCount)
         && advanceCount > maxAdvanceFor(rules, seats.length, ri === rounds.length - 1)) {
-        errs.push(`${m.label}: 勝ち抜け人数は卓の人数より少なくしてください`);
+        errs.push(ri === rounds.length - 1
+          ? `${m.label}: 勝ち抜け人数は卓の人数以下にしてください`
+          : `${m.label}: 勝ち抜け人数は卓の人数より少なくしてください`);
       }
       if (ri === 0 && seats.some((s) => isTicketSeat(s))) {
         errs.push(`${m.label}: 最初のラウンドに勝ち抜けの札は置けません`);

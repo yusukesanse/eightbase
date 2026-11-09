@@ -66,7 +66,7 @@ test("境目の同点は追加ハンドを待ち、対象外の人は入れら�
   const res = await send("c", { matchId: "P", points: 10 });
   const json = await res.json();
   expect(json.status).toBe("tiebreak");
-  expect(json.tiebreakIds.sort()).toEqual(["a", "b"]);
+  expect(match(db, 0).status).toBe("tiebreak");
   expect((await send("c", { matchId: "P", points: 99 })).status).toBe(409);
   await send("a", { matchId: "P", points: 3 });
   expect(match(db, 0).status).toBe("tiebreak");
@@ -111,4 +111,17 @@ test("expectedStatus が一致すれば保存し、送られなければ従来�
   expect((await send("a", { matchId: "P", points: 30, expectedStatus: "reporting" })).status).toBe(200);
   expect((await send("b", { matchId: "P", points: 20 })).status).toBe(200);
   expect(match(db, 0).players.map((p) => p.points)).toEqual([30, 20, null]);
+});
+
+test("応答に同卓者の lineUserId を出さない（tiebreakIds・championId を返さない）", async () => {
+  const db = makeCsDb(); seed(db); (getDb as jest.Mock).mockReturnValue(db);
+  await send("a", { matchId: "P", points: 50 });
+  await send("b", { matchId: "P", points: 50 });
+  const tie = await (await send("c", { matchId: "P", points: 10 })).json();
+  expect(Object.keys(tie).sort()).toEqual(["eventStatus", "status", "success"]);
+  await send("a", { matchId: "P", points: 3 });
+  await send("b", { matchId: "P", points: 7 });
+  for (const [id, pts] of [["b", 5], ["d", 9]] as const) await send(id, { matchId: "F", points: pts });
+  const done = await (await send("e", { matchId: "F", points: 7 })).json();
+  expect(done).toEqual({ success: true, status: "completed", eventStatus: "finished" });
 });

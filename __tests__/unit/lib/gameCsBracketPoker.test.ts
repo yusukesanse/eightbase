@@ -49,3 +49,11 @@ test("未配置の人を空席に入れるときもポーカーの席数を使�
   const d = fillEmptySeats({ seedUserIds: [], tables: [t("A", [], null)] }, ["1", "2", "3", "4", "5", "6", "7"], POKER_CS_RULES.maxSeats);
   expect(d.tables[0].playerIds).toHaveLength(6);
 });
+
+test("ポーカーの2名卓（決勝）は通過2名まで。文言は「卓の人数以下」", () => {
+  const tables = [t("P", ["a", "b", "c"], "F", 1), t("F", ["d"], null, 3)];
+  const { rounds } = canvasToRounds(tables, POKER_CS_RULES);
+  const errors = validateBracket(rounds, ["a", "b", "c", "d"], POKER_CS_RULES);
+  expect(errors).toContain("決勝卓: 勝ち抜け人数は卓の人数以下にしてください");
+  expect(errors.join("\n")).not.toContain("卓の人数より少なく");
+});

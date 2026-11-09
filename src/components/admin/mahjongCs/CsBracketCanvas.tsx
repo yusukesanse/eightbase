@@ -8,7 +8,7 @@ import {
 } from "@/lib/mahjongCsCanvas";
 import type { CanvasDraft } from "@/lib/mahjongCsCanvas";
 import type { MahjongCsEntrant } from "@/types/mahjong";
-import { MAHJONG_CS_RULES, type GameCsRules } from "@/lib/gameCsRules";
+import { MAHJONG_CS_RULES, maxAdvanceFor, type GameCsRules } from "@/lib/gameCsRules";
 
 type Point = { x: number; y: number };
 type View = Point & { z: number };
@@ -66,6 +66,10 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   const names = useMemo(() => tableLabels(draft.tables, r), [draft.tables, r]);
   const automaticNames = useMemo(() => tableLabels(draft.tables.map(table => ({ ...table, name: undefined })), r), [draft.tables, r]);
   const name = (id: string) => names.get(id) ?? "卓";
+  // 通過人数の上限は「その卓に入る人数」（置いた人数＋矢印で入る人数）から。確定できる最少人数（minSeats）を下限にするので、
+  // 人を置く前でも上限が0にならず、麻雀（4人卓・上限3）は人数に関係なく今までどおり3。
+  const advanceLimit = (table: CanvasDraft["tables"][number]) =>
+    maxAdvanceFor(r, Math.max(table.playerIds.length + incomingCount(draft.tables, table.id), r.minSeats), table.to === null);
 
   useEffect(() => {
     setConfirmDelete(current => current && draft.tables.some(table => table.id === current) ? current : null);
@@ -385,7 +389,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
                 {editable && <div className="flex gap-1">
                   <button type="button" className="h-7 w-7 rounded border disabled:opacity-30" aria-label="勝ち抜けを減らす" disabled={table.advanceCount <= 1}
                     onClick={() => onChange(setTableAdvance(draft, table.id, table.advanceCount - 1))}>−</button>
-                  <button type="button" className="h-7 w-7 rounded border disabled:opacity-30" aria-label="勝ち抜けを増やす" disabled={table.advanceCount >= r.maxAdvance}
+                  <button type="button" className="h-7 w-7 rounded border disabled:opacity-30" aria-label="勝ち抜けを増やす" disabled={table.advanceCount >= advanceLimit(table)}
                     onClick={() => onChange(setTableAdvance(draft, table.id, table.advanceCount + 1))}>＋</button>
                   <button type="button" className="h-7 w-7 rounded border text-red-700" aria-label={`${name(table.id)}を削除`}
                     onClick={() => {
