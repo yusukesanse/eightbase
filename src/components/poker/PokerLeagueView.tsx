@@ -7,7 +7,7 @@ import { PokerLeagueBoard } from "@/components/poker/PokerLeagueBoard";
 import { PokerJoinTab } from "@/components/poker/PokerJoinTab";
 import { PokerGameTab } from "@/components/poker/PokerGameTab";
 import { PokerRulesTab } from "@/components/poker/PokerRulesTab";
-import { PokerCsView } from "@/components/poker/PokerCsView";
+import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
 import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import type { PokerPaymentStatus, PokerScheduleEntry } from "@/types/poker";
 
@@ -145,7 +145,7 @@ export function PokerLeagueView() {
       ) : subTab === "game" ? (
         <PokerGameTab onChanged={() => loadCore(true)} />
       ) : subTab === "cs" ? (
-        <PokerCsView />
+        <MahjongCsView game="poker" />
       ) : (
         <PokerRulesTab />
       )}

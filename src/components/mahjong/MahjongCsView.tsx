@@ -7,6 +7,7 @@ import { isDevLoginEnabled } from "@/lib/env";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { PointsSignToggle } from "@/components/mahjong/leagueShared";
 import { Button, GlassCard, StatusPill } from "@/components/ui/eb";
+import { CS_RULES, type CsGame, type GameCsRules } from "@/lib/gameCsRules";
 
 /** 公開DTO（サーバーで lineUserId を除去し isMe/seed を付与）。 */
 interface PubCsPlayer {
@@ -21,9 +22,11 @@ interface PubCsMatch {
   advanceCount?: number;
   matchId: string;
   label: string;
-  status: "reporting" | "completed";
+  status: "reporting" | "tiebreak" | "completed";
   players: PubCsPlayer[];
   pendingSeats: string[];
+  /** 同点の追加勝負（ポーカーの追加ハンド）で自分が対象のとき true。麻雀は常に false */
+  tiebreakMine?: boolean;
 }
 interface PubCsRound { type: string; label: string; advanceCount: number; matches: PubCsMatch[] }
 interface PubCsEvent {
@@ -39,12 +42,14 @@ interface PubCsEvent {
   myEntry: { state: "confirmed" | "waitlisted"; waitlistPosition: number | null } | null;
   demoDummy: boolean;
   champion: { displayName: string; pictureUrl?: string } | null;
+  /** 決勝の確定で金銀銅を書く種目（ポーカー）だけ入る。麻雀は null */
+  podium?: { gold: PubCsEvent["champion"]; silver: PubCsEvent["champion"]; bronze: PubCsEvent["champion"] } | null;
   entrants: { displayName: string; seed: boolean; isMe: boolean }[];
   rounds: PubCsRound[];
 }
 
 /**
- * CS > 麻雀 — ラウンドごとの縦一覧
+ * CS — ラウンドごとの縦一覧（麻雀とポーカーで共通。種目の差は game と CS_RULES で分ける）
  * - 表彰台（終了後）→ あなたの卓（未確定のとき）→ ラウンド切替タブ → 選んだラウンドの卓カード。
  * - 木構造・接続線は廃止（横にはみ出して読めなかった）。通過者は緑、自分は金で強調。
  * - デモ時のみ他卓に「この卓を進める（デモ）」。
@@ -75,8 +80,10 @@ function defaultRoundIndex(rounds: PubCsRound[]) {
   return open >= 0 ? open : rounds.length - 1;
 }
 
-/** 参加受付と公開トーナメントを表示する。 */
-export function MahjongCsView() {
+/** 参加受付と公開トーナメントを表示する。game の既定は麻雀（呼び出し元を変えなくてよいように）。 */
+export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
+  const rules = CS_RULES[game];
+  const unit = game === "mahjong" ? "点" : "チップ";
   const [event, setEvent] = useState<PubCsEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [inputMatch, setInputMatch] = useState<PubCsMatch | null>(null);
@@ -87,12 +94,12 @@ export function MahjongCsView() {
   const tabListRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
-    return fetch("/api/mahjong/cs", { credentials: "include" })
+    return fetch(`/api/${game}/cs`, { credentials: "include" })
       .then((r) => r.json())
       .then((cs) => setEvent(cs.event ?? null))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [game]);
 
   useEffect(() => {
     load();
@@ -122,7 +129,7 @@ export function MahjongCsView() {
       setBusy(true);
       setInputError(null);
       try {
-        const res = await fetch("/api/mahjong/cs/match", {
+        const res = await fetch(`/api/${game}/cs/match`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -145,7 +152,7 @@ export function MahjongCsView() {
         setBusy(false);
       }
     },
-    [load]
+    [load, game]
   );
 
   // WP6: CS 自己エントリー（受付は status="setup" の間のみ）。
@@ -155,7 +162,7 @@ export function MahjongCsView() {
       setBusy(true);
       setEntryError(null);
       try {
-        const res = await fetch("/api/mahjong/cs/entry", {
+        const res = await fetch(`/api/${game}/cs/entry`, {
           method: join ? "POST" : "DELETE",
           credentials: "include",
         });
@@ -170,7 +177,7 @@ export function MahjongCsView() {
         setBusy(false);
       }
     },
-    [load]
+    [load, game]
   );
 
   if (loading) {
@@ -214,7 +221,7 @@ export function MahjongCsView() {
         <p
           className={`${manual ? "text-[15px]" : "text-[14px]"} text-[color:var(--eb-ink-muted)] leading-relaxed mt-3`}
         >
-          {manual ? (
+          {manual || game !== "mahjong" ? (
             "各卓の上位が勝ち上がり、決勝1位が優勝。"
           ) : (
             <>
@@ -243,7 +250,9 @@ export function MahjongCsView() {
         </GlassCard>
       ) : (
         <>
-          {finished && finalMatch && <Podium champ={champ} players={byRank(finalMatch.players)} />}
+          {finished && finalMatch && (
+            <Podium champ={champ} players={podiumPlayers(event.podium, finalMatch.players)} unit={unit} />
+          )}
 
           {myMatch && (
             <section aria-label="あなたの卓">
@@ -254,6 +263,7 @@ export function MahjongCsView() {
                 mine
                 demo={demo}
                 manual={manual}
+                rules={rules}
                 running={event.status === "running"}
                 onInput={() => setInputMatch(myMatch.m)}
               />
@@ -304,6 +314,7 @@ export function MahjongCsView() {
                 hideReport={m.matchId === myMatch?.m.matchId}
                 demo={demo}
                 manual={manual}
+                rules={rules}
                 running={event.status === "running"}
                 onInput={() => setInputMatch(m)}
               />
@@ -316,6 +327,7 @@ export function MahjongCsView() {
         <CsInputSheet
           match={inputMatch}
           manual={manual}
+          rules={rules}
           round={event.rounds.find((round) => round.matches.some((match) => match.matchId === inputMatch.matchId))}
           busy={busy}
           error={inputError}
@@ -447,8 +459,19 @@ function CsEntryPanel({
   );
 }
 
-/** 表彰台（大会終了後）。1位は champion を優先し、点数は決勝卓の持ち点。 */
-function Podium({ champ, players }: { champ: PubCsEvent["champion"]; players: PubCsPlayer[] }) {
+/** podium（ポーカー）があればその金銀銅を1〜3位の選手として並べ、点数は決勝卓から名前で引く。無ければ決勝卓の着順のまま。 */
+function podiumPlayers(podium: PubCsEvent["podium"], finalPlayers: PubCsPlayer[]): PubCsPlayer[] {
+  if (!podium) return byRank(finalPlayers);
+  return [podium.gold, podium.silver, podium.bronze].flatMap((p, i) => {
+    if (!p) return [];
+    const onTable = finalPlayers.find((x) => x.displayName === p.displayName);
+    return [{ displayName: p.displayName, pictureUrl: p.pictureUrl ?? onTable?.pictureUrl, points: onTable?.points ?? null,
+      rank: i + 1, seed: onTable?.seed ?? false, isMe: onTable?.isMe ?? false }];
+  });
+}
+
+/** 表彰台（大会終了後）。1位は champion を優先し、点数は決勝卓の持ち点（ポーカーはチップ）。 */
+function Podium({ champ, players, unit }: { champ: PubCsEvent["champion"]; players: PubCsPlayer[]; unit: string }) {
   const first = players.find((p) => p.rank === 1);
   const winner = champ ?? first;
   if (!winner) return null;
@@ -460,7 +483,7 @@ function Podium({ champ, players }: { champ: PubCsEvent["champion"]; players: Pu
         <Avatar src={winner.pictureUrl} name={winner.displayName} size={72} className="mt-3" style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
         <div className="mt-2 text-[20px] font-bold text-[color:var(--eb-ink)]">{winner.displayName}</div>
         {first?.points != null && first.displayName === winner.displayName && (
-          <div className="text-[14px] text-[color:var(--eb-ink-muted)] tabular-nums">決勝 {fmtPoints(first.points)}点</div>
+          <div className="text-[14px] text-[color:var(--eb-ink-muted)] tabular-nums">決勝 {fmtPoints(first.points)}{unit}</div>
         )}
       </GlassCard>
       {minor.some(Boolean) && (
@@ -470,7 +493,7 @@ function Podium({ champ, players }: { champ: PubCsEvent["champion"]; players: Pu
               <div className="text-[13px] font-bold" style={{ color: MEDAL[i + 2] }}>{i + 2}位</div>
               <Avatar src={p.pictureUrl} name={p.displayName} size={44} className="mt-1" />
               <div className="mt-1 w-full truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</div>
-              {p.points != null && <div className="text-[13px] text-[color:var(--eb-ink-muted)] tabular-nums">{fmtPoints(p.points)}点</div>}
+              {p.points != null && <div className="text-[13px] text-[color:var(--eb-ink-muted)] tabular-nums">{fmtPoints(p.points)}{unit}</div>}
             </div>
           ))}
         </div>
@@ -488,6 +511,7 @@ function MatchCard({
   hideReport = false,
   demo,
   manual,
+  rules,
   running,
   onInput,
 }: {
@@ -498,13 +522,18 @@ function MatchCard({
   hideReport?: boolean;
   demo: boolean;
   manual: boolean;
+  rules: GameCsRules;
   running: boolean;
   onInput: () => void;
 }) {
   const done = isDone(match);
   const pendingSeats = manual ? match.pendingSeats ?? [] : [];
-  const canReport = !manual || (running && match.players.length === 4 && pendingSeats.length === 0);
+  // 席が埋まった卓だけ申告できる（麻雀は4人固定、ポーカーは minSeats 以上）。旧形式は麻雀だけ申告できる。
+  const canReport = manual
+    ? running && match.players.length >= rules.minSeats && pendingSeats.length === 0
+    : rules.game === "mahjong";
   const iAmIn = match.players.some((p) => p.isMe);
+  const tiebreak = match.status === "tiebreak";
   const final = round.type === "final" || !next;
   const passCount = passCountOf(match, round, manual);
   const advance = advanceText(passCount, next, final);
@@ -536,9 +565,14 @@ function MatchCard({
       </div>
       {/* 自分の卓は本番でも申告可。デモは他卓を自動で進められる。 */}
       {!hideReport && !done && iAmIn && canReport && (
-        <Button variant="primary" onClick={onInput} className="mt-3">
-          {match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
-        </Button>
+        tiebreak && !match.tiebreakMine ? (
+          <p className="mt-3 text-[15px] font-bold text-[color:var(--eb-ink-muted)]">{rules.tiebreakLabel}待ち</p>
+        ) : (
+          <Button variant="primary" onClick={onInput} className="mt-3">
+            {tiebreak ? `${rules.tiebreakLabel}を申告`
+              : match.players.find((p) => p.isMe)?.points != null ? "申告を修正" : "結果を申告"}
+          </Button>
+        )
       )}
       {!mine && !done && !iAmIn && demo && canReport && (
         <button type="button" onClick={onInput} className="mt-2 self-start text-[13px] text-[color:var(--eb-ink-muted)] underline">
@@ -596,6 +630,7 @@ function PlayerRow({ p, done, advanced, final }: { p: PubCsPlayer; done: boolean
 function CsInputSheet({
   match,
   manual,
+  rules,
   round,
   busy,
   error,
@@ -604,6 +639,7 @@ function CsInputSheet({
 }: {
   match: PubCsMatch;
   manual: boolean;
+  rules: GameCsRules;
   round: PubCsEvent["rounds"][number] | undefined;
   busy: boolean;
   error: string | null;
@@ -623,6 +659,14 @@ function CsInputSheet({
   const pointsValid = points !== "" && Number.isInteger(absPoints) && absPoints % 100 === 0;
   const signedPoints = absPoints === 0 ? 0 : sign * absPoints;
   const canSubmit = iAmIn && pointsValid && rank !== null && !busy;
+
+  // ポーカーは別シート（hooks の後ろで分岐する）。
+  if (iAmIn && rules.game !== "mahjong") {
+    return (
+      <ChipsInputSheet match={match} rules={rules} advancement={advancement} busy={busy} error={error}
+        onClose={onClose} onReport={(points) => onReport({ points })} />
+    );
+  }
 
   return (
     <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
@@ -703,6 +747,77 @@ function CsInputSheet({
           <Button variant="ghost" onClick={() => onReport({ auto: true })} loading={busy}>
             この卓を自動で進める（デモ）
           </Button>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+const CHIPS_MAX = 1_000_000;
+
+/**
+ * ポーカーの申告シート: 終了時のチップ1つだけ（着順は送らない）。追加ハンド中の対象者は同じ欄で追加ハンドのチップを送る。
+ * 全員の申告がそろった瞬間に確定し、次の卓に申告が入ると直せないので、送る前に画面内で1回確認する（confirm() は LINE で使わない）。
+ */
+function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onReport }: {
+  match: PubCsMatch;
+  rules: GameCsRules;
+  advancement: string | null;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onReport: (points: number) => void;
+}) {
+  const tiebreak = match.status === "tiebreak";
+  const label = tiebreak ? `${rules.tiebreakLabel}の${rules.scoreLabel}` : `終了時の${rules.scoreLabel}`;
+  const [chips, setChips] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const value = Number(chips);
+  const valid = chips !== "" && Number.isInteger(value) && value >= 0 && value <= CHIPS_MAX;
+
+  return (
+    <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
+      {confirming ? (
+        <>
+          <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">{fmtPoints(value)}{rules.scoreLabel}で申告します。よろしいですか？</p>
+          <p className="mt-2 text-[14px] text-[color:var(--eb-ink-muted)]">
+            全員の申告がそろうと結果が確定します。次の卓に申告が入ると直せません。
+          </p>
+          {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
+          <div className="mt-6 flex gap-2">
+            <Button variant="secondary" onClick={() => setConfirming(false)} disabled={busy}>戻る</Button>
+            <Button variant="primary" onClick={() => onReport(value)} disabled={busy} loading={busy}>申告する</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">
+            {tiebreak
+              ? `同点のため${rules.tiebreakLabel}です。${rules.tiebreakLabel}の${rules.scoreLabel}を申告してください。`
+              : `自分の${label}だけを申告します（他の人の分は各自が申告）。`}
+            {advancement ?? ""}
+          </p>
+          <label htmlFor="cs-chips-input" className="block text-[14px] font-bold text-[color:var(--eb-ink)] mb-2">{label}</label>
+          <div className="flex items-center h-14 rounded-2xl bg-white px-4 border border-[color:var(--eb-line)]">
+            <input
+              id="cs-chips-input"
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              aria-label={label}
+              value={chips}
+              onChange={(e) => setChips(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="0"
+              className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-bold text-right text-[color:var(--eb-ink)] tabular-nums text-[26px]"
+            />
+            <span className="ml-2 shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">{rules.scoreLabel}</span>
+          </div>
+          <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-1.5">0〜{fmtPoints(CHIPS_MAX)}の整数</div>
+          {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
+          <div className="mt-6 flex gap-2">
+            <Button variant="ghost" onClick={onClose}>キャンセル</Button>
+            <Button variant="primary" onClick={() => setConfirming(true)} disabled={!valid || busy}>確認へ進む</Button>
+          </div>
         </>
       )}
     </BottomSheet>
