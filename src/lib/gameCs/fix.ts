@@ -55,6 +55,8 @@ export async function handleAdminCsFix(req: NextRequest, { params }: Ctx, rules:
             ...(rules.writesPodium ? { podium: FieldValue.delete() } : {}), updatedAt: now });
           return { status: 200 as const, eventType: "cs.bracketReopened" as const };
         }
+        // 旧方式を setup に戻して自動再生成に任せるのは麻雀だけ。他種目は自動生成を止めたので結果が空のまま消える
+        if (rules.game !== "mahjong") return { status: 409 as const, error: "旧形式のCSは変更できません" };
         tx.update(ref, { rounds: [], status: "setup", championId: null, updatedAt: now });
         return { status: 200 as const, eventType: "cs.reset" as const };
       });
@@ -86,7 +88,8 @@ export async function handleAdminCsFix(req: NextRequest, { params }: Ctx, rules:
           const snap = await tx.get(ref);
           if (!snap.exists) return { status: 404 as const, error: "CSが見つかりません" };
           const event = snap.data() as MahjongCsEvent;
-          if (!isManualCs(event) || (event.status !== "running" && event.status !== "finished")) {
+          if (!isManualCs(event)) return { status: 409 as const, error: "旧形式のCSは変更できません" };
+          if (event.status !== "running" && event.status !== "finished") {
             return { status: 409 as const, error: "現在の状態ではこの操作はできません" };
           }
           const rounds = structuredClone(event.rounds ?? []);

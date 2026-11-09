@@ -105,3 +105,66 @@ test("削除できる（旧形式も）", async () => {
   expect((await DELETE(body(null), ctx("old"))).status).toBe(200);
   expect(db._get("pokerCsEvents", "old")).toBeUndefined();
 });
+
+// ---- 修正ラウンド1 ----
+
+const fixP = () => FIX(body({ action: "editMatch", matchId: "P", results: [
+  { lineUserId: "a", points: 50 }, { lineUserId: "b", points: 30 }, { lineUserId: "c", points: 10 }] }), ctx());
+
+test("決勝の結果修正で podium と championId が書かれる", async () => {
+  const db = makeCsDb(); seedRunning(db); (getDb as jest.Mock).mockReturnValue(db);
+  expect((await fixP()).status).toBe(200);
+  const res = await FIX(body({ action: "editMatch", matchId: "F", results: [
+    { lineUserId: "a", points: 100 }, { lineUserId: "d", points: 50 }, { lineUserId: "e", points: 20 }] }), ctx());
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ success: true, championId: "a" });
+  expect(db._get("pokerCsEvents", "cs1")).toMatchObject({
+    status: "finished", championId: "a", podium: { gold: "a", silver: "d", bronze: "e" } });
+});
+
+test("次の卓に申告が入っていると結果修正は 409", async () => {
+  const db = makeCsDb(); seedRunning(db); (getDb as jest.Mock).mockReturnValue(db);
+  expect((await fixP()).status).toBe(200);
+  const cur = db._get("pokerCsEvents", "cs1") as { rounds: { matches: { players: { points: number | null }[] }[] }[] };
+  cur.rounds[1].matches[0].players[1].points = 70; // 決勝の d が申告済み
+  db._set("pokerCsEvents", "cs1", cur);
+  const res = await fixP();
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toContain("次の卓に結果が入っている");
+});
+
+function seedLegacy(db: ReturnType<typeof makeCsDb>) {
+  db._set("pokerCsEvents", "old", {
+    seasonId: "s1", name: "旧CS", eventDate: "2099-12-01", status: "finished", entrants: [], championId: "a",
+    rounds: [{ type: "final", label: "決勝", advanceCount: 3, matches: [{ matchId: "F", label: "決勝卓", status: "completed",
+      players: [{ lineUserId: "a", displayName: "a", points: 100, rank: 1 }] }] }],
+    createdAt: "2099-11-01T00:00:00Z", updatedAt: "",
+  });
+  return structuredClone(db._get("pokerCsEvents", "old"));
+}
+
+test("旧形式ポーカーへの resetBracket は 409 で doc が変わらない", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db);
+  const before = seedLegacy(db);
+  const res = await FIX(body({ action: "resetBracket" }), ctx("old"));
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("旧形式のCSは変更できません");
+  expect(db._get("pokerCsEvents", "old")).toEqual(before);
+});
+
+test("旧形式ポーカーへの editMatch は 409 で doc が変わらない", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db);
+  const before = seedLegacy(db);
+  const res = await FIX(body({ action: "editMatch", matchId: "F", results: [{ lineUserId: "a", points: 10 }] }), ctx("old"));
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("旧形式のCSは変更できません");
+  expect(db._get("pokerCsEvents", "old")).toEqual(before);
+});
+
+test("旧形式ポーカーへの PATCH は 409", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db);
+  seedLegacy(db);
+  const res = await PATCH(body({ action: "closeNow" }), ctx("old"));
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("旧形式のCSは変更できません");
+});
