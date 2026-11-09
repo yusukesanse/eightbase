@@ -6,10 +6,10 @@ import type { MahjongCsEvent } from "@/types";
 
 jest.mock("next/navigation", () => ({ useParams: () => ({ seasonId: "s1" }) }));
 
-const running = (): MahjongCsEvent => ({
+const running = (status: "reporting" | "tiebreak" = "tiebreak"): MahjongCsEvent => ({
   csEventId: "cs1", seasonId: "s1", name: "ポーカーCS", eventDate: "2099-12-01", status: "running", capacity: 5,
   priorityUserIds: ["a"], entries: [], entrants: ["a", "b", "c"].map((id, i) => ({ lineUserId: id, displayName: `選手${id}`, tier: "P1", rank: i + 1, seed: false })),
-  rounds: [{ type: "final", label: "決勝", advanceCount: 3, matches: [{ matchId: "F", label: "決勝卓", status: "tiebreak", advanceCount: 3,
+  rounds: [{ type: "final", label: "決勝", advanceCount: 3, matches: [{ matchId: "F", label: "決勝卓", status, advanceCount: 3,
     players: ["a", "b", "c"].map((id) => ({ lineUserId: id, displayName: `選手${id}`, points: 10, rank: 1 })),
     seats: ["a", "b", "c"].map((id) => ({ kind: "player" as const, lineUserId: id })) }] }],
   createdAt: "2099-11-01T00:00:00Z", updatedAt: "",
@@ -55,7 +55,7 @@ test("同点で 400 が返ったら追加ハンドの入力欄が出て、値を
         ? { ok: true, status: 200, json: async () => ({ success: true }) }
         : { ok: false, status: 400, json: async () => ({ error: "通過の境目が同点です。追加ハンドの結果も入力してください" }) };
     }
-    return { ok: true, json: async () => ({ events: [running()], activeSeasonId: "s1", priorityPreviewCount: 8 }) };
+    return { ok: true, json: async () => ({ events: [running("reporting")], activeSeasonId: "s1", priorityPreviewCount: 8 }) };
   }) as jest.Mock;
   render(<SeasonPokerCsPage />);
   fireEvent.click(await screen.findByRole("button", { name: "結果入力" }));
@@ -79,4 +79,25 @@ test("作成フォームの優先枠の説明は P1・P2", async () => {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ events: [], activeSeasonId: "s1", priorityPreviewCount: 8 }) })) as jest.Mock;
   render(<SeasonPokerCsPage />);
   expect(await screen.findByText(/優先枠 P1・P2：8名/)).toBeInTheDocument();
+});
+
+test("追加ハンド待ちの卓を開くと最初から追加ハンドの欄と2回目の案内が出る", async () => {
+  render(<SeasonPokerCsPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果入力" }));
+  expect(screen.getAllByLabelText(/追加ハンド/)).toHaveLength(3);
+  expect(screen.getByText("2回目以降の追加ハンドは利用者の申告で決めてください")).toBeInTheDocument();
+});
+
+test("旧形式のポーカーCSは chips だけの選手も点数つきで出て undefined にならない", async () => {
+  const legacy = { ...running(), capacity: undefined, status: "finished" as const };
+  legacy.rounds[0].matches[0].status = "completed";
+  legacy.rounds[0].matches[0].players = [
+    { lineUserId: "a", displayName: "選手a", rank: 1, chips: 12000 },
+    { lineUserId: "b", displayName: "選手b", rank: 2 },
+  ] as unknown as typeof legacy.rounds[0]["matches"][0]["players"];
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ events: [legacy], activeSeasonId: "s1", priorityPreviewCount: 8 }) })) as jest.Mock;
+  render(<SeasonPokerCsPage />);
+  expect(await screen.findByText("1位 / 12,000")).toBeInTheDocument();
+  expect(screen.getByText("2位")).toBeInTheDocument();
+  expect(screen.queryByText(/undefined/)).toBeNull();
 });

@@ -341,7 +341,11 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
                                     </span>
                                     <span className="text-xs text-[#231714]/85">
                                       {p.rank !== null
-                                        ? `${p.rank}位 / ${p.points?.toLocaleString()}`
+                                        ? `${p.rank}位${(() => {
+                                            // 旧形式のポーカーCSは points ではなく chips に持つ。表示だけ補う
+                                            const value = p.points ?? (p as { chips?: number }).chips;
+                                            return value != null ? ` / ${value.toLocaleString()}` : "";
+                                          })()}`
                                         : "—"}
                                     </span>
                                   </div>
@@ -437,7 +441,7 @@ function MatchResultModal({
   const [saving, setSaving] = useState(false);
   // ponytail: 管理画面から入れられる追加勝負は1回分だけ。2回目が要る卓は利用者側の申告で解消する。
   const [needTiebreak, setNeedTiebreak] = useState(
-    scored && match.players.some((p) => (p.tiebreakPoints?.length ?? 0) > 0),
+    scored && (match.status === "tiebreak" || match.players.some((p) => (p.tiebreakPoints?.length ?? 0) > 0)),
   );
 
   const total = rows.reduce((s, r) => s + (Number(r.points) || 0), 0);
@@ -618,6 +622,11 @@ function MatchResultModal({
           >
             合計: {total.toLocaleString()} 点
           </div>
+        )}
+        {scored && needTiebreak && (
+          <p className="mt-3 text-xs text-[#231714]/85">
+            2回目以降の{rules.tiebreakLabel}は利用者の申告で決めてください
+          </p>
         )}
         {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
         <div className="mt-5 flex gap-2">
