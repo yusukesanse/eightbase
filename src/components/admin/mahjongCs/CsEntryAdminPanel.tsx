@@ -6,6 +6,7 @@ import { rebalanceEntries } from "@/lib/mahjongCsEntry";
 import { isProduction } from "@/lib/env";
 import { jstDateFromIso } from "@/lib/date";
 import type { MahjongCsEvent } from "@/types/mahjong";
+import { MAHJONG_CS_RULES, type GameCsRules } from "@/lib/gameCsRules";
 import { clampCapacity, csButton, csPrimary, jstInput } from "./CsCreateForm";
 import CsParticipantList, { displayDate } from "./CsParticipantList";
 
@@ -14,11 +15,14 @@ export default function CsEntryAdminPanel({
   event,
   onChanged,
   onError,
+  rules,
 }: {
   event: MahjongCsEvent & { csEventId: string };
   onChanged: () => void;
   onError: (message: string | null) => void;
+  rules?: GameCsRules;
 }) {
+  const r = rules ?? MAHJONG_CS_RULES;
   const [editing, setEditing] = useState(false);
   const [capacityInput, setCapacityInput] = useState(String(event.capacity ?? 40));
   const capacity = clampCapacity(capacityInput);
@@ -66,7 +70,7 @@ export default function CsEntryAdminPanel({
     setBusy(true);
     onError(null);
     try {
-      const res = await fetch(`/api/admin/mahjong/cs/${event.csEventId}`, {
+      const res = await fetch(`/api/admin/${r.game}/cs/${event.csEventId}`, {
         method: "PATCH",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -184,7 +188,7 @@ export default function CsEntryAdminPanel({
               role="alert"
               className="rounded-lg bg-orange-50 p-3 text-xs text-orange-800"
             >
-              {`定員を減らすと、参加確定のM3の人が${additionalWaiting}名` +
+              {`定員を減らすと、参加確定の${r.tierLabels[2]}の人が${additionalWaiting}名` +
                 "キャンセル待ちに戻ります（通知は届きません）"}
             </p>
           )}
@@ -239,7 +243,7 @@ export default function CsEntryAdminPanel({
           </div>
         </div>
       )}
-      <CsParticipantList event={event} onChanged={onChanged} onError={onError} disabled={busy} />
+      <CsParticipantList rules={r} event={event} onChanged={onChanged} onError={onError} disabled={busy} />
       {!isProduction() && (
         <div className="space-y-2">
           <button

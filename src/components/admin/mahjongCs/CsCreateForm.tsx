@@ -5,6 +5,7 @@ import { jstDateFromIso } from "@/lib/date";
 import DatePicker from "@/components/ui/DatePicker";
 import DateTimePicker from "@/components/ui/DateTimePicker";
 import type { MahjongCsEvent } from "@/types/mahjong";
+import { MAHJONG_CS_RULES, type GameCsRules } from "@/lib/gameCsRules";
 
 /** DateTimePicker の値は常に日本時間で組み立てる。 */
 export function jstInput(value: string | Date): string {
@@ -36,10 +37,14 @@ export const csPrimary =
 export default function CsCreateForm({
   priorityPreviewCount,
   onCreated,
+  rules,
 }: {
   priorityPreviewCount: number;
   onCreated: (event: MahjongCsEvent) => void;
+  rules?: GameCsRules;
 }) {
+  const r = rules ?? MAHJONG_CS_RULES;
+  const [top, second, third] = r.tierLabels;
   const [name, setName] = useState("チャンピオンシップ");
   const [capacityInput, setCapacityInput] = useState("40");
   const capacity = clampCapacity(capacityInput);
@@ -70,7 +75,7 @@ export default function CsCreateForm({
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/mahjong/cs", {
+      const res = await fetch(`/api/admin/${r.game}/cs`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -196,11 +201,11 @@ export default function CsCreateForm({
           />
         </div>
         <p>
-          優先枠 M1・M2：{priorityPreviewCount}名 ／ M3枠：
+          優先枠 {top}・{second}：{priorityPreviewCount}名 ／ {third}枠：
           {Math.max(0, capacity - priorityPreviewCount)}名
         </p>
-        <p>優先枠：M1・M2の人は参加表明すれば必ず参加できます</p>
-        <p>M3枠：先着順。満員のあとはキャンセル待ち</p>
+        <p>優先枠：{top}・{second}の人は参加表明すれば必ず参加できます</p>
+        <p>{third}枠：先着順。満員のあとはキャンセル待ち</p>
         <p>
           {"繰り上げ：締切時、未表明の優先枠ぶんを" +
             "キャンセル待ちから先着順に繰り上げ"}

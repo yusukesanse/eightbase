@@ -1,6 +1,8 @@
-import PokerCsAdmin from "@/components/admin/PokerCsAdmin";
+"use client";
+import GameCsAdminPage from "@/components/admin/mahjongCs/GameCsAdminPage";
+import { POKER_CS_RULES } from "@/lib/gameCsRules";
 
-// ポーカーCS管理（作成・一覧）。GMなし自動進行なので締切日を設定して作るだけ。
+// シーズンのCS一覧と選択した大会の管理画面を表示する（麻雀と同じ画面・ポーカーのルール）。
 export default function SeasonPokerCsPage() {
-  return <PokerCsAdmin />;
+  return <GameCsAdminPage rules={POKER_CS_RULES} />;
 }

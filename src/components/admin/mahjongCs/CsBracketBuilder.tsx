@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { MahjongCsEvent } from "@/types/mahjong";
 import { Button, GlassCard } from "@/components/ui/eb";
 import { validateBracket } from "@/lib/mahjongCsBracket";
+import { MAHJONG_CS_RULES, type GameCsRules } from "@/lib/gameCsRules";
 import {
   fillEmptySeats, initialCanvasDraft, keepEntrants, placePlayer, removePlayer, setTierSeeds, toggleSeed, canvasToRounds, unplacedIds,
 } from "@/lib/mahjongCsCanvas";
@@ -18,6 +19,7 @@ interface Props {
   event: MahjongCsEvent & { csEventId: string };
   onChanged: () => void | Promise<void>;
   onError: (message: string | null) => void;
+  rules?: GameCsRules;
 }
 // SSRではデスクトップとして描画し、マウント後に画面幅へ追従する。
 export function useNarrowScreen() {
@@ -37,7 +39,9 @@ export default function CsBracketBuilder(props: Props) {
   return <Builder key={props.event.csEventId} {...props} />;
 }
 // シードと席の編集および下書き保存と確定を管理する。
-function Builder({ event, onChanged, onError }: Props) {
+function Builder({ event, onChanged, onError, rules }: Props) {
+  const r = rules ?? MAHJONG_CS_RULES;
+  const [top, second] = r.tierLabels;
   const narrow = useNarrowScreen();
   const [{ draft, saved }, setDraftState] = useState(() => {
     const draft = initialCanvasDraft(event);
@@ -50,8 +54,8 @@ function Builder({ event, onChanged, onError }: Props) {
   const ids = entrants.map((entrant) => entrant.lineUserId);
   const unplaced = unplacedIds(draft, ids);
   const seeds = entrants.filter((entrant) => draft.seedUserIds.includes(entrant.lineUserId));
-  const converted = canvasToRounds(draft.tables);
-  const errors = converted.errors.length ? converted.errors : validateBracket(converted.rounds, ids);
+  const converted = canvasToRounds(draft.tables, r);
+  const errors = converted.errors.length ? converted.errors : validateBracket(converted.rounds, ids, r);
   const dirty = JSON.stringify(draft) !== saved;
   const hasTables = draft.tables.length > 0;
   const locked = busy || narrow;
@@ -69,11 +73,11 @@ function Builder({ event, onChanged, onError }: Props) {
         return current.seedUserIds.includes(picked.chip.lineUserId)
           ? current : toggleSeed(current, picked.chip.lineUserId);
       }
-      if (zone.startsWith("seat:")) return placePlayer(current, picked.chip.lineUserId, zone.slice(5));
+      if (zone.startsWith("seat:")) return placePlayer(current, picked.chip.lineUserId, zone.slice(5), r.maxSeats);
       if (zone === "pool") return removePlayer(current, picked.chip.lineUserId);
       return current;
     });
-  }, [update]);
+  }, [update, r.maxSeats]);
   const drag = useCsBracketDrag(locked, apply);
   const clearSelection = drag.clear;
   const entrantIds = JSON.stringify(ids);
@@ -116,7 +120,7 @@ function Builder({ event, onChanged, onError }: Props) {
     onError(null);
     setServerErrors([]);
     try {
-      const response = await fetch(`/api/admin/mahjong/cs/${event.csEventId}`, {
+      const response = await fetch(`/api/admin/${r.game}/cs/${event.csEventId}`, {
         method: "PATCH",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -148,7 +152,7 @@ function Builder({ event, onChanged, onError }: Props) {
           <GlassCard padding="md" className="space-y-3 bg-white">
             <p className="text-xs">シードにまとめて追加</p>
             <div className="flex gap-4">
-              {(["M1", "M2"] as const).map((tier) => {
+              {[top, second].map((tier) => {
                 const members = entrants.filter((entrant) => entrant.tier === tier);
                 return (
                   <label key={tier} className="flex min-h-11 items-center gap-2 text-sm">
@@ -184,11 +188,11 @@ function Builder({ event, onChanged, onError }: Props) {
             onZoneClick={drag.onZoneClick}
           >
             <p className="text-xs">ここに落とすとシードに追加</p>
-            {["M1", "M2", "その他"].map((tier) => (
+            {[top, second, "その他"].map((tier) => (
               <div key={tier} className="space-y-2">
                 <h3 className="text-xs font-bold">{tier}</h3>
                 {seeds.filter((entry) => unplaced.includes(entry.lineUserId)
-                  && (tier === "その他" ? entry.tier !== "M1" && entry.tier !== "M2" : entry.tier === tier))
+                  && (tier === "その他" ? entry.tier !== top && entry.tier !== second : entry.tier === tier))
                   .map((entry) => renderChip({ kind: "player", lineUserId: entry.lineUserId }, "seed"))}
               </div>
             ))}
@@ -196,19 +200,19 @@ function Builder({ event, onChanged, onError }: Props) {
           <Button
             variant="secondary" className="!h-auto min-h-14 !whitespace-normal !text-xs"
             disabled={busy || !hasTables}
-            onClick={() => update((current) => fillEmptySeats(current, ids))}
+            onClick={() => update((current) => fillEmptySeats(current, ids, r.maxSeats))}
           >未配置の人を空席に入れる</Button>
           {!hasTables && <p className="text-xs">先に卓を追加してください</p>}
         </div>}
-        <CsBracketCanvas draft={draft} entrantsById={new Map(entrants.map(entry => [entry.lineUserId, entry]))}
+        <CsBracketCanvas rules={r} draft={draft} entrantsById={new Map(entrants.map(entry => [entry.lineUserId, entry]))}
           editable={!narrow} onChange={next => update(() => next)}
           renderPlayer={(id, tableId) => renderChip({ kind: "player", lineUserId: id }, `seat:${tableId}`)}
           onZoneClick={drag.onZoneClick} />
       </div>
       <footer className="sticky bottom-0 z-10 space-y-2 rounded-xl border bg-white p-3 shadow-lg">
         <p className="text-xs">
-          シード {seeds.length}名（M1 {seeds.filter((entry) => entry.tier === "M1").length}・
-          M2 {seeds.filter((entry) => entry.tier === "M2").length}） / 未配置 {unplaced.length}名
+          シード {seeds.length}名（{top} {seeds.filter((entry) => entry.tier === top).length}・
+          {second} {seeds.filter((entry) => entry.tier === second).length}） / 未配置 {unplaced.length}名
         </p>
         {dirty && <p className="text-xs text-amber-800">未保存の変更があります</p>}
         <div className="max-h-28 overflow-y-auto text-xs" aria-live="polite">

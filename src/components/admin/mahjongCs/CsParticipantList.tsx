@@ -3,14 +3,9 @@
 import { useState } from "react";
 import { waitlistPosition } from "@/lib/mahjongCsEntry";
 import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
+import { MAHJONG_CS_RULES, type GameCsRules } from "@/lib/gameCsRules";
 import { csButton, csPrimary } from "./CsCreateForm";
 
-const filters = ["すべて", "優先枠", "M3", "キャンセル待ち"] as const;
-const tierStyles: Record<string, string> = {
-  M1: "bg-yellow-100 text-yellow-700",
-  M2: "bg-sky-100 text-sky-700",
-  M3: "bg-orange-50 text-orange-600",
-};
 // 受付日時を日本時間の表示用文字列に整える。
 export const displayDate = (value: string) =>
   new Date(value).toLocaleString("ja-JP", {
@@ -23,13 +18,22 @@ export const displayDate = (value: string) =>
   });
 
 // 受付中・締切後に共通の参加者一覧と取り消し確認を表示する。
-export default function CsParticipantList({ event, onChanged, onError, disabled = false }: {
+export default function CsParticipantList({ event, onChanged, onError, disabled = false, rules }: {
   event: MahjongCsEvent;
   onChanged: () => void;
   onError: (message: string | null) => void;
   disabled?: boolean;
+  rules?: GameCsRules;
 }) {
-  const [filter, setFilter] = useState<(typeof filters)[number]>("すべて");
+  const r = rules ?? MAHJONG_CS_RULES;
+  const third = r.tierLabels[2];
+  const filters = ["すべて", "優先枠", third, "キャンセル待ち"];
+  const tierStyles: Record<string, string> = {
+    [r.tierLabels[0]]: "bg-yellow-100 text-yellow-700",
+    [r.tierLabels[1]]: "bg-sky-100 text-sky-700",
+    [third]: "bg-orange-50 text-orange-600",
+  };
+  const [filter, setFilter] = useState("すべて");
   const [removeEntry, setRemoveEntry] = useState<MahjongCsEntry | null>(null);
   const [removing, setRemoving] = useState(false);
   const busy = disabled || removing;
@@ -43,7 +47,7 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
     setRemoving(true);
     onError(null);
     try {
-      const res = await fetch(`/api/admin/mahjong/cs/${event.csEventId}`, {
+      const res = await fetch(`/api/admin/${r.game}/cs/${event.csEventId}`, {
         method: "PATCH",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -121,7 +125,7 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
                   filter === "すべて" ||
                   (filter === "優先枠"
                     ? priority.has(e.lineUserId)
-                    : filter === "M3"
+                    : filter === third
                       ? !priority.has(e.lineUserId)
                       : e.state === "waitlisted"),
               )
