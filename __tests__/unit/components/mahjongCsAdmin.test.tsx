@@ -125,3 +125,14 @@ test("作成の409エラーをそのまま表示する", async () => {
   fireEvent.click(screen.getByRole("button", { name: "作成して参加受付を始める" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(error);
 });
+
+test("旧形式のCSも確認のうえ削除でき、編成に戻すは出さない", async () => {
+  event = { ...makeEvent(), status: "setup", capacity: undefined, bracket: undefined };
+  render(<SeasonMahjongCsPage />);
+  expect(await screen.findByText(/旧形式（閲覧のみ）/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "編成に戻す" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "削除" }));
+  expect(screen.getByText("このCSを削除しますか？")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "削除する" }));
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/admin/mahjong/cs/cs1", expect.objectContaining({ method: "DELETE" })));
+});

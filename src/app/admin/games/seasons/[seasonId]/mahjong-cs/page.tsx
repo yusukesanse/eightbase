@@ -47,7 +47,7 @@ export default function SeasonMahjongCsPage() {
   }, [fetchEvents]);
 
   async function performAction() {
-    if (!selected || !confirmation || legacy) return;
+    if (!selected || !confirmation || (legacy && confirmation !== "delete")) return;
     setBusy(true);
     setError(null);
     try {
@@ -168,9 +168,8 @@ export default function SeasonMahjongCsPage() {
                     }[selected.status]}
               </p>
             </div>
-            {!legacy && (
-              <div className="flex flex-wrap gap-2">
-                {(selected.status === "running" || selected.status === "finished") && (
+            <div className="flex flex-wrap gap-2">
+                {!legacy && (selected.status === "running" || selected.status === "finished") && (
                   <button
                     disabled={busy}
                     className={csButton}
@@ -196,9 +195,8 @@ export default function SeasonMahjongCsPage() {
                   削除
                 </button>
               </div>
-            )}
           </div>
-          {confirmation && !legacy && (
+          {confirmation && (!legacy || confirmation === "delete") && (
             <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
               <p className="text-xs">
                 {confirmation === "resetBracket"

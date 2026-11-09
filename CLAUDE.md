@@ -394,6 +394,7 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - ⚠️ **締切後に受付を再開する操作は無い**（closed → entry の遷移なし）。締切を誤って過ぎたら、CSを削除して作り直す。
 - ⚠️ 進行中（finished 以外）の新方式CSがあるシーズンでは新しいCSを作れない（409）。利用者・参加表明は「シーズンで最新に作ったCS」だけを見るため。
 - ⚠️ **旧方式（`capacity` なし）の `setup` のCSは参加表明も自動生成もされない**（閲覧のみ）。本番へ出す前に、開催前の旧方式CSが残っていないか確かめ、残っていれば新方式で作り直して利用者に再表明を案内する。
+  旧方式のCSも管理画面から**削除だけ**はできる（2026-11-09。日付が重なって利用者が迷うため。編成に戻す等の操作は出さない）。CS のデータは `mahjongCsEvents` の1件に収まるので削除で他に残るものは無い。
 - LINE 通知なし。参加費なし。麻雀だけ（他3種目の CS は従来どおり）。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
