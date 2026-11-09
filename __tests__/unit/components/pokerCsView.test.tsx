@@ -80,7 +80,7 @@ test("追加ハンドの対象のときだけ「追加ハンドを申告」が�
   expect(screen.queryByRole("button", { name: "結果を申告" })).toBeNull();
   fireEvent.change(screen.getByLabelText("追加ハンドのチップ"), { target: { value: "300" } });
   fireEvent.click(screen.getByRole("button", { name: "確認へ進む" }));
-  expect(screen.getByText("追加ハンドの 300 チップで申告します。よろしいですか？")).toBeInTheDocument();
+  expect(screen.getByText("追加ハンドの300チップで申告します。よろしいですか？")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "申告する" }));
   await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/poker/cs/match", expect.objectContaining({
     method: "PATCH", body: JSON.stringify({ csEventId: "cs1", matchId: "F", points: 300, expectedStatus: "tiebreak" }),
@@ -122,6 +122,25 @@ test("追加ハンドの対象でない人には「追加ハンド待ち」を�
   render(<MahjongCsView game="poker" />);
   expect((await screen.findAllByText("追加ハンド待ち")).length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: /申告/ })).toBeNull();
+});
+
+test("卓の状態が変わって 409 が返ったら、シートを閉じて CS を取り直し、エラー文を画面に出す", async () => {
+  const ev = event();
+  global.fetch = jest.fn(async (url: string, options?: { method?: string }) => {
+    if (options?.method === "PATCH") {
+      return { ok: false, status: 409, json: async () => ({ error: "卓の状態が変わりました。画面を更新してください" }) };
+    }
+    return { ok: true, json: async () => (url === "/api/poker/cs" ? { event: ev, entered: true } : { success: true }) };
+  }) as jest.Mock;
+  render(<MahjongCsView game="poker" />);
+  fireEvent.click(await screen.findByRole("button", { name: "結果を申告" }));
+  fireEvent.change(screen.getByLabelText("終了時のチップ"), { target: { value: "500" } });
+  fireEvent.click(screen.getByRole("button", { name: "確認へ進む" }));
+  fireEvent.click(screen.getByRole("button", { name: "申告する" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("卓の状態が変わりました。画面を更新してください");
+  expect(screen.queryByRole("button", { name: "申告する" })).toBeNull();
+  expect(screen.queryByLabelText("終了時のチップ")).toBeNull();
+  await waitFor(() => expect((fetch as jest.Mock).mock.calls.filter(([url]) => url === "/api/poker/cs").length).toBeGreaterThanOrEqual(2));
 });
 
 test("終了後は podium の金銀銅を出す（単位はチップ）", async () => {

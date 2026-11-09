@@ -109,6 +109,11 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   // 他の参加者の申告・ラウンド進行を追従（load は loading を上げないのでちらつかない）
   useAutoRefresh(load, 15000);
 
+  const openInput = (m: PubCsMatch) => {
+    setInputError(null);
+    setInputMatch(m);
+  };
+
   // 選んだタブが横スクロールの外に出ないよう寄せる（jsdom には scrollTo が無い）。
   const selectedLabel = (() => {
     if (!event?.rounds.length) return null;
@@ -140,6 +145,12 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setInputError(data?.error ?? "反映に失敗しました");
+          // 画面で見ていた卓の状態が古かった（ポーカーだけ expectedStatus を送る）: その場でやり直しても同じ 409 が続くので
+          // シートを閉じて CS を取り直す。エラー文は閉じたあとの画面に出す（麻雀は expectedStatus を送らないので従来どおり）。
+          if (res.status === 409 && body.expectedStatus) {
+            setInputMatch(null);
+            await load();
+          }
           return;
         }
         // 全員入力済みだが合計が合わない（未確定）→ 再入力を促す。
@@ -256,6 +267,12 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
             <Podium champ={champ} players={podiumPlayers(event.podium, finalMatch.players)} unit={unit} />
           )}
 
+          {inputError && !inputMatch && (
+            <GlassCard>
+              <p role="alert" className="text-[15px] font-bold text-[color:var(--eb-coral-text)]">{inputError}</p>
+            </GlassCard>
+          )}
+
           {myMatch && (
             <section aria-label="あなたの卓">
               <MatchCard
@@ -267,7 +284,7 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
                 manual={manual}
                 rules={rules}
                 running={event.status === "running"}
-                onInput={() => setInputMatch(myMatch.m)}
+                onInput={() => openInput(myMatch.m)}
               />
             </section>
           )}
@@ -318,7 +335,7 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
                 manual={manual}
                 rules={rules}
                 running={event.status === "running"}
-                onInput={() => setInputMatch(m)}
+                onInput={() => openInput(m)}
               />
             ))}
           </div>
@@ -791,7 +808,7 @@ function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onRe
         <>
           <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">
             {tiebreak
-              ? `${rules.tiebreakLabel}の ${fmtPoints(value)} ${rules.scoreLabel}で申告します。よろしいですか？`
+              ? `${rules.tiebreakLabel}の${fmtPoints(value)}${rules.scoreLabel}で申告します。よろしいですか？`
               : `${fmtPoints(value)}${rules.scoreLabel}で申告します。よろしいですか？`}
           </p>
           <p className="mt-2 text-[14px] text-[color:var(--eb-ink-muted)]">
