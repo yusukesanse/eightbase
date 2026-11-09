@@ -79,3 +79,39 @@ test("GET は旧形式の setup でも自動で組み合わせを作らない", 
   expect(body.event.status).toBe("setup");
   expect(db._get("pokerCsEvents", "old").rounds).toEqual([]);
 });
+
+test("GET は podium の lineUserId を entrants の名前・画像に解決して返す", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db); asUser("a");
+  seed(db, {
+    status: "finished", championId: "a", podium: { gold: "a", silver: "b", bronze: null },
+    entrants: [
+      { lineUserId: "a", displayName: "エース", pictureUrl: "https://img/a.png", tier: "P1", rank: 1, seed: false },
+      { lineUserId: "b", displayName: "ビー", tier: "P2", rank: 2, seed: false },
+    ],
+  });
+  const body = await (await GET(req())).json();
+  expect(body.event.podium).toEqual({
+    gold: { displayName: "エース", pictureUrl: "https://img/a.png" },
+    silver: { displayName: "ビー", pictureUrl: "" },
+    bronze: null,
+  });
+  expect(JSON.stringify(body)).not.toContain("lineUserId");
+});
+
+test("GET の tiebreakMine は追加勝負の対象者だけ true", async () => {
+  const db = makeCsDb(); (getDb as jest.Mock).mockReturnValue(db);
+  const pl = (id: string, points: number) => ({ lineUserId: id, displayName: id, points, rank: null });
+  seed(db, {
+    status: "running",
+    entrants: ["a", "b", "c"].map((id, i) => ({ lineUserId: id, displayName: id, tier: "P1", rank: i + 1, seed: false })),
+    rounds: [{ type: "prelim", label: "準決勝", advanceCount: 1, matches: [{
+      matchId: "P", label: "準決勝卓", status: "tiebreak", advanceCount: 1,
+      players: [pl("a", 50), pl("b", 50), pl("c", 10)],
+      seats: ["a", "b", "c"].map((id) => ({ kind: "player", lineUserId: id })),
+    }] }],
+  });
+  asUser("a");
+  expect((await (await GET(req())).json()).event.rounds[0].matches[0].tiebreakMine).toBe(true);
+  asUser("c");
+  expect((await (await GET(req())).json()).event.rounds[0].matches[0].tiebreakMine).toBe(false);
+});
