@@ -9,6 +9,7 @@ import type { Season } from "@/types";
 import MonthCalendar from "@/components/ui/MonthCalendar";
 import DatePicker from "@/components/ui/DatePicker";
 import { kanaIncludes } from "@/lib/kana";
+import { todayJst } from "@/lib/date";
 import { ROLE_LABELS, type UserRole } from "@/lib/roles";
 
 /**
@@ -83,7 +84,7 @@ export default function GameScheduleCalendar({ gameCategory }: { gameCategory: G
   const [markPaid, setMarkPaid] = useState(true);
   const [addBusyId, setAddBusyId] = useState<string | null>(null);
   const [addMessage, setAddMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJst();
 
   const load = useCallback(() => {
     setLoading(true);
