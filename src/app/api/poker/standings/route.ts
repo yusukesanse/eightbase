@@ -3,6 +3,7 @@ import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
 import { pokerTierForRank, type PokerTier } from "@/types/poker";
+import { rankPokerSeason, type PokerScoreLike } from "@/lib/pokerStandings";
 
 export const dynamic = "force-dynamic";
 
@@ -59,14 +60,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const sorted = uids
-      .map((uid) => ({ uid, ...(agg.get(uid) as { totalChips: number; days: number; firsts: number }) }))
-      .sort((a, b) => {
-        if (b.totalChips !== a.totalChips) return b.totalChips - a.totalChips;
-        if (b.firsts !== a.firsts) return b.firsts - a.firsts;
-        if (b.days !== a.days) return b.days - a.days;
-        return (profiles.get(a.uid)?.displayName ?? "").localeCompare(profiles.get(b.uid)?.displayName ?? "", "ja");
-      });
+    const order = rankPokerSeason(
+      snap.docs.map((d) => d.data() as PokerScoreLike),
+      (uid) => profiles.get(uid)?.displayName ?? "",
+    );
+    const sorted = order.map((uid) => ({ uid, ...(agg.get(uid) as { totalChips: number; days: number; firsts: number }) }));
 
     const standings = sorted.map((s, i) => {
       const rank = i + 1;
