@@ -1,8 +1,9 @@
 /**
- * 麻雀CS（新方式）の編成と勝ち上がりの純関数。Firestore にも点数計算にも依存しない
- * （将来ほかの種目へ広げるときに使い回せるように）。
+ * CS（新方式）の編成と勝ち上がりの純関数。4種目共通（席数はルール表から。省略時は麻雀）。
+ * Firestore にも点数計算にも依存しない。
  * 札 { kind:"ticket", fromMatchId, place } = 「直前のラウンドの卓 fromMatchId の place 位」が入る席。
  */
+import { MAHJONG_CS_RULES, maxAdvanceFor, type GameCsRules } from "./gameCsRules";
 import type { MahjongCsEntrant, MahjongCsEvent, MahjongCsMatch, MahjongCsMatchPlayer, MahjongCsRound, MahjongCsSeat } from "@/types";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -42,7 +43,7 @@ export function unplacedEntrantIds(rounds: MahjongCsRound[], entrantIds: string[
   return entrantIds.filter((id) => !placed.has(id));
 }
 
-export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]): string[] {
+export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[], rules: GameCsRules = MAHJONG_CS_RULES): string[] {
   const errs: string[] = [];
   if (rounds.length === 0) return ["ラウンドがありません"];
   const entrantSet = new Set(entrantIds);
@@ -58,7 +59,12 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[]):
       if (matchIds.has(m.matchId)) errs.push(`${m.label}: 卓IDが重複しています`);
       matchIds.add(m.matchId);
       const seats = m.seats ?? [];
-      if (seats.length !== 4 || seats.some((s) => !isPlayerSeat(s) && !isTicketSeat(s))) errs.push(`${m.label}: 空いている席があります`);
+      if (seats.length < rules.minSeats || seats.length > rules.maxSeats
+        || seats.some((s) => !isPlayerSeat(s) && !isTicketSeat(s))) errs.push(`${m.label}: 空いている席があります`);
+      else if (validAdvance(advanceCount)
+        && advanceCount > maxAdvanceFor(rules, seats.length, ri === rounds.length - 1)) {
+        errs.push(`${m.label}: 勝ち抜け人数は卓の人数より少なくしてください`);
+      }
       if (ri === 0 && seats.some((s) => isTicketSeat(s))) {
         errs.push(`${m.label}: 最初のラウンドに勝ち抜けの札は置けません`);
       }

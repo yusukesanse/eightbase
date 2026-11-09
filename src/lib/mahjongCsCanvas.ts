@@ -1,3 +1,5 @@
+/** CS編成キャンバスの純関数（4種目共通。席数はルール表から。省略時は麻雀） */
+import { MAHJONG_CS_RULES, type GameCsRules } from "./gameCsRules";
 import { validAdvance } from "./mahjongCsBracket";
 import type { MahjongCsCanvasTable, MahjongCsEntrant, MahjongCsEvent, MahjongCsRound, MahjongCsSeat } from "@/types";
 
@@ -16,8 +18,8 @@ export function incomingCount(tables: MahjongCsCanvasTable[], id: string): numbe
   return tables.filter((t) => t.to === id).reduce((sum, t) => sum + (validAdvance(t.advanceCount) ? t.advanceCount : 0), 0);
 }
 
-export function openSeats(tables: MahjongCsCanvasTable[], id: string): number {
-  return 4 - incomingCount(tables, id) - (tables.find((t) => t.id === id)?.playerIds.length ?? 0);
+export function openSeats(tables: MahjongCsCanvasTable[], id: string, maxSeats = MAHJONG_CS_RULES.maxSeats): number {
+  return maxSeats - incomingCount(tables, id) - (tables.find((t) => t.id === id)?.playerIds.length ?? 0);
 }
 
 // Zの次はAAとして卓の左右順を表示する
@@ -29,7 +31,7 @@ function tableLetter(index: number): string {
   return result;
 }
 
-export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: MahjongCsRound[]; errors: string[] } {
+export function canvasToRounds(tables: MahjongCsCanvasTable[], rules: GameCsRules = MAHJONG_CS_RULES): { rounds: MahjongCsRound[]; errors: string[] } {
   if (tables.length === 0) return { rounds: [], errors: ["卓がありません"] };
   const errors: string[] = [];
   const byId = new Map(tables.map((t) => [t.id, t]));
@@ -76,8 +78,8 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
           }
         }
         seats.push(...t.playerIds.map((lineUserId) => ({ kind: "player" as const, lineUserId })));
-        if (seats.length > 4) errors.push(`${matchLabel}: 席が足りません（${seats.length}名入ります）`);
-        while (seats.length < 4) seats.push(null);
+        if (seats.length > rules.maxSeats) errors.push(`${matchLabel}: 席が足りません（${seats.length}名入ります）`);
+        while (seats.length < rules.minSeats) seats.push(null);
         if (!validAdvance(t.advanceCount)) errors.push(`${matchLabel}: 勝ち抜け人数は1〜3名にしてください`);
         return { matchId: t.id, label: matchLabel, players: [], status: "reporting", seats, advanceCount: t.advanceCount };
       }),
@@ -89,8 +91,8 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[]): { rounds: Mahjon
   return { rounds, errors };
 }
 
-export function tableLabels(tables: MahjongCsCanvasTable[]): Map<string, string> {
-  const { rounds } = canvasToRounds(tables);
+export function tableLabels(tables: MahjongCsCanvasTable[], rules: GameCsRules = MAHJONG_CS_RULES): Map<string, string> {
+  const { rounds } = canvasToRounds(tables, rules);
   return rounds.length > 0
     ? new Map(rounds.flatMap((round) => round.matches.map((match) => [match.matchId, match.label] as const)))
     : new Map([...tables].sort(leftOrder).map((table, index) => [table.id, table.name ?? `卓${tableLetter(index)}`]));
@@ -175,10 +177,10 @@ export function setTableAdvance(d: CanvasDraft, id: string, n: number): CanvasDr
   return next;
 }
 
-export function placePlayer(d: CanvasDraft, lineUserId: string, tableId: string): CanvasDraft {
+export function placePlayer(d: CanvasDraft, lineUserId: string, tableId: string, maxSeats = MAHJONG_CS_RULES.maxSeats): CanvasDraft {
   const next = clone(d);
   const target = next.tables.find((t) => t.id === tableId);
-  if (!target || openSeats(next.tables, tableId) <= 0) return next;
+  if (!target || openSeats(next.tables, tableId, maxSeats) <= 0) return next;
   for (const t of next.tables) t.playerIds = t.playerIds.filter((id) => id !== lineUserId);
   target.playerIds.push(lineUserId);
   return next;
@@ -205,11 +207,11 @@ export function setTierSeeds(d: CanvasDraft, entrants: MahjongCsEntrant[], tier:
   return next;
 }
 
-export function fillEmptySeats(d: CanvasDraft, entrantIds: string[]): CanvasDraft {
+export function fillEmptySeats(d: CanvasDraft, entrantIds: string[], maxSeats = MAHJONG_CS_RULES.maxSeats): CanvasDraft {
   const next = clone(d);
   const waiting = [...new Set(unplacedIds(next, entrantIds).filter((id) => !next.seedUserIds.includes(id)))];
   const targets = next.tables.filter((t) => !next.tables.some((source) => source.to === t.id))
     .sort((a, b) => b.y - a.y || leftOrder(a, b));
-  for (const t of targets) t.playerIds.push(...waiting.splice(0, Math.max(0, openSeats(next.tables, t.id))));
+  for (const t of targets) t.playerIds.push(...waiting.splice(0, Math.max(0, openSeats(next.tables, t.id, maxSeats))));
   return next;
 }
