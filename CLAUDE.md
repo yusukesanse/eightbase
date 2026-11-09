@@ -373,10 +373,14 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - **参加/当日の卓/スコア申告**: `MahjongLeagueView.tsx`。参加=日付カード＋参加する/参加中（**卓の中身は見せない**。確定済みはバッジのみ）。当日の卓=緑フェルトボード＋席(東南西北は卓内並び順から付与)・自席強調・持ち点/着順・n/4申告。申告=持ち点＋1〜4着のダイアログ。アクセントはフェルト緑 `#2f7d57`。GM には同じタブに `MahjongGmAssignPanel` が出る。
 - **CS**: `MahjongCsView.tsx`。決勝卓の確定結果から金銀銅の表彰台（王冠・持ち点）＋トーナメント表（`MahjongCsEntrant.seed` でSEED、勝ち上がりを緑強調、決勝はゴールド）。
   新方式（定員つき・手動編成）の表示は下の「麻雀CS（定員つき参加受付＋手動編成）」を参照（上位n名通過・札の空席「勝ち上がり待ち」・S＝シード）。
+- いずれも**リーグ仕様・API（standings/entries/tables/report/cs）は不変。UIのみ差し替え**。タブ/シェルも不変。
+- アバターは `/api/avatar` プロキシ経由（WebGLのCanvasタイント回避にcrossOrigin必須）。
+- 既知の簡略化: 順位リストのアベレージ推移スパークライン（履歴データ無し→省略）／当日の卓のB卓・見学者（`tables?mine=1`は自分の卓のみ→省略）／席順は卓内並び順から割当。
 
 ### 麻雀CS（定員つき参加受付＋手動編成・2026-10-08）
 毎シーズン人数が変わるため、トーナメントの形を決め打ちにせず GM が管理画面で組む（60〜80人でもコード変更なし）。
 設計書: `docs/superpowers/specs/2026-10-08-mahjong-cs-manual-bracket-design.md`（docs/ は git 管理外）。画面の正は Figma `EBU_管理画面` ページ「ゲーム-麻雀-CS」。
+4種目共通化（ポーカーへの展開）は 2026-11-09 の仕様書 `docs/superpowers/specs/2026-11-09-games-cs-common-design.html` と下の「CSの共通化とポーカーCS」を参照。
 - 流れ: **作成（定員・受付期間）→ 参加受付 → 締切 → 管理者がドラッグで編成 → 確定 → 当日は自己申告で自動勝ち上がり**。
   status は `entry → closed → running → finished`（旧方式の `setup` は閲覧のみ）。新方式の判定は `capacity` があるか（`isManualCs`）。
 - 参加資格: **そのシーズンのリーグ戦の卓（`mahjongTables` の completed）に1回以上いた人だけ**（`hasPlayedMahjongLeague`。`memberIds array-contains` の1条件＋メモリで絞る＝複合インデックスなし）。判定は参加表明 POST のときだけ（ポーリングの GET では読まない）。
@@ -395,24 +399,39 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - ⚠️ 進行中（finished 以外）の新方式CSがあるシーズンでは新しいCSを作れない（409）。利用者・参加表明は「シーズンで最新に作ったCS」だけを見るため。
 - ⚠️ **旧方式（`capacity` なし）の `setup` のCSは参加表明も自動生成もされない**（閲覧のみ）。本番へ出す前に、開催前の旧方式CSが残っていないか確かめ、残っていれば新方式で作り直して利用者に再表明を案内する。
   旧方式のCSも管理画面から**削除だけ**はできる（2026-11-09。日付が重なって利用者が迷うため。編成に戻す等の操作は出さない）。CS のデータは `mahjongCsEvents` の1件に収まるので削除で他に残るものは無い。
-- LINE 通知なし。参加費なし。麻雀だけ（他3種目の CS は従来どおり）。
+- LINE 通知なし。参加費なし。対象は麻雀とポーカー（下の節）。ダーツ・ビリヤードの CS は従来どおり。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
   `__tests__/unit/components/{mahjongCsBracketBuilder,mahjongCsBracketCanvas,mahjongCsView,mahjongCsAdmin}.test.tsx`。
 
-### ポーカーCS（2026-07-28 実装）
-- 方式: **卓分け → 勝ち上がり → 決勝卓**（ダーツCSの読み替え。`src/lib/pokerCs.ts` は純関数）。
-  3〜4名の卓に分け、各卓の**終了時チップ1位**が勝ち上がる。リーグ上位4名は予選免除シード。
-  残り4名以下で決勝卓 → 1位=金/2位=銀/3位=銅。
-- 申告は**卓の全員が自分の終了時チップを自己申告** → 全員そろったら自動確定 → 次ラウンド自動生成（GMなし）。
-  **CSはディーラーを固定しない**（卓の中で交代しながら回す運用）＝リーグと違い全員がプレイして申告する。
-- 同点は「追加ハンド」（`tiebreakChips`）で決着。通常ラウンドは1位の同点のみ、決勝は金銀銅まで解消する。
-- API: `GET /api/poker/cs`（締切日到来で遅延生成）・`POST/DELETE /api/poker/cs/entry`・`PATCH /api/poker/cs/report`、
-  管理は `GET/POST /api/admin/poker/cs` と `/admin/games/seasons/[seasonId]/poker-cs`。
-  コレクションは `pokerCsEvents`。テスト `__tests__/unit/lib/pokerCs.test.ts`（20件）。
-- いずれも**リーグ仕様・API（standings/entries/tables/report/cs）は不変。UIのみ差し替え**。タブ/シェルも不変。
-- アバターは `/api/avatar` プロキシ経由（WebGLのCanvasタイント回避にcrossOrigin必須）。
-- 既知の簡略化: 順位リストのアベレージ推移スパークライン（履歴データ無し→省略）／当日の卓のB卓・見学者（`tables?mine=1`は自分の卓のみ→省略）／席順は卓内並び順から割当。
+### CSの共通化とポーカーCS（2026-11-09）
+麻雀CS（上の節）の仕組みを種目共通にし、ポーカーも**定員つき参加受付＋キャンバス手動編成**にした。流れ・status・締切の扱いは麻雀と同じ。
+仕様書: `docs/superpowers/specs/2026-11-09-games-cs-common-design.html`（docs/ は git 管理外）。
+- **種目差は `src/lib/gameCsRules.ts` のルール表（`CS_RULES`）だけ**: 席数（`minSeats`/`maxSeats`）・通過上限（`maxAdvance`＋`maxAdvanceFor()`）・段の名前・申告の呼び名（`scoreLabel`/`tiebreakLabel`）・決勝で `podium` を書くか（`writesPodium`）。
+  API の本体は `src/lib/gameCs/`（`publicCs`＝利用者GET・`entry`＝参加表明・`admin`＝作成/変更/締切/編成/削除・`fix`＝編成に戻す/結果修正・`scoreMatch`＝点数申告）。
+  `/api/{mahjong,poker}/cs/**` と `/api/admin/{mahjong,poker}/cs/**` はルール表を渡すだけの薄い窓口。**種目ごとにコピーしない。**
+  画面も共通（利用者 `MahjongCsView`・管理 `GameCsAdminPage`＋`CsBracket*`。名前は麻雀のまま）。管理はページがルール表を渡し、利用者ビューは `game` から `CS_RULES` を引く。
+  参加資格・本人の段と順位・優先枠を種目ごとに求めるのは `src/lib/gameCsLeague.ts`（`hasPlayedLeague`/`leagueStanding`/`fetchPriorityUserIds`・サーバー専用）。
+- 純関数 `src/lib/mahjongCs{Entry,Bracket,Canvas}.ts` は種目共通（名前は麻雀のまま。テストが今のパスを読むため）。`Entry` は種目に依存しない。`Bracket`/`Canvas` は `rules` を省略すると麻雀の動き。
+- **ポーカーの固有仕様**:
+  - 1卓 2〜6名。通過上限は `min(3, 卓の人数−1)`（決勝だけ `min(3, 卓の人数)`）。
+  - 参加資格＝そのシーズンの `scores` が1件以上（`seasonId`＋`lineUserId` の等値2条件。参加表明 POST のときだけ読む。ポーリングの GET では読まない）。
+  - 優先枠＝**作成時の通算順位 1〜8 位（P1・P2）を `priorityUserIds` に固定**。通算順位の並べ方（通算チップ→1位回数→参加日数→名前）は `src/lib/pokerStandings.ts` の `rankPokerSeason` の1か所（順位表 API と共用。2か所に書かない）。
+  - 申告は各自の終了時チップ（`MahjongCsMatchPlayer.points` に入れる・0〜1,000,000 の整数）。全員そろったら確定。送る前に画面内で確認を1回はさむ（`confirm()` は LINE で使わない）。
+    申告に `expectedStatus`（`reporting`/`tiebreak`）を任意で付け、卓の状態が変わっていれば 409 → シートを閉じて取り直す（開いている間に追加勝負へ変わった値を終了時の値として保存しない）。
+  - 決勝の確定で `podium{gold,silver,bronze}`＋`championId` を書く。管理者の結果修正（`editMatch`）も点数＋必要なら追加ハンドを入れ、通過の境目が同点のままなら 400（確定させない）。管理画面で入れられる追加ハンドは**1回分**（2回目以降は利用者の申告）。
+- **同点の追加勝負（ユーザー決定 2026-11-09）**: 判定は `src/lib/gameCsMatch.ts`（`cutsFor`/`evaluateScoreMatch`/`withTiebreak`/`podiumOf`・純関数）。
+  - 決勝以外: 上位 n 名通過の卓で **n 位と n+1 位をまたぐ同点だけ**。通過する人どうし・通過しない人どうしの同点は追加勝負しない。
+  - 決勝: 1-2・2-3・3-4 位の境目をまたぐ同点すべて（金銀銅を決める）。
+  - 追加ハンドの値は `tiebreakPoints[回−1]`。また同点ならその人たちだけ次の回を入れ直す（他の人の値は動かさない）。
+- **麻雀は URL・データの形・動きとも不変**（`podium`・`tiebreakPoints` を書かない。申告は従来の `/api/mahjong/cs/match`＝持ち点＋着順で、`scoreMatch` は使わない）。
+- **旧形式（`capacity` なし）のポーカーCSは見るだけ＋削除だけ**（編成に戻す・結果修正は 409）。旧来の自動生成・`PATCH /api/poker/cs/report`・`src/lib/pokerCs.ts`・`pokerCsServer.ts` は削除済み。旧形式の点数は `chips` にあるので表示だけ `points ?? chips` で補う。
+- ⚠️ **本番に出す前**: 本番の `pokerCsEvents` に旧形式のCSが残っていないか確かめる。**進行中（`running`）のものがあれば、旧申告ルートが無くなったので申告できない＝出す時期をずらす。** 開催前（`setup`）の旧形式は管理画面から削除し、必要なら新方式で作り直して利用者に再表明を案内する。
+- ダーツ・ビリヤードは未対応（旧方式のまま）。足すときは `CsGame` と `CS_RULES` に1行足す。ビリヤードだけ「2席・敗者の矢印・2人の申告の一致」が別に要る（仕様書参照）。
+- 回帰テスト: `__tests__/unit/lib/{gameCsRules,gameCsBracketPoker,gameCsMatch,gameCsLeague,pokerStandings}.test.ts`、
+  `__tests__/unit/api/{pokerCsEntryRoute,pokerCsMatchRoute,adminPokerCsRoute}.test.ts`、
+  `__tests__/unit/components/{pokerCsAdmin,pokerCsView}.test.tsx`。**麻雀CSのテストは1行も変えずに通すこと**
+  （`git diff --name-status ffa4e4e -- '__tests__/unit/lib/mahjongCs*' '__tests__/unit/api/mahjongCs*' '__tests__/unit/api/adminMahjongCs*' '__tests__/unit/components/mahjongCs*'` が空）。
 
 
 ## トレーラー予約時の決済について
