@@ -6,7 +6,7 @@ import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
 import { csButton, csPrimary } from "./CsCreateForm";
 
 const filters = ["すべて", "優先枠", "M3", "キャンセル待ち"] as const;
-const tierStyles = {
+const tierStyles: Record<string, string> = {
   M1: "bg-yellow-100 text-yellow-700",
   M2: "bg-sky-100 text-sky-700",
   M3: "bg-orange-50 text-orange-600",

@@ -197,7 +197,7 @@ export function toggleSeed(d: CanvasDraft, lineUserId: string): CanvasDraft {
   return next;
 }
 
-export function setTierSeeds(d: CanvasDraft, entrants: MahjongCsEntrant[], tier: "M1" | "M2", on: boolean): CanvasDraft {
+export function setTierSeeds(d: CanvasDraft, entrants: MahjongCsEntrant[], tier: string, on: boolean): CanvasDraft {
   const next = clone(d);
   const ids = entrants.filter((e) => e.tier === tier).map((e) => e.lineUserId);
   next.seedUserIds = on ? [...new Set([...next.seedUserIds, ...ids])]

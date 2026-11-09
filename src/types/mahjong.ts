@@ -312,7 +312,7 @@ export interface MahjongDayState {
   updatedAt: string;
 }
 
-// ─── 麻雀チャンピオンシップ（CS / トーナメント） ───────────────────────────────
+// ─── CS（チャンピオンシップ・4種目共通の形。名前は麻雀のまま） ───
 
 export type MahjongCsRoundType = "prelim" | "semi" | "final";
 export type MahjongCsStatus = "setup" | "entry" | "closed" | "running" | "finished";
@@ -324,7 +324,7 @@ export interface MahjongCsEntry {
   lineUserId: string;
   displayName: string;
   pictureUrl?: string;
-  tier: MahjongLeagueTier;   // 確定編成に名前が無ければ "M3"
+  tier: string;              // 段の名前（麻雀 M1〜M3 / ポーカー P1〜P3）。確定編成に無ければ最下段
   rank: number;              // 確定編成の順位。無ければ 100000
   enteredAt: string;         // ISO
   state: MahjongCsEntryState;
@@ -336,7 +336,7 @@ export type MahjongCsSeat =
   | { kind: "player"; lineUserId: string }
   | { kind: "ticket"; fromMatchId: string; place: number; lineUserId?: string }
   | null;
-export type MahjongCsMatchStatus = "reporting" | "completed";
+export type MahjongCsMatchStatus = "reporting" | "tiebreak" | "completed";
 
 /** CS参戦者（自己エントリー済みの参加者） */
 export interface MahjongCsEntrant {
@@ -344,7 +344,7 @@ export interface MahjongCsEntrant {
   displayName: string;
   pictureUrl?: string;
   /** リーグ確定編成での所属。CSは誰でも参加可のため、リーグ未参加の自己エントリーでは未設定。 */
-  tier?: MahjongLeagueTier;
+  tier?: string;
   /** リーグ確定時の順位（シード判定・並びに使用）。リーグ未参加者は末尾送りの番兵値。 */
   rank: number;
   /** M1のシード権（予選免除→準決から） */
@@ -358,6 +358,8 @@ export interface MahjongCsMatchPlayer {
   pictureUrl?: string;
   points: number | null;
   rank: number | null;
+  /** 同点の追加勝負の値（1回目・2回目…）。麻雀は使わない */
+  tiebreakPoints?: number[];
 }
 
 /** CSの1試合（1卓=1半荘） */
@@ -411,6 +413,8 @@ export interface MahjongCsEvent {
   entrants: MahjongCsEntrant[];
   rounds: MahjongCsRound[];
   championId?: string;
+  /** 決勝の金銀銅（lineUserId）。ポーカー以降の種目だけが書く。麻雀は書かない */
+  podium?: { gold: string | null; silver: string | null; bronze: string | null };
   createdAt: string;
   updatedAt: string;
 }
