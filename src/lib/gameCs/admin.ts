@@ -197,7 +197,11 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
         resolveProfile(id),
         leagueStanding(rules.game, (pre.data() as MahjongCsEvent).seasonId, id),
       ]);
-      added = { ...profile, ...standing };
+      // users に名前が無い人（ゲスト等）は authorizedUsers の名前を使う（addGameEntryByAdmin と同じ順）。
+      const authName = authSnap.docs[0].data().displayName;
+      const displayName = profile.displayName !== "ユーザー" ? profile.displayName
+        : (typeof authName === "string" && authName) || "ユーザー";
+      added = { ...profile, displayName, ...standing };
     }
     const result = await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);

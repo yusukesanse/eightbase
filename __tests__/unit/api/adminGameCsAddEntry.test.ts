@@ -119,6 +119,14 @@ test("名前・段はサーバーが解決し、クライアントの値は使�
   expect(find(db, "g")).toMatchObject({ displayName: "ユーザー", tier: "M3", rank: 100000, state: "confirmed", adminAdded: true });
 });
 
+test("users に名前が無い人は authorizedUsers の名前で保存する", async () => {
+  const db = useDb();
+  db._set("authorizedUsers", "au_g", { lineUserId: "g", active: true, role: "guest", displayName: "ゲスト花子" });
+  const res = await MAHJONG_PATCH(body({ action: "addEntry", lineUserId: "g" }), ctx());
+  expect(res.status).toBe(200);
+  expect(find(db, "g")).toMatchObject({ displayName: "ゲスト花子" });
+});
+
 test("確定編成に載っている人は、その段と順位で入る", async () => {
   const db = useDb();
   db._set("mahjongLeagueAssignments", "la1", { seasonId: "s1", confirmedAt: "2099-10-01T00:00:00Z",
