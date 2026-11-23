@@ -14,8 +14,17 @@ const leftOrder = (a: MahjongCsCanvasTable, b: MahjongCsCanvasTable): number =>
   a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 
+/** その卓に矢印で入ってくる人数（勝者の矢印は通過人数ぶん、敗者の矢印は1人ぶん） */
 export function incomingCount(tables: MahjongCsCanvasTable[], id: string): number {
-  return tables.filter((t) => t.to === id).reduce((sum, t) => sum + (validAdvance(t.advanceCount) ? t.advanceCount : 0), 0);
+  return tables.filter((t) => t.to === id).reduce((sum, t) => sum + (validAdvance(t.advanceCount) ? t.advanceCount : 0), 0)
+    + tables.filter((t) => t.loserTo === id).length;
+}
+
+/** 3位決定戦の卓: 矢印が出ておらず、敗者の矢印だけが入る卓（敗者の矢印を使う種目＝ビリヤードだけ） */
+function thirdPlaceIds(tables: MahjongCsCanvasTable[], rules: GameCsRules): Set<string> {
+  if (!rules.loserArrow) return new Set();
+  return new Set(tables.filter((t) => t.to === null
+    && tables.some((s) => s.loserTo === t.id) && !tables.some((s) => s.to === t.id)).map((t) => t.id));
 }
 
 export function openSeats(tables: MahjongCsCanvasTable[], id: string, maxSeats = MAHJONG_CS_RULES.maxSeats): number {
@@ -38,6 +47,15 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[], rules: GameCsRule
   for (const t of tables) {
     if (t.to !== null && (t.to === t.id || !byId.has(t.to))) errors.push(`卓(${t.id}): 矢印の先の卓がありません`);
   }
+  const thirds = thirdPlaceIds(tables, rules);
+  for (const t of tables) {
+    if (t.loserTo == null) continue;
+    if (!rules.loserArrow) errors.push(`卓(${t.id}): 敗者の矢印は使えません`);
+    else if (t.loserTo === t.id || !byId.has(t.loserTo)) errors.push(`卓(${t.id}): 敗者の矢印の先の卓がありません`);
+    else if (t.loserTo === t.to) errors.push(`卓(${t.id}): 敗者の矢印は勝者の矢印と別の卓へ引いてください`);
+    else if (t.to === null) errors.push(`卓(${t.id}): 矢印が出ていない卓から敗者の矢印は引けません`);
+    else if (!thirds.has(t.loserTo)) errors.push(`卓(${t.id}): 敗者の矢印は3位決定戦（矢印が出ていない卓）へ引いてください`);
+  }
   let cycle = false;
   for (const t of tables) {
     const seen = new Set<string>();
@@ -49,42 +67,55 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[], rules: GameCsRule
     }
   }
   if (cycle) errors.push("矢印が輪になっています");
-  const finals = tables.filter((t) => t.to === null).length;
+  const finals = tables.filter((t) => t.to === null && !thirds.has(t.id)).length;
   if (finals !== 1) errors.push(`決勝（矢印が出ていない卓）は1つにしてください（今 ${finals} 卓）`);
+  if (thirds.size > 1) errors.push(`3位決定戦は1つにしてください（今 ${thirds.size} 卓）`);
   if (errors.length > 0) return { rounds: [], errors };
 
   // グラフが正常なときだけ決勝までの距離で段を決める
   const levels = new Map<number, MahjongCsCanvasTable[]>();
   for (const t of tables) {
+    if (thirds.has(t.id)) continue;
     let depth = 0;
     let current = t;
     while (current.to !== null) { current = byId.get(current.to)!; depth++; }
     levels.set(depth, [...(levels.get(depth) ?? []), t]);
   }
   const maxDepth = Math.max(...levels.keys());
+  const toMatch = (t: MahjongCsCanvasTable, matchLabel: string) => {
+    const seats: MahjongCsSeat[] = [];
+    for (const source of tables.filter((s) => s.to === t.id).sort(leftOrder)) {
+      if (!validAdvance(source.advanceCount)) continue;
+      for (let place = 1; place <= source.advanceCount; place++) {
+        seats.push({ kind: "ticket", fromMatchId: source.id, place });
+      }
+    }
+    // 敗者の矢印: 2人卓の2位（＝敗者）の札。勝ち上がりの処理は札のままで増やさない
+    for (const source of tables.filter((s) => s.loserTo === t.id).sort(leftOrder)) {
+      seats.push({ kind: "ticket", fromMatchId: source.id, place: 2 });
+    }
+    seats.push(...t.playerIds.map((lineUserId) => ({ kind: "player" as const, lineUserId })));
+    if (seats.length > rules.maxSeats) errors.push(`${matchLabel}: 席が足りません（${seats.length}名入ります）`);
+    while (seats.length < rules.minSeats) seats.push(null);
+    if (!validAdvance(t.advanceCount)) errors.push(`${matchLabel}: 勝ち抜け人数は1〜3名にしてください`);
+    return { matchId: t.id, label: matchLabel, players: [], status: "reporting" as const, seats, advanceCount: t.advanceCount };
+  };
   const rounds: MahjongCsRound[] = [...levels.keys()].sort((a, b) => b - a).map((depth) => {
     const label = depth === 0 ? "決勝" : depth === 1 ? "準決勝" : depth === 2 ? "準々決勝"
       : maxDepth === 3 ? "予選" : `予選${maxDepth - depth + 1}回戦`;
     const group = levels.get(depth)!.sort(leftOrder);
     return {
       type: depth === 0 ? "final" : "prelim", label, advanceCount: group[0].advanceCount,
-      matches: group.map((t, index) => {
-        const matchLabel = t.name ?? `${label}${group.length === 1 ? "" : tableLetter(index)}卓`;
-        const seats: MahjongCsSeat[] = [];
-        for (const source of tables.filter((s) => s.to === t.id).sort(leftOrder)) {
-          if (!validAdvance(source.advanceCount)) continue;
-          for (let place = 1; place <= source.advanceCount; place++) {
-            seats.push({ kind: "ticket", fromMatchId: source.id, place });
-          }
-        }
-        seats.push(...t.playerIds.map((lineUserId) => ({ kind: "player" as const, lineUserId })));
-        if (seats.length > rules.maxSeats) errors.push(`${matchLabel}: 席が足りません（${seats.length}名入ります）`);
-        while (seats.length < rules.minSeats) seats.push(null);
-        if (!validAdvance(t.advanceCount)) errors.push(`${matchLabel}: 勝ち抜け人数は1〜3名にしてください`);
-        return { matchId: t.id, label: matchLabel, players: [], status: "reporting", seats, advanceCount: t.advanceCount };
-      }),
+      matches: group.map((t, index) => toMatch(t, t.name ?? `${label}${group.length === 1 ? "" : tableLetter(index)}卓`)),
     };
   });
+  // 3位決定戦は決勝の直前のラウンドに置く（最後のラウンド＝決勝のまま）
+  for (const id of thirds) {
+    const table = byId.get(id)!;
+    rounds.splice(rounds.length - 1, 0, {
+      type: "third", label: "3位決定戦", advanceCount: table.advanceCount, matches: [toMatch(table, table.name ?? "3位決定戦")],
+    });
+  }
   const labels = new Map<string, number>();
   for (const match of rounds.flatMap(round => round.matches)) labels.set(match.label, (labels.get(match.label) ?? 0) + 1);
   for (const [label, count] of labels) if (count > 1) errors.push(`「${label}」という卓名が重複しています`);
@@ -124,7 +155,10 @@ export function addTable(d: CanvasDraft, id: string, x: number, y: number, advan
 export function removeTable(d: CanvasDraft, id: string): CanvasDraft {
   const next = clone(d);
   next.tables = next.tables.filter((t) => t.id !== id);
-  for (const t of next.tables) if (t.to === id) t.to = null;
+  for (const t of next.tables) {
+    if (t.to === id) t.to = null;
+    if (t.loserTo === id) delete t.loserTo;
+  }
   return next;
 }
 
@@ -170,6 +204,22 @@ export function disconnect(d: CanvasDraft, fromId: string): CanvasDraft {
   return next;
 }
 
+/** 敗者の矢印を引く（3位決定戦用）。行き先が3位決定戦になっているかは確定時に canvasToRounds が検証する。 */
+export function connectLoser(d: CanvasDraft, fromId: string, toId: string): CanvasDraft {
+  const next = clone(d);
+  const from = next.tables.find((t) => t.id === fromId);
+  if (!from || fromId === toId || from.to === toId || !next.tables.some((t) => t.id === toId)) return next;
+  from.loserTo = toId;
+  return next;
+}
+
+export function disconnectLoser(d: CanvasDraft, fromId: string): CanvasDraft {
+  const next = clone(d);
+  const table = next.tables.find((t) => t.id === fromId);
+  if (table) delete table.loserTo;
+  return next;
+}
+
 export function setTableAdvance(d: CanvasDraft, id: string, n: number): CanvasDraft {
   const next = clone(d);
   const table = next.tables.find((t) => t.id === id);
@@ -210,7 +260,7 @@ export function setTierSeeds(d: CanvasDraft, entrants: MahjongCsEntrant[], tier:
 export function fillEmptySeats(d: CanvasDraft, entrantIds: string[], maxSeats = MAHJONG_CS_RULES.maxSeats): CanvasDraft {
   const next = clone(d);
   const waiting = [...new Set(unplacedIds(next, entrantIds).filter((id) => !next.seedUserIds.includes(id)))];
-  const targets = next.tables.filter((t) => !next.tables.some((source) => source.to === t.id))
+  const targets = next.tables.filter((t) => !next.tables.some((source) => source.to === t.id || source.loserTo === t.id))
     .sort((a, b) => b.y - a.y || leftOrder(a, b));
   for (const t of targets) t.playerIds.push(...waiting.splice(0, Math.max(0, openSeats(next.tables, t.id, maxSeats))));
   return next;

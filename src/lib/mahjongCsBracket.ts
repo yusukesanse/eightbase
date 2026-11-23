@@ -28,9 +28,10 @@ function findMatch(rounds: MahjongCsRound[], matchId: string): { ri: number; mat
   return null;
 }
 
-export function ticketLabel(rounds: MahjongCsRound[], fromMatchId: string, place: number): string {
+/** 札の呼び名。winner＝勝者を申告する種目（ビリヤード）は「勝者／敗者」で呼ぶ。 */
+export function ticketLabel(rounds: MahjongCsRound[], fromMatchId: string, place: number, winner = false): string {
   const label = findMatch(rounds, fromMatchId)?.match.label ?? "?";
-  return `${label} ${place}位`;
+  return winner ? `${label} ${place === 1 ? "勝者" : "敗者"}` : `${label} ${place}位`;
 }
 
 function playerIds(rounds: MahjongCsRound[]): string[] {
@@ -83,38 +84,46 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[], 
   const unplaced = unplacedEntrantIds(rounds, entrantIds);
   if (unplaced.length > 0) errs.push(`まだ席がない参加者が${unplaced.length}名います`);
 
-  // 札: 直前のラウンドの通過枠をちょうど1回ずつ使う
+  // 札: 直前のラウンドの通過枠をちょうど1回ずつ使う。
+  // 敗者の矢印を使う種目（ビリヤード）だけ、3位決定戦のラウンドが決勝の前に挟まるので「前のどれかのラウンド」から置ける。
+  // 敗者の札（通過人数の次の順位）は使わなくてもよいが、2回は使えない。3位決定戦の勝者は行き先が無くてよい。
+  const loser = rules.loserArrow === true;
+  const used = new Map<string, number>();
+  const checkUsed = (round: MahjongCsRound) => {
+    for (const pm of round.matches) {
+      const advanceCount = pm.advanceCount ?? round.advanceCount;
+      if (!validAdvance(advanceCount)) continue;
+      for (let p = 1; p <= advanceCount + (loser ? 1 : 0); p++) {
+        const n = used.get(`${pm.matchId}#${p}`) ?? 0;
+        const label = ticketLabel(rounds, pm.matchId, p);
+        if (n === 0 && p <= advanceCount && round.type !== "third") errs.push(`${label}の行き先の席がありません`);
+        if (n > 1) errs.push(`${label}の札が2回以上置かれています`);
+      }
+    }
+  };
   for (let ri = 1; ri < rounds.length; ri++) {
     const prev = rounds[ri - 1];
-    const prevMatches = new Map(prev.matches.map((m) => [m.matchId, m]));
-    const used = new Map<string, number>();
+    const sources = new Map((loser ? rounds.slice(0, ri) : [prev])
+      .flatMap((r) => r.matches.map((m) => [m.matchId, { match: m, round: r }] as const)));
     for (const m of rounds[ri].matches) for (const s of m.seats ?? []) {
       if (!isTicketSeat(s)) continue;
-      const source = prevMatches.get(s.fromMatchId);
+      const source = sources.get(s.fromMatchId);
       if (!source) {
         errs.push(`${m.label}: 札は直前のラウンドの卓から置いてください`);
         continue;
       }
-      const advanceCount = source.advanceCount ?? prev.advanceCount;
+      const advanceCount = source.match.advanceCount ?? source.round.advanceCount;
       if (!validAdvance(advanceCount)) continue;
-      if (!Number.isInteger(s.place) || s.place < 1 || s.place > advanceCount) {
+      if (!Number.isInteger(s.place) || s.place < 1 || s.place > advanceCount + (loser ? 1 : 0)) {
         errs.push(`${m.label}: ${ticketLabel(rounds, s.fromMatchId, s.place)}は勝ち抜け人数を超えています`);
         continue;
       }
       const key = `${s.fromMatchId}#${s.place}`;
       used.set(key, (used.get(key) ?? 0) + 1);
     }
-    for (const pm of prev.matches) {
-      const advanceCount = pm.advanceCount ?? prev.advanceCount;
-      if (!validAdvance(advanceCount)) continue;
-      for (let p = 1; p <= advanceCount; p++) {
-        const n = used.get(`${pm.matchId}#${p}`) ?? 0;
-        const label = ticketLabel(rounds, pm.matchId, p);
-        if (n === 0) errs.push(`${label}の行き先の席がありません`);
-        if (n > 1) errs.push(`${label}の札が2回以上置かれています`);
-      }
-    }
+    if (!loser) checkUsed(prev);
   }
+  if (loser) for (const round of rounds.slice(0, -1)) checkUsed(round);
   return errs;
 }
 
@@ -133,7 +142,7 @@ export function buildRunningRounds(rounds: MahjongCsRound[], entrants: MahjongCs
   const byId = new Map(entrants.map((e) => [e.lineUserId, e]));
   return clone(rounds).map((r, ri) => ({
     ...r,
-    type: ri === rounds.length - 1 ? "final" : "prelim",
+    type: ri === rounds.length - 1 ? "final" : r.type === "third" ? "third" : "prelim",
     matches: r.matches.map((m) => ({
       ...m,
       status: "reporting" as const,
@@ -157,16 +166,24 @@ export function applyCompletedMatch(
   const { ri, match } = found;
   if (match.status !== "completed") throw new Error("MATCH_NOT_COMPLETED");
 
-  if (ri === next.length - 1) {
-    const champ = match.players.find((p) => p.rank === 1);
-    return { rounds: next, finished: true, ...(champ ? { championId: champ.lineUserId } : {}) };
+  // 終了は「決勝が確定」かつ「3位決定戦（あれば）が確定」。優勝は確定した卓ではなく決勝の1位から出す
+  // （3位決定戦が最後に確定しても、その勝者を優勝にしない）。3位決定戦が無い種目は今までと同じ。
+  if (ri === next.length - 1 || next[ri].type === "third") {
+    const final = next[next.length - 1].matches[0];
+    const finished = final?.status === "completed"
+      && next.every((r) => r.type !== "third" || r.matches.every((m) => m.status === "completed"));
+    const champ = final?.players.find((p) => p.rank === 1);
+    return { rounds: next, finished, ...(finished && champ ? { championId: champ.lineUserId } : {}) };
   }
 
   const byId = new Map(entrants.map((e) => [e.lineUserId, e]));
   const ranked = [...match.players].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-  const targets = next[ri + 1].matches.filter((target) =>
+  // 行き先は後ろのラウンドすべてから探す（敗者の札は3位決定戦へ、勝者の札はその先の決勝へ入る）
+  const targets = next.slice(ri + 1).flatMap((r) => r.matches).filter((target) =>
     (target.seats ?? []).some((s) => isTicketSeat(s) && s.fromMatchId === matchId));
-  if (targets.some((target) => target.players.some((p) => p.points != null))) {
+  // 勝者を申告する種目は確定まで points が空なので、申告（claims）が1件でもあれば「結果が入っている」とみなす
+  if (targets.some((target) => target.players.some((p) => p.points != null)
+    || Object.keys(target.claims ?? {}).length > 0)) {
     throw new Error("DOWNSTREAM_REPORTED");
   }
   for (const target of targets) {

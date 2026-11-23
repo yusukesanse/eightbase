@@ -129,7 +129,8 @@ export async function handleAdminCsGet(req: NextRequest, { params }: Ctx, rules:
 }
 
 /** 下書きの構造と重複だけを検証し、接続や空席の検証は確定時に行う。 */
-function isBracketCanvas(value: unknown, maxSeats: number): value is MahjongCsCanvas {
+function isBracketCanvas(value: unknown, rules: GameCsRules): value is MahjongCsCanvas {
+  const maxSeats = rules.maxSeats;
   const record = (v: unknown): v is Record<string, unknown> =>
     typeof v === "object" && v !== null && !Array.isArray(v);
   if (!record(value) || !Array.isArray(value.tables) || value.tables.length > 200) return false;
@@ -143,6 +144,8 @@ function isBracketCanvas(value: unknown, maxSeats: number): value is MahjongCsCa
       || typeof table.y !== "number" || !(Math.abs(table.y) <= 1e6)
       || typeof table.advanceCount !== "number" || !validAdvance(table.advanceCount)
       || (table.to !== null && (typeof table.to !== "string" || table.to.length > 64))
+      // 敗者の矢印はルール表で許した種目（ビリヤード）だけ。null・未指定は「矢印なし」
+      || (table.loserTo != null && (!rules.loserArrow || typeof table.loserTo !== "string" || table.loserTo.length > 64))
       || !Array.isArray(table.playerIds) || table.playerIds.length > maxSeats
       || !table.playerIds.every((id): id is string => typeof id === "string")) return false;
     tableIds.add(table.id);
@@ -155,8 +158,9 @@ function isBracketCanvas(value: unknown, maxSeats: number): value is MahjongCsCa
 }
 
 function normalizeCanvas(canvas: MahjongCsCanvas): MahjongCsCanvas {
-  return { tables: canvas.tables.map(({ id, name, x, y, advanceCount, to, playerIds }) =>
-    ({ id, ...(name !== undefined ? { name: name.trim() } : {}), x, y, advanceCount, to, playerIds: [...playerIds] })) };
+  return { tables: canvas.tables.map(({ id, name, x, y, advanceCount, to, loserTo, playerIds }) =>
+    ({ id, ...(name !== undefined ? { name: name.trim() } : {}), x, y, advanceCount, to,
+      ...(loserTo != null ? { loserTo } : {}), playerIds: [...playerIds] })) };
 }
 
 const DEMO_SELF = { lineUserId: "dev-member-01", displayName: "demoユーザー" };
@@ -320,7 +324,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
           const { canvas } = body;
           const seedUserIds = Array.isArray(body.seedUserIds) ? [...new Set<unknown>(body.seedUserIds)] : null;
           if (!seedUserIds || !seedUserIds.every((id): id is string => typeof id === "string")
-            || !isBracketCanvas(canvas, rules.maxSeats)) return reject(400, "編成の形式が不正です");
+            || !isBracketCanvas(canvas, rules)) return reject(400, "編成の形式が不正です");
           const entrantIds = event.entrants.map((e) => e.lineUserId);
           if (seedUserIds.some((id) => !entrantIds.includes(id))) {
             return reject(400, "参加確定者ではない人がシードに含まれています");
