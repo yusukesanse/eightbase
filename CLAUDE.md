@@ -399,6 +399,15 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 - ⚠️ 進行中（finished 以外）の新方式CSがあるシーズンでは新しいCSを作れない（409）。利用者・参加表明は「シーズンで最新に作ったCS」だけを見るため。
 - ⚠️ **旧方式（`capacity` なし）の `setup` のCSは参加表明も自動生成もされない**（閲覧のみ）。本番へ出す前に、開催前の旧方式CSが残っていないか確かめ、残っていれば新方式で作り直して利用者に再表明を案内する。
   旧方式のCSも管理画面から**削除だけ**はできる（2026-11-09。日付が重なって利用者が迷うため。編成に戻す等の操作は出さない）。CS のデータは `mahjongCsEvents` の1件に収まるので削除で他に残るものは無い。
+- **管理者が参加者を追加できる**（2026-11-23・`PATCH` の `{ action: "addEntry", lineUserId }`・種目共通の `src/lib/gameCs/admin.ts` に1か所）。
+  参加者一覧（`CsParticipantList`）の「＋ 参加者を追加」から、アプリ利用者（`authorizedUsers` の active かつ LINE 連携済み・ゲスト含む）を**参加確定**として足す。
+  - ⚠️ **意図的に見ないもの**: 定員・受付期間（開始前／締切後）・参加資格（リーグ戦に出た人だけ）。例外対応なので管理者の判断で押し切れる。
+  - 追加した人は entry に `adminAdded: true` が付き、**定員の数に入らない**（`rebalanceEntries` が常に確定にし、ほかの人をキャンセル待ちへ押し出さない。優先枠の人でも予約席を二重に取らない）。
+    そのため「参加確定 n/定員」の n は定員を超えうる。キャンセル待ちの人を追加すると確定に上がる。既に確定の一般枠の人に付けると、その人の席が空いてキャンセル待ちの先頭が1人繰り上がる（画面からは確定済みの人を選べない）。
+  - できるのは `entry` と `closed` だけ。`running` / `finished` は 409（「編成に戻す」をしてから）。`closed` ではシードを保って entrants を作り直し、編成の下書き（`bracket`）は触らない＝未配置の人として編成画面に出る。
+  - 名前・アイコン・段・順位は**サーバーが解決**する（参加表明と同じ `resolveProfile`・`leagueStanding`。クライアントの値は使わない）。見つからない・無効な利用者は 404。
+  - 外すのは今までどおり「外す」（`removeEntry`）。監査ログは `cs.entryAdded`（実行者・lineUserId・phase・前の状態 `none|waitlisted|confirmed`）。
+  - 回帰テスト: `__tests__/unit/lib/gameCsAdminAdded.test.ts`、`__tests__/unit/api/adminGameCsAddEntry.test.ts`、`__tests__/unit/components/gameCsAddEntry.test.tsx`。
 - LINE 通知なし。参加費なし。対象は麻雀とポーカー（下の節）。ダーツ・ビリヤードの CS は従来どおり。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
