@@ -3,7 +3,8 @@
  * - 優先枠（作成時の M1・M2 = priorityUserIds）は表明すれば必ず参加確定。
  * - 受付中の M3 枠 = 定員 − 優先枠の人数（未表明の優先枠も席を確保しておく）。
  * - 締切後は、表明しなかった優先枠のぶんだけキャンセル待ちから先着順に繰り上げる。
- * 受付の全操作（表明・取り消し・定員変更・締切・管理者が外す）はこの rebalance を通す。
+ * - 管理者が追加した人（adminAdded）は定員に数えず、常に参加確定。
+ * 受付の全操作（表明・取り消し・定員変更・締切・管理者が外す／追加する）はこの rebalance を通す。
  */
 import type { MahjongCsEntrant, MahjongCsEntry, MahjongCsEvent } from "@/types";
 
@@ -30,10 +31,15 @@ const byEnteredAt = (a: MahjongCsEntry, b: MahjongCsEntry) =>
 export function rebalanceEntries(entries: MahjongCsEntry[], opts: RebalanceOptions): MahjongCsEntry[] {
   const priority = new Set(opts.priorityUserIds);
   const sorted = [...entries].sort(byEnteredAt);
-  const enteredPriority = sorted.filter((x) => priority.has(x.lineUserId)).length;
-  const reserved = opts.phase === "entry" ? priority.size : enteredPriority;
+  // 管理者が追加した人は定員の外。優先枠の人でも、優先枠としての予約席は取らない（二重に席を取らない）。
+  const adminAdded = new Set(sorted.filter((x) => x.adminAdded).map((x) => x.lineUserId));
+  const seated = (id: string) => priority.has(id) && !adminAdded.has(id);
+  const reserved = opts.phase === "entry"
+    ? [...priority].filter(seated).length
+    : sorted.filter((x) => seated(x.lineUserId)).length;
   let budget = Math.max(0, opts.capacity - reserved);
   return sorted.map((x) => {
+    if (x.adminAdded) return { ...x, state: "confirmed" };
     if (priority.has(x.lineUserId)) return { ...x, state: "confirmed" };
     if (budget > 0) {
       budget--;
