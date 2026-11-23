@@ -371,7 +371,7 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
 ### 麻雀UI（TILES案・デザインハンドオフ反映）
 - **リーグ**: `LeaguePyramid3D.tsx`（Three.js の四角錐スタック・確定版／左固定ゴールドラベル[Noto Serif JP]／自分のアバター浮遊＋「あなた」／spin・sway・off／reduced-motion・WebGL非対応フォールバック／アンマウントでGPU資源dispose）を `LeaguePyramid.tsx` のアイボリー帯ヒーローに配置。直下に M1/M2/M3 順位リスト（YOU強調・順位/戦数/1位/連対率/AVG）。
 - **参加/当日の卓/スコア申告**: `MahjongLeagueView.tsx`。参加=日付カード＋参加する/参加中（**卓の中身は見せない**。確定済みはバッジのみ）。当日の卓=緑フェルトボード＋席(東南西北は卓内並び順から付与)・自席強調・持ち点/着順・n/4申告。申告=持ち点＋1〜4着のダイアログ。アクセントはフェルト緑 `#2f7d57`。GM には同じタブに `MahjongGmAssignPanel` が出る。
-- **CS**: `MahjongCsView.tsx`。決勝卓の確定結果から金銀銅の表彰台（王冠・持ち点）＋トーナメント表（`MahjongCsEntrant.seed` でSEED、勝ち上がりを緑強調、決勝はゴールド）。
+- **CS**: `MahjongCsView.tsx`（4種目共通）。決勝卓の確定結果から金銀銅の表彰台（王冠・持ち点）＋トーナメント表（`MahjongCsEntrant.seed` でSEED、勝ち上がりを緑強調、決勝はゴールド）。
   新方式（定員つき・手動編成）の表示は下の「麻雀CS（定員つき参加受付＋手動編成）」を参照（上位n名通過・札の空席「勝ち上がり待ち」・S＝シード）。
 - いずれも**リーグ仕様・API（standings/entries/tables/report/cs）は不変。UIのみ差し替え**。タブ/シェルも不変。
 - アバターは `/api/avatar` プロキシ経由（WebGLのCanvasタイント回避にcrossOrigin必須）。
@@ -411,17 +411,17 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   - 名前・アイコン・段・順位は**サーバーが解決**する（参加表明と同じ `resolveProfile`・`leagueStanding`。クライアントの値は使わない。`users` に名前が無い人は `authorizedUsers` の名前）。見つからない・無効な利用者は 404。
   - 外すのは今までどおり「外す」（`removeEntry`）。監査ログは `cs.entryAdded`（実行者・lineUserId・phase・前の状態。phase は遅延締切を適用したあとの状態）。
   - 回帰テスト: `__tests__/unit/lib/gameCsAdminAdded.test.ts`、`__tests__/unit/api/adminGameCsAddEntry.test.ts`、`__tests__/unit/components/gameCsAddEntry.test.tsx`。
-- LINE 通知なし。参加費なし。対象は麻雀・ポーカー・ダーツ（下の節）。ビリヤードの CS は従来どおり。
+- LINE 通知なし。参加費なし。対象は麻雀・ポーカー・ダーツ・ビリヤードの4種目（下の節）。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
   `__tests__/unit/components/{mahjongCsBracketBuilder,mahjongCsBracketCanvas,mahjongCsView,mahjongCsAdmin}.test.tsx`。
 
-### CSの共通化とポーカーCS（2026-11-09）・ダーツCS（2026-11-23）
+### CSの共通化とポーカーCS（2026-11-09）・ダーツCS／ビリヤードCS（2026-11-23）
 麻雀CS（上の節）の仕組みを種目共通にし、ポーカーも**定員つき参加受付＋キャンバス手動編成**にした。流れ・status・締切の扱いは麻雀と同じ。
 仕様書: `docs/superpowers/specs/2026-11-09-games-cs-common-design.html`（docs/ は git 管理外）。
-- **種目差は `src/lib/gameCsRules.ts` のルール表（`CS_RULES`）だけ**: 席数（`minSeats`/`maxSeats`）・通過上限（`maxAdvance`＋`maxAdvanceFor()`）・段の名前・申告の呼び名（`scoreLabel`/`tiebreakLabel`）・画面の単位と申告欄の見出し（`unit`/`reportLabel`）・決勝で `podium` を書くか（`writesPodium`）。
-  API の本体は `src/lib/gameCs/`（`publicCs`＝利用者GET・`entry`＝参加表明・`admin`＝作成/変更/締切/編成/削除・`fix`＝編成に戻す/結果修正・`scoreMatch`＝点数申告）。
-  `/api/{mahjong,poker,darts}/cs/**` と `/api/admin/{mahjong,poker,darts}/cs/**` はルール表を渡すだけの薄い窓口。**種目ごとにコピーしない。**
+- **種目差は `src/lib/gameCsRules.ts` のルール表（`CS_RULES`）だけ**: 席数（`minSeats`/`maxSeats`）・通過上限（`maxAdvance`＋`maxAdvanceFor()`）・段の名前・申告の呼び名（`scoreLabel`/`tiebreakLabel`）・画面の単位と申告欄の見出し（`unit`/`reportLabel`）・決勝で `podium` を書くか（`writesPodium`）・敗者の矢印を引けるか（`loserArrow`）・申告の形（`report: "winner"`。この2つは任意でビリヤードだけが書く）。
+  API の本体は `src/lib/gameCs/`（`publicCs`＝利用者GET・`entry`＝参加表明・`admin`＝作成/変更/締切/編成/削除・`fix`＝編成に戻す/結果修正・`scoreMatch`＝点数申告・`winnerMatch`＝勝者申告）。
+  `/api/{mahjong,poker,darts,billiards}/cs/**` と `/api/admin/{mahjong,poker,darts,billiards}/cs/**` はルール表を渡すだけの薄い窓口。**種目ごとにコピーしない。**
   画面も共通（利用者 `MahjongCsView`・管理 `GameCsAdminPage`＋`CsBracket*`。名前は麻雀のまま）。管理はページがルール表を渡し、利用者ビューは `game` から `CS_RULES` を引く。
   参加資格・本人の段と順位・優先枠を種目ごとに求めるのは `src/lib/gameCsLeague.ts`（`hasPlayedLeague`/`leagueStanding`/`fetchPriorityUserIds`・サーバー専用）。
 - 純関数 `src/lib/mahjongCs{Entry,Bracket,Canvas}.ts` は種目共通（名前は麻雀のまま。テストが今のパスを読むため）。`Entry` は種目に依存しない。`Bracket`/`Canvas` は `rules` を省略すると麻雀の動き。
@@ -458,12 +458,41 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   - ⚠️ **本番に出す前**: 本番の `dartsCsEvents` に旧形式のCSが残っていないか確かめる。**進行中（`running`）のものがあれば、旧申告ルートが無くなったので申告できない＝出す時期をずらす。**
     開催前（`setup`）の旧形式は管理画面から削除し、必要なら新方式で作り直して利用者に再表明を案内する（旧形式で表明済みの人は引き継がれない）。
   - シーズン削除の `SEASON_LINKED_COLLECTIONS` に `dartsCsEvents` を含める（ルール表の全種目が入っていることを `seasonDeleteCsCollections.test.ts` が確かめる）。
-- ビリヤードは未対応（旧方式のまま）。足すときは `CsGame` と `CS_RULES` に1行足す。ビリヤードだけ「2席・敗者の矢印・2人の申告の一致」が別に要る（仕様書参照）。
+- **ビリヤードCS（2026-11-23・同じ土台に載せた）**: ルール表 `BILLIARDS_CS_RULES`（2人卓固定・通過は勝者1名・B1〜B3・`loserArrow`・`report: "winner"`）と薄い窓口。
+  ビリヤードだけの差は **敗者の矢印（3位決定戦）** と **2人の申告の一致で確定** の2つで、どちらもルール表の設定で切り替える（他3種目は今までどおり）。
+  - 参加資格＝そのシーズンの `scores` が1件以上（**0点の人も含む**。負けて落とした玉が0個だと正当に0点になる）。優先枠＝作成時の通算1〜8位（B1・B2）を固定。
+    並べ方は順位表 API と同じ `rankSeasonScores(docs, "billiards")`（ビリヤードの順位表 API もこの関数で並べる）。
+  - **敗者の矢印**: キャンバスの卓の `loserTo`（任意。矢印が無い卓には書かない）。引けるのは `rules.loserArrow` の種目だけで、他種目の編成に `loserTo` があれば保存 400・確定エラー。
+    行き先は **3位決定戦＝矢印が出ておらず、勝者の矢印が入らない卓** に限る（自分・存在しない卓・勝者と同じ卓・終端の卓からは不可）。
+    終端の卓は「決勝がちょうど1つ＋3位決定戦が0か1つ」。確定時の変換（`canvasToRounds`）で、3位決定戦を **決勝の直前の独立ラウンド**（`type: "third"`・「3位決定戦」）にし、
+    敗者の席は `{kind:"ticket", fromMatchId, place: 2}` の札にする（勝ち上がりの処理は札のままで増やさない）。
+    ⚠️ `isBracketCanvas`・`normalizeCanvas`（`gameCs/admin.ts`）と `incomingCount`・`fillEmptySeats`・`removeTable` は `loserTo` を扱う。卓の項目を足すときはこの5か所を見る（保存時に黙って消える）。
+  - **ラウンドの並び**: 3位決定戦が決勝の前に挟まるので、ビリヤードだけ札は「前のどれかのラウンド」から置ける（`validateBracket`）。`applyCompletedMatch` は行き先を後ろのラウンドすべてから探す。
+    **終了は決勝と3位決定戦の両方が確定したとき**（決勝だけ先に確定しても `running` のまま。3位決定戦の申告を締め出さないため）。
+    ⚠️ 優勝・表彰は「いま確定した卓」ではなく **決勝の卓と rounds 全体**から出す（3位決定戦が最後に確定すると、その勝者が優勝になってしまう）。`winnerPodium(rounds)`＝決勝の勝者が金・敗者が銀・3位決定戦の勝者が銅（無ければ null）。
+  - **申告**: `PATCH /api/billiards/cs/match` に `{ matchId, winnerId }` または `{ matchId, winner: "me" | "opponent" }`。
+    画面は相手の lineUserId を持たない（公開DTOが落としている）ので `winner` で送り、サーバーが解決する。申告は `match.claims[申告者] = 勝者`。
+    片方だけ→`reporting`（相手待ち）／一致→`completed`（勝者 `points:1`・`rank:1`、敗者 `0`・`2` を入れて既存の勝ち上がりへ）／食い違い→**`disputed`（確認待ち・卓が止まる）**。
+    確定までは出し直せる（`disputed` からでも。一致すればそのまま確定）。確定後・2人そろっていない卓は 409。判定は純関数 `src/lib/gameCsWinnerMatch.ts`。
+  - **管理者の確定**: `/fix` の `editMatch` に `{ matchId, winnerId }`。`disputed`・`reporting` の卓を確定でき、確定済みの入れ替えもできる（食い違っていた `claims` は消す）。
+    次の卓に結果が入っていたら 409。⚠️ ビリヤードは確定まで `points` が空なので、**次の卓の `claims` が1件でもあれば「結果が入っている」とみなす**（`applyCompletedMatch`）。
+  - 公開DTO: ビリヤードだけ卓に `myClaim`（`me`/`opponent`/null）・選手に `claimed` を足し、空席の札を「◯◯卓 勝者／敗者」で呼ぶ。**相手が誰を勝者にしたか・lineUserId は返さない。** 他3種目の応答にはキーを足さない。
+  - 画面: 申告は「勝ったのは？」に自分・相手のボタン（確認あり）。相手待ち「申告済み・相手の申告待ち」、食い違い「申告が食い違っています。管理者が確認します」＋「申告を出し直す」。
+    確定した卓は **勝／敗** で出す（内部の `points` 1・0 を「1点」「決勝 1点」と出さない）。準決勝は「勝者が決勝へ」（`nextRoundOf` が 3位決定戦を飛ばす）、3位決定戦は「勝者が3位」。
+    管理は食い違いの卓を「確認待ち」（赤）で出し、結果入力は勝者を選ぶ形。キャンバスは卓の右寄りの持ち手から点線の矢印（選択のキーは `loser:卓id`。勝者の矢印とは別に選んで消せる）。
+  - **旧形式（`capacity` なし）のビリヤードCSは見るだけ＋削除だけ**。旧来の自動生成（`ensureBilliardsCsStarted`）・`PATCH /api/billiards/cs/report`・`src/lib/billiardsCs.ts`・`billiardsCsServer.ts`・
+    `BilliardsCsView`・`BilliardsCsAdmin`・`BilliardsCs*` 型は削除済み。旧形式は結果が `won`（`rank` はリーグのシード順位）・表彰が `championId`/`runnerUpId`/`thirdId` にあるので、表示だけ補う（`legacyWinRank()`・`toPublicCs`）。
+  - 検証用ダミー投入（`src/dev-only/billiardsDemoSeed.ts`）は CS を作らない。デモの自動進行（`auto`）は席順の先頭を勝者にする。
+  - ⚠️ **本番に出す前**: 本番の `billiardsCsEvents` に旧形式のCSが残っていないか確かめる。**進行中（`running`）のものがあれば、旧申告ルートが無くなったので申告できない＝出す時期をずらす。**
+    開催前（`setup`）の旧形式は管理画面から削除し、必要なら新方式で作り直して利用者に再表明を案内する（旧形式で表明済みの人は引き継がれない）。
 - 回帰テスト: `__tests__/unit/lib/{gameCsRules,gameCsBracketPoker,gameCsMatch,gameCsLeague,pokerStandings}.test.ts`、
   `__tests__/unit/api/{pokerCsEntryRoute,pokerCsMatchRoute,adminPokerCsRoute}.test.ts`、
   `__tests__/unit/components/{pokerCsAdmin,pokerCsView,pokerCsBracketCanvas}.test.tsx`。
   ダーツ: `__tests__/unit/lib/{dartsCsRules,dartsCsLeague,seasonRanking,seasonDeleteCsCollections}.test.ts`、
   `__tests__/unit/api/{dartsCsEntryRoute,dartsCsMatchRoute,adminDartsCsRoute}.test.ts`、`__tests__/unit/components/{dartsCsView,dartsCsAdmin}.test.tsx`。
+  ビリヤード: `__tests__/unit/lib/{billiardsCsRules,billiardsCsLeague,billiardsCsCanvas,billiardsCsWinnerMatch}.test.ts`、
+  `__tests__/unit/api/{billiardsCsEntryRoute,billiardsCsMatchRoute,adminBilliardsCsRoute,adminBilliardsCsBracket,adminBilliardsCsFix}.test.ts`、
+  `__tests__/unit/components/{billiardsCsView,billiardsCsAdmin,billiardsCsBracketCanvas}.test.tsx`。
   **麻雀CSのテストは1行も変えずに通すこと**
   （`git diff --name-status ffa4e4e -- '__tests__/unit/lib/mahjongCs*' '__tests__/unit/api/mahjongCs*' '__tests__/unit/api/adminMahjongCs*' '__tests__/unit/components/mahjongCs*'` が空）。
 
