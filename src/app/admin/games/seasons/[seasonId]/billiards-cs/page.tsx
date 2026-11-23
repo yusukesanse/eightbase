@@ -1,6 +1,8 @@
-import BilliardsCsAdmin from "@/components/admin/BilliardsCsAdmin";
+"use client";
+import GameCsAdminPage from "@/components/admin/mahjongCs/GameCsAdminPage";
+import { BILLIARDS_CS_RULES } from "@/lib/gameCsRules";
 
-// ビリヤードCS管理（作成・一覧）。GMなし自動進行なので締切日を設定して作るだけ。
+// シーズンのCS一覧と選択した大会の管理画面を表示する（麻雀と同じ画面・ビリヤードのルール）。
 export default function SeasonBilliardsCsPage() {
-  return <BilliardsCsAdmin />;
+  return <GameCsAdminPage rules={BILLIARDS_CS_RULES} />;
 }

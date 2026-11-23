@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import {
   addTable, tableLabels, connect, disconnect, incomingCount, moveTable, openSeats,
-  removeTable, removePlayer, setTableAdvance, renameTable, classifyWheel,
+  removeTable, removePlayer, setTableAdvance, renameTable, classifyWheel, connectLoser, disconnectLoser,
 } from "@/lib/mahjongCsCanvas";
 import type { CanvasDraft } from "@/lib/mahjongCsCanvas";
 import type { MahjongCsEntrant } from "@/types/mahjong";
@@ -22,7 +22,7 @@ type Props = {
   rules?: GameCsRules;
 };
 type Gesture = {
-  kind: "pan" | "card" | "connect";
+  kind: "pan" | "card" | "connect" | "connectLoser";
   id?: string;
   pointerId: number;
   start: Point;
@@ -38,8 +38,11 @@ function curve(from: Point, to: Point): string {
   const bend = Math.max(40, Math.abs(to.y - from.y) / 2);
   return `M ${from.x} ${from.y} C ${from.x} ${from.y - bend}, ${to.x} ${to.y + bend}, ${to.x} ${to.y}`;
 }
-export function arrowPath(from: Point, to: Point): string {
-  return curve({ x: from.x + CARD_W / 2, y: from.y }, { x: to.x + CARD_W / 2, y: to.y + CARD_H });
+// 敗者の矢印（ビリヤードの3位決定戦用）は、勝者の矢印と重ならないよう卓の右寄りから出す。選択のキーは "loser:卓id"。
+const LOSER_X = CARD_W * 0.75;
+const loserKey = (id: string) => `loser:${id}`;
+export function arrowPath(from: Point, to: Point, startX = CARD_W / 2): string {
+  return curve({ x: from.x + startX, y: from.y }, { x: to.x + CARD_W / 2, y: to.y + CARD_H });
 }
 
 export default function CsBracketCanvas({ draft, entrantsById, editable, onChange, renderPlayer, onZoneClick, rules }: Props) {
@@ -74,8 +77,11 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   useEffect(() => {
     setConfirmDelete(current => current && draft.tables.some(table => table.id === current) ? current : null);
     setSelected(current => {
-      const source = draft.tables.find(table => table.id === current);
-      return source?.to && draft.tables.some(table => table.id === source.to) ? current : null;
+      if (!current) return null;
+      const loser = current.startsWith("loser:");
+      const source = draft.tables.find(table => table.id === (loser ? current.slice(6) : current));
+      const target = loser ? source?.loserTo : source?.to;
+      return target && draft.tables.some(table => table.id === target) ? current : null;
     });
   }, [draft.tables]);
 
@@ -113,6 +119,11 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
           arrows.current.get(table.id)?.setAttribute("d", d);
           arrowHits.current.get(table.id)?.setAttribute("d", d);
         }
+        if (table.loserTo && tables.some((t) => t.id === table.loserTo)) {
+          const d = arrowPath(position(table.id, active), position(table.loserTo, active), LOSER_X);
+          arrows.current.get(loserKey(table.id))?.setAttribute("d", d);
+          arrowHits.current.get(loserKey(table.id))?.setAttribute("d", d);
+        }
       }
     };
     const tick = () => {
@@ -127,7 +138,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
         const rect = frame.current!.getBoundingClientRect();
         const source = latest.current.draft.tables.find((t) => t.id === active.id);
         if (!source || !temporary.current) return;
-        temporary.current.setAttribute("d", curve({ x: source.x + CARD_W / 2, y: source.y }, {
+        temporary.current.setAttribute("d", curve({ x: source.x + (active.kind === "connectLoser" ? LOSER_X : CARD_W / 2), y: source.y }, {
           x: (active.point.x - rect.left - view.current.x) / view.current.z,
           y: (active.point.y - rect.top - view.current.y) / view.current.z,
         }));
@@ -164,10 +175,12 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
         else if (active.kind === "card" && current.tables.some((t) => t.id === active.id)) {
           const point = position(active.id!, active);
           change(moveTable(current, active.id!, point.x, point.y));
-        } else if (active.kind === "connect") {
+        } else if (active.kind === "connect" || active.kind === "connectLoser") {
           const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-table]");
           const id = target?.getAttribute("data-table");
-          if (id && id !== active.id && frame.current?.contains(target!)) change(connect(current, active.id!, id));
+          if (id && id !== active.id && frame.current?.contains(target!)) {
+            change((active.kind === "connect" ? connect : connectLoser)(current, active.id!, id));
+          }
         }
       }
       cleanup();
@@ -248,7 +261,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
     frame.current?.focus({ preventScroll: true });
     setSelected(null);
     const point = { x: event.clientX, y: event.clientY };
-    if (kind === "connect") for (const path of arrowHits.current.values()) path.style.pointerEvents = "none";
+    if (kind === "connect" || kind === "connectLoser") for (const path of arrowHits.current.values()) path.style.pointerEvents = "none";
     gesture.current = { kind, id, pointerId: event.pointerId, start: point, point, view: { ...view.current }, moved: false };
   }
   function finishName(value?: string) {
@@ -264,7 +277,10 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
   }
   function deleteArrow() {
     if (!editable || !selected) return;
-    if (draft.tables.find((table) => table.id === selected)?.to) onChange(disconnect(draft, selected));
+    if (selected.startsWith("loser:")) {
+      const id = selected.slice(6);
+      if (draft.tables.find((table) => table.id === id)?.loserTo) onChange(disconnectLoser(draft, id));
+    } else if (draft.tables.find((table) => table.id === selected)?.to) onChange(disconnect(draft, selected));
     setSelected(null);
   }
   function fitAll() {
@@ -348,6 +364,28 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
                   }
                 }} /></g>;
             })}
+            {r.loserArrow && <defs><marker id={`${markerId}-loser`} viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker></defs>}
+            {r.loserArrow && draft.tables.map((table) => {
+              const target = draft.tables.find((t) => t.id === table.loserTo);
+              const key = loserKey(table.id);
+              return target && <g key={key}><path ref={(node) => { if (node) arrows.current.set(key, node); else arrows.current.delete(key); }}
+                d={arrowPath(table, target, LOSER_X)} fill="none" stroke="#64748b" strokeDasharray="8 6"
+                strokeWidth={editable && selected === key ? 5 : 3} markerEnd={`url(#${markerId}-loser)`}
+                style={{ pointerEvents: "none" }} />
+                <path ref={(node) => { if (node) arrowHits.current.set(key, node); else arrowHits.current.delete(key); }}
+                d={arrowPath(table, target, LOSER_X)} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke"
+                style={{ pointerEvents: editable ? "stroke" : "none", cursor: editable ? "pointer" : undefined }}
+                role={editable ? "button" : undefined} tabIndex={editable ? 0 : undefined}
+                aria-label={`${name(table.id)}→${name(target.id)}の敗者の矢印`}
+                onClick={() => { if (editable) { setSelected(key); frame.current?.focus({ preventScroll: true }); } }}
+                onKeyDown={(event) => {
+                  if (editable && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault(); setSelected(key); frame.current?.focus({ preventScroll: true });
+                  }
+                }} /></g>;
+            })}
             <path ref={temporary} fill="none" stroke="var(--eb-green, #059669)" strokeWidth="3" strokeDasharray="6 4" markerEnd={`url(#${markerId})`} />
           </svg>
           {draft.tables.map((table) => <div key={table.id} data-table={table.id}
@@ -361,6 +399,9 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
             {editable && <button type="button" aria-label={`${name(table.id)}から矢印を引く`}
               className="absolute top-0 left-1/2 z-10 h-4 w-4 -translate-x-1/2 cursor-crosshair rounded-full border-2 border-white bg-emerald-600 ring-1 ring-emerald-700"
               onPointerDown={(event) => start(event, "connect", table.id)} />}
+            {editable && r.loserArrow && <button type="button" aria-label={`${name(table.id)}から敗者の矢印を引く`} title="敗者の行き先（3位決定戦）"
+              className="absolute top-0 left-3/4 z-10 h-4 w-4 -translate-x-1/2 cursor-crosshair rounded-full border-2 border-dashed border-white bg-slate-500 ring-1 ring-slate-600"
+              onPointerDown={(event) => start(event, "connectLoser", table.id)} />}
             <h3 aria-label={editable && editing !== table.id ? `${name(table.id)}を移動` : undefined}
               className={`rounded-t-xl bg-emerald-50 px-3 py-3 text-sm font-bold ${editing !== table.id ? "select-none" : ""} ${editable ? "cursor-grab" : ""}`}
               onPointerDown={editable && editing !== table.id ? (event) => start(event, "card", table.id) : undefined}
@@ -407,8 +448,13 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
                   .sort((a, b) => a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
                   .flatMap(source => Array.from({ length: source.advanceCount }, (_, index) =>
                     <div data-seat-row key={`${source.id}:${index}`} className="flex h-11 items-center rounded border bg-emerald-50 px-2">
-                      {names.get(source.id)} {index + 1}位
+                      {names.get(source.id)} {r.report === "winner" ? "勝者" : `${index + 1}位`}
                     </div>))}
+                {draft.tables.filter(source => source.loserTo === table.id)
+                  .sort((a, b) => a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+                  .map(source => <div data-seat-row key={`loser:${source.id}`} className="flex h-11 items-center rounded border border-dashed bg-slate-50 px-2">
+                    {names.get(source.id)} 敗者
+                  </div>)}
                 {table.playerIds.map(id => <div data-seat-row key={id} className="flex min-h-11 items-center gap-1">
                   <div className="min-w-0 flex-1">{editable && renderPlayer ? renderPlayer(id, table.id) : <span>
                     {entrantsById.get(id)?.displayName ?? id}{draft.seedUserIds.includes(id) && <span className="ml-1">S</span>}
@@ -426,7 +472,7 @@ export default function CsBracketCanvas({ draft, entrantsById, editable, onChang
               {openSeats(draft.tables, table.id, r.maxSeats) < 0 && <p className="text-red-700">席が足りません</p>}
 
             </div>
-            {editable && selected === table.id && table.to && <button type="button" aria-label="矢印を消す" onClick={deleteArrow}
+            {editable && ((selected === table.id && table.to) || (selected === loserKey(table.id) && table.loserTo)) && <button type="button" aria-label="矢印を消す" onClick={deleteArrow}
               className="absolute right-1 top-1 h-8 w-8 rounded-full border bg-white text-red-700 shadow-sm">×</button>}
           </div>)}
         </div>

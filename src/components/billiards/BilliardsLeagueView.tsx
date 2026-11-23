@@ -6,14 +6,14 @@ import { completeBilliardsEntryPayment } from "@/lib/billiardsPayment";
 import { BilliardsLeagueBoard } from "@/components/billiards/BilliardsLeagueBoard";
 import { BilliardsJoinTab } from "@/components/billiards/BilliardsJoinTab";
 import { BilliardsMatchLogTab } from "@/components/billiards/BilliardsMatchLogTab";
-import { BilliardsCsView } from "@/components/billiards/BilliardsCsView";
+import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
 import { BilliardsRulesTab } from "@/components/billiards/BilliardsRulesTab";
 import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import type { BilliardsPaymentStatus, BilliardsScheduleEntry } from "@/types/billiards";
 
 /**
  * ランキング > ビリヤード のビュー（ダーツ DartsLeagueView の読み替え）。
- * タブ: リーグ / 参加 / 対戦記録 / ルール・約款。（CS は P5 で追加）
+ * タブ: リーグ / 参加 / 対戦記録 / CS / ルール・約款。CS は4種目共通の MahjongCsView。
  */
 
 type SubTab = "league" | "join" | "match" | "cs" | "rules";
@@ -143,7 +143,7 @@ export function BilliardsLeagueView() {
       ) : subTab === "match" ? (
         <BilliardsMatchLogTab onChanged={() => loadCore(true)} />
       ) : subTab === "cs" ? (
-        <BilliardsCsView />
+        <MahjongCsView game="billiards" />
       ) : (
         <BilliardsRulesTab />
       )}

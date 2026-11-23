@@ -17,13 +17,17 @@ interface PubCsPlayer {
   rank: number | null;
   seed: boolean;
   isMe: boolean;
+  /** 勝者を申告する種目（ビリヤード）だけ: 申告済みか */
+  claimed?: boolean;
 }
 interface PubCsMatch {
   advanceCount?: number;
   matchId: string;
   label: string;
-  status: "reporting" | "tiebreak" | "completed";
+  status: "reporting" | "tiebreak" | "disputed" | "completed";
   players: PubCsPlayer[];
+  /** 勝者を申告する種目（ビリヤード）だけ: 自分の申告。未申告は null */
+  myClaim?: "me" | "opponent" | null;
   pendingSeats: string[];
   /** 同点の追加勝負（ポーカーの追加ハンド）で自分が対象のとき true。麻雀は常に false */
   tiebreakMine?: boolean;
@@ -51,7 +55,7 @@ interface PubCsEvent {
 }
 
 /**
- * CS — ラウンドごとの縦一覧（麻雀・ポーカー・ダーツで共通。種目の差は game と CS_RULES で分ける）
+ * CS — ラウンドごとの縦一覧（麻雀・ポーカー・ダーツ・ビリヤードで共通。種目の差は game と CS_RULES で分ける）
  * - 表彰台（終了後）→ あなたの卓（未確定のとき）→ ラウンド切替タブ → 選んだラウンドの卓カード。
  * - 木構造・接続線は廃止（横にはみ出して読めなかった）。通過者は緑、自分は金で強調。
  * - デモ時のみ他卓に「この卓を進める（デモ）」。
@@ -69,8 +73,13 @@ const byRank = (players: PubCsPlayer[]) => [...players].sort((a, b) => (a.rank ?
 function passCountOf(match: PubCsMatch, round: PubCsRound, manual: boolean) {
   return manual && round.type !== "final" ? match.advanceCount ?? round.advanceCount : 1;
 }
-/** 「1位が決勝へ」「上位2名が準決勝へ」「1位が優勝」。 */
-function advanceText(count: number, next: PubCsRound | undefined, final: boolean) {
+/** 次のラウンド。3位決定戦（ビリヤードだけ）は勝ち上がりの先ではないので飛ばす。 */
+function nextRoundOf(rounds: PubCsRound[], index: number) {
+  return rounds.slice(index + 1).find((r) => r.type !== "third");
+}
+/** 「1位が決勝へ」「上位2名が準決勝へ」「1位が優勝」。winner＝勝者を申告する種目は「勝者が決勝へ」「勝者が3位」「勝者が優勝」。 */
+function advanceText(count: number, next: PubCsRound | undefined, final: boolean, winner = false, third = false) {
+  if (winner) return third ? "勝者が3位" : final || !next ? "勝者が優勝" : `勝者が${next.label}へ`;
   if (final || !next) return "1位が優勝";
   return count > 1 ? `上位${count}名が${next.label}へ` : `1位が${next.label}へ`;
 }
@@ -82,10 +91,13 @@ function defaultRoundIndex(rounds: PubCsRound[]) {
   return open >= 0 ? open : rounds.length - 1;
 }
 
+type ReportBody = { points?: number; rank?: number; winner?: "me" | "opponent"; auto?: boolean; expectedStatus?: PubCsMatch["status"] };
+
 /** 参加受付と公開トーナメントを表示する。game の既定は麻雀（呼び出し元を変えなくてよいように）。 */
 export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const rules = CS_RULES[game];
   const unit = rules.unit;
+  const winner = rules.report === "winner";
   const [event, setEvent] = useState<PubCsEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [inputMatch, setInputMatch] = useState<PubCsMatch | null>(null);
@@ -133,7 +145,7 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const demo = isDevLoginEnabled() && !!event?.demoDummy;
 
   const reportMatch = useCallback(
-    async (csEventId: string, matchId: string, body: { points?: number; rank?: number; auto?: boolean; expectedStatus?: PubCsMatch["status"] }) => {
+    async (csEventId: string, matchId: string, body: ReportBody) => {
       setBusy(true);
       setInputError(null);
       try {
@@ -216,12 +228,12 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const rounds = event.rounds;
   const roundIdx = Math.max(0, rounds.findIndex((r) => r.label === selectedLabel));
   const round = rounds[roundIdx];
-  const nextRound = rounds[roundIdx + 1];
+  const nextRound = nextRoundOf(rounds, roundIdx);
   const finalRound = rounds.find((r) => r.type === "final") ?? rounds[rounds.length - 1];
   const finalMatch = finalRound?.matches[0];
   // 表彰台は決勝卓の確定だけで出す（status だけでは仮の着順が出てしまう）。
   const finished = finalMatch != null && isDone(finalMatch);
-  const myMatch = rounds.flatMap((r, i) => r.matches.map((m) => ({ m, r, next: rounds[i + 1] })))
+  const myMatch = rounds.flatMap((r, i) => r.matches.map((m) => ({ m, r, next: nextRoundOf(rounds, i) })))
     .find(({ m }) => !isDone(m) && m.players.some((p) => p.isMe));
   const passCounts = round ? round.matches.map((m) => passCountOf(m, round, manual)) : [];
   const uniformPass = passCounts.every((c) => c === passCounts[0]);
@@ -235,7 +247,9 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
         <p
           className={`${manual ? "text-[15px]" : "text-[14px]"} text-[color:var(--eb-ink-muted)] leading-relaxed mt-3`}
         >
-          {manual || game !== "mahjong" ? (
+          {winner ? (
+            "各卓の勝者が勝ち上がり、決勝の勝者が優勝。"
+          ) : manual || game !== "mahjong" ? (
             "各卓の上位が勝ち上がり、決勝1位が優勝。"
           ) : (
             <>
@@ -265,7 +279,7 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
       ) : (
         <>
           {finished && finalMatch && (
-            <Podium champ={champ} players={podiumPlayers(event.podium, finalMatch.players)} unit={unit} />
+            <Podium champ={champ} players={podiumPlayers(event.podium, finalMatch.players)} unit={unit} showPoints={!winner} />
           )}
 
           {inputError && !inputMatch && (
@@ -322,7 +336,7 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
               <div className="text-[14px] text-[color:var(--eb-ink-muted)]">
                 {round.matches.length}卓
                 {uniformPass && passCounts.length > 0
-                  && `・${passCounts.length > 1 ? "各卓" : ""}${advanceText(passCounts[0], nextRound, round.type === "final")}`}
+                  && `・${passCounts.length > 1 ? "各卓" : ""}${advanceText(passCounts[0], nextRound, round.type === "final", winner, round.type === "third")}`}
               </div>
             </div>
             {round.matches.map((m) => (
@@ -491,7 +505,7 @@ function podiumPlayers(podium: PubCsEvent["podium"], finalPlayers: PubCsPlayer[]
 }
 
 /** 表彰台（大会終了後）。1位は champion を優先し、点数は決勝卓の持ち点（ポーカーはチップ）。 */
-function Podium({ champ, players, unit }: { champ: PubCsEvent["champion"]; players: PubCsPlayer[]; unit: string }) {
+function Podium({ champ, players, unit, showPoints = true }: { champ: PubCsEvent["champion"]; players: PubCsPlayer[]; unit: string; showPoints?: boolean }) {
   const first = players.find((p) => p.rank === 1);
   const winner = champ ?? first;
   if (!winner) return null;
@@ -502,7 +516,7 @@ function Podium({ champ, players, unit }: { champ: PubCsEvent["champion"]; playe
         <StatusPill tone="gold">優勝</StatusPill>
         <Avatar src={winner.pictureUrl} name={winner.displayName} size={72} className="mt-3" style={{ boxShadow: `0 0 0 3px ${MEDAL[1]}` }} />
         <div className="mt-2 text-[20px] font-bold text-[color:var(--eb-ink)]">{winner.displayName}</div>
-        {first?.points != null && first.displayName === winner.displayName && (
+        {showPoints && first?.points != null && first.displayName === winner.displayName && (
           <div className="text-[14px] text-[color:var(--eb-ink-muted)] tabular-nums">決勝 {fmtPoints(first.points)}{unit}</div>
         )}
       </GlassCard>
@@ -513,7 +527,7 @@ function Podium({ champ, players, unit }: { champ: PubCsEvent["champion"]; playe
               <div className="text-[13px] font-bold" style={{ color: MEDAL[i + 2] }}>{i + 2}位</div>
               <Avatar src={p.pictureUrl} name={p.displayName} size={44} className="mt-1" />
               <div className="mt-1 w-full truncate text-[15px] font-bold text-[color:var(--eb-ink)]">{p.displayName}</div>
-              {p.points != null && <div className="text-[13px] text-[color:var(--eb-ink-muted)] tabular-nums">{fmtPoints(p.points)}{unit}</div>}
+              {showPoints && p.points != null && <div className="text-[13px] text-[color:var(--eb-ink-muted)] tabular-nums">{fmtPoints(p.points)}{unit}</div>}
             </div>
           ))}
         </div>
@@ -554,9 +568,12 @@ function MatchCard({
     : rules.game === "mahjong";
   const iAmIn = match.players.some((p) => p.isMe);
   const tiebreak = match.status === "tiebreak";
+  const winner = rules.report === "winner";
+  const disputed = match.status === "disputed";
+  const third = round.type === "third";
   const final = round.type === "final" || !next;
   const passCount = passCountOf(match, round, manual);
-  const advance = advanceText(passCount, next, final);
+  const advance = advanceText(passCount, next, final, winner, third);
   const players = done ? byRank(match.players) : match.players;
   return (
     <GlassCard tone={mine ? "gold" : iAmIn ? "green" : "default"} padding="md">
@@ -569,6 +586,8 @@ function MatchCard({
           <StatusPill tone="green">確定</StatusPill>
         ) : tiebreak ? (
           <StatusPill tone="gold">{rules.tiebreakLabel}</StatusPill>
+        ) : disputed ? (
+          <StatusPill tone="coral">確認待ち</StatusPill>
         ) : pendingSeats.length > 0 ? (
           <StatusPill tone="muted">勝ち上がり待ち</StatusPill>
         ) : (
@@ -577,17 +596,29 @@ function MatchCard({
       </div>
       <div className="flex flex-col gap-1">
         {players.map((p, i) => (
-          <PlayerRow key={i} p={p} done={done} advanced={done && p.rank != null && p.rank <= passCount} final={final} />
+          <PlayerRow key={i} p={p} done={done} advanced={done && p.rank != null && p.rank <= passCount} final={final} winner={winner} third={third} />
         ))}
         {pendingSeats.map((label, i) => (
           <div key={i} className="flex h-10 items-center rounded-xl border border-dashed border-[color:var(--eb-line)] px-3 text-[13px] text-[color:var(--eb-ink-muted)]">
-            {label.replace(/\s+(\d+位)$/, "の$1")}を待っています
+            {label.replace(/\s+(\d+位|勝者|敗者)$/, "の$1")}を待っています
           </div>
         ))}
       </div>
       {/* 自分の卓は本番でも申告可。デモは他卓を自動で進められる。 */}
       {!hideReport && !done && iAmIn && canReport && (
-        tiebreak && !match.tiebreakMine ? (
+        winner ? (
+          // 勝者を申告する種目（ビリヤード）: 2人の申告が一致するまで出し直せる
+          <>
+            {disputed ? (
+              <p role="alert" className="mt-3 text-[15px] font-bold text-[color:var(--eb-coral-text)]">申告が食い違っています。管理者が確認します</p>
+            ) : match.myClaim != null && (
+              <p className="mt-3 text-[15px] font-bold text-[color:var(--eb-green-text)]">申告済み・相手の申告待ち</p>
+            )}
+            <Button variant={match.myClaim != null ? "secondary" : "primary"} onClick={onInput} className="mt-3">
+              {disputed ? "申告を出し直す" : match.myClaim != null ? "申告を修正" : "勝敗を申告"}
+            </Button>
+          </>
+        ) : tiebreak && !match.tiebreakMine ? (
           <p className="mt-3 text-[15px] font-bold text-[color:var(--eb-ink-muted)]">{rules.tiebreakLabel}待ち</p>
         ) : (
           <>
@@ -612,10 +643,14 @@ function MatchCard({
 }
 
 /** 選手の行: [着順] [アバター] [名前＋補足] [点数]。確定した卓だけ着順と点数を出す。 */
-function PlayerRow({ p, done, advanced, final }: { p: PubCsPlayer; done: boolean; advanced: boolean; final: boolean }) {
+function PlayerRow({ p, done, advanced, final, winner = false, third = false }: {
+  p: PubCsPlayer; done: boolean; advanced: boolean; final: boolean; winner?: boolean; third?: boolean;
+}) {
+  // 勝者を申告する種目は確定まで points が空なので、申告済みかは claimed で見る
+  const reported = winner ? p.claimed === true : p.points != null;
   const sub = done
-    ? advanced ? (final && p.rank === 1 ? "優勝" : "次のラウンドへ進出") : null
-    : p.points != null ? "申告済み" : "まだ申告していません";
+    ? advanced ? (third ? "3位" : final && p.rank === 1 ? "優勝" : "次のラウンドへ進出") : null
+    : reported ? "申告済み" : "まだ申告していません";
   return (
     <div
       data-cs-row
@@ -639,12 +674,12 @@ function PlayerRow({ p, done, advanced, final }: { p: PubCsPlayer; done: boolean
           {p.seed && <span className="shrink-0 text-[11px] font-bold text-[color:var(--eb-ink-muted)]">シード</span>}
         </div>
         {sub && (
-          <div className={`text-[12px] ${!done && p.points != null ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}>{sub}</div>
+          <div className={`text-[12px] ${!done && reported ? "text-[color:var(--eb-green-text)]" : "text-[color:var(--eb-ink-muted)]"}`}>{sub}</div>
         )}
       </div>
       {done && (
         <span className="shrink-0 text-[15px] font-bold tabular-nums text-[color:var(--eb-ink)]">
-          {p.points != null ? fmtPoints(p.points) : "—"}
+          {winner ? (p.rank == null ? "—" : p.rank === 1 ? "勝" : "敗") : p.points != null ? fmtPoints(p.points) : "—"}
         </span>
       )}
     </div>
@@ -672,7 +707,7 @@ function CsInputSheet({
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onReport: (body: { points?: number; rank?: number; auto?: boolean; expectedStatus?: PubCsMatch["status"] }) => void;
+  onReport: (body: ReportBody) => void;
 }) {
   const advancement = manual
     ? round?.type === "final" ? "決勝です。1位が優勝です。" : `上位${match.advanceCount ?? round?.advanceCount ?? 1}名が次へ進出。`
@@ -688,7 +723,13 @@ function CsInputSheet({
   const signedPoints = absPoints === 0 ? 0 : sign * absPoints;
   const canSubmit = iAmIn && pointsValid && rank !== null && !busy;
 
-  // ポーカーは別シート（hooks の後ろで分岐する）。
+  // 勝者を申告する種目（ビリヤード）・点数を申告する種目（ポーカー・ダーツ）は別シート（hooks の後ろで分岐する）。
+  if (iAmIn && rules.report === "winner") {
+    return (
+      <WinnerInputSheet match={match} rules={rules} busy={busy} error={error}
+        onClose={onClose} onReport={(winner) => onReport({ winner, expectedStatus: match.status })} />
+    );
+  }
   if (iAmIn && rules.game !== "mahjong") {
     return (
       <ChipsInputSheet match={match} rules={rules} advancement={advancement} busy={busy} error={error}
@@ -850,6 +891,62 @@ function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onRe
           <div className="mt-6 flex gap-2">
             <Button variant="ghost" onClick={onClose}>キャンセル</Button>
             <Button variant="primary" onClick={() => setConfirming(true)} disabled={!valid || busy}>確認へ進む</Button>
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+/**
+ * 勝者を申告する種目（ビリヤード）の申告シート: 「勝ったのは？」に自分か相手のボタンで答える（点数は入れない）。
+ * 2人の申告が一致した瞬間に確定するので、送る前に画面内で1回確認する（confirm() は LINE で使わない）。
+ * 相手の lineUserId は画面に来ないので、me / opponent で送る。
+ */
+function WinnerInputSheet({ match, rules, busy, error, onClose, onReport }: {
+  match: PubCsMatch;
+  rules: GameCsRules;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onReport: (winner: "me" | "opponent") => void;
+}) {
+  const [picked, setPicked] = useState<"me" | "opponent" | null>(null);
+  const me = match.players.find((p) => p.isMe);
+  const opponent = match.players.find((p) => !p.isMe);
+  const pickedName = picked === "me" ? me?.displayName : opponent?.displayName;
+
+  return (
+    <BottomSheet open title={`${match.label} の結果`} onClose={onClose}>
+      {picked ? (
+        <>
+          <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">「{pickedName}」の勝ちで申告します。よろしいですか？</p>
+          <p className="mt-2 text-[14px] text-[color:var(--eb-ink-muted)]">
+            2人の申告が一致すると結果が確定します。確定後は変更できません。
+          </p>
+          {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
+          <div className="mt-6 flex gap-2">
+            <Button variant="secondary" onClick={() => setPicked(null)} disabled={busy}>戻る</Button>
+            <Button variant="primary" onClick={() => onReport(picked)} disabled={busy} loading={busy}>申告する</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-[14px] text-[color:var(--eb-ink-muted)] mb-3">
+            対戦した2人がそれぞれ申告します。2人の申告が一致すると確定します。
+          </p>
+          <div className="block text-[14px] font-bold text-[color:var(--eb-ink)] mb-2">{rules.reportLabel}</div>
+          <div className="flex flex-col gap-2">
+            <Button variant="secondary" aria-label="自分（あなた）" onClick={() => setPicked("me")} disabled={busy}>
+              {me?.displayName ?? "自分"}（あなた）
+            </Button>
+            <Button variant="secondary" aria-label="相手" onClick={() => setPicked("opponent")} disabled={busy}>
+              {opponent?.displayName ?? "相手"}
+            </Button>
+          </div>
+          {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}
+          <div className="mt-6 flex gap-2">
+            <Button variant="ghost" onClick={onClose}>キャンセル</Button>
           </div>
         </>
       )}

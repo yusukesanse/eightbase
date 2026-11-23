@@ -6,6 +6,7 @@ import type { MahjongCsEvent, MahjongCsMatch } from "@/types";
 import { ticketLabel } from "@/lib/mahjongCsBracket";
 import type { GameCsRules } from "@/lib/gameCsRules";
 import { legacyPoints } from "@/lib/gameCsMatch";
+import { legacyWinRank } from "@/lib/gameCsWinnerMatch";
 import CsCreateForm, { csButton } from "./CsCreateForm";
 import CsEntryAdminPanel from "./CsEntryAdminPanel";
 import CsParticipantList from "./CsParticipantList";
@@ -26,6 +27,8 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
   const [editMatch, setEditMatch] = useState<MahjongCsMatch | null>(null);
   const selected = events.find((event) => event.csEventId === selectedId) ?? null;
   const legacy = selected !== null && selected.capacity === undefined;
+  // 勝った人を申告する種目（ビリヤード）。点数は出さず 勝ち／負け で出す
+  const byWinner = rules.report === "winner";
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -282,20 +285,24 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
                     <div key={ri}>
                       <div className="text-xs font-bold text-[#231714]/85 mb-2">
                         {round.label}
-                        {round.type !== "final"
-                          && new Set(round.matches.map((m) => m.advanceCount ?? round.advanceCount)).size <= 1
-                          && `（各卓 上位${round.matches[0]?.advanceCount ?? round.advanceCount}名通過）`}
+                        {byWinner
+                          ? round.type !== "final" && round.type !== "third" && "（勝者が通過）"
+                          : round.type !== "final"
+                            && new Set(round.matches.map((m) => m.advanceCount ?? round.advanceCount)).size <= 1
+                            && `（各卓 上位${round.matches[0]?.advanceCount ?? round.advanceCount}名通過）`}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {round.matches.map((m) => (
                           <div
                             key={m.matchId}
-                            className="bg-white rounded-xl border border-[#231714]/10 p-4"
+                            className={`bg-white rounded-xl border p-4 ${
+                              m.status === "disputed" ? "border-red-400" : "border-[#231714]/10"
+                            }`}
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                               <span className="text-sm font-bold text-[#231714] break-words min-w-0">
                                 {m.label}
-                                {round.type !== "final" && m.advanceCount != null && m.advanceCount !== round.advanceCount
+                                {!byWinner && round.type !== "final" && m.advanceCount != null && m.advanceCount !== round.advanceCount
                                   ? `（上位${m.advanceCount}名通過）` : ""}
                               </span>
                               <div className="flex items-center gap-2">
@@ -303,14 +310,18 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
                                   className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                                     m.status === "completed"
                                       ? "bg-[#B0E401]/20 text-[#231714]"
-                                      : "bg-orange-50 text-orange-600"
+                                      : m.status === "disputed"
+                                        ? "bg-red-50 text-red-600 font-bold"
+                                        : "bg-orange-50 text-orange-600"
                                   }`}
                                 >
                                   {m.status === "completed"
                                     ? "確定"
-                                    : m.status === "tiebreak"
-                                      ? `${rules.tiebreakLabel}待ち`
-                                      : "結果待ち"}
+                                    : m.status === "disputed"
+                                      ? "確認待ち"
+                                      : m.status === "tiebreak"
+                                        ? `${rules.tiebreakLabel}待ち`
+                                        : "結果待ち"}
                                 </span>
                                 {/* 札の席が全部埋まった卓だけ（麻雀は4席） */}
                                 {!legacy && m.players.length === (m.seats ?? []).length && (
@@ -341,7 +352,13 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
                                       {p.displayName}
                                     </span>
                                     <span className="text-xs text-[#231714]/85">
-                                      {p.rank !== null
+                                      {byWinner
+                                        ? (() => {
+                                            // 旧形式は結果が won にある（rank はリーグのシード順位）
+                                            const rank = legacy ? legacyWinRank(p) : p.rank;
+                                            return rank === 1 ? "勝ち" : rank === 2 ? "負け" : "—";
+                                          })()
+                                        : p.rank !== null
                                         ? `${p.rank}位${(() => {
                                             // 旧形式は points ではなくポーカーが chips、ダーツが score に持つ。表示だけ補う
                                             const value = p.points ?? legacyPoints(p);
@@ -370,7 +387,7 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
                                     key={`ticket-${index}`}
                                     className="text-sm text-[#231714]/60"
                                   >
-                                    {ticketLabel(selected.rounds, seat.fromMatchId, seat.place)}
+                                    {ticketLabel(selected.rounds, seat.fromMatchId, seat.place, byWinner)}
                                   </p>
                                 );
                               })}
@@ -427,7 +444,9 @@ function MatchResultModal({
   onSaved: () => void;
   onChanged: () => void;
 }) {
-  const scored = rules.game !== "mahjong";
+  const winner = rules.report === "winner";
+  const scored = rules.game !== "mahjong" && !winner;
+  const [winnerId, setWinnerId] = useState<string | null>(match.players.find((p) => p.rank === 1)?.lineUserId ?? null);
   const [rows, setRows] = useState(
     match.players.map((p) => ({
       lineUserId: p.lineUserId,
@@ -450,7 +469,9 @@ function MatchResultModal({
 
   async function save() {
     setError(null);
-    if (scored) {
+    if (winner) {
+      if (!winnerId) return;
+    } else if (scored) {
       if (rows.some((r) => r.points === "" || !validScore(r.points))) {
         setError(`${rules.scoreLabel}は0〜1,000,000の整数で全員分入力してください`);
         return;
@@ -486,7 +507,7 @@ function MatchResultModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
+        body: JSON.stringify(winner ? { action: "editMatch", matchId: match.matchId, winnerId } : {
           action: "editMatch",
           matchId: match.matchId,
           results: rows.map((r) =>
@@ -533,7 +554,9 @@ function MatchResultModal({
           {match.label} の{wasCompleted ? "結果修正" : "結果入力"}
         </h3>
         <p className="text-xs text-[#231714]/85 mb-2">
-          {scored
+          {winner
+            ? "勝った人を選んで確定します（2人の申告が食い違った卓・片方が申告しない卓もここで確定できます）"
+            : scored
             ? `全員の${rules.scoreLabel}を入力${needTiebreak ? `（同点の人は${rules.tiebreakLabel}の結果も）` : ""}`
             : `${is4 ? "合計100,000点・" : ""}順位は1〜${match.players.length}を1人ずつ`}
         </p>
@@ -549,7 +572,36 @@ function MatchResultModal({
               "次の卓に結果が入っている場合は修正できません。"}
           </div>
         )}
-        <div className="space-y-3">
+        {winner && (
+          <div className="space-y-3">
+            {/* 2人がそれぞれ誰の勝ちと申告したか（食い違いの確認用） */}
+            <div className="space-y-1 text-xs text-[#231714]/85">
+              {match.players.map((p) => {
+                const claimed = match.players.find((x) => x.lineUserId === match.claims?.[p.lineUserId]);
+                return (
+                  <p key={p.lineUserId}>
+                    {p.displayName} の申告: {claimed ? `${claimed.displayName} の勝ち` : "まだ申告していません"}
+                  </p>
+                );
+              })}
+            </div>
+            <div className="space-y-2" role="radiogroup" aria-label="勝った人">
+              {match.players.map((p) => (
+                <label key={p.lineUserId} className="flex items-center gap-2 text-sm font-medium text-[#231714]">
+                  <input
+                    type="radio"
+                    name="cs-winner"
+                    aria-label={`${p.displayName} の勝ち`}
+                    checked={winnerId === p.lineUserId}
+                    onChange={() => setWinnerId(p.lineUserId)}
+                  />
+                  {p.displayName} の勝ち
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {!winner && <div className="space-y-3">
           {rows.map((r, i) => (
             <div
               key={r.lineUserId}
@@ -616,8 +668,8 @@ function MatchResultModal({
               )}
             </div>
           ))}
-        </div>
-        {!scored && is4 && (
+        </div>}
+        {!scored && !winner && is4 && (
           <div
             className={`mt-3 text-right text-xs font-medium ${total === 100000 ? "text-[#231714]/85" : "text-red-500"}`}
           >
@@ -642,7 +694,7 @@ function MatchResultModal({
           </button>
           <button
             onClick={save}
-            disabled={saving}
+            disabled={saving || (winner && !winnerId)}
             className={
               "flex-1 py-2.5 text-sm font-bold text-[#231714] bg-[#B0E401] " +
               "rounded-xl hover:opacity-90 disabled:opacity-50"
