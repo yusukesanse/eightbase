@@ -4,7 +4,7 @@
  */
 import { afterMatchCompleted, buildRunningRounds, ticketLabel, validateBracket } from "@/lib/mahjongCsBracket";
 import {
-  canvasToRounds, connectLoser, disconnectLoser, fillEmptySeats, incomingCount, openSeats, removeTable, tableLabels, type CanvasDraft,
+  canvasToRounds, connect, connectLoser, disconnect, disconnectLoser, fillEmptySeats, incomingCount, openSeats, removeTable, tableLabels, type CanvasDraft,
 } from "@/lib/mahjongCsCanvas";
 import { BILLIARDS_CS_RULES as B, DARTS_CS_RULES, MAHJONG_CS_RULES, POKER_CS_RULES } from "@/lib/gameCsRules";
 import type { MahjongCsCanvasTable, MahjongCsEntrant, MahjongCsRound } from "@/types";
@@ -198,6 +198,12 @@ describe("キャンバスの操作", () => {
   test("卓を消すと、その卓へ向いた敗者の矢印も外れる", () => {
     const after = removeTable(draft(), "T");
     expect(after.tables.some((x) => "loserTo" in x)).toBe(false);
+  });
+
+  test("勝者の矢印を外す・決勝以外へ付け替えると、敗者の矢印も外れる", () => {
+    expect("loserTo" in disconnect(draft(), "S1").tables.find((x) => x.id === "S1")!).toBe(false);
+    expect("loserTo" in connect(draft(), "S1", "S2").tables.find((x) => x.id === "S1")!).toBe(false);
+    expect(connect(draft(), "S1", "F").tables.find((x) => x.id === "S1")!.loserTo).toBe("T");
   });
 
   test("編集途中の名前: 3位決定戦は「3位決定戦」", () => {

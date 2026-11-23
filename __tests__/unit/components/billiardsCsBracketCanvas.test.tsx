@@ -79,10 +79,11 @@ test("敗者の矢印を選んで消すと、敗者の行き先だけが外れ�
   expect(next.tables[1].loserTo).toBe("t");
 });
 
-test("勝者の矢印を選んで消しても、敗者の矢印は残る", () => {
+test("勝者の矢印を選んで消すと、敗者の矢印も外れる（勝者の矢印が無い卓から敗者の矢印は引けない）", () => {
   const { container, onChange } = setup(draft(true));
   fireEvent.click(screen.getByRole("button", { name: "準決勝A卓→決勝卓の矢印" }));
   fireEvent.click(within(card(container, "s1")).getByRole("button", { name: "矢印を消す" }));
   const next = onChange.mock.calls[0][0] as CanvasDraft;
-  expect(next.tables[0]).toMatchObject({ to: null, loserTo: "t" });
+  expect(next.tables[0].to).toBeNull();
+  expect("loserTo" in next.tables[0]).toBe(false);
 });

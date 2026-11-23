@@ -196,13 +196,18 @@ export function connect(d: CanvasDraft, fromId: string, toId: string): CanvasDra
     current = current.to === null ? undefined : byId.get(current.to);
   }
   from.to = toId;
+  // 付け替えで準決勝でなくなったら、敗者の矢印も外す（黙って残すと確定時にだけエラーになる）
+  if (from.loserTo != null && (byId.get(toId)!.to !== null || from.loserTo === toId)) delete from.loserTo;
   return next;
 }
 
 export function disconnect(d: CanvasDraft, fromId: string): CanvasDraft {
   const next = clone(d);
   const table = next.tables.find((t) => t.id === fromId);
-  if (table) table.to = null;
+  if (table) {
+    table.to = null;
+    delete table.loserTo; // 勝者の矢印が無い卓から敗者の矢印は引けない
+  }
   return next;
 }
 
