@@ -9,14 +9,17 @@ import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import { isManualCs, waitlistPosition } from "@/lib/mahjongCsEntry";
 import { ticketLabel } from "@/lib/mahjongCsBracket";
 import { cutsFor, evaluateScoreMatch, legacyPoints } from "@/lib/gameCsMatch";
+import { legacyWinRank } from "@/lib/gameCsWinnerMatch";
 import type { GameCsRules } from "@/lib/gameCsRules";
 import type { MahjongCsEvent } from "@/types";
 
 export type PublicCs = ReturnType<typeof toPublicCs>;
 
 /** CSイベントを公開DTOに整形（lineUserId を除去し isMe/seed を付与）。 */
-export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, userId: string, _rules: GameCsRules) {
+export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, userId: string, rules: GameCsRules) {
   const manual = isManualCs(event);
+  // 勝った人を申告する種目（ビリヤード）。他種目の応答にはキーを足さない
+  const winner = rules.report === "winner";
   const entries = event.entries ?? [];
   const mine = entries.find((e) => e.lineUserId === userId);
   const legacyEntered = event.entrants.some((e) => e.lineUserId === userId);
@@ -24,19 +27,32 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
     ? (mine ? { state: mine.state, waitlistPosition: waitlistPosition(entries, userId) } : null)
     : (legacyEntered ? { state: "confirmed" as const, waitlistPosition: null } : null);
   const seedIds = new Set(event.entrants.filter((e) => e.seed).map((e) => e.lineUserId));
-  const player = (p: { lineUserId: string; displayName: string; pictureUrl?: string; points?: number | null; rank?: number | null }) => ({
-    displayName: p.displayName,
-    pictureUrl: p.pictureUrl ?? "",
-    // 旧形式はポーカーが chips、ダーツが score に値を持つ（管理画面と同じ補い方）
-    points: p.points ?? legacyPoints(p) ?? null,
-    rank: p.rank ?? null,
-    seed: seedIds.has(p.lineUserId),
-    isMe: p.lineUserId === userId,
-  });
+  const player = (
+    p: { lineUserId: string; displayName: string; pictureUrl?: string; points?: number | null; rank?: number | null },
+    claims?: Record<string, string>,
+  ) => {
+    // 旧形式のビリヤードは結果が won にある（rank はリーグのシード順位）。表示だけ着順に直す
+    const legacyRank = winner && !manual ? legacyWinRank(p) : undefined;
+    return {
+      displayName: p.displayName,
+      pictureUrl: p.pictureUrl ?? "",
+      // 旧形式はポーカーが chips、ダーツが score に値を持つ（管理画面と同じ補い方）
+      points: p.points ?? legacyPoints(p) ?? null,
+      rank: legacyRank !== undefined ? legacyRank : p.rank ?? null,
+      seed: seedIds.has(p.lineUserId),
+      isMe: p.lineUserId === userId,
+      // 勝者申告: 申告済みかだけ返す（誰を勝者にしたかは返さない）
+      ...(winner && manual ? { claimed: claims?.[p.lineUserId] != null } : {}),
+    };
+  };
   const nameOf = (id: string | null) => {
     const e = id ? event.entrants.find((x) => x.lineUserId === id) : null;
     return e ? { displayName: e.displayName, pictureUrl: e.pictureUrl ?? "" } : null;
   };
+  // 旧形式のビリヤードは表彰を championId・runnerUpId・thirdId に持つ
+  const legacy = event as { runnerUpId?: string | null; thirdId?: string | null };
+  const podium = event.podium ?? (winner && !manual && event.championId
+    ? { gold: event.championId, silver: legacy.runnerUpId ?? null, bronze: legacy.thirdId ?? null } : null);
   const champEntrant = event.championId ? event.entrants.find((e) => e.lineUserId === event.championId) : null;
   return {
     csEventId: event.csEventId,
@@ -53,8 +69,8 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
     demoDummy: event.demoDummy ?? false,
     champion: champEntrant ? { displayName: champEntrant.displayName, pictureUrl: champEntrant.pictureUrl ?? "" } : null,
     // 麻雀は podium を書かないので常に null
-    podium: event.podium ? {
-      gold: nameOf(event.podium.gold), silver: nameOf(event.podium.silver), bronze: nameOf(event.podium.bronze),
+    podium: podium ? {
+      gold: nameOf(podium.gold), silver: nameOf(podium.silver), bronze: nameOf(podium.bronze),
     } : null,
     entrants: event.entrants.map((e) => ({ displayName: e.displayName, pictureUrl: e.pictureUrl ?? "", tier: e.tier, rank: e.rank, seed: e.seed, isMe: e.lineUserId === userId })),
     rounds: event.rounds.map((r) => ({
@@ -68,12 +84,16 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
         const level = tb?.tiebreakLevel[userId];
         const tiebreakMine = !!level;
         return {
-          matchId: m.matchId, label: m.label, status: m.status, players: m.players.map(player),
+          matchId: m.matchId, label: m.label, status: m.status, players: m.players.map((p) => player(p, m.claims)),
           ...(typeof m.advanceCount === "number" ? { advanceCount: m.advanceCount } : {}),
           pendingSeats: (m.seats ?? []).flatMap((seat) =>
             seat?.kind === "ticket" && typeof seat.fromMatchId === "string" && !seat.lineUserId
-              ? [ticketLabel(event.rounds, seat.fromMatchId, seat.place)] : []),
+              ? [ticketLabel(event.rounds, seat.fromMatchId, seat.place, winner)] : []),
           tiebreakMine,
+          // 勝者申告: 自分の申告を me / opponent で返す（相手の lineUserId は出さない）。卓にいない人・未申告は null
+          ...(winner && manual ? {
+            myClaim: m.claims?.[userId] == null ? null : m.claims[userId] === userId ? "me" as const : "opponent" as const,
+          } : {}),
           // 対象者だけ: 今の回の追加勝負の値を送ったか（送った後も相手がそろうまで tiebreak のまま＝画面で「相手待ち」を出す）
           ...(tiebreakMine ? {
             tiebreakSubmitted: m.players.find((p) => p.lineUserId === userId)?.tiebreakPoints?.[level! - 1] != null,
