@@ -1,7 +1,7 @@
 /**
  * 【develop 専用 / main へ入れない】ダーツ検証用ダミーデータの投入（非本番専用）。
  *
- * ダーツの各画面（LEAGUE BOARD＝通算順位/スパークライン・参加タブの当日成績・CS・対戦/申告）を
+ * ダーツの各画面（LEAGUE BOARD＝通算順位/スパークライン・参加タブの当日成績・対戦/申告）を
  * demo で確認できるようにする。麻雀の demoSeed と同方針:
  * - シーズンは作らない（管理者が作った darts seasonId が対象）。対象を active 化＋GMに demoユーザー固定。
  * - 全ドキュメントに `demoDummy: true`。削除はこのタグのみ（アカウントは作らない・消さない）。
@@ -10,14 +10,12 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { todayJst } from "@/lib/date";
-import { buildInitialDartsCsRounds, settleCsRounds } from "@/lib/dartsCs";
 import {
   DARTS_ENTRY_FEE,
   DARTS_MAX_ENTRIES_PER_DATE,
   DARTS_DEFAULT_START_TIME,
   DARTS_DEFAULT_END_TIME,
   DARTS_EVENT_ORDER,
-  type DartsCsEntrant,
   type DartsEventResult,
   type DartsScoreDetails,
 } from "@/types/darts";
@@ -45,13 +43,6 @@ const RANKED: P[] = [
   { lineUserId: "darts-dummy-09", displayName: "中村 結衣" }, // 10
   GUEST, // 11 (D3)
   STAFF, // 12 (D3)
-];
-// CS 用の追加ダミー（16名に増やす）。
-const EXTRA: P[] = [
-  { lineUserId: "darts-dummy-10", displayName: "森田 隼人" },
-  { lineUserId: "darts-dummy-11", displayName: "清水 陽介" },
-  { lineUserId: "darts-dummy-12", displayName: "山口 楓" },
-  { lineUserId: "darts-dummy-13", displayName: "松本 蓮" },
 ];
 
 /** 0.5刻みに丸める。 */
@@ -182,17 +173,6 @@ export async function seedDemoDartsParticipants(seasonId: string): Promise<Recor
   // 当日フローは未開始で入れる（GM が「ゲーム開始」から通しで体験）。既存の dayState は消してリセット。
   await db.collection("dartsDayState").doc(`${seasonId}_${today}`).delete().catch(() => {});
 
-  // 4) CS（16名・running）。上位4名シード。demoユーザーを含む。
-  const csPlayers: P[] = [...RANKED, ...EXTRA].slice(0, 16);
-  const entrants: DartsCsEntrant[] = csPlayers.map((p, i) => ({
-    lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "", rank: i + 1, seed: i < 4,
-  }));
-  const rounds = buildInitialDartsCsRounds(entrants);
-  await db.collection("dartsCsEvents").doc(`demo-darts-cs-${seasonId}`).set({
-    seasonId, name: "検証ダーツCS", eventDate: pastDates[pastDates.length - 1],
-    status: rounds ? "running" : "setup", entrants, rounds: rounds ? settleCsRounds(rounds) : [],
-    championId: null, createdAt: nowIso, updatedAt: nowIso, ...DUMMY_FLAG,
-  });
-
-  return { schedule: scheduleCount, scores: scoreCount, entries: entryCount, csEvents: 1, players: RANKED.length };
+  // CS は投入しない（旧方式の自動生成は廃止）。管理画面のCSタブで作成し、「ダミーで定員まで埋める」で検証する。
+  return { schedule: scheduleCount, scores: scoreCount, entries: entryCount, csEvents: 0, players: RANKED.length };
 }
