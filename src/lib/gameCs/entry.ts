@@ -45,7 +45,7 @@ async function resolveCurrentCsEventId(rules: GameCsRules): Promise<
 }
 
 /** 参戦者に含めるための本人表示情報。 */
-async function resolveProfile(userId: string): Promise<{ displayName: string; pictureUrl: string }> {
+export async function resolveProfile(userId: string): Promise<{ displayName: string; pictureUrl: string }> {
   const userDoc = await getDb().collection("users").doc(userId).get();
   const u = (userDoc.data() ?? {}) as { displayName?: string; pictureUrl?: string };
   return { displayName: u.displayName || "ユーザー", pictureUrl: u.pictureUrl || "" };

@@ -13,9 +13,10 @@ import { isIsoWithOffset, isManualCs, rebalanceEntries, closeEntriesIfDue, entra
 import { auditLazyClose, ensureCsClosed } from "@/lib/mahjongCsServer";
 import { validateBracket, buildRunningRounds, validAdvance } from "@/lib/mahjongCsBracket";
 import { canvasToRounds } from "@/lib/mahjongCsCanvas";
-import { fetchPriorityUserIds } from "@/lib/gameCsLeague";
+import { fetchPriorityUserIds, leagueStanding } from "@/lib/gameCsLeague";
+import { resolveProfile } from "@/lib/gameCs/entry";
 import type { GameCsRules } from "@/lib/gameCsRules";
-import type { MahjongCsEvent, MahjongCsRound, MahjongCsCanvas } from "@/types";
+import type { MahjongCsEvent, MahjongCsEntry, MahjongCsRound, MahjongCsCanvas } from "@/types";
 
 type Ctx = { params: Promise<{ csEventId: string }> };
 
@@ -172,7 +173,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
       return NextResponse.json({ error: "Not Found" }, { status: 404 });
     }
     const allowedStatuses: Record<string, MahjongCsEvent["status"][]> = {
-      updateEntry: ["entry"], closeNow: ["entry"], removeEntry: ["entry", "closed"],
+      updateEntry: ["entry"], closeNow: ["entry"], removeEntry: ["entry", "closed"], addEntry: ["entry", "closed"],
       saveBracket: ["closed"], confirmBracket: ["closed"], fillDummies: ["entry"],
     };
     if (typeof action !== "string" || !Object.hasOwn(allowedStatuses, action)) {
@@ -180,6 +181,24 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
     }
     const db = getDb();
     const ref = db.collection(rules.collection).doc(csEventId);
+    // 管理者の追加: 定員・締切・参加資格は見ない。利用者の照合と名前・段の解決は transaction の外で行う。
+    let added: Pick<MahjongCsEntry, "displayName" | "pictureUrl" | "tier" | "rank"> | undefined;
+    if (action === "addEntry") {
+      const id = body.lineUserId;
+      if (typeof id !== "string" || !id.trim()) {
+        return NextResponse.json({ error: "lineUserId が不正です" }, { status: 400 });
+      }
+      const authSnap = await db.collection("authorizedUsers")
+        .where("lineUserId", "==", id).where("active", "==", true).limit(1).get();
+      if (authSnap.empty) return NextResponse.json({ error: "利用者が見つかりません" }, { status: 404 });
+      const pre = await ref.get();
+      if (!pre.exists) return NextResponse.json({ error: "CSが見つかりません" }, { status: 404 });
+      const [profile, standing] = await Promise.all([
+        resolveProfile(id),
+        leagueStanding(rules.game, (pre.data() as MahjongCsEvent).seasonId, id),
+      ]);
+      added = { ...profile, ...standing };
+    }
     const result = await db.runTransaction(async (tx) => {
       const doc = await tx.get(ref);
       if (!doc.exists) return { status: 404 as const, error: "CSが見つかりません", lazyClosed: false as const };
@@ -206,8 +225,14 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
         return reject(409, "現在の状態ではこの操作はできません");
       }
       let audit: AuditEventType | undefined;
+      let addedBefore: "none" | MahjongCsEntry["state"] | undefined;
       const capacity = event.capacity!;
       const priorityUserIds = event.priorityUserIds ?? [];
+      // 締切後に参加確定者が変わったら、シードを保って entrants を作り直す。
+      const entrantsKeepingSeeds = (entries: MahjongCsEntry[]) => {
+        const seeds = new Set(event.entrants.filter((e) => e.seed).map((e) => e.lineUserId));
+        return entrantsFromEntries(entries).map((e) => ({ ...e, seed: seeds.has(e.lineUserId) }));
+      };
       switch (action) {
         case "updateEntry": {
           const nextCapacity = body.capacity === undefined ? capacity : body.capacity;
@@ -245,8 +270,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
             capacity, priorityUserIds, phase: event.status === "entry" ? "entry" : "closed",
           });
           if (event.status === "closed") {
-            const seeds = new Set(event.entrants.filter((e) => e.seed).map((e) => e.lineUserId));
-            update.entrants = entrantsFromEntries(update.entries).map((e) => ({ ...e, seed: seeds.has(e.lineUserId) }));
+            update.entrants = entrantsKeepingSeeds(update.entries);
             if (event.bracket) update.bracket = {
               seedUserIds: event.bracket.seedUserIds.filter((seed) => seed !== id),
               ...(event.bracket.canvas ? { canvas: normalizeCanvas({
@@ -259,6 +283,21 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
               })) })),
             };
           }
+          break;
+        }
+        case "addEntry": {
+          const id: string = body.lineUserId;
+          const entries = event.entries ?? [];
+          const existing = entries.find((e) => e.lineUserId === id);
+          addedBefore = existing?.state ?? "none";
+          audit = "cs.entryAdded";
+          update.entries = rebalanceEntries(existing
+            ? entries.map((e) => (e.lineUserId === id ? { ...e, adminAdded: true } : e))
+            : [...entries, { lineUserId: id, ...added!, enteredAt: now, state: "confirmed", adminAdded: true }], {
+            capacity, priorityUserIds, phase: event.status === "entry" ? "entry" : "closed",
+          });
+          // bracket は触らない。追加された人は未配置の人として編成画面に出る。
+          if (event.status === "closed") update.entrants = entrantsKeepingSeeds(update.entries);
           break;
         }
         case "saveBracket":
@@ -312,7 +351,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
       }
       tx.update(ref, update);
       const updated = { ...event, ...update };
-      return { status: 200 as const, event: updated, beforeStatus, audit, lazyClosed, lazyCloseEvent };
+      return { status: 200 as const, event: updated, beforeStatus, audit, addedBefore, lazyClosed, lazyCloseEvent };
     });
     if (result.lazyClosed && !(action === "closeNow" && result.status === 200)) {
       await auditLazyClose(result.lazyCloseEvent);
@@ -322,10 +361,12 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
     }
     if (result.audit) await writeAuditLog({ eventType: result.audit, actor: admin,
       target: { date: result.event.eventDate,
-        ...(result.audit === "cs.entryRemoved" ? { lineUserId: body.lineUserId } : {}) },
+        ...(result.audit === "cs.entryRemoved" || result.audit === "cs.entryAdded" ? { lineUserId: body.lineUserId } : {}) },
       beforeStatus: result.beforeStatus, afterStatus: result.event.status,
-      meta: { csEventId, ...(result.audit === "cs.entryRemoved"
-        ? { lineUserId: body.lineUserId, phase: result.beforeStatus } : {}) } });
+      meta: { csEventId,
+        ...(result.audit === "cs.entryRemoved" ? { lineUserId: body.lineUserId, phase: result.beforeStatus } : {}),
+        ...(result.audit === "cs.entryAdded"
+          ? { lineUserId: body.lineUserId, phase: result.event.status, before: result.addedBefore } : {}) } });
     return NextResponse.json({ event: result.event });
   } catch (error) {
     console.error(`[admin/${rules.game}/cs/:id] PATCH error:`, error);
