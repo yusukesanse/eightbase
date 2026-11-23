@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { rankSeasonScores, type SeasonScoreLike } from "@/lib/seasonRanking";
 import { billiardsTierForRank, type BilliardsTier } from "@/types/billiards";
 
 export const dynamic = "force-dynamic";
@@ -59,14 +60,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const sorted = uids
-      .map((uid) => ({ uid, ...(agg.get(uid) as { totalPt: number; games: number; firsts: number }) }))
-      .sort((a, b) => {
-        if (b.totalPt !== a.totalPt) return b.totalPt - a.totalPt;
-        if (b.firsts !== a.firsts) return b.firsts - a.firsts;
-        if (b.games !== a.games) return b.games - a.games;
-        return (profiles.get(a.uid)?.displayName ?? "").localeCompare(profiles.get(b.uid)?.displayName ?? "", "ja");
-      });
+    // 通算pt 降順 → 1位回数 → 出場数 → 名前順。並べ方は CS の優先枠・段と共用。
+    const sorted = rankSeasonScores(
+      snap.docs.map((d) => d.data() as SeasonScoreLike), "billiards",
+      (uid) => profiles.get(uid)?.displayName ?? "",
+    ).map((uid) => ({ uid, ...(agg.get(uid) as { totalPt: number; games: number; firsts: number }) }));
 
     const standings = sorted.map((s, i) => {
       const rank = i + 1;

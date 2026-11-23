@@ -4,6 +4,7 @@ import { hasPlayedMahjongLeague } from "@/lib/mahjongCsServer";
 import { rankSeasonScores, type SeasonScoreLike } from "@/lib/seasonRanking";
 import { pokerTierForRank } from "@/types/poker";
 import { dartsTierForRank } from "@/types/darts";
+import { billiardsTierForRank } from "@/types/billiards";
 import { CS_RULES, type CsGame } from "@/lib/gameCsRules";
 import type { MahjongLeagueAssignment } from "@/types";
 
@@ -18,7 +19,9 @@ async function latestMahjongAssignment(seasonId: string): Promise<MahjongLeagueA
 }
 
 type ScoreGame = Exclude<CsGame, "mahjong">;
-const TIER_FOR_RANK: Record<ScoreGame, (rank: number) => string> = { poker: pokerTierForRank, darts: dartsTierForRank };
+const TIER_FOR_RANK: Record<ScoreGame, (rank: number) => string> = {
+  poker: pokerTierForRank, darts: dartsTierForRank, billiards: billiardsTierForRank,
+};
 
 // ponytail: シーズンの scores を全件読む。参加表明と作成のときだけ呼ぶ（ポーリングでは呼ばない）
 async function seasonOrder(game: ScoreGame, seasonId: string): Promise<string[]> {

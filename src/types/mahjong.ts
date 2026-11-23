@@ -314,7 +314,8 @@ export interface MahjongDayState {
 
 // ─── CS（チャンピオンシップ・4種目共通の形。名前は麻雀のまま） ───
 
-export type MahjongCsRoundType = "prelim" | "semi" | "final";
+/** "third" は3位決定戦（敗者の矢印を使う種目＝ビリヤードだけ） */
+export type MahjongCsRoundType = "prelim" | "semi" | "final" | "third";
 export type MahjongCsStatus = "setup" | "entry" | "closed" | "running" | "finished";
 
 export type MahjongCsEntryState = "confirmed" | "waitlisted";
@@ -337,7 +338,8 @@ export type MahjongCsSeat =
   | { kind: "player"; lineUserId: string }
   | { kind: "ticket"; fromMatchId: string; place: number; lineUserId?: string }
   | null;
-export type MahjongCsMatchStatus = "reporting" | "tiebreak" | "completed";
+/** "disputed" は勝者の申告が食い違って止まった卓（ビリヤードだけ） */
+export type MahjongCsMatchStatus = "reporting" | "tiebreak" | "disputed" | "completed";
 
 /** CS参戦者（自己エントリー済みの参加者） */
 export interface MahjongCsEntrant {
@@ -371,6 +373,8 @@ export interface MahjongCsMatch {
   status: MahjongCsMatchStatus;
   seats?: MahjongCsSeat[];
   advanceCount?: number;   // 未設定ならラウンドの値を使う
+  /** 勝者の申告（申告者の lineUserId → 勝ったと申告した人）。ビリヤードだけ */
+  claims?: Record<string, string>;
 }
 
 /** CSの1ラウンド（予選/準決/決勝） */
@@ -391,6 +395,7 @@ export interface MahjongCsCanvasTable {
   x: number; y: number;  // キャンバス座標（表示専用）
   advanceCount: number;  // 1〜3。決勝は表彰人数
   to: string | null;     // 矢印の先の卓 id。null = 矢印なし
+  loserTo?: string | null; // 敗者の矢印の先（3位決定戦）。ビリヤードだけ。他種目は書かない
   playerIds: string[];   // 直接置いた人（シード含む）。順序 = 席順
 }
 export interface MahjongCsCanvas { tables: MahjongCsCanvasTable[] }

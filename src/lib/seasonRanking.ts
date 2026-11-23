@@ -1,12 +1,12 @@
 /**
- * scores を合算する種目（ポーカー・ダーツ）の通算順位の並べ方。順位表 API と CS の優先枠・段で共用する（2か所に書かない）。
+ * scores を合算する種目（ポーカー・ダーツ・ビリヤード）の通算順位の並べ方。順位表 API と CS の優先枠・段で共用する（2か所に書かない）。
  * 通算（scores.totalScore の合計）→ 1位回数（details.dayRank===1）→ 出場数 → 名前。
  */
 export interface SeasonScoreLike {
   lineUserId: string; totalScore?: unknown; gameCategory?: unknown; displayName?: unknown; details?: { dayRank?: unknown };
 }
 
-export function rankSeasonScores(docs: SeasonScoreLike[], game: "poker" | "darts", nameOf?: (uid: string) => string): string[] {
+export function rankSeasonScores(docs: SeasonScoreLike[], game: "poker" | "darts" | "billiards", nameOf?: (uid: string) => string): string[] {
   const agg = new Map<string, { total: number; firsts: number; days: number; name: string }>();
   for (const x of docs) {
     if (x.gameCategory !== game) continue;
