@@ -10,6 +10,7 @@ import { validateCsMatch, isRoundComplete, advanceCsRound } from "@/lib/mahjongC
 import { afterMatchCompleted } from "@/lib/mahjongCsBracket";
 import { isManualCs } from "@/lib/mahjongCsEntry";
 import { cutsFor, evaluateScoreMatch, podiumOf } from "@/lib/gameCsMatch";
+import { settleWinner, winnerPodium } from "@/lib/gameCsWinnerMatch";
 import { writeAuditLog } from "@/lib/auditLog";
 import type { GameCsRules } from "@/lib/gameCsRules";
 import type { MahjongCsEvent } from "@/types";
@@ -24,6 +25,7 @@ type Ctx = { params: Promise<{ csEventId: string }> };
  *        旧方式はsetupへ戻し、確定日到来で予選が再生成される。
  *  { action: "editMatch", matchId, results: [{ lineUserId, points, rank }] }（麻雀）
  *  { action: "editMatch", matchId, results: [{ lineUserId, points, tiebreakPoints? }] }（点数を申告する種目）
+ *  { action: "editMatch", matchId, winnerId }（勝った人を申告する種目＝ビリヤード。食い違い・相手待ちの卓も確定できる）
  *      … 指定試合の結果を管理者が上書き確定。新方式は後続ラウンドを保持して札の席を再充填
  *        （次の卓が申告済みなら409）。旧方式は以降のラウンドを破棄して整合を取り直す。
  */
@@ -67,13 +69,20 @@ export async function handleAdminCsFix(req: NextRequest, { params }: Ctx, rules:
 
     if (action === "editMatch") {
       const matchId: unknown = body?.matchId;
-      const results: unknown = body?.results;
+      const winner = rules.report === "winner";
+      const winnerId: unknown = body?.winnerId;
+      if (winner && (typeof winnerId !== "string" || !winnerId)) {
+        return NextResponse.json({ error: "勝った人を選んでください" }, { status: 400 });
+      }
+      // 勝者を選ぶ種目は results を使わない
+      const results: unknown = winner ? [] : body?.results;
       if (typeof matchId !== "string" || !Array.isArray(results)) {
         return NextResponse.json({ error: "matchId と results が必要です" }, { status: 400 });
       }
 
       if (rules.game !== "mahjong") {
-        // 点数を申告する種目（ポーカー）: points と、必要なら tiebreakPoints を管理者が入れる
+        // 点数を申告する種目（ポーカー・ダーツ）: points と、必要なら tiebreakPoints を管理者が入れる。
+        // 勝った人を申告する種目（ビリヤード）: 管理者が勝者を選ぶ
         const byId = new Map<string, { points: number; tiebreakPoints?: number[] }>();
         for (const r of results) {
           const points = Number(r?.points);
@@ -99,15 +108,24 @@ export async function handleAdminCsFix(req: NextRequest, { params }: Ctx, rules:
           const match = round.matches.find((m) => m.matchId === matchId)!;
           // 札の席がまだ埋まっていない（席数は卓ごとに違うので 4 と比べない）
           if (match.players.length < (match.seats ?? []).length) return { status: 409 as const, error: "この卓はまだ全員そろっていません" };
-          if (match.players.some((p) => !byId.has(p.lineUserId))) return { status: 400 as const, error: "同卓者全員分の結果を入力してください" };
-          const ev = evaluateScoreMatch(
-            // 管理者の入力を正とし、省略した tiebreakPoints は前回の申告を残さず消す
-            match.players.map((p) => ({ ...p, points: byId.get(p.lineUserId)!.points, tiebreakPoints: byId.get(p.lineUserId)!.tiebreakPoints })),
-            cutsFor(ri === rounds.length - 1, match.advanceCount ?? round.advanceCount));
-          if (ev.status !== "completed") {
-            return { status: 400 as const, error: `通過の境目が同点です。${rules.tiebreakLabel}の結果も入力してください` };
+          if (winner) {
+            if (!match.players.some((p) => p.lineUserId === winnerId)) {
+              return { status: 400 as const, error: "勝った人は同じ卓の2人から選んでください" };
+            }
+            match.players = settleWinner(match.players, winnerId as string);
+            // 管理者の確定を正とし、食い違っていた申告は残さない
+            delete match.claims;
+          } else {
+            if (match.players.some((p) => !byId.has(p.lineUserId))) return { status: 400 as const, error: "同卓者全員分の結果を入力してください" };
+            const ev = evaluateScoreMatch(
+              // 管理者の入力を正とし、省略した tiebreakPoints は前回の申告を残さず消す
+              match.players.map((p) => ({ ...p, points: byId.get(p.lineUserId)!.points, tiebreakPoints: byId.get(p.lineUserId)!.tiebreakPoints })),
+              cutsFor(ri === rounds.length - 1, match.advanceCount ?? round.advanceCount));
+            if (ev.status !== "completed") {
+              return { status: 400 as const, error: `通過の境目が同点です。${rules.tiebreakLabel}の結果も入力してください` };
+            }
+            match.players = ev.players;
           }
-          match.players = ev.players;
           match.status = "completed";
           let completed;
           try {
@@ -122,7 +140,9 @@ export async function handleAdminCsFix(req: NextRequest, { params }: Ctx, rules:
           const finished = completed.status === "finished";
           tx.update(ref, {
             rounds: completed.rounds, status: completed.status,
-            ...(finished ? { championId: completed.championId ?? null, podium: podiumOf(match.players) } : {}),
+            // 勝者申告の表彰は確定した卓ではなく rounds 全体から（3位決定戦を最後に直すことがある）
+            ...(finished ? { championId: completed.championId ?? null,
+              podium: winner ? winnerPodium(completed.rounds) : podiumOf(match.players) } : {}),
             updatedAt: now,
           });
           return { status: 200 as const, championId: completed.championId ?? null };
