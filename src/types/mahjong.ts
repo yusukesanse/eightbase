@@ -329,7 +329,7 @@ export interface MahjongCsEntry {
   enteredAt: string;         // ISO
   state: MahjongCsEntryState;
   demoDummy?: boolean;
-  adminAdded?: boolean;      // 管理者が追加した人。定員に数えず常に確定
+  adminAdded?: boolean;      // 管理者が追加した人（表示用の印。定員には普通に数える）
 }
 
 /** 新方式の卓の席。draft では null（空席）を許す。 */

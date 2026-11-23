@@ -181,7 +181,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
     }
     const db = getDb();
     const ref = db.collection(rules.collection).doc(csEventId);
-    // 管理者の追加: 定員・締切・参加資格は見ない。利用者の照合と名前・段の解決は transaction の外で行う。
+    // 管理者の追加: 受付期間・参加資格は見ない（定員は守る）。利用者の照合と名前・段の解決は transaction の外で行う。
     let added: Pick<MahjongCsEntry, "displayName" | "pictureUrl" | "tier" | "rank"> | undefined;
     if (action === "addEntry") {
       const id = body.lineUserId;
@@ -229,7 +229,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
         return reject(409, "現在の状態ではこの操作はできません");
       }
       let audit: AuditEventType | undefined;
-      let addedBefore: "none" | MahjongCsEntry["state"] | undefined;
+      let addedBefore: "none" | "confirmed" | undefined;
       const capacity = event.capacity!;
       const priorityUserIds = event.priorityUserIds ?? [];
       // 締切後に参加確定者が変わったら、シードを保って entrants を作り直す。
@@ -293,13 +293,19 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
           const id: string = body.lineUserId;
           const entries = event.entries ?? [];
           const existing = entries.find((e) => e.lineUserId === id);
-          addedBefore = existing?.state ?? "none";
-          audit = "cs.entryAdded";
-          update.entries = rebalanceEntries(existing
+          const next = rebalanceEntries(existing
             ? entries.map((e) => (e.lineUserId === id ? { ...e, adminAdded: true } : e))
             : [...entries, { lineUserId: id, ...added!, enteredAt: now, state: "confirmed", adminAdded: true }], {
             capacity, priorityUserIds, phase: event.status === "entry" ? "entry" : "closed",
           });
+          // 定員は守る: 本人が確定にならない、または確定していた人が押し出されるなら追加しない。
+          const confirmedNow = new Set(next.filter((e) => e.state === "confirmed").map((e) => e.lineUserId));
+          if (!confirmedNow.has(id) || entries.some((e) => e.state === "confirmed" && !confirmedNow.has(e.lineUserId))) {
+            return reject(409, "定員に達しているため追加できません");
+          }
+          addedBefore = existing ? "confirmed" : "none";
+          audit = "cs.entryAdded";
+          update.entries = next;
           // bracket は触らない。追加された人は未配置の人として編成画面に出る。
           if (event.status === "closed") update.entrants = entrantsKeepingSeeds(update.entries);
           break;

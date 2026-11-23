@@ -1,4 +1,4 @@
-/** 管理者が CS に任意の利用者を参加確定として追加する（PATCH action: "addEntry"・種目共通）。 */
+/** 管理者が CS に任意の利用者を参加確定として追加する（PATCH action: "addEntry"・種目共通）。定員は守り、締切と参加資格は見ない。 */
 jest.mock("@/lib/firebaseAdmin", () => ({ getDb: jest.fn() }));
 jest.mock("@/lib/adminAuth", () => ({ checkAdminAuth: jest.fn().mockResolvedValue("admin@example.com") }));
 jest.mock("@/lib/mahjong", () => ({ getActiveSeason: jest.fn() }));
@@ -28,12 +28,12 @@ const entry = (id: string, minute: number, extra: Partial<MahjongCsEntry> = {}):
   enteredAt: `2099-11-01T00:${String(minute).padStart(2, "0")}:00Z`, state: "confirmed", ...extra,
 });
 
-/** 受付中・定員4（優先枠なし）・a〜d で満員、w がキャンセル待ち。 */
+/** 受付中・定員5（優先枠なし）・a〜d が確定＝空き1。 */
 function seed(db: Db, over: Record<string, unknown> = {}, collection = "mahjongCsEvents") {
   db._set(collection, "cs1", {
-    seasonId: "s1", name: "CS", eventDate: "2099-12-01", status: "entry", capacity: 4, priorityUserIds: [],
+    seasonId: "s1", name: "CS", eventDate: "2099-12-01", status: "entry", capacity: 5, priorityUserIds: [],
     entryOpensAt: "2099-11-01T00:00:00+09:00", entryClosesAt: "2099-11-20T00:00:00+09:00",
-    entries: [entry("a", 1), entry("b", 2), entry("c", 3), entry("d", 4), entry("w", 5, { state: "waitlisted" })],
+    entries: [entry("a", 1), entry("b", 2), entry("c", 3), entry("d", 4)],
     entrants: [], rounds: [], createdAt: "2099-11-01T00:00:00Z", updatedAt: "",
     ...over,
   });
@@ -45,6 +45,8 @@ function seed(db: Db, over: Record<string, unknown> = {}, collection = "mahjongC
   db._set("authorizedUsers", "au_a", { lineUserId: "a", active: true, role: "member" });
   db._set("users", "x", { displayName: "追加さん", pictureUrl: "https://example.com/x.png" });
 }
+/** 定員4・a〜d で満員、w がキャンセル待ち。 */
+const FULL = { capacity: 4, entries: [entry("a", 1), entry("b", 2), entry("c", 3), entry("d", 4), entry("w", 5, { state: "waitlisted" })] };
 const useDb = (over?: Record<string, unknown>, collection?: string) => {
   const db = makeCsDb(); seed(db, over, collection); (getDb as jest.Mock).mockReturnValue(db); return db;
 };
@@ -71,7 +73,7 @@ test.each([[""], ["   "], [undefined], [123], [null]])("lineUserId が不正（%
   const res = await add(id);
   expect(res.status).toBe(400);
   expect((await res.json()).error).toBe("lineUserId が不正です");
-  expect(entriesOf(db)).toHaveLength(5);
+  expect(entriesOf(db)).toHaveLength(4);
 });
 
 test.each([["z（無効化された利用者）"], ["nobody（存在しない）"]])("%s は 404 で、doc を書かない", async (label) => {
@@ -98,7 +100,7 @@ test.each([["running"], ["finished"]])("%s では 409", async (status) => {
   expect(find(db, "x")).toBeUndefined();
 });
 
-test("受付開始前・定員いっぱい・リーグ未参加でも追加でき、参加確定になる（ほかの人は動かない）", async () => {
+test("受付開始前・リーグ未参加でも、空きがあれば追加でき参加確定になる", async () => {
   const db = useDb({ entryOpensAt: "2099-11-15T00:00:00+09:00" });
   const res = await add("x");
   expect(res.status).toBe(200);
@@ -107,9 +109,50 @@ test("受付開始前・定員いっぱい・リーグ未参加でも追加で�
     tier: "M3", rank: 100000, enteredAt: "2099-11-10T00:00:00.000Z", state: "confirmed", adminAdded: true,
   });
   expect(entriesOf(db).map((e) => `${e.lineUserId}:${e.state}`).sort())
-    .toEqual(["a:confirmed", "b:confirmed", "c:confirmed", "d:confirmed", "w:waitlisted", "x:confirmed"]);
+    .toEqual(["a:confirmed", "b:confirmed", "c:confirmed", "d:confirmed", "x:confirmed"]);
   expect(db._get("mahjongCsEvents", "cs1").status).toBe("entry");
-  expect((await res.json()).event.entries).toHaveLength(6);
+  expect((await res.json()).event.entries).toHaveLength(5);
+});
+
+test("空き1に1人追加したあと、もう1人は 409", async () => {
+  const db = useDb();
+  expect((await add("x")).status).toBe(200);
+  const res = await add("g");
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("定員に達しているため追加できません");
+  expect(find(db, "g")).toBeUndefined();
+});
+
+test("満員なら 409 で、doc を書かず監査も残さない", async () => {
+  const db = useDb(FULL);
+  const before = JSON.stringify(db._get("mahjongCsEvents", "cs1"));
+  const res = await add("x");
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toBe("定員に達しているため追加できません");
+  expect(JSON.stringify(db._get("mahjongCsEvents", "cs1"))).toBe(before);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+test("キャンセル待ちの人は追加できない（空きが無いので 409・状態はそのまま）", async () => {
+  const db = useDb(FULL);
+  const res = await add("w");
+  expect(res.status).toBe(409);
+  expect(find(db, "w")).toEqual(entry("w", 5, { state: "waitlisted" }));
+});
+
+test("受付中は、未表明の優先枠の席を空きに数えない（優先枠の本人は追加できる）", async () => {
+  const db = useDb({ priorityUserIds: ["g"] });
+  expect((await add("x")).status).toBe(409);
+  expect(find(db, "x")).toBeUndefined();
+  expect((await add("g")).status).toBe(200);
+  expect(find(db, "g")).toMatchObject({ state: "confirmed", adminAdded: true });
+});
+
+test("締切後の満員に優先枠の人を足すと確定者が押し出されるので 409", async () => {
+  const db = useDb({ ...FULL, status: "closed", priorityUserIds: ["g"] });
+  const before = JSON.stringify(db._get("mahjongCsEvents", "cs1"));
+  expect((await add("g")).status).toBe(409);
+  expect(JSON.stringify(db._get("mahjongCsEvents", "cs1"))).toBe(before);
 });
 
 test("名前・段はサーバーが解決し、クライアントの値は使わない。ゲストも追加できる", async () => {
@@ -159,16 +202,15 @@ test("受付の締切時刻を過ぎていたら、締め切ってから追加�
   expect(types).toEqual(expect.arrayContaining(["cs.entryClosed", "cs.entryAdded"]));
 });
 
-test("キャンセル待ちの人を追加すると確定に上がる（表明日時は変えない）", async () => {
-  const db = useDb();
-  expect((await add("w")).status).toBe(200);
-  expect(find(db, "w")).toEqual({ ...entry("w", 5), state: "confirmed", adminAdded: true });
-  expect(entriesOf(db)).toHaveLength(5);
-  expect((writeAuditLog as jest.Mock).mock.calls[0][0].meta).toMatchObject({ before: "waitlisted" });
+test("締切時刻を過ぎた満員の CS では 409 だが、締切だけは保存する", async () => {
+  const db = useDb({ ...FULL, entryClosesAt: "2099-11-05T00:00:00+09:00" });
+  expect((await add("x")).status).toBe(409);
+  expect(db._get("mahjongCsEvents", "cs1").status).toBe("closed");
+  expect(find(db, "x")).toBeUndefined();
 });
 
-test("既に確定の人は adminAdded が立つだけで、2回やっても同じ（冪等）", async () => {
-  const db = useDb();
+test("既に確定の人は満員でも adminAdded が立つだけで、2回やっても同じ（冪等）", async () => {
+  const db = useDb(FULL);
   expect((await add("a")).status).toBe(200);
   expect((await add("a")).status).toBe(200);
   expect(entriesOf(db).filter((e) => e.lineUserId === "a")).toEqual([{ ...entry("a", 1), adminAdded: true }]);
@@ -203,6 +245,6 @@ test("ポーカーで通算順位のある人は、その段と順位で入る",
 test("ほかの action では利用者や順位を読まない（読み取りを増やさない）", async () => {
   const db = useDb();
   db.reads.length = 0;
-  expect((await MAHJONG_PATCH(body({ action: "removeEntry", lineUserId: "w" }), ctx())).status).toBe(200);
+  expect((await MAHJONG_PATCH(body({ action: "removeEntry", lineUserId: "a" }), ctx())).status).toBe(200);
   expect(db.reads).toEqual(["mahjongCsEvents"]);
 });
