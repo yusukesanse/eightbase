@@ -401,12 +401,15 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   旧方式のCSも管理画面から**削除だけ**はできる（2026-11-09。日付が重なって利用者が迷うため。編成に戻す等の操作は出さない）。CS のデータは `mahjongCsEvents` の1件に収まるので削除で他に残るものは無い。
 - **管理者が参加者を追加できる**（2026-11-23・`PATCH` の `{ action: "addEntry", lineUserId }`・種目共通の `src/lib/gameCs/admin.ts` に1か所）。
   参加者一覧（`CsParticipantList`）の「＋ 参加者を追加」から、アプリ利用者（`authorizedUsers` の active かつ LINE 連携済み・ゲスト含む）を**参加確定**として足す。
-  - ⚠️ **意図的に見ないもの**: 定員・受付期間（開始前／締切後）・参加資格（リーグ戦に出た人だけ）。例外対応なので管理者の判断で押し切れる。
-  - 追加した人は entry に `adminAdded: true` が付き、**定員の数に入らない**（`rebalanceEntries` が常に確定にし、ほかの人をキャンセル待ちへ押し出さない。優先枠の人でも予約席を二重に取らない）。
-    そのため「参加確定 n/定員」の n は定員を超えうる。キャンセル待ちの人を追加すると確定に上がる。既に確定の一般枠の人に付けると、その人の席が空いてキャンセル待ちの先頭が1人繰り上がる（画面からは確定済みの人を選べない）。
+  - ⚠️ **意図的に見ないもの**: 受付期間（開始前／締切後）・参加資格（リーグ戦に出た人だけ）。例外対応なので管理者の判断で押し切れる。
+  - ⚠️ **定員は守る**（定員を超えるとトーナメントが作れなくなるため・ユーザー指示）。追加は「`enteredAt: now` の entry を足して `rebalanceEntries`」で、
+    本人が確定にならない／確定していた人が1人でもキャンセル待ちに落ちるなら **409「定員に達しているため追加できません」**で何も書かない。
+    空きの数え方は `rebalanceEntries` と同じ（受付中は未表明の優先枠の席も埋まっている扱い。締切後は確定者数）。画面も満員なら「＋ 参加者を追加」を押せず「定員に達しています」と出す。
+    キャンセル待ちの人は追加できない（空きが無いということ＝409）。既に確定の人は印が付くだけ（冪等・200）。満員で足したいときは、先に定員を増やすか誰かを外す。
+  - entry の `adminAdded: true` は**表示用の印だけ**（一覧で「参加確定（管理者追加）」）。`rebalanceEntries` は特別扱いしない＝定員に普通に数える。
   - できるのは `entry` と `closed` だけ。`running` / `finished` は 409（「編成に戻す」をしてから）。`closed` ではシードを保って entrants を作り直し、編成の下書き（`bracket`）は触らない＝未配置の人として編成画面に出る。
-  - 名前・アイコン・段・順位は**サーバーが解決**する（参加表明と同じ `resolveProfile`・`leagueStanding`。クライアントの値は使わない）。見つからない・無効な利用者は 404。
-  - 外すのは今までどおり「外す」（`removeEntry`）。監査ログは `cs.entryAdded`（実行者・lineUserId・phase・前の状態 `none|waitlisted|confirmed`）。
+  - 名前・アイコン・段・順位は**サーバーが解決**する（参加表明と同じ `resolveProfile`・`leagueStanding`。クライアントの値は使わない。`users` に名前が無い人は `authorizedUsers` の名前）。見つからない・無効な利用者は 404。
+  - 外すのは今までどおり「外す」（`removeEntry`）。監査ログは `cs.entryAdded`（実行者・lineUserId・phase・前の状態 `none|confirmed`）。
   - 回帰テスト: `__tests__/unit/lib/gameCsAdminAdded.test.ts`、`__tests__/unit/api/adminGameCsAddEntry.test.ts`、`__tests__/unit/components/gameCsAddEntry.test.tsx`。
 - LINE 通知なし。参加費なし。対象は麻雀とポーカー（下の節）。ダーツ・ビリヤードの CS は従来どおり。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
