@@ -411,24 +411,24 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   - 名前・アイコン・段・順位は**サーバーが解決**する（参加表明と同じ `resolveProfile`・`leagueStanding`。クライアントの値は使わない。`users` に名前が無い人は `authorizedUsers` の名前）。見つからない・無効な利用者は 404。
   - 外すのは今までどおり「外す」（`removeEntry`）。監査ログは `cs.entryAdded`（実行者・lineUserId・phase・前の状態。phase は遅延締切を適用したあとの状態）。
   - 回帰テスト: `__tests__/unit/lib/gameCsAdminAdded.test.ts`、`__tests__/unit/api/adminGameCsAddEntry.test.ts`、`__tests__/unit/components/gameCsAddEntry.test.tsx`。
-- LINE 通知なし。参加費なし。対象は麻雀とポーカー（下の節）。ダーツ・ビリヤードの CS は従来どおり。
+- LINE 通知なし。参加費なし。対象は麻雀・ポーカー・ダーツ（下の節）。ビリヤードの CS は従来どおり。
 - 回帰テスト: `__tests__/unit/lib/{mahjongCsEntry,mahjongCsBracket,mahjongCsCanvas}.test.ts`、
   `__tests__/unit/api/{mahjongCsEntryRoute,mahjongCsMatchRoute,adminMahjongCsRoute}.test.ts`、
   `__tests__/unit/components/{mahjongCsBracketBuilder,mahjongCsBracketCanvas,mahjongCsView,mahjongCsAdmin}.test.tsx`。
 
-### CSの共通化とポーカーCS（2026-11-09）
+### CSの共通化とポーカーCS（2026-11-09）・ダーツCS（2026-11-23）
 麻雀CS（上の節）の仕組みを種目共通にし、ポーカーも**定員つき参加受付＋キャンバス手動編成**にした。流れ・status・締切の扱いは麻雀と同じ。
 仕様書: `docs/superpowers/specs/2026-11-09-games-cs-common-design.html`（docs/ は git 管理外）。
-- **種目差は `src/lib/gameCsRules.ts` のルール表（`CS_RULES`）だけ**: 席数（`minSeats`/`maxSeats`）・通過上限（`maxAdvance`＋`maxAdvanceFor()`）・段の名前・申告の呼び名（`scoreLabel`/`tiebreakLabel`）・決勝で `podium` を書くか（`writesPodium`）。
+- **種目差は `src/lib/gameCsRules.ts` のルール表（`CS_RULES`）だけ**: 席数（`minSeats`/`maxSeats`）・通過上限（`maxAdvance`＋`maxAdvanceFor()`）・段の名前・申告の呼び名（`scoreLabel`/`tiebreakLabel`）・画面の単位と申告欄の見出し（`unit`/`reportLabel`）・決勝で `podium` を書くか（`writesPodium`）。
   API の本体は `src/lib/gameCs/`（`publicCs`＝利用者GET・`entry`＝参加表明・`admin`＝作成/変更/締切/編成/削除・`fix`＝編成に戻す/結果修正・`scoreMatch`＝点数申告）。
-  `/api/{mahjong,poker}/cs/**` と `/api/admin/{mahjong,poker}/cs/**` はルール表を渡すだけの薄い窓口。**種目ごとにコピーしない。**
+  `/api/{mahjong,poker,darts}/cs/**` と `/api/admin/{mahjong,poker,darts}/cs/**` はルール表を渡すだけの薄い窓口。**種目ごとにコピーしない。**
   画面も共通（利用者 `MahjongCsView`・管理 `GameCsAdminPage`＋`CsBracket*`。名前は麻雀のまま）。管理はページがルール表を渡し、利用者ビューは `game` から `CS_RULES` を引く。
   参加資格・本人の段と順位・優先枠を種目ごとに求めるのは `src/lib/gameCsLeague.ts`（`hasPlayedLeague`/`leagueStanding`/`fetchPriorityUserIds`・サーバー専用）。
 - 純関数 `src/lib/mahjongCs{Entry,Bracket,Canvas}.ts` は種目共通（名前は麻雀のまま。テストが今のパスを読むため）。`Entry` は種目に依存しない。`Bracket`/`Canvas` は `rules` を省略すると麻雀の動き。
 - **ポーカーの固有仕様**:
   - 1卓 2〜6名。通過上限は `min(3, 卓の人数−1)`（決勝だけ `min(3, 卓の人数)`）。
   - 参加資格＝そのシーズンの `scores` が1件以上（`seasonId`＋`lineUserId` の等値2条件。参加表明 POST のときだけ読む。ポーリングの GET では読まない）。
-  - 優先枠＝**作成時の通算順位 1〜8 位（P1・P2）を `priorityUserIds` に固定**。通算順位の並べ方（通算チップ→1位回数→参加日数→名前）は `src/lib/pokerStandings.ts` の `rankPokerSeason` の1か所（順位表 API と共用。2か所に書かない）。
+  - 優先枠＝**作成時の通算順位 1〜8 位（P1・P2）を `priorityUserIds` に固定**。通算順位の並べ方（通算チップ→1位回数→参加日数→名前）は `src/lib/seasonRanking.ts` の `rankSeasonScores(docs, game)` の1か所（ポーカー・ダーツの順位表 API と CS で共用。2か所に書かない。`rankPokerSeason` はその別名）。
   - 申告は各自の終了時チップ（`MahjongCsMatchPlayer.points` に入れる・0〜1,000,000 の整数）。全員そろったら確定。送る前に画面内で確認を1回はさむ（`confirm()` は LINE で使わない）。
     申告に `expectedStatus`（`reporting`/`tiebreak`）を任意で付け、卓の状態が変わっていれば 409 → シートを閉じて取り直す（開いている間に追加勝負へ変わった値を終了時の値として保存しない）。
   - 決勝の確定で `podium{gold,silver,bronze}`＋`championId` を書く。管理者の結果修正（`editMatch`）も点数＋必要なら追加ハンドを入れ、通過の境目が同点のままなら 400（確定させない）。管理画面で入れられる追加ハンドは**1回分**（2回目以降は利用者の申告）。
@@ -443,12 +443,28 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   `validateBracket` の文言は決勝だけ「勝ち抜け人数は卓の人数以下にしてください」、決勝以外は「卓の人数より少なくしてください」（麻雀の4人卓は上限3なのでどちらも出ない）。
 - 利用者ビューで 409（卓の状態が変わった）のあとシートを閉じて出すエラー文は、15秒ポーリングや画面復帰の取り直しが成功したら消す（シートが開いている間のエラー文はそのまま）。
 - シーズン削除（`DELETE /api/admin/scoreboard/seasons/[seasonId]`）の `SEASON_LINKED_COLLECTIONS` に `pokerCsEvents` を含める（`mahjongCsEvents` と同じ並び）。
-- **旧形式（`capacity` なし）のポーカーCSは見るだけ＋削除だけ**（編成に戻す・結果修正は 409）。旧来の自動生成・`PATCH /api/poker/cs/report`・`src/lib/pokerCs.ts`・`pokerCsServer.ts` は削除済み。旧形式の点数は `chips` にあるので表示だけ `points ?? chips` で補う。
+- **旧形式（`capacity` なし）のポーカーCSは見るだけ＋削除だけ**（編成に戻す・結果修正は 409）。旧来の自動生成・`PATCH /api/poker/cs/report`・`src/lib/pokerCs.ts`・`pokerCsServer.ts` は削除済み。旧形式の点数は `chips` にあるので表示だけ補う（`legacyPoints()`・`src/lib/gameCsMatch.ts`。ダーツの `score` も同じ関数）。
 - ⚠️ **本番に出す前**: 本番の `pokerCsEvents` に旧形式のCSが残っていないか確かめる。**進行中（`running`）のものがあれば、旧申告ルートが無くなったので申告できない＝出す時期をずらす。** 開催前（`setup`）の旧形式は管理画面から削除し、必要なら新方式で作り直して利用者に再表明を案内する。
-- ダーツ・ビリヤードは未対応（旧方式のまま）。足すときは `CsGame` と `CS_RULES` に1行足す。ビリヤードだけ「2席・敗者の矢印・2人の申告の一致」が別に要る（仕様書参照）。
+- **ダーツCS（2026-11-23・ポーカーと同じ土台に載せた）**: ルール表 `DARTS_CS_RULES` の1行と薄い窓口だけ。固有の処理は書いていない。
+  - 1卓 **2〜4名**（5名の卓は保存も確定も 400）。通過上限はポーカーと同じ `maxAdvanceFor`。段は D1（1〜4位）・D2（5〜8位）・D3。
+    段の決め方は `dartsTierForRank`（`src/types/darts.ts`。順位表 API と共用）。
+  - 参加資格＝そのシーズンの `scores` が1件以上。優先枠＝作成時の通算1〜8位（D1・D2）を固定。並べ方は順位表 API と同じ `rankSeasonScores(docs, "darts")`（通算pt→1位回数→出場数→名前）。
+  - 申告は**カウントアップの点数**（`points`・0〜1,000,000 の整数。上限はポーカーと共通）を `PATCH /api/darts/cs/match` へ。全員そろったら確定。
+    同点は**追加スロー**（`tiebreakPoints`）。範囲はポーカーと同じ（決勝以外は通過の境目だけ・決勝は金銀銅の境目すべて）。決勝の確定で `podium`＋`championId`。
+  - 画面の文言はルール表から: 申告欄「カウントアップの点数」（`reportLabel`）・単位「点」（`unit`）。**`scoreLabel`（「点数」）を単位として使わない**（「1,180点数」になる）。
+  - **旧形式（`capacity` なし）のダーツCSは見るだけ＋削除だけ**（参加表明・取消・申告・編成に戻す・結果修正は 409）。旧来の自動生成（`ensureDartsCsStarted`）・
+    `PATCH /api/darts/cs/report`・`src/lib/dartsCs.ts`・`dartsCsServer.ts`・`DartsCsView`・`DartsCsAdmin`・`DartsCs*` 型は削除済み。旧形式の点数は `score` にあるので表示だけ `legacyPoints()` で補う。
+  - 検証用ダミー投入（`src/dev-only/dartsDemoSeed.ts`）は CS を作らない。管理画面のCSタブで作り、「ダミーで定員まで埋める」で検証する。
+  - ⚠️ **本番に出す前**: 本番の `dartsCsEvents` に旧形式のCSが残っていないか確かめる。**進行中（`running`）のものがあれば、旧申告ルートが無くなったので申告できない＝出す時期をずらす。**
+    開催前（`setup`）の旧形式は管理画面から削除し、必要なら新方式で作り直して利用者に再表明を案内する（旧形式で表明済みの人は引き継がれない）。
+  - シーズン削除の `SEASON_LINKED_COLLECTIONS` に `dartsCsEvents` を含める（ルール表の全種目が入っていることを `seasonDeleteCsCollections.test.ts` が確かめる）。
+- ビリヤードは未対応（旧方式のまま）。足すときは `CsGame` と `CS_RULES` に1行足す。ビリヤードだけ「2席・敗者の矢印・2人の申告の一致」が別に要る（仕様書参照）。
 - 回帰テスト: `__tests__/unit/lib/{gameCsRules,gameCsBracketPoker,gameCsMatch,gameCsLeague,pokerStandings}.test.ts`、
   `__tests__/unit/api/{pokerCsEntryRoute,pokerCsMatchRoute,adminPokerCsRoute}.test.ts`、
-  `__tests__/unit/components/{pokerCsAdmin,pokerCsView,pokerCsBracketCanvas}.test.tsx`。**麻雀CSのテストは1行も変えずに通すこと**
+  `__tests__/unit/components/{pokerCsAdmin,pokerCsView,pokerCsBracketCanvas}.test.tsx`。
+  ダーツ: `__tests__/unit/lib/{dartsCsRules,dartsCsLeague,seasonRanking,seasonDeleteCsCollections}.test.ts`、
+  `__tests__/unit/api/{dartsCsEntryRoute,dartsCsMatchRoute,adminDartsCsRoute}.test.ts`、`__tests__/unit/components/{dartsCsView,dartsCsAdmin}.test.tsx`。
+  **麻雀CSのテストは1行も変えずに通すこと**
   （`git diff --name-status ffa4e4e -- '__tests__/unit/lib/mahjongCs*' '__tests__/unit/api/mahjongCs*' '__tests__/unit/api/adminMahjongCs*' '__tests__/unit/components/mahjongCs*'` が空）。
 
 
