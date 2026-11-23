@@ -2,7 +2,7 @@
  * 【develop 専用 / main へ入れない】ビリヤード検証用ダミーデータの投入（非本番専用）。
  *
  * ビリヤードの各画面（LEAGUE BOARD＝ティア横並び/通算順位・詳細リストのスパークライン・
- * 参加タブの当日成績・CS・対戦記録[GM当日フロー]）を demo で確認できるようにする。
+ * 参加タブの当日成績・対戦記録[GM当日フロー]）を demo で確認できるようにする。
  * ダーツの dartsDemoSeed と同方針:
  * - シーズンは作らない（管理者が作った billiards seasonId が対象）。対象を active 化＋GMに demoユーザー固定。
  * - 全ドキュメントに `demoDummy: true`。削除はこのタグのみ（アカウントは作らない・消さない）。
@@ -12,7 +12,6 @@
 
 import { getDb } from "@/lib/firebaseAdmin";
 import { todayJst } from "@/lib/date";
-import { buildInitialBilliardsCsRounds, settleCsRounds } from "@/lib/billiardsCs";
 import { buildBilliardsScheduleId, buildBilliardsEntryId } from "@/lib/billiardsEntryValidation";
 import {
   BILLIARDS_ENTRY_FEE,
@@ -20,7 +19,6 @@ import {
   BILLIARDS_DEFAULT_START_TIME,
   BILLIARDS_DEFAULT_END_TIME,
   BILLIARDS_WINNER_POINTS,
-  type BilliardsCsEntrant,
   type BilliardsScoreDetails,
   type BilliardsMatchResult,
 } from "@/types/billiards";
@@ -48,13 +46,6 @@ const RANKED: P[] = [
   { lineUserId: "billiards-dummy-09", displayName: "中村 結衣" }, // 10
   GUEST, // 11 (B3)
   STAFF, // 12 (B3)
-];
-// CS 用の追加ダミー（16名に増やす）。
-const EXTRA: P[] = [
-  { lineUserId: "billiards-dummy-10", displayName: "森田 隼人" },
-  { lineUserId: "billiards-dummy-11", displayName: "清水 陽介" },
-  { lineUserId: "billiards-dummy-12", displayName: "山口 楓" },
-  { lineUserId: "billiards-dummy-13", displayName: "松本 蓮" },
 ];
 
 /** UTC正午基準で、指定日以前の直近土曜(=6)の YYYY-MM-DD。 */
@@ -185,17 +176,6 @@ export async function seedDemoBilliardsParticipants(seasonId: string): Promise<R
   // 当日フローは未開始で入れる（GM が「ゲーム開始」から通しで体験）。既存の dayState は消してリセット。
   await db.collection("billiardsDayState").doc(`${seasonId}_${today}`).delete().catch(() => {});
 
-  // 4) CS（16名・running）。上位4名シード。demoユーザーを含む。
-  const csPlayers: P[] = [...RANKED, ...EXTRA].slice(0, 16);
-  const entrants: BilliardsCsEntrant[] = csPlayers.map((p, i) => ({
-    lineUserId: p.lineUserId, displayName: p.displayName, pictureUrl: "", rank: i + 1, seed: i < 4,
-  }));
-  const rounds = buildInitialBilliardsCsRounds(entrants);
-  await db.collection("billiardsCsEvents").doc(`demo-billiards-cs-${seasonId}`).set({
-    seasonId, name: "検証ビリヤードCS", eventDate: pastDates[pastDates.length - 1],
-    status: rounds ? "running" : "setup", entrants, rounds: rounds ? settleCsRounds(rounds) : [],
-    championId: null, runnerUpId: null, thirdId: null, createdAt: nowIso, updatedAt: nowIso, ...DUMMY_FLAG,
-  });
-
-  return { schedule: scheduleCount, scores: scoreCount, entries: entryCount, csEvents: 1, players: RANKED.length };
+  // CS は投入しない（旧方式の自動生成は廃止）。管理画面のCSタブで作成し、「ダミーで定員まで埋める」で検証する。
+  return { schedule: scheduleCount, scores: scoreCount, entries: entryCount, csEvents: 0, players: RANKED.length };
 }
