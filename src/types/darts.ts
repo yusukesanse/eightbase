@@ -51,6 +51,15 @@ export const DARTS_POINT_TABLE: Record<number, readonly number[]> = {
   8: [8, 7, 6, 5, 4, 3, 2, 1],
 };
 
+// ─── リーグの段 ───────────────────────────────────────────────────────────────
+
+export type DartsTier = "D1" | "D2" | "D3";
+
+/** 通算順位から段を決める（1〜4位=D1・5〜8位=D2・9位〜=D3）。順位表 API と CS で共用。 */
+export function dartsTierForRank(rank: number): DartsTier {
+  return rank <= 4 ? "D1" : rank <= 8 ? "D2" : "D3";
+}
+
 // ─── ゼロワン種別（GM が当日アプリで選択） ────────────────────────────────────
 
 export type DartsZeroOneOut = "single" | "double" | "master";

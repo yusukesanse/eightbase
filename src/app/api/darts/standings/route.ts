@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebaseAdmin";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
+import { rankSeasonScores, type SeasonScoreLike } from "@/lib/seasonRanking";
+import { dartsTierForRank as tierOf, type DartsTier as Tier } from "@/types/darts";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +15,6 @@ export const dynamic = "force-dynamic";
  * 返す: standings[]（rank/displayName/pictureUrl/totalPt/games/firsts/tier/isMe）＋
  *       me（自分の順位サマリと D1昇格まで pt）＋ currentUserId。
  */
-
-type Tier = "D1" | "D2" | "D3";
-const tierOf = (rank: number): Tier => (rank <= 4 ? "D1" : rank <= 8 ? "D2" : "D3");
 
 export async function GET(req: NextRequest) {
   try {
@@ -70,15 +69,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 通算pt 降順 → 1位回数 → 出場数 → 名前順（§footnote と一致）。
-    const sorted = uids
-      .map((uid) => ({ uid, ...(agg.get(uid) as { totalPt: number; games: number; firsts: number }) }))
-      .sort((a, b) => {
-        if (b.totalPt !== a.totalPt) return b.totalPt - a.totalPt;
-        if (b.firsts !== a.firsts) return b.firsts - a.firsts;
-        if (b.games !== a.games) return b.games - a.games;
-        return (profiles.get(a.uid)?.displayName ?? "").localeCompare(profiles.get(b.uid)?.displayName ?? "", "ja");
-      });
+    // 通算pt 降順 → 1位回数 → 出場数 → 名前順（§footnote と一致）。並べ方は CS の優先枠・段と共用。
+    const sorted = rankSeasonScores(
+      snap.docs.map((d) => d.data() as SeasonScoreLike), "darts",
+      (uid) => profiles.get(uid)?.displayName ?? "",
+    ).map((uid) => ({ uid, ...(agg.get(uid) as { totalPt: number; games: number; firsts: number }) }));
 
     const standings = sorted.map((s, i) => {
       const rank = i + 1;

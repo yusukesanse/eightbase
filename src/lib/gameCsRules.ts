@@ -1,13 +1,13 @@
 /**
  * CS（チャンピオンシップ）の種目ごとのルール表。種目の違いはここだけに書く。
  * 画面からも読むので Firestore などサーバー専用の import をしないこと。
- * ダーツ・ビリヤードを足すときは CsGame と CS_RULES に1行ずつ足す。
+ * ビリヤードを足すときは CsGame と CS_RULES に1行ずつ足す。
  */
-export type CsGame = "mahjong" | "poker";
+export type CsGame = "mahjong" | "poker" | "darts";
 
 export interface GameCsRules {
   game: CsGame;
-  collection: "mahjongCsEvents" | "pokerCsEvents";
+  collection: "mahjongCsEvents" | "pokerCsEvents" | "dartsCsEvents";
   /** 1卓の最少人数 */
   minSeats: number;
   /** 1卓の最大人数（キャンバスに出す空席の数） */
@@ -20,21 +20,34 @@ export interface GameCsRules {
   scoreLabel: string;
   /** 同点の追加勝負の呼び名 */
   tiebreakLabel: string;
+  /** 値の後ろに付ける単位（「12,000チップ」「180点」） */
+  unit: string;
+  /** 利用者の申告欄の見出し（麻雀は持ち点＋着順の専用シートなので使わない） */
+  reportLabel: string;
   /** 決勝の確定で podium を書くか（麻雀は championId だけ。データの形を変えないため false） */
   writesPodium: boolean;
 }
 
 export const MAHJONG_CS_RULES: GameCsRules = {
   game: "mahjong", collection: "mahjongCsEvents", minSeats: 4, maxSeats: 4, maxAdvance: 3,
-  tierLabels: ["M1", "M2", "M3"], scoreLabel: "持ち点", tiebreakLabel: "", writesPodium: false,
+  tierLabels: ["M1", "M2", "M3"], scoreLabel: "持ち点", tiebreakLabel: "", unit: "点", reportLabel: "最終持ち点", writesPodium: false,
 };
 
 export const POKER_CS_RULES: GameCsRules = {
   game: "poker", collection: "pokerCsEvents", minSeats: 2, maxSeats: 6, maxAdvance: 3,
-  tierLabels: ["P1", "P2", "P3"], scoreLabel: "チップ", tiebreakLabel: "追加ハンド", writesPodium: true,
+  tierLabels: ["P1", "P2", "P3"], scoreLabel: "チップ", tiebreakLabel: "追加ハンド",
+  unit: "チップ", reportLabel: "終了時のチップ", writesPodium: true,
 };
 
-export const CS_RULES: Record<CsGame, GameCsRules> = { mahjong: MAHJONG_CS_RULES, poker: POKER_CS_RULES };
+export const DARTS_CS_RULES: GameCsRules = {
+  game: "darts", collection: "dartsCsEvents", minSeats: 2, maxSeats: 4, maxAdvance: 3,
+  tierLabels: ["D1", "D2", "D3"], scoreLabel: "点数", tiebreakLabel: "追加スロー",
+  unit: "点", reportLabel: "カウントアップの点数", writesPodium: true,
+};
+
+export const CS_RULES: Record<CsGame, GameCsRules> = {
+  mahjong: MAHJONG_CS_RULES, poker: POKER_CS_RULES, darts: DARTS_CS_RULES,
+};
 
 /** 卓の通過人数の上限。決勝は表彰人数なので卓の全員まで、それ以外は最低1人は落ちる。 */
 export function maxAdvanceFor(rules: GameCsRules, seatCount: number, isFinal: boolean): number {
