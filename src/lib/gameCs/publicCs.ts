@@ -64,6 +64,9 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
       ];
     })
     : event.rounds;
+  // 敗者が3位決定戦へ進む卓（place:2 の札の出どころ）。ビリヤードだけ
+  const loserSources = new Set(winner && manual ? event.rounds.flatMap((r) => r.matches.flatMap((m) => (m.seats ?? [])
+    .flatMap((seat) => (seat?.kind === "ticket" && seat.place === 2 ? [seat.fromMatchId] : [])))) : []);
   const champEntrant = event.championId ? event.entrants.find((e) => e.lineUserId === event.championId) : null;
   return {
     csEventId: event.csEventId,
@@ -103,6 +106,7 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
           tiebreakMine,
           // 勝者申告: 自分の申告を me / opponent で返す（相手の lineUserId は出さない）。卓にいない人・未申告は null
           ...(winner && manual ? {
+            loserAdvances: loserSources.has(m.matchId),
             myClaim: m.claims?.[userId] == null ? null : m.claims[userId] === userId ? "me" as const : "opponent" as const,
           } : {}),
           // 対象者だけ: 今の回の追加勝負の値を送ったか（送った後も相手がそろうまで tiebreak のまま＝画面で「相手待ち」を出す）

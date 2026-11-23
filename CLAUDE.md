@@ -463,11 +463,13 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
   - 参加資格＝そのシーズンの `scores` が1件以上（**0点の人も含む**。負けて落とした玉が0個だと正当に0点になる）。優先枠＝作成時の通算1〜8位（B1・B2）を固定。
     並べ方は順位表 API と同じ `rankSeasonScores(docs, "billiards")`（ビリヤードの順位表 API もこの関数で並べる）。
   - **敗者の矢印**: キャンバスの卓の `loserTo`（任意。矢印が無い卓には書かない）。引けるのは `rules.loserArrow` の種目だけで、他種目の編成に `loserTo` があれば保存 400・確定エラー。
+    引けるのは **準決勝＝勝者の矢印が決勝（矢印の出ていない卓）へ入る卓** からだけ（`connectLoser` と確定時の `canvasToRounds` の両方で見る。準々決勝などからは不可）。
     行き先は **3位決定戦＝矢印が出ておらず、勝者の矢印が入らない卓** に限る（自分・存在しない卓・勝者と同じ卓・終端の卓からは不可）。
     終端の卓は「決勝がちょうど1つ＋3位決定戦が0か1つ」。確定時の変換（`canvasToRounds`）で、3位決定戦を **決勝の直前の独立ラウンド**（`type: "third"`・「3位決定戦」）にし、
     敗者の席は `{kind:"ticket", fromMatchId, place: 2}` の札にする（勝ち上がりの処理は札のままで増やさない）。
     ⚠️ `isBracketCanvas`・`normalizeCanvas`（`gameCs/admin.ts`）と `incomingCount`・`fillEmptySeats`・`removeTable` は `loserTo` を扱う。卓の項目を足すときはこの5か所を見る（保存時に黙って消える）。
-  - **ラウンドの並び**: 3位決定戦が決勝の前に挟まるので、ビリヤードだけ札は「前のどれかのラウンド」から置ける（`validateBracket`）。`applyCompletedMatch` は行き先を後ろのラウンドすべてから探す。
+  - **ラウンドの並び**: 3位決定戦が決勝の前に挟まるので、ビリヤードだけ札は「前のどれかのラウンド」から置ける（`validateBracket`。
+    ビリヤードの確定エラーは札を「◯◯卓 勝者／敗者」で呼び、「札は前のラウンドの卓から置いてください」と出す。他3種目の文言は「◯位」「直前のラウンド」のまま）。`applyCompletedMatch` は行き先を後ろのラウンドすべてから探す。
     **終了は決勝と3位決定戦の両方が確定したとき**（決勝だけ先に確定しても `running` のまま。3位決定戦の申告を締め出さないため）。
     ⚠️ 優勝・表彰は「いま確定した卓」ではなく **決勝の卓と rounds 全体**から出す（3位決定戦が最後に確定すると、その勝者が優勝になってしまう）。`winnerPodium(rounds)`＝決勝の勝者が金・敗者が銀・3位決定戦の勝者が銅（無ければ null）。
   - **申告**: `PATCH /api/billiards/cs/match` に `{ matchId, winnerId }` または `{ matchId, winner: "me" | "opponent" }`。
@@ -476,9 +478,10 @@ UI は管理 → シーズン → 日程タブ（`GameScheduleCalendar`）の参
     確定までは出し直せる（`disputed` からでも。一致すればそのまま確定）。確定後・2人そろっていない卓は 409。判定は純関数 `src/lib/gameCsWinnerMatch.ts`。
   - **管理者の確定**: `/fix` の `editMatch` に `{ matchId, winnerId }`。`disputed`・`reporting` の卓を確定でき、確定済みの入れ替えもできる（食い違っていた `claims` は消す）。
     次の卓に結果が入っていたら 409。⚠️ ビリヤードは確定まで `points` が空なので、**次の卓の `claims` が1件でもあれば「結果が入っている」とみなす**（`applyCompletedMatch`）。
-  - 公開DTO: ビリヤードだけ卓に `myClaim`（`me`/`opponent`/null）・選手に `claimed` を足し、空席の札を「◯◯卓 勝者／敗者」で呼ぶ。**相手が誰を勝者にしたか・lineUserId は返さない。** 他3種目の応答にはキーを足さない。
+  - 公開DTO: ビリヤードだけ卓に `myClaim`（`me`/`opponent`/null）・`loserAdvances`（敗者が3位決定戦へ進む卓か）、選手に `claimed` を足し、空席の札を「◯◯卓 勝者／敗者」で呼ぶ。**相手が誰を勝者にしたか・lineUserId は返さない。** 他3種目の応答にはキーを足さない。
   - 画面: 申告は「勝ったのは？」に自分・相手のボタン（確認あり）。相手待ち「申告済み・相手の申告待ち」、食い違い「申告が食い違っています。管理者が確認します」＋「申告を出し直す」。
-    確定した卓は **勝／敗** で出す（内部の `points` 1・0 を「1点」「決勝 1点」と出さない）。準決勝は「勝者が決勝へ」（`nextRoundOf` が 3位決定戦を飛ばす）、3位決定戦は「勝者が3位」。
+    確定した卓は **勝／敗** で出す（内部の `points` 1・0 を「1点」「決勝 1点」と出さない）。準決勝は「勝者が決勝へ」（`nextRoundOf` が 3位決定戦を飛ばす）、3位決定戦は「勝者が3位」。準決勝の敗者の行は確定後「3位決定戦へ」。
+    ⚠️ 表彰台は **決勝と3位決定戦の両方が確定してから**出す（決勝だけ先に確定しても出さない。銅が決まる前に表彰しない。3位決定戦の無い種目は決勝の確定だけ＝今までどおり）。
     管理は食い違いの卓を「確認待ち」（赤）で出し、結果入力は勝者を選ぶ形。キャンバスは卓の右寄りの持ち手から点線の矢印（選択のキーは `loser:卓id`。勝者の矢印とは別に選んで消せる）。
   - **旧形式（`capacity` なし）のビリヤードCSは見るだけ＋削除だけ**。旧来の自動生成（`ensureBilliardsCsStarted`）・`PATCH /api/billiards/cs/report`・`src/lib/billiardsCs.ts`・`billiardsCsServer.ts`・
     `BilliardsCsView`・`BilliardsCsAdmin`・`BilliardsCs*` 型は削除済み。旧形式は結果が `won`（`rank` はリーグのシード順位）・表彰が `championId`/`runnerUpId`/`thirdId` にあるので、表示だけ補う（`legacyWinRank()`・`toPublicCs`）。

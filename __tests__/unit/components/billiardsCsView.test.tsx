@@ -138,3 +138,43 @@ test("旧形式（capacity なし）のビリヤードは申告ボタンを出�
   expect(await screen.findByText("このCSは旧形式のため参加受付をしていません")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /申告/ })).toBeNull();
 });
+
+// ---- レビュー指摘 ----
+
+const withFinal = (thirdDone: boolean) => {
+  const ev = event([match({ status: "completed", loserAdvances: true, players: [player("自分", true, 1), player("相手", false, 2)] })]);
+  const rounds = ev.rounds as { matches: Record<string, unknown>[] }[];
+  rounds[2].matches[0] = { ...rounds[2].matches[0], status: "completed", pendingSeats: [], players: [player("自分", true, 1), player("決勝の相手", false, 2)] };
+  rounds[1].matches[0] = { ...rounds[1].matches[0], pendingSeats: [],
+    ...(thirdDone ? { status: "completed", players: [player("銅の人", false, 1), player("相手", false, 2)] }
+      : { players: [player("銅の人"), player("相手")] }) };
+  // 終了すると（両方確定）サーバーが podium を返す
+  if (thirdDone) Object.assign(ev, { status: "finished", podium: {
+    gold: { displayName: "自分", pictureUrl: "" }, silver: { displayName: "決勝の相手", pictureUrl: "" }, bronze: { displayName: "銅の人", pictureUrl: "" } } });
+  return ev;
+};
+
+test("決勝が先に確定しても、3位決定戦が確定するまで表彰台は出さない", async () => {
+  mockGet(withFinal(false));
+  render(<MahjongCsView game="billiards" />);
+  expect(await screen.findByText("ビリヤードCS")).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "表彰台" })).toBeNull();
+});
+
+test("決勝と3位決定戦の両方が確定すると、表彰台に金銀銅が出る", async () => {
+  mockGet(withFinal(true));
+  render(<MahjongCsView game="billiards" />);
+  const podium = await screen.findByRole("region", { name: "表彰台" });
+  for (const name of ["自分", "決勝の相手", "銅の人"]) expect(within(podium).getByText(name)).toBeInTheDocument();
+});
+
+test("準決勝の敗者は、3位決定戦へ進む卓なら確定後の行に「3位決定戦へ」と出る", async () => {
+  mockGet(withFinal(false));
+  render(<MahjongCsView game="billiards" />);
+  fireEvent.click(await screen.findByRole("tab", { name: "✓ 準決勝" }));
+  const panel = screen.getByRole("tabpanel");
+  const loser = within(panel).getByText("相手").closest("[data-cs-row]") as HTMLElement;
+  expect(within(loser).getByText("3位決定戦へ")).toBeInTheDocument();
+  const winnerRow = within(panel).getByText("自分").closest("[data-cs-row]") as HTMLElement;
+  expect(within(winnerRow).queryByText("3位決定戦へ")).toBeNull();
+});

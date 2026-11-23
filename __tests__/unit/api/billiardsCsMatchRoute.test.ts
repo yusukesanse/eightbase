@@ -192,10 +192,17 @@ describe("公開DTO（lineUserId は出さない）", () => {
     expect(pubMatch(db, "a", "T").pendingSeats).toEqual(["S1卓 敗者", "S2卓 敗者"]);
   });
 
+  test("敗者が3位決定戦へ進む卓には loserAdvances を付ける（決勝・3位決定戦には付けない）", () => {
+    const db = makeCsDb(); seed(db);
+    const flags = pub(db, "a").rounds.flatMap((r) => r.matches).map((x) => [x.matchId, (x as { loserAdvances?: boolean }).loserAdvances]);
+    expect(flags).toEqual([["S1", true], ["S2", true], ["T", false], ["F", false]]);
+  });
+
   test("点数を申告する種目の応答には myClaim・claimed を足さない", () => {
     const db = makeCsDb(); seed(db);
     const darts = toPublicCs({ ...ev(db), csEventId: "cs1" }, "a", DARTS_CS_RULES);
     const first = darts.rounds[0].matches[0];
+    expect("loserAdvances" in first).toBe(false);
     expect("myClaim" in first).toBe(false);
     expect("claimed" in first.players[0]).toBe(false);
     expect(darts.rounds[1].matches[0].pendingSeats).toEqual(["S1卓 2位", "S2卓 2位"]);

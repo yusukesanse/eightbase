@@ -54,6 +54,8 @@ export function canvasToRounds(tables: MahjongCsCanvasTable[], rules: GameCsRule
     else if (t.loserTo === t.id || !byId.has(t.loserTo)) errors.push(`卓(${t.id}): 敗者の矢印の先の卓がありません`);
     else if (t.loserTo === t.to) errors.push(`卓(${t.id}): 敗者の矢印は勝者の矢印と別の卓へ引いてください`);
     else if (t.to === null) errors.push(`卓(${t.id}): 矢印が出ていない卓から敗者の矢印は引けません`);
+    // 敗者の矢印は準決勝（勝者の矢印が決勝＝矢印の出ていない卓へ入る卓）からだけ
+    else if (byId.get(t.to)?.to !== null) errors.push(`卓(${t.id}): 敗者の矢印は準決勝（勝者が決勝へ進む卓）からだけ引けます`);
     else if (!thirds.has(t.loserTo)) errors.push(`卓(${t.id}): 敗者の矢印は3位決定戦（矢印が出ていない卓）へ引いてください`);
   }
   let cycle = false;
@@ -204,11 +206,15 @@ export function disconnect(d: CanvasDraft, fromId: string): CanvasDraft {
   return next;
 }
 
-/** 敗者の矢印を引く（3位決定戦用）。行き先が3位決定戦になっているかは確定時に canvasToRounds が検証する。 */
+/**
+ * 敗者の矢印を引く（3位決定戦用）。引けるのは準決勝（勝者の矢印が、矢印の出ていない卓＝決勝へ入る卓）からだけ。
+ * 行き先が3位決定戦になっているかは確定時に canvasToRounds が検証する。
+ */
 export function connectLoser(d: CanvasDraft, fromId: string, toId: string): CanvasDraft {
   const next = clone(d);
   const from = next.tables.find((t) => t.id === fromId);
   if (!from || fromId === toId || from.to === toId || !next.tables.some((t) => t.id === toId)) return next;
+  if (next.tables.find((t) => t.id === from.to)?.to !== null) return next;
   from.loserTo = toId;
   return next;
 }

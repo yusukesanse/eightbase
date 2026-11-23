@@ -95,7 +95,7 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[], 
       if (!validAdvance(advanceCount)) continue;
       for (let p = 1; p <= advanceCount + (loser ? 1 : 0); p++) {
         const n = used.get(`${pm.matchId}#${p}`) ?? 0;
-        const label = ticketLabel(rounds, pm.matchId, p);
+        const label = ticketLabel(rounds, pm.matchId, p, loser);
         if (n === 0 && p <= advanceCount && round.type !== "third") errs.push(`${label}の行き先の席がありません`);
         if (n > 1) errs.push(`${label}の札が2回以上置かれています`);
       }
@@ -109,13 +109,14 @@ export function validateBracket(rounds: MahjongCsRound[], entrantIds: string[], 
       if (!isTicketSeat(s)) continue;
       const source = sources.get(s.fromMatchId);
       if (!source) {
-        errs.push(`${m.label}: 札は直前のラウンドの卓から置いてください`);
+        // ビリヤードは3位決定戦が挟まるので「直前」に限らない（他種目の文言は変えない）
+        errs.push(`${m.label}: 札は${loser ? "前" : "直前"}のラウンドの卓から置いてください`);
         continue;
       }
       const advanceCount = source.match.advanceCount ?? source.round.advanceCount;
       if (!validAdvance(advanceCount)) continue;
       if (!Number.isInteger(s.place) || s.place < 1 || s.place > advanceCount + (loser ? 1 : 0)) {
-        errs.push(`${m.label}: ${ticketLabel(rounds, s.fromMatchId, s.place)}は勝ち抜け人数を超えています`);
+        errs.push(`${m.label}: ${ticketLabel(rounds, s.fromMatchId, s.place, loser)}は勝ち抜け人数を超えています`);
         continue;
       }
       const key = `${s.fromMatchId}#${s.place}`;

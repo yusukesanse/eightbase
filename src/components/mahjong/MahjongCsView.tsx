@@ -28,6 +28,8 @@ interface PubCsMatch {
   players: PubCsPlayer[];
   /** 勝者を申告する種目（ビリヤード）だけ: 自分の申告。未申告は null */
   myClaim?: "me" | "opponent" | null;
+  /** 勝者を申告する種目（ビリヤード）だけ: 敗者が3位決定戦へ進む卓か */
+  loserAdvances?: boolean;
   pendingSeats: string[];
   /** 同点の追加勝負（ポーカーの追加ハンド）で自分が対象のとき true。麻雀は常に false */
   tiebreakMine?: boolean;
@@ -232,7 +234,9 @@ export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const finalRound = rounds.find((r) => r.type === "final") ?? rounds[rounds.length - 1];
   const finalMatch = finalRound?.matches[0];
   // 表彰台は決勝卓の確定だけで出す（status だけでは仮の着順が出てしまう）。
-  const finished = finalMatch != null && isDone(finalMatch);
+  // 3位決定戦（ビリヤードだけ）があれば、それも確定してから出す（銅が決まる前に表彰しない）。
+  const finished = finalMatch != null && isDone(finalMatch)
+    && rounds.every((r) => r.type !== "third" || r.matches.every(isDone));
   const myMatch = rounds.flatMap((r, i) => r.matches.map((m) => ({ m, r, next: nextRoundOf(rounds, i) })))
     .find(({ m }) => !isDone(m) && m.players.some((p) => p.isMe));
   const passCounts = round ? round.matches.map((m) => passCountOf(m, round, manual)) : [];
@@ -596,7 +600,8 @@ function MatchCard({
       </div>
       <div className="flex flex-col gap-1">
         {players.map((p, i) => (
-          <PlayerRow key={i} p={p} done={done} advanced={done && p.rank != null && p.rank <= passCount} final={final} winner={winner} third={third} />
+          <PlayerRow key={i} p={p} done={done} advanced={done && p.rank != null && p.rank <= passCount} final={final} winner={winner} third={third}
+            toThird={done && match.loserAdvances === true && p.rank === 2} />
         ))}
         {pendingSeats.map((label, i) => (
           <div key={i} className="flex h-10 items-center rounded-xl border border-dashed border-[color:var(--eb-line)] px-3 text-[13px] text-[color:var(--eb-ink-muted)]">
@@ -643,13 +648,13 @@ function MatchCard({
 }
 
 /** 選手の行: [着順] [アバター] [名前＋補足] [点数]。確定した卓だけ着順と点数を出す。 */
-function PlayerRow({ p, done, advanced, final, winner = false, third = false }: {
-  p: PubCsPlayer; done: boolean; advanced: boolean; final: boolean; winner?: boolean; third?: boolean;
+function PlayerRow({ p, done, advanced, final, winner = false, third = false, toThird = false }: {
+  p: PubCsPlayer; done: boolean; advanced: boolean; final: boolean; winner?: boolean; third?: boolean; toThird?: boolean;
 }) {
   // 勝者を申告する種目は確定まで points が空なので、申告済みかは claimed で見る
   const reported = winner ? p.claimed === true : p.points != null;
   const sub = done
-    ? advanced ? (third ? "3位" : final && p.rank === 1 ? "優勝" : "次のラウンドへ進出") : null
+    ? advanced ? (third ? "3位" : final && p.rank === 1 ? "優勝" : "次のラウンドへ進出") : toThird ? "3位決定戦へ" : null
     : reported ? "申告済み" : "まだ申告していません";
   return (
     <div

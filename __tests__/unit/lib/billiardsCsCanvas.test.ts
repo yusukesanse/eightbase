@@ -148,7 +148,7 @@ describe("席の検証（ビリヤード）", () => {
   test("敗者の札を2回使うと確定できない", () => {
     const { rounds } = canvasToRounds(eight(), B);
     rounds[3].matches[0].seats = [{ kind: "ticket", fromMatchId: "S1", place: 1 }, { kind: "ticket", fromMatchId: "S1", place: 2 }];
-    expect(validateBracket(rounds, ids8, B).join("\n")).toContain("準決勝A卓 2位の札が2回以上置かれています");
+    expect(validateBracket(rounds, ids8, B).join("\n")).toContain("準決勝A卓 敗者の札が2回以上置かれています");
   });
 
   test("麻雀・ポーカー・ダーツでは 2位の札（通過人数より下）は今までどおり弾く", () => {
@@ -210,4 +210,34 @@ test("札の呼び名: 勝者を申告する種目は 勝者／敗者", () => {
   expect(ticketLabel(rounds, "S1", 1, true)).toBe("準決勝A卓 勝者");
   expect(ticketLabel(rounds, "S1", 2, true)).toBe("準決勝A卓 敗者");
   expect(ticketLabel(rounds, "S1", 1)).toBe("準決勝A卓 1位");
+});
+
+describe("レビュー指摘: 敗者の矢印は準決勝からだけ・文言は勝者／敗者", () => {
+  test("準々決勝（勝者が決勝へ進まない卓）からは敗者の矢印を引けない（確定時の検証）", () => {
+    const tables = eight();
+    tables.find((x) => x.id === "A")!.loserTo = "T";
+    expect(canvasToRounds(tables, B).errors).toContain("卓(A): 敗者の矢印は準決勝（勝者が決勝へ進む卓）からだけ引けます");
+  });
+
+  test("connectLoser は準決勝（勝者の矢印が決勝へ入る卓）からだけ引く", () => {
+    const d: CanvasDraft = { seedUserIds: [], tables: eight().map((x) => { const { loserTo: _l, ...rest } = x; return rest; }) };
+    expect(connectLoser(d, "A", "T").tables.find((x) => x.id === "A")!.loserTo).toBeUndefined();
+    expect(connectLoser(d, "S1", "T").tables.find((x) => x.id === "S1")!.loserTo).toBe("T");
+    // 勝者の矢印をまだ引いていない卓からも引けない
+    const loose: CanvasDraft = { seedUserIds: [], tables: [t("X", [], null), t("T", [], null)] };
+    expect(connectLoser(loose, "X", "T").tables[0].loserTo).toBeUndefined();
+  });
+
+  test("ビリヤードの確定エラーは「勝者／敗者」で呼ぶ", () => {
+    const { rounds } = canvasToRounds(eight(), B);
+    rounds[3].matches[0].seats = [{ kind: "ticket", fromMatchId: "S1", place: 1 }, null];
+    expect(validateBracket(rounds, ids8, B)).toContain("準決勝B卓 勝者の行き先の席がありません");
+  });
+
+  test("札の置き場所の文言: ビリヤードは「前のラウンド」、他種目は今までどおり「直前のラウンド」", () => {
+    const { rounds } = canvasToRounds(eight(), B);
+    rounds[1].matches[0].seats = [{ kind: "ticket", fromMatchId: "F", place: 1 }, { kind: "ticket", fromMatchId: "B", place: 1 }];
+    expect(validateBracket(rounds, ids8, B)).toContain("準決勝A卓: 札は前のラウンドの卓から置いてください");
+    expect(validateBracket(rounds, ids8, POKER_CS_RULES)).toContain("準決勝A卓: 札は直前のラウンドの卓から置いてください");
+  });
 });
