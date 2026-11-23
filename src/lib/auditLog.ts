@@ -27,7 +27,7 @@ export type AuditEventType =
   | "cs.bracketConfirmed" // 管理者がCS編成を確定
   | "cs.bracketReopened" // 管理者がCS編成を再開
   | "cs.entryRemoved" // 管理者がCS参加者を取り消した
-  | "cs.entryAdded" // 管理者がCS参加者を追加した（定員・締切・参加資格を見ない）
+  | "cs.entryAdded" // 管理者がCS参加者を追加した（締切・参加資格を見ない。定員は守る）
   | "cs.entryClosed" // CS参加受付の締切・キャンセル待ちの繰り上げ
   | "cs.generated" // CS予選の自動生成（確定日到来・システム）
   | "cs.matchEdited" // CS試合結果の管理者修正

@@ -229,7 +229,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
         return reject(409, "現在の状態ではこの操作はできません");
       }
       let audit: AuditEventType | undefined;
-      let addedBefore: "none" | "confirmed" | undefined;
+      let addedBefore: "none" | MahjongCsEntry["state"] | undefined;
       const capacity = event.capacity!;
       const priorityUserIds = event.priorityUserIds ?? [];
       // 締切後に参加確定者が変わったら、シードを保って entrants を作り直す。
@@ -293,6 +293,11 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
           const id: string = body.lineUserId;
           const entries = event.entries ?? [];
           const existing = entries.find((e) => e.lineUserId === id);
+          // 既に確定の人は何も変えない（印も付けない・監査も残さない）。遅延締切だけは他の操作と同じく保存する。
+          if (existing?.state === "confirmed") {
+            if (lazyClosed) tx.update(ref, closeUpdate);
+            return { status: 200 as const, event, beforeStatus, audit: undefined, addedBefore: undefined, lazyClosed, lazyCloseEvent };
+          }
           const next = rebalanceEntries(existing
             ? entries.map((e) => (e.lineUserId === id ? { ...e, adminAdded: true } : e))
             : [...entries, { lineUserId: id, ...added!, enteredAt: now, state: "confirmed", adminAdded: true }], {
@@ -303,7 +308,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
           if (!confirmedNow.has(id) || entries.some((e) => e.state === "confirmed" && !confirmedNow.has(e.lineUserId))) {
             return reject(409, "定員に達しているため追加できません");
           }
-          addedBefore = existing ? "confirmed" : "none";
+          addedBefore = existing?.state ?? "none";
           audit = "cs.entryAdded";
           update.entries = next;
           // bracket は触らない。追加された人は未配置の人として編成画面に出る。
@@ -375,6 +380,7 @@ export async function handleAdminCsPatch(req: NextRequest, { params }: Ctx, rule
       beforeStatus: result.beforeStatus, afterStatus: result.event.status,
       meta: { csEventId,
         ...(result.audit === "cs.entryRemoved" ? { lineUserId: body.lineUserId, phase: result.beforeStatus } : {}),
+        // 追加の phase は、遅延締切を適用したあとの状態（その状態の数え方で定員を判定したため）。
         ...(result.audit === "cs.entryAdded"
           ? { lineUserId: body.lineUserId, phase: result.event.status, before: result.addedBefore } : {}) } });
     return NextResponse.json({ event: result.event });

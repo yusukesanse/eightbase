@@ -209,12 +209,22 @@ test("締切時刻を過ぎた満員の CS では 409 だが、締切だけは�
   expect(find(db, "x")).toBeUndefined();
 });
 
-test("既に確定の人は満員でも adminAdded が立つだけで、2回やっても同じ（冪等）", async () => {
+test("既に確定の人は 200 で今の状態を返すだけ（印を付けず、doc も監査も書かない）", async () => {
   const db = useDb(FULL);
+  const before = JSON.stringify(db._get("mahjongCsEvents", "cs1"));
+  const res = await add("a");
+  expect(res.status).toBe(200);
+  expect((await res.json()).event.entries).toHaveLength(5);
+  expect(JSON.stringify(db._get("mahjongCsEvents", "cs1"))).toBe(before);
+  expect(writeAuditLog).not.toHaveBeenCalled();
+});
+
+test("既に確定の人でも、締切時刻を過ぎていたら締切だけは保存する", async () => {
+  const db = useDb({ entryClosesAt: "2099-11-05T00:00:00+09:00" });
   expect((await add("a")).status).toBe(200);
-  expect((await add("a")).status).toBe(200);
-  expect(entriesOf(db).filter((e) => e.lineUserId === "a")).toEqual([{ ...entry("a", 1), adminAdded: true }]);
-  expect((writeAuditLog as jest.Mock).mock.calls[0][0].meta).toMatchObject({ before: "confirmed" });
+  expect(db._get("mahjongCsEvents", "cs1").status).toBe("closed");
+  expect(find(db, "a")).toEqual(entry("a", 1));
+  expect((writeAuditLog as jest.Mock).mock.calls.map(([log]) => log.eventType)).toEqual(["cs.entryClosed"]);
 });
 
 test("監査ログ cs.entryAdded に実行者・対象・状態が残る", async () => {
