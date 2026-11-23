@@ -100,6 +100,8 @@ test("キャンバスの卓は4名まで（5名は保存も確定もできない
     expect(res.status).toBe(400);
   }
   expect(db._get("dartsCsEvents", "cs1")).toMatchObject({ status: "closed", rounds: [] });
+  // 400 は席数が理由（同じ形の4名卓は保存できる）
+  expect((await PATCH(body({ action: "saveBracket", seedUserIds: [], canvas: table(["a", "b", "c", "d"]) }), ctx())).status).toBe(200);
 });
 
 test("管理者の参加者追加（addEntry）がダーツの窓口でも動く（段は D3・リーグ未参加でも可）", async () => {
