@@ -1,6 +1,8 @@
-import DartsCsAdmin from "@/components/admin/DartsCsAdmin";
+"use client";
+import GameCsAdminPage from "@/components/admin/mahjongCs/GameCsAdminPage";
+import { DARTS_CS_RULES } from "@/lib/gameCsRules";
 
-// ダーツCS管理（作成・一覧）。GMなし自動進行なので締切日を設定して作るだけ。
+// シーズンのCS一覧と選択した大会の管理画面を表示する（麻雀と同じ画面・ダーツのルール）。
 export default function SeasonDartsCsPage() {
-  return <DartsCsAdmin />;
+  return <GameCsAdminPage rules={DARTS_CS_RULES} />;
 }

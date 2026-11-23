@@ -51,7 +51,7 @@ interface PubCsEvent {
 }
 
 /**
- * CS — ラウンドごとの縦一覧（麻雀とポーカーで共通。種目の差は game と CS_RULES で分ける）
+ * CS — ラウンドごとの縦一覧（麻雀・ポーカー・ダーツで共通。種目の差は game と CS_RULES で分ける）
  * - 表彰台（終了後）→ あなたの卓（未確定のとき）→ ラウンド切替タブ → 選んだラウンドの卓カード。
  * - 木構造・接続線は廃止（横にはみ出して読めなかった）。通過者は緑、自分は金で強調。
  * - デモ時のみ他卓に「この卓を進める（デモ）」。
@@ -85,7 +85,7 @@ function defaultRoundIndex(rounds: PubCsRound[]) {
 /** 参加受付と公開トーナメントを表示する。game の既定は麻雀（呼び出し元を変えなくてよいように）。 */
 export function MahjongCsView({ game = "mahjong" }: { game?: CsGame } = {}) {
   const rules = CS_RULES[game];
-  const unit = game === "mahjong" ? "点" : "チップ";
+  const unit = rules.unit;
   const [event, setEvent] = useState<PubCsEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [inputMatch, setInputMatch] = useState<PubCsMatch | null>(null);
@@ -784,7 +784,8 @@ function CsInputSheet({
 const CHIPS_MAX = 1_000_000;
 
 /**
- * ポーカーの申告シート: 終了時のチップ1つだけ（着順は送らない）。追加ハンド中の対象者は同じ欄で追加ハンドのチップを送る。
+ * 点数を申告する種目（ポーカー・ダーツ）の申告シート: 値1つだけ（着順は送らない）。追加勝負中の対象者は同じ欄で追加勝負の値を送る。
+ * 見出し（終了時のチップ／カウントアップの点数）と単位はルール表から。
  * 全員の申告がそろった瞬間に確定し、次の卓に申告が入ると直せないので、送る前に画面内で1回確認する（confirm() は LINE で使わない）。
  */
 function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onReport }: {
@@ -797,7 +798,7 @@ function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onRe
   onReport: (points: number) => void;
 }) {
   const tiebreak = match.status === "tiebreak";
-  const label = tiebreak ? `${rules.tiebreakLabel}の${rules.scoreLabel}` : `終了時の${rules.scoreLabel}`;
+  const label = tiebreak ? `${rules.tiebreakLabel}の${rules.scoreLabel}` : rules.reportLabel;
   const [chips, setChips] = useState("");
   const [confirming, setConfirming] = useState(false);
   const value = Number(chips);
@@ -809,8 +810,8 @@ function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onRe
         <>
           <p className="text-[17px] font-bold text-[color:var(--eb-ink)]">
             {tiebreak
-              ? `${rules.tiebreakLabel}の${fmtPoints(value)}${rules.scoreLabel}で申告します。よろしいですか？`
-              : `${fmtPoints(value)}${rules.scoreLabel}で申告します。よろしいですか？`}
+              ? `${rules.tiebreakLabel}の${fmtPoints(value)}${rules.unit}で申告します。よろしいですか？`
+              : `${fmtPoints(value)}${rules.unit}で申告します。よろしいですか？`}
           </p>
           <p className="mt-2 text-[14px] text-[color:var(--eb-ink-muted)]">
             全員の申告がそろうと結果が確定します。次の卓に申告が入ると直せません。
@@ -842,7 +843,7 @@ function ChipsInputSheet({ match, rules, advancement, busy, error, onClose, onRe
               placeholder="0"
               className="flex-1 w-full min-w-0 border-0 outline-none bg-transparent font-bold text-right text-[color:var(--eb-ink)] tabular-nums text-[26px]"
             />
-            <span className="ml-2 shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">{rules.scoreLabel}</span>
+            <span className="ml-2 shrink-0 text-[14px] font-bold text-[color:var(--eb-ink-muted)]">{rules.unit}</span>
           </div>
           <div className="text-[12px] text-[color:var(--eb-ink-muted)] mt-1.5">0〜{fmtPoints(CHIPS_MAX)}の整数</div>
           {error && <p className="mt-3 text-[13px] text-[color:var(--eb-coral-text)]">{error}</p>}

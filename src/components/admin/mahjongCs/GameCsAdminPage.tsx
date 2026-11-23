@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import type { MahjongCsEvent, MahjongCsMatch } from "@/types";
 import { ticketLabel } from "@/lib/mahjongCsBracket";
 import type { GameCsRules } from "@/lib/gameCsRules";
+import { legacyPoints } from "@/lib/gameCsMatch";
 import CsCreateForm, { csButton } from "./CsCreateForm";
 import CsEntryAdminPanel from "./CsEntryAdminPanel";
 import CsParticipantList from "./CsParticipantList";
@@ -342,8 +343,8 @@ export default function GameCsAdminPage({ rules }: { rules: GameCsRules }) {
                                     <span className="text-xs text-[#231714]/85">
                                       {p.rank !== null
                                         ? `${p.rank}位${(() => {
-                                            // 旧形式のポーカーCSは points ではなく chips に持つ。表示だけ補う
-                                            const value = p.points ?? (p as { chips?: number }).chips;
+                                            // 旧形式は points ではなくポーカーが chips、ダーツが score に持つ。表示だけ補う
+                                            const value = p.points ?? legacyPoints(p);
                                             return value != null ? ` / ${value.toLocaleString()}` : "";
                                           })()}`
                                         : "—"}

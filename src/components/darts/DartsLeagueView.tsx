@@ -6,7 +6,7 @@ import { completeDartsEntryPayment } from "@/lib/dartsPayment";
 import { DartsLeagueBoard } from "@/components/darts/DartsLeagueBoard";
 import { DartsJoinTab } from "@/components/darts/DartsJoinTab";
 import { DartsReportTab } from "@/components/darts/DartsReportTab";
-import { DartsCsView } from "@/components/darts/DartsCsView";
+import { MahjongCsView } from "@/components/mahjong/MahjongCsView";
 import { DartsRulesTab } from "@/components/darts/DartsRulesTab";
 import { GlassCard, SegmentedTabs } from "@/components/ui/eb";
 import type { DartsPaymentStatus, DartsScheduleEntry } from "@/types/darts";
@@ -161,7 +161,7 @@ export function DartsLeagueView() {
       ) : subTab === "report" ? (
         <DartsReportTab onChanged={() => loadCore(true)} />
       ) : subTab === "cs" ? (
-        <DartsCsView />
+        <MahjongCsView game="darts" />
       ) : (
         <DartsRulesTab />
       )}
