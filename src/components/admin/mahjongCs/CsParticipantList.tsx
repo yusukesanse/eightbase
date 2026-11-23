@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { rebalanceEntries, waitlistPosition } from "@/lib/mahjongCsEntry";
 import { kanaIncludes } from "@/lib/kana";
 import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
@@ -43,6 +43,7 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
   const [addOpen, setAddOpen] = useState(false);
   const [addQuery, setAddQuery] = useState("");
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [addTarget, setAddTarget] = useState<Candidate | null>(null);
   const [adding, setAdding] = useState(false);
   const busy = disabled || removing || adding;
@@ -51,14 +52,24 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
   );
   const priority = new Set(event.priorityUserIds ?? []);
 
-  // 空きの数え方は rebalanceEntries と同じ: いちばん後ろに1人足して、その人が確定になるか。
-  const hasSeat = rebalanceEntries([...entries, {
-    lineUserId: "", displayName: "", tier: third, rank: 0, enteredAt: "9999-12-31T00:00:00Z", state: "confirmed",
-  }], {
-    capacity: event.capacity ?? 0, priorityUserIds: event.priorityUserIds ?? [],
-    phase: event.status === "entry" ? "entry" : "closed",
-  }).at(-1)!.state === "confirmed";
   const stateOf = new Map(entries.map((e) => [e.lineUserId, e.state]));
+  // サーバーの addEntry と同じ判定: いちばん後ろに足して並べ直し、本人が確定になり、確定していた人が誰も落ちないか。
+  const canAdd = (id: string) => {
+    const confirmed = new Set(rebalanceEntries([...entries, {
+      lineUserId: id, displayName: "", tier: third, rank: 0, enteredAt: "9999-12-31T00:00:00Z", state: "confirmed",
+    }], {
+      capacity: event.capacity ?? 0, priorityUserIds: event.priorityUserIds ?? [],
+      phase: event.status === "entry" ? "entry" : "closed",
+    }).filter((e) => e.state === "confirmed").map((e) => e.lineUserId));
+    return confirmed.has(id) && entries.every((e) => e.state !== "confirmed" || confirmed.has(e.lineUserId));
+  };
+  const hasSeat = canAdd(""); // 一般枠の空き
+  // 受付中は、未表明の優先枠の本人なら一般枠が満員でも追加できる（その人の席は空けてある）。
+  const canOpen = hasSeat || (event.status === "entry" && [...priority].some((id) => !stateOf.has(id)));
+  // 追加できる人がいなくなったら閉じる（空きができたとき勝手に開かないように）。
+  useEffect(() => {
+    if (!canOpen) setAddOpen(false);
+  }, [canOpen]);
   const candidateResults = addQuery.trim()
     ? (candidates ?? []).filter((c) => kanaIncludes(c.displayName, addQuery)).slice(0, 8)
     : [];
@@ -107,6 +118,7 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
     setAddTarget(null);
     if (addOpen || candidates) return;
     setCandidates([]);
+    setCandidatesLoading(true);
     try {
       const res = await fetch("/api/admin/games/participants", { credentials: "same-origin" });
       const data = await res.json().catch(() => ({}));
@@ -115,6 +127,8 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
     } catch (e) {
       setCandidates(null); // 次に開いたときに読み直す
       onError((e instanceof Error && e.message) || "候補の取得に失敗しました");
+    } finally {
+      setCandidatesLoading(false);
     }
   }
 
@@ -142,12 +156,12 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
         </div>
       )}
       <div className="flex items-center gap-2">
-        <button className={csButton} aria-expanded={addOpen && hasSeat} disabled={!hasSeat} onClick={toggleAdd}>
+        <button className={csButton} aria-expanded={addOpen && canOpen} disabled={busy || !canOpen} onClick={toggleAdd}>
           ＋ 参加者を追加
         </button>
         {!hasSeat && <p className="text-xs">定員に達しています</p>}
       </div>
-      {addOpen && hasSeat && (
+      {addOpen && canOpen && (
         <div className="rounded-xl border border-[#231714]/10 bg-white p-4 space-y-3">
           <p className="text-xs">
             アプリの利用者を参加確定として追加します。締切・参加資格に関係なく追加できますが、定員は超えられません。
@@ -175,16 +189,20 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
                 placeholder="名前で検索（ひらがな・カタカナ可）"
                 className="w-full rounded-lg border border-[#231714]/10 px-3 py-2 text-sm"
               />
-              {candidateResults.length > 0 ? (
+              {candidatesLoading ? (
+                <p className="text-xs">候補を読み込み中…</p>
+              ) : candidateResults.length > 0 ? (
                 <ul className="rounded-lg border border-[#231714]/10 divide-y divide-[#231714]/5">
                   {candidateResults.map((c) => {
                     const state = stateOf.get(c.lineUserId);
+                    const addable = canAdd(c.lineUserId);
                     return (
                       <li key={c.lineUserId} className="flex items-center gap-2 px-3 py-2 text-xs">
                         <span className="min-w-0 flex-1 truncate font-bold">{c.displayName}</span>
                         {state && <span>{state === "confirmed" ? "参加確定" : "キャンセル待ち"}</span>}
+                        {!state && !hasSeat && addable && <span>優先枠</span>}
                         <button
-                          disabled={busy || !!state}
+                          disabled={busy || !!state || !addable}
                           className={csButton}
                           aria-label={`${c.displayName}さんを追加`}
                           onClick={() => setAddTarget(c)}

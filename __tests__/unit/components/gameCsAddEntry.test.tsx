@@ -22,6 +22,7 @@ const participants = [
   { lineUserId: "a", displayName: "確定さん", role: "member", pictureUrl: "" },
   { lineUserId: "w", displayName: "待ちさん", role: "member", pictureUrl: "" },
   { lineUserId: "x", displayName: "やまだ", role: "guest", pictureUrl: "" },
+  { lineUserId: "y", displayName: "ささき", role: "member", pictureUrl: "" },
 ];
 
 let patch: { ok: boolean; status: number; json: () => Promise<unknown> };
@@ -96,10 +97,51 @@ test("空きがあれば「定員に達しています」は出ない", () => {
 
 test("受付中は、未表明の優先枠の席を空きに数えない（締切後は数える）", () => {
   const { unmount } = renderList({ event: { ...event, priorityUserIds: ["p"] } });
-  expect(screen.getByRole("button", { name: "＋ 参加者を追加" })).toBeDisabled();
+  expect(screen.getByText("定員に達しています")).toBeInTheDocument();
   unmount();
   renderList({ event: { ...event, priorityUserIds: ["p"], status: "closed" } });
+  expect(screen.queryByText("定員に達しています")).toBeNull();
+});
+
+test("受付中に一般枠が満員でも、未表明の優先枠の人だけは追加できる", async () => {
+  // 定員3・確定2名・優先枠 x（未表明）の席で満員
+  renderList({ event: { ...event, priorityUserIds: ["x"] } });
+  expect(screen.getByText("定員に達しています")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "＋ 参加者を追加" })).toBeEnabled();
+  await openAndSearch("さ");
+  const general = (await screen.findByRole("button", { name: "ささきさんを追加" })).closest("li")!;
+  expect(within(general).getByRole("button")).toBeDisabled();
+  expect(within(general).queryByText("優先枠")).toBeNull();
+  fireEvent.change(screen.getByPlaceholderText(/名前で検索/), { target: { value: "やまだ" } });
+  const priority = screen.getByRole("button", { name: "やまださんを追加" }).closest("li")!;
+  expect(within(priority).getByText("優先枠")).toBeInTheDocument();
+  expect(within(priority).getByRole("button")).toBeEnabled();
+});
+
+test("操作を止めている間（disabled）は「＋ 参加者を追加」を押せない", () => {
+  renderList({ disabled: true });
+  expect(screen.getByRole("button", { name: "＋ 参加者を追加" })).toBeDisabled();
+});
+
+test("満員になったら追加欄を閉じ、空きができても勝手に開かない", async () => {
+  const { rerender } = renderList();
+  await openAndSearch("やまだ");
+  const props = { onChanged, onError };
+  rerender(<CsParticipantList event={full} {...props} />);
+  expect(screen.queryByPlaceholderText(/名前で検索/)).toBeNull();
+  rerender(<CsParticipantList event={event} {...props} />);
+  expect(screen.queryByPlaceholderText(/名前で検索/)).toBeNull();
+});
+
+test("候補の読み込み中は「読み込み中」と出す", async () => {
+  let done!: (v: unknown) => void;
+  global.fetch = jest.fn(() => new Promise((resolve) => { done = resolve; })) as jest.Mock;
+  renderList();
+  await openAndSearch("やまだ");
+  expect(screen.getByText("候補を読み込み中…")).toBeInTheDocument();
+  expect(screen.queryByText("該当する候補はいません。")).toBeNull();
+  done({ ok: true, status: 200, json: async () => ({ participants }) });
+  expect(await screen.findByRole("button", { name: "やまださんを追加" })).toBeEnabled();
 });
 
 test("追加に失敗したらエラー文を出す（409 は一覧を取り直す）", async () => {
