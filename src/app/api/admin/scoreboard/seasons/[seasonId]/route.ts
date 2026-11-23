@@ -211,6 +211,7 @@ const SEASON_LINKED_COLLECTIONS = [
   "mahjongCsEvents",
   "pokerCsEvents",
   "dartsCsEvents",
+  "billiardsCsEvents",
 ] as const;
 
 /**
