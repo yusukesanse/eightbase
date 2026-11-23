@@ -79,3 +79,9 @@ export function podiumOf(players: P[]): { gold: string | null; silver: string | 
     bronze: sorted.length >= 3 ? sorted[2].lineUserId : null,
   };
 }
+
+/** 旧形式（capacity なし）の選手の値。ポーカーは chips、ダーツは score に入っている。表示だけに使う。 */
+export function legacyPoints(p: object): number | undefined {
+  const legacy = p as { chips?: number | null; score?: number | null };
+  return legacy.chips ?? legacy.score ?? undefined;
+}

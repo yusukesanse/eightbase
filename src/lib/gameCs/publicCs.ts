@@ -8,7 +8,7 @@ import { getActiveSeason } from "@/lib/mahjong";
 import { ensureCsClosed } from "@/lib/mahjongCsServer";
 import { isManualCs, waitlistPosition } from "@/lib/mahjongCsEntry";
 import { ticketLabel } from "@/lib/mahjongCsBracket";
-import { cutsFor, evaluateScoreMatch } from "@/lib/gameCsMatch";
+import { cutsFor, evaluateScoreMatch, legacyPoints } from "@/lib/gameCsMatch";
 import type { GameCsRules } from "@/lib/gameCsRules";
 import type { MahjongCsEvent } from "@/types";
 
@@ -27,8 +27,8 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
   const player = (p: { lineUserId: string; displayName: string; pictureUrl?: string; points?: number | null; rank?: number | null }) => ({
     displayName: p.displayName,
     pictureUrl: p.pictureUrl ?? "",
-    // 旧形式のポーカーCSは値を chips に持つ（管理画面と同じ補い方）
-    points: p.points ?? (p as { chips?: number }).chips ?? null,
+    // 旧形式はポーカーが chips、ダーツが score に値を持つ（管理画面と同じ補い方）
+    points: p.points ?? legacyPoints(p) ?? null,
     rank: p.rank ?? null,
     seed: seedIds.has(p.lineUserId),
     isMe: p.lineUserId === userId,
