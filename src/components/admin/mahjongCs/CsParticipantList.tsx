@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { waitlistPosition } from "@/lib/mahjongCsEntry";
+import { rebalanceEntries, waitlistPosition } from "@/lib/mahjongCsEntry";
 import { kanaIncludes } from "@/lib/kana";
 import type { MahjongCsEntry, MahjongCsEvent } from "@/types/mahjong";
 import { MAHJONG_CS_RULES, type GameCsRules } from "@/lib/gameCsRules";
@@ -39,7 +39,7 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
   const [filter, setFilter] = useState("すべて");
   const [removeEntry, setRemoveEntry] = useState<MahjongCsEntry | null>(null);
   const [removing, setRemoving] = useState(false);
-  // 管理者による追加（定員・締切・参加資格を見ない）。候補は開いたときに1回だけ読む。
+  // 管理者による追加（締切・参加資格は見ないが、定員は守る）。候補は開いたときに1回だけ読む。
   const [addOpen, setAddOpen] = useState(false);
   const [addQuery, setAddQuery] = useState("");
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -51,6 +51,13 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
   );
   const priority = new Set(event.priorityUserIds ?? []);
 
+  // 空きの数え方は rebalanceEntries と同じ: いちばん後ろに1人足して、その人が確定になるか。
+  const hasSeat = rebalanceEntries([...entries, {
+    lineUserId: "", displayName: "", tier: third, rank: 0, enteredAt: "9999-12-31T00:00:00Z", state: "confirmed",
+  }], {
+    capacity: event.capacity ?? 0, priorityUserIds: event.priorityUserIds ?? [],
+    phase: event.status === "entry" ? "entry" : "closed",
+  }).at(-1)!.state === "confirmed";
   const stateOf = new Map(entries.map((e) => [e.lineUserId, e.state]));
   const candidateResults = addQuery.trim()
     ? (candidates ?? []).filter((c) => kanaIncludes(c.displayName, addQuery)).slice(0, 8)
@@ -134,20 +141,21 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
           </div>
         </div>
       )}
-      <div>
-        <button className={csButton} aria-expanded={addOpen} onClick={toggleAdd}>
+      <div className="flex items-center gap-2">
+        <button className={csButton} aria-expanded={addOpen && hasSeat} disabled={!hasSeat} onClick={toggleAdd}>
           ＋ 参加者を追加
         </button>
+        {!hasSeat && <p className="text-xs">定員に達しています</p>}
       </div>
-      {addOpen && (
+      {addOpen && hasSeat && (
         <div className="rounded-xl border border-[#231714]/10 bg-white p-4 space-y-3">
           <p className="text-xs">
-            アプリの利用者を参加確定として追加します。定員・締切・参加資格に関係なく追加され、定員の数には入りません。
+            アプリの利用者を参加確定として追加します。締切・参加資格に関係なく追加できますが、定員は超えられません。
           </p>
           {addTarget ? (
             <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
               <p className="text-xs">
-                {addTarget.displayName}さんを参加確定として追加しますか？（定員・締切・参加資格に関係なく追加されます）
+                {addTarget.displayName}さんを参加確定として追加しますか？（締切・参加資格に関係なく追加されます）
               </p>
               <div className="flex gap-2">
                 <button disabled={busy} className={csPrimary} onClick={add}>
@@ -176,7 +184,7 @@ export default function CsParticipantList({ event, onChanged, onError, disabled 
                         <span className="min-w-0 flex-1 truncate font-bold">{c.displayName}</span>
                         {state && <span>{state === "confirmed" ? "参加確定" : "キャンセル待ち"}</span>}
                         <button
-                          disabled={busy || state === "confirmed"}
+                          disabled={busy || !!state}
                           className={csButton}
                           aria-label={`${c.displayName}さんを追加`}
                           onClick={() => setAddTarget(c)}
