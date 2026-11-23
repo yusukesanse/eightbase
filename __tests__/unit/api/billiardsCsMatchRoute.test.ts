@@ -213,4 +213,22 @@ describe("公開DTO（lineUserId は出さない）", () => {
     expect(dto.rounds[0].matches[0].players.map((p) => p.rank)).toEqual([2, 1]);
     expect(dto.podium).toMatchObject({ gold: { displayName: "b" }, silver: { displayName: "a" }, bronze: { displayName: "c" } });
   });
+
+  test("旧形式: 決勝ラウンドに同梱された3位決定戦は、決勝の前の独立ラウンド（third）として返す（3位決定戦の勝者を優勝と出さない）", () => {
+    const p = (id: string, won: boolean) => ({ lineUserId: id, displayName: id, won, rank: 1 });
+    const legacy = {
+      csEventId: "old", seasonId: "s1", name: "旧CS", eventDate: "2099-01-01", status: "finished",
+      entrants: ["a", "b", "c", "d"].map((id, i) => ({ lineUserId: id, displayName: id, rank: i + 1, seed: false })),
+      rounds: [
+        { type: "semi", label: "準決勝", matches: [] },
+        { type: "final", label: "決勝", matches: [
+          { matchId: "F", label: "決勝", status: "completed", players: [p("a", true), p("b", false)] },
+          { matchId: "T", label: "3位決定戦", status: "completed", players: [p("c", true), p("d", false)] }] },
+      ],
+      championId: "a", runnerUpId: "b", thirdId: "c", createdAt: "", updatedAt: "",
+    } as unknown as MahjongCsEvent;
+    const dto = toPublicCs(legacy, "a", BILLIARDS_CS_RULES);
+    expect(dto.rounds.map((r) => [r.type, r.label, r.matches.map((x) => x.matchId)])).toEqual([
+      ["semi", "準決勝", []], ["third", "3位決定戦", ["T"]], ["final", "決勝", ["F"]]]);
+  });
 });

@@ -53,6 +53,17 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
   const legacy = event as { runnerUpId?: string | null; thirdId?: string | null };
   const podium = event.podium ?? (winner && !manual && event.championId
     ? { gold: event.championId, silver: legacy.runnerUpId ?? null, bronze: legacy.thirdId ?? null } : null);
+  // 旧形式のビリヤードは3位決定戦を決勝ラウンドの2卓目に入れている。そのままだと画面が「勝者が優勝」と出すので、
+  // 表示だけ決勝の前の独立ラウンド（third）に分ける（新形式と同じ並び）。
+  const rounds = winner && !manual
+    ? event.rounds.flatMap((r) => {
+      const third = r.type === "final" ? r.matches.filter((m) => m.label === "3位決定戦") : [];
+      return third.length === 0 ? [r] : [
+        { ...r, type: "third" as const, label: "3位決定戦", matches: third },
+        { ...r, matches: r.matches.filter((m) => m.label !== "3位決定戦") },
+      ];
+    })
+    : event.rounds;
   const champEntrant = event.championId ? event.entrants.find((e) => e.lineUserId === event.championId) : null;
   return {
     csEventId: event.csEventId,
@@ -73,7 +84,7 @@ export function toPublicCs(event: MahjongCsEvent & { demoDummy?: boolean }, user
       gold: nameOf(podium.gold), silver: nameOf(podium.silver), bronze: nameOf(podium.bronze),
     } : null,
     entrants: event.entrants.map((e) => ({ displayName: e.displayName, pictureUrl: e.pictureUrl ?? "", tier: e.tier, rank: e.rank, seed: e.seed, isMe: e.lineUserId === userId })),
-    rounds: event.rounds.map((r) => ({
+    rounds: rounds.map((r) => ({
       type: r.type,
       label: r.label,
       advanceCount: r.advanceCount,
