@@ -7,8 +7,9 @@ import { isValidPokerDate } from "@/lib/pokerEntryValidation";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/poker/day/confirm  Body: { eventDate }
+ * POST /api/poker/day/confirm  Body: { eventDate, finishDay? }
  * ディーラーが全員のチップを確認して「確定」。試合の順位を確定し当日 scores を更新、次の試合へ。
+ * finishDay=true なら同時に本日のリーグ戦を終了する（以後の操作はすべて 409）。
  */
 export async function POST(req: NextRequest) {
   const userId = await requireGameUser(req);
@@ -20,9 +21,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const eventDate: unknown = body?.eventDate;
   if (!isValidPokerDate(eventDate)) return NextResponse.json({ error: "eventDate が不正です" }, { status: 400 });
+  const finishDay: unknown = body?.finishDay ?? false;
+  if (typeof finishDay !== "boolean") return NextResponse.json({ error: "finishDay が不正です" }, { status: 400 });
 
   try {
-    const result = await confirmPokerGame(season.seasonId, eventDate, userId);
+    const result = await confirmPokerGame(season.seasonId, eventDate, userId, { finishDay });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
     return NextResponse.json({ success: true });
   } catch (error) {

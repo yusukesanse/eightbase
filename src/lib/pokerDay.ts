@@ -1,18 +1,21 @@
 /**
- * ポーカーリーグ 当日進行（ディーラー主導・複数試合）の状態機械。
+ * ポーカーリーグ 当日進行（ディーラー主導・複数試合・1試合＝30分でチップ入力は1回）の状態機械。
  * 要件: docs/games/poker/ポーカー-ルール草案.md §4〜§6。
  *
  * 麻雀/ダーツ/ビリヤードと違い **シーズンGMを置かない**。各試合ごとに参加者の誰かが
  * 「ディーラーをやる」で自己選出し、進行（ゲーム開始/終了/確定）を行う。1日に複数試合。
+ * **ディーラーもプレイヤー**（自分のチップも入力する。2026-11-26〜。それ以前の試合の reports はディーラー抜き）。
  * 状態は pokerDayState/{seasonId}_{eventDate} の単一 doc に集約（＝唯一の真実）。
  *
  * 当日フロー（1試合）:
  *   ①ディーラーをやる（assignPokerDealer）→ 末尾に game{status:"ready"}
  *   ②ディーラーがゲーム開始（startPokerGame）→ 最初の試合なら participants 確定＋受付締切。status:"playing"
- *   ③ディーラーがゲーム終了（endPokerGame）→ status:"reporting"
- *   ④各プレイヤーがチップ残高を申告（reportPokerChips）
+ *   ③ディーラーがゲーム終了（endPokerGame）→ status:"reporting"。
+ *     **30分たったら押さなくても reporting 扱い**（effectivePokerGameStatus。GET は書き込まず、
+ *     次の申告・確定のトランザクションで status を書き直す＝ポーリングで書き込みを増やさない）
+ *   ④全員（ディーラーも）がチップ残高を申告（reportPokerChips）
  *   ⑤ディーラーが確認して確定（confirmPokerGame）→ status:"confirmed"・当日 scores を再集計 upsert
- *   → ①へ（次の試合のディーラー選択）
+ *   → ①へ（次の試合のディーラー選択）。finishDay つきなら同時に本日終了（day.finishedAt）
  * 中止（流会）は管理者のみ（cancelPokerDay）。確定済みの試合があれば中止不可。
  *
  * 順位・チップ合計は保存せず reports から都度算出（ディーラー修正時の陳腐化を防ぐ）。
@@ -28,10 +31,12 @@ import {
   POKER_MIN_PARTICIPANTS,
   POKER_INITIAL_CHIPS,
   POKER_ENTRY_FEE,
+  POKER_GAME_DURATION_MIN,
   type PokerEntry,
   type PokerDayMember,
   type PokerDayState,
   type PokerGameState,
+  type PokerGameStatus,
   type PokerScoreDetails,
 } from "@/types/poker";
 
@@ -72,6 +77,27 @@ export async function fetchPokerParticipants(
 }
 
 const currentGame = (day: PokerDayState): PokerGameState | undefined => day.games[day.games.length - 1];
+
+const GAME_DURATION_MS = POKER_GAME_DURATION_MIN * 60_000;
+
+/**
+ * 表示・受付に使う試合の状態（純関数）。playing のまま制限時間を過ぎていたら "reporting" とみなす。
+ * 保存値は変えない（GET はこれで読むだけ。書き直しは expirePlayingGame が申告・確定の tx 内で行う）。
+ */
+export function effectivePokerGameStatus(
+  game: Pick<PokerGameState, "status" | "startedAt">,
+  nowMs: number
+): PokerGameStatus {
+  if (game.status !== "playing" || !game.startedAt) return game.status;
+  return Date.parse(game.startedAt) + GAME_DURATION_MS <= nowMs ? "reporting" : game.status;
+}
+
+/** 制限時間を過ぎた playing を reporting に書き直す（呼び出し側が同じ tx.set で保存する）。 */
+function expirePlayingGame(game: PokerGameState, nowMs: number): void {
+  if (game.status !== "playing" || effectivePokerGameStatus(game, nowMs) !== "reporting") return;
+  game.status = "reporting";
+  game.endedAt = new Date(Date.parse(game.startedAt!) + GAME_DURATION_MS).toISOString();
+}
 
 export type DayMutationResult =
   | { ok: true; already?: boolean }
@@ -224,15 +250,21 @@ export async function endPokerGame(
     const day = snap.data() as PokerDayState;
     if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了しています" };
     const game = currentGame(day);
-    if (!game || game.status !== "playing") {
+    if (!game || (game.status !== "playing" && game.status !== "reporting")) {
       return { ok: false as const, status: 409, error: "終了できる試合がありません" };
     }
     if (game.dealerId !== actorId) {
       return { ok: false as const, status: 403, error: "この試合のディーラーのみ終了できます" };
     }
+    // 30分で自動に切り替わった直後（または二度押し）にディーラーが押しても失敗にしない。
+    if (game.status === "reporting") return { ok: true as const, already: true };
     const now = new Date().toISOString();
-    game.status = "reporting";
-    game.endedAt = now;
+    // 30分を過ぎてから押されたら、終了時刻は「開始＋30分」（申告・確定での自動切替と同じ値）。
+    expirePlayingGame(game, Date.parse(now));
+    if (game.status === "playing") {
+      game.status = "reporting";
+      game.endedAt = now;
+    }
     day.updatedAt = now;
     tx.set(dayRef, day);
     return { ok: true as const };
@@ -241,7 +273,6 @@ export async function endPokerGame(
 
 // ─── ④チップ申告（プレイヤー本人／ディーラー代理） ───────────────────────────
 
-/** その試合のプレイヤー（＝参加者からディーラーを除いた全員）。 */
 /**
  * **進行に参加する人**＝支払い済みの参加者。未払いは名簿に出るがチップ申告・集計の母数には入らない
  * （その場で支払えば参加できる）。旧データは支払い済み扱い。
@@ -250,10 +281,12 @@ export function playingPokerParticipants(day: PokerDayState): PokerDayMember[] {
   return day.participants.filter((p) => p.paid !== false);
 }
 
-function playersOfGame(day: PokerDayState, game: PokerGameState): string[] {
-  return playingPokerParticipants(day)
-    .map((p) => p.lineUserId)
-    .filter((id) => id !== game.dealerId);
+/**
+ * その試合のプレイヤー（＝支払い済みの参加者全員。**ディーラーも含む**）。
+ * ⚠️ GET /api/poker/day の playerIds と必ず同じ母数にする（ずれると「全員入力したのに確定できない」になる）。
+ */
+function playersOfGame(day: PokerDayState): string[] {
+  return playingPokerParticipants(day).map((p) => p.lineUserId);
 }
 
 export async function reportPokerChips(
@@ -271,6 +304,7 @@ export async function reportPokerChips(
     const day = snap.data() as PokerDayState;
     if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了しています" };
     const game = currentGame(day);
+    if (game) expirePlayingGame(game, Date.now());
     if (!game || game.status !== "reporting") {
       return { ok: false as const, status: 409, error: "いまは申告できません" };
     }
@@ -280,7 +314,7 @@ export async function reportPokerChips(
     if (!isDealer && opts.targetUserId && opts.targetUserId !== actorId) {
       return { ok: false as const, status: 403, error: "他の人の代理申告はできません（ディーラーのみ可）" };
     }
-    const players = playersOfGame(day, game);
+    const players = playersOfGame(day);
     if (!players.includes(targetId)) {
       return { ok: false as const, status: 403, error: "この試合のプレイヤーではありません" };
     }
@@ -342,10 +376,53 @@ export function computePokerDayScores(day: PokerDayState): {
   });
 }
 
+/** GET /api/poker/day の results の1行（lineUserId は入れない）。 */
+export interface PokerDayResult {
+  displayName: string;
+  pictureUrl: string;
+  isMe: boolean;
+  totalChips: number;
+  rank: number;
+  games: { gameIndex: number; chips: number }[];
+}
+
+/** その日の確定済みの試合の合計（順位の昇順）。確定済みが無ければ空。読み取りは増やさない（day だけから作る）。 */
+export function pokerDayResults(day: PokerDayState, userId: string): PokerDayResult[] {
+  const memberById = new Map(day.participants.map((p) => [p.lineUserId, p]));
+  return computePokerDayScores(day)
+    .map((s) => ({
+      displayName: memberById.get(s.lineUserId)?.displayName ?? "ユーザー",
+      pictureUrl: memberById.get(s.lineUserId)?.pictureUrl ?? "",
+      isMe: s.lineUserId === userId,
+      totalChips: s.totalScore,
+      rank: s.details.dayRank,
+      games: s.details.games.map((g) => ({ gameIndex: g.gameIndex, chips: g.chips })),
+    }))
+    .sort((a, b) => a.rank - b.rank);
+}
+
+/**
+ * ディーラーが確定する。`finishDay` なら同じトランザクションで本日終了（day.finishedAt）も書く。
+ * 「次の試合へ」で確定した後に本日終了へ切り替えたいとき（押し間違いの救済）は `finishDay` で終了だけを書ける:
+ * - 末尾が confirmed … その試合のディーラーだけ。
+ * - 末尾が ready（次のディーラーが名乗り出た後）… その ready の試合のディーラーか、直前に確定した試合のディーラー。
+ *   ready の試合は games から取り除く。確定済みの試合が1つも無い日は 409（終了ではなく管理者の中止で扱う）。
+ * どちらも scores は書き直さない（確定時に書いてある）。
+ * ⚠️ GET /api/poker/day の iCanFinishDay（canFinishPokerDay）と同じ条件にすること。
+ */
+export function canFinishPokerDay(day: PokerDayState, userId: string): boolean {
+  if (day.finishedAt) return false;
+  const game = currentGame(day);
+  if (game?.status === "confirmed") return game.dealerId === userId;
+  const prev = day.games[day.games.length - 2];
+  return game?.status === "ready" && !!prev && (game.dealerId === userId || prev.dealerId === userId);
+}
+
 export async function confirmPokerGame(
   seasonId: string,
   eventDate: string,
-  actorId: string
+  actorId: string,
+  opts: { finishDay?: boolean } = {}
 ): Promise<DayMutationResult> {
   const db = getDb();
   const dayRef = db.collection("pokerDayState").doc(pokerDayId(seasonId, eventDate));
@@ -356,21 +433,41 @@ export async function confirmPokerGame(
     if (day.finishedAt) return { ok: false as const, status: 409, error: "本日は終了しています" };
     const game = currentGame(day);
     if (!game) return { ok: false as const, status: 409, error: "確定できる試合がありません" };
-    if (game.status === "confirmed") return { ok: true as const, already: true };
+    const now = new Date().toISOString();
+    if (game.status === "confirmed" && !opts.finishDay) return { ok: true as const, already: true };
+    if (opts.finishDay && (game.status === "confirmed" || game.status === "ready")) {
+      if (game.status === "ready" && day.games.length < 2) {
+        return { ok: false as const, status: 409, error: "確定済みの試合がないため、終了できません" };
+      }
+      if (!canFinishPokerDay(day, actorId)) {
+        return { ok: false as const, status: 403, error: "この試合か直前の試合のディーラーのみ終了できます" };
+      }
+      // 始まっていない次の試合は取り除く。scores は確定時に書いてある。ここは終了の印だけ。
+      if (game.status === "ready") day.games.pop();
+      day.finishedAt = now;
+      day.finishedBy = actorId;
+      day.updatedAt = now;
+      tx.set(dayRef, day);
+      return { ok: true as const };
+    }
+    expirePlayingGame(game, Date.parse(now));
     if (game.status !== "reporting") {
       return { ok: false as const, status: 409, error: "この試合はまだ申告受付ではありません" };
     }
     if (game.dealerId !== actorId) {
       return { ok: false as const, status: 403, error: "この試合のディーラーのみ確定できます" };
     }
-    const players = playersOfGame(day, game);
+    const players = playersOfGame(day);
     if (!players.every((id) => game.reports[id] !== undefined)) {
       return { ok: false as const, status: 409, error: "全員のチップ申告が揃っていません" };
     }
 
-    const now = new Date().toISOString();
     game.status = "confirmed";
     game.confirmedAt = now;
+    if (opts.finishDay) {
+      day.finishedAt = now;
+      day.finishedBy = actorId;
+    }
     day.updatedAt = now;
     tx.set(dayRef, day);
 

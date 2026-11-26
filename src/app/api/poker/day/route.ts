@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGameUser } from "@/lib/auth";
 import { getActiveSeason } from "@/lib/mahjong";
-import { getPokerDayState, fetchPokerParticipants, playingPokerParticipants } from "@/lib/pokerDay";
+import {
+  getPokerDayState,
+  fetchPokerParticipants,
+  playingPokerParticipants,
+  effectivePokerGameStatus,
+  pokerDayResults,
+  canFinishPokerDay,
+} from "@/lib/pokerDay";
 import { isValidPokerDate } from "@/lib/pokerEntryValidation";
 import { POKER_MIN_PARTICIPANTS, POKER_GAME_DURATION_MIN, POKER_INITIAL_CHIPS, type PokerDayMember } from "@/types/poker";
 
@@ -11,6 +18,8 @@ export const dynamic = "force-dynamic";
  * GET /api/poker/day?eventDate=YYYY-MM-DD — 当日スナップショット。
  * ディーラー主導の複数試合。phase と現在の試合、ロスター、各プレイヤーの申告状況を返す。
  * 内部 lineUserId は「現在の試合のディーラー」にのみ渡す（代理申告に必要）。
+ * 30分を過ぎた playing は reporting として返す（**ここでは書き込まない**。全員が8秒おきに読むため）。
+ * 確定済みの試合があれば results（その日の合計）も返す。読み取りは dayState の1回だけ（開始前のみエントリーも読む）。
  */
 export async function GET(req: NextRequest) {
   const userId = await requireGameUser(req);
@@ -32,23 +41,22 @@ export async function GET(req: NextRequest) {
       day?.entryClosedAt ? day.participants : await fetchPokerParticipants(season.seasonId, eventDate);
 
     const game = day && day.games.length > 0 ? day.games[day.games.length - 1] : null;
+    const status = game ? effectivePokerGameStatus(game, Date.now()) : null;
     let phase: "dealerSelect" | "ready" | "playing" | "reporting" | "finished";
     if (day?.finishedAt) phase = "finished";
-    else if (!game || game.status === "confirmed") phase = "dealerSelect";
-    else phase = game.status;
+    else if (!game || !status || status === "confirmed") phase = "dealerSelect";
+    else phase = status;
 
     const iAmParticipant = roster.some((p) => p.lineUserId === userId);
-    const iAmDealer = !!game && game.dealerId === userId && game.status !== "confirmed";
+    const iAmDealer = !!game && game.dealerId === userId && status !== "confirmed";
     const dealerName = game ? roster.find((p) => p.lineUserId === game.dealerId)?.displayName ?? "ディーラー" : null;
 
-    // 現在の試合のプレイヤー（＝**支払い済みの**参加者からディーラーを除く）。
+    // 現在の試合のプレイヤー（＝**支払い済みの**参加者全員。ディーラーも含む）。
     // 未払いは進行に参加しないので一覧にも入れない（サーバーの reportPokerChips/confirm と母数を揃える）。
     // ディーラーには lineUserId と申告値も渡す。
     let currentGame: unknown = null;
-    if (game && game.status !== "confirmed") {
-      const playerIds = playingPokerParticipants(day!)
-        .map((p) => p.lineUserId)
-        .filter((id) => id !== game.dealerId);
+    if (game && status !== "confirmed") {
+      const playerIds = playingPokerParticipants(day!).map((p) => p.lineUserId);
       const players = playerIds.map((id) => {
         const m = roster.find((p) => p.lineUserId === id);
         const reported = game.reports[id] !== undefined;
@@ -62,7 +70,7 @@ export async function GET(req: NextRequest) {
       });
       currentGame = {
         gameIndex: game.gameIndex,
-        status: game.status,
+        status,
         dealerName,
         iAmDealer,
         iAmPlayer: playerIds.includes(userId),
@@ -92,6 +100,10 @@ export async function GET(req: NextRequest) {
         participants: roster.map((p) => ({ displayName: p.displayName, pictureUrl: p.pictureUrl ?? "", isMe: p.lineUserId === userId, paid: p.paid !== false })),
         gamesPlayed: day ? day.games.filter((g) => g.status === "confirmed").length : 0,
         currentGame,
+        results: day ? pokerDayResults(day, userId) : [],
+        // 「次の試合へ」で確定した後に、本日終了へ切り替えられる人（確定した試合のディーラー。
+        // 次の試合が ready ならそのディーラーも）。confirmPokerGame の finishDay と同じ判定。
+        iCanFinishDay: !!day && canFinishPokerDay(day, userId),
       },
       { headers: { "Cache-Control": "no-store" } }
     );

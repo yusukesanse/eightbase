@@ -4,7 +4,8 @@
  *
  * - 1試合の順位 = 終了時チップ数の降順（同チップは同順位＝競技順位。1,2,2,4）。
  * - 当日/シーズンは各試合の終了時チップを **合計**（totalChips）。順位はその合計の降順。
- * - ディーラーはその試合のプレイ対象外なので、その試合の集計には含まれない。
+ * - 集計は reports にいる人だけを数える。ディーラーもプレイヤーなので reports に入る（2026-11-26〜）。
+ *   それより前の試合の reports はディーラー抜きで、その人のその試合は数えない（過去データはそのまま正しい）。
  */
 
 export interface PokerRankInput {
@@ -28,7 +29,7 @@ export function rankByChips(players: PokerRankInput[]): { id: string; rank: numb
 export interface PokerGameInput {
   gameIndex: number;
   dealerId: string;
-  /** プレイヤーの終了時チップ。キー=lineUserId（ディーラーは含まない）。 */
+  /** プレイヤーの終了時チップ。キー=lineUserId（ディーラーも含む。過去の試合はディーラー抜き）。 */
   reports: Record<string, number>;
 }
 
@@ -42,8 +43,8 @@ export interface PokerPlayerDay {
 /**
  * 当日の全試合（confirmed のもの）から、参加者ごとの当日成績を算出。
  * - totalChips = 参加した試合の終了時チップの合計。
- * - 各試合の rank はその試合のプレイヤー内で算出（ディーラーは対象外）。
- * - ディーラーだった試合はその人の集計に含まれない（gamesPlayed も加算しない）。
+ * - 各試合の rank はその試合の reports にいる人の中で算出。
+ * - reports にいない試合（過去データでディーラーだった試合）はその人の集計に含めない（gamesPlayed も加算しない）。
  */
 export function computePokerDay(
   games: PokerGameInput[],
